@@ -34,6 +34,19 @@ def test_script_close_tag_is_escaped() -> None:
     assert page_data(page)["detail"]["entities"][0]["description"] == "</script><b>"
 
 
+@pytest.mark.parametrize("offline", [False, True])
+def test_comment_and_script_open_in_the_data_are_escaped(offline: bool) -> None:
+    # "<!-- <script>" would put the HTML parser in script double-escaped state (D-023)
+    text = "a <!-- <script> b </script> c"
+    entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": text, "columns": []}
+    config = merge_config({}, {"title": "<!-- <script>"})
+    page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, config, offline=offline)
+    block = page.split('<script type="application/json" id="data">')[1].split("</script>")[0]
+    assert "<" not in block
+    data = page_data(page)
+    assert data["detail"]["entities"][0]["description"] == text and data["title"] == "<!-- <script>"
+
+
 def test_page_has_the_trajectory_mode() -> None:
     page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
     for marker in (

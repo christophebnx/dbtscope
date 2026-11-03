@@ -178,7 +178,7 @@ def render_page(
         },
         ensure_ascii=False,
         separators=(",", ":"),
-    ).replace("</", "<\\/")  # "</" would close the <script> blocks the JSON and scripts are embedded in
+    ).replace("<", "\\u003c")  # same JSON; no "</script" nor "<!--" can end or disturb its block (D-023)
     parts = {
         "STYLE": _asset("page.css"),
         "SCRIPTS": _scripts(offline),
