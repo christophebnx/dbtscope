@@ -14,17 +14,21 @@ Milestone ids are used in the `Milestone:` footer of every commit: `B0`, `M0`, `
 
 Done when: the B0 commits exist on `dev`, tests and lint pass locally, the hooks are confirmed working, and `dev` is pushed with CI green.
 
-## M0 — Skeleton
+## M0 — Import of dbt-erd-html v0.2
 
-TODO(project): replace the example `hello` command and `domain/greeting.py` with the first real command and domain module.
+- Import the `dbt-erd-html` v0.2 tool into the template layout: pure rules in `domain/`, file reading in `storage/`, the page in `render/`, the CLI `dbtscope`.
+- Same output as the original tool on the same inputs; project file names and formats unchanged (D-013).
 
-- Configuration loading (`config.py`): settings file, data folder, secrets loaded lazily only where needed.
-- CLI commands as stubs (exit 1 "not implemented yet").
+Done when: the generated pages are identical to the original tool's on the synthetic `shop` project, tests and lint pass, docs describe the tool.
 
-Done when: TODO(project) acceptance criteria.
+## M1 — Trajectories (v0.3 of the brief, § 10)
 
-## M1 — TODO(project)
+- Trajectory mode in the universe: upstream and downstream of a table across domains and layers.
 
-- …
+Done when: to be detailed with the user before starting (acceptance criteria, UI design by the ui-designer).
 
-Done when: …
+## M2 — Finishing (v0.4 of the brief, § 10)
+
+- Light theme and print, PNG / SVG export, owners of dbt groups, offline page (no CDN).
+
+Done when: to be detailed with the user before starting.

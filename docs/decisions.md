@@ -43,4 +43,20 @@ Code, identifiers, docs, prompts, agents, skills and commits in English. UI stri
 
 ## Project
 
-TODO(project): add the project's own decisions from D-012 on.
+**D-012 — Everything comes from the dbt manifest; no warehouse connection.**
+`dbtscope` runs `dbt parse` (no connection needed) and reads `target/manifest.json`. Relations between tables are the `relationships` tests (and `relationships_where`) and the `foreign_key` constraints of model contracts; lineage is `depends_on`. Why: dbt warehouses rarely declare foreign keys, and the manifest is the one place where the project's own declarations live. Rejected: reading the warehouse catalog (needs credentials, has no relations).
+
+**D-013 — The tool is imported as `dbtscope`; the project files keep their `dbt-erd` names.**
+The `dbt-erd-html` v0.2 tool became the `dbtscope` package (CLI `dbtscope`, version continued at 0.2.0). The files it reads or writes in a dbt project keep their names and format: `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1), the localStorage key `dbt-erd-layout:<title>`, the default output `erd_output/erd.html`. Why: existing configs and exported arrangements keep working. Renaming them needs a superseding decision and a migration (read the old names too).
+
+**D-014 — One self-contained HTML page that lays itself out in the browser.**
+Python computes the data of both views and embeds it as JSON; the page computes the layout (d3-force + canvas for the universe, validated on ~1,500 nodes; Graphviz via Viz.js for the detail) and recomputes it on each filter change. The page holds structure only (names, types, descriptions), never data rows. It loads d3, Viz.js and svg-pan-zoom from public CDNs, so it needs internet access to render. Why: one file to share, no server, instant filters. Rejected: a pre-computed layout in Python (no live filters), a server app.
+
+**D-015 — Classification by selectors and ordered rules, first match wins.**
+What is drawn (`select`, `exclude`), its kind, domain and layer are lists of dbt-like selectors (`domain/selectors.py`). A table's domain is, in order: its dbt `group`, `meta.domain`, the first `domains` rule, then `group_by`. Presets (`data_vault`, `star_schema`) are plain config files. Why: any naming convention is a few lines of YAML, and dbt groups give domains with no config at all.
+
+**D-016 — Page languages: English and French; CLI messages in English.**
+`language: en | fr` in the config picks the page language; UI strings live in tables at the top of each page script, and labels built in Python (`Other`, `No domain`) exist in both. The CLI stays in English (D-004). Supersedes, for the page only, the "from locale files" part of D-011: the page is a single file, so its strings are inline.
+
+**D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.**
+Aligned with D-001. Why: one interpreter floor for the whole repository.

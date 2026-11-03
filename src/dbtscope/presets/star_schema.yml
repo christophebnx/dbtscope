@@ -1,0 +1,11 @@
+# Kimball star schema: fct_/fact_/f_ facts, dim_/d_ dimensions, bridge tables.
+# Relations come from `relationships` tests on the facts' foreign keys.
+title: Star schema
+group_by: folder
+key_columns: "(_id|_key|_sk|_fk)$"
+select: ["fct_*", "fact_*", "f_*", "dim_*", "d_*", "bridge_*", "brg_*"]
+exclude: []
+kinds:
+  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*", "fact_*", "f_*"]}
+  - {key: dim, label: Dimension, color: "#2f6fb5", match: ["dim_*", "d_*"]}
+  - {key: bridge, label: Bridge, color: "#8e5bb5", match: ["bridge_*", "brg_*"]}

@@ -10,13 +10,14 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE_NAME = "template_python"
+PACKAGE_NAME = "dbtscope"
 PACKAGE = Path(__file__).resolve().parents[2] / "src" / PACKAGE_NAME
 
 # package -> project packages it may import (itself always allowed)
 ALLOWED: dict[str, set[str]] = {
     "domain": set(),
     "storage": {"domain"},
+    "render": {"domain"},
 }
 
 
@@ -39,7 +40,7 @@ def _imports(path: Path) -> set[str]:
 
 
 def _project_packages(path: Path) -> set[str]:
-    """Top-level project packages imported by `path` (`template_python.x.y` -> `x`)."""
+    """Top-level project packages imported by `path` (`dbtscope.x.y` -> `x`)."""
     found = set()
     for name in _imports(path):
         parts = name.split(".")

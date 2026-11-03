@@ -1,14 +1,18 @@
-# template_python — project rules
+# dbtscope — project rules
 
 Read this file at the start of every session. It is the source of truth for how to work on this repository. When a rule here conflicts with your own habit, the rule wins. When a request conflicts with a rule, say so before doing anything.
 
-> **Template.** This repository is a starting point. Run `/init-project` once (or `uv run python tools/init_project.py --name <package>`) to rename the package, then replace every `TODO(project)` marker in this file and in `docs/`. Delete this note when done.
-
 ## What this is
 
-TODO(project): one paragraph on what the application does, for whom, and where it runs. Then a numbered list of its main capabilities.
+`dbtscope` turns a dbt project into one self-contained, interactive HTML map, for everyone who works with the warehouse (data team, business, management). It runs on a developer's machine or in CI, from the dbt project directory: it runs `dbt parse`, reads `target/manifest.json` (never the warehouse) and writes `erd_output/erd.html`.
 
-Read next: `docs/architecture.md` (how), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands).
+1. **Universe view**: every model, source, seed and snapshot, grouped into one constellation per data domain, with routes between domains, layers along the data flow, filters and semantic zoom.
+2. **Detail view**: the entity-relationship diagram (Graphviz) of the selected tables, with their key or all columns, group and kind filters, and focus on a table's neighbourhood.
+3. **Relations from dbt declarations**: `relationships` tests and `foreign_key` constraints become edges; `ref` / `source` give the lineage.
+4. **Conventions as config**: selectors and ordered rules in `dbt-erd.yml` (kinds, domains, layers), with Data Vault and star schema presets.
+5. **Shared manual layout**: arrangements dragged in the page are exported to `dbt-erd-layout.json` and embedded in later pages.
+
+Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands).
 
 ## Commands
 
@@ -18,23 +22,28 @@ uv run pre-commit install                 # pre-commit and commit-msg hooks
 uv run pytest -q -n auto -m "not live"    # tests in parallel; drop -n auto to debug one test
 uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
-uv run template-python --version          # the CLI
+uv run dbtscope --version                 # the CLI
+uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
 ```
 
 ## Invariants — never violate
 
-1. **Layering.** `domain/` is pure business logic: it imports nothing from other packages of `template_python`, does no I/O, reads no clock or environment implicitly (pass `now`, paths and values in). Everything else may depend on `domain/`. `tests/unit/test_layering.py` enforces this.
+1. **Layering.** `domain/` is pure business logic: it imports nothing from other packages of `dbtscope`, does no I/O, reads no clock or environment implicitly (pass `now`, paths and values in). Everything else may depend on `domain/`. `tests/unit/test_layering.py` enforces this.
 2. **One responsibility, one implementation.** Before writing a function, check the responsibility map in `docs/architecture.md` and search the codebase. Reuse or extend; write new code only when nothing fits, and say why in your summary. Similar-looking code with a different responsibility is fine.
 3. **File writes are atomic.** Every write of a user or state file goes through `storage/files.atomic_write` (temp file + fsync + rename). No partial state on failure.
 4. **Never read secrets.** Never read `.env`, `config.toml`, `.local/credentials/`, or any real user data. Work only with `.local/dev-data/` and `tests/fixtures/`. A hook enforces this.
 5. **Tests never call paid or remote services by default.** Such tests carry `@pytest.mark.live` and are excluded by `addopts`.
 6. **Decisions are recorded.** A decision that changes how the system behaves goes into `docs/decisions.md`. A decision is never reversed silently: add an entry that supersedes it.
-7. TODO(project): add the business invariants of this project (units, identifiers, data formats, what may never be deleted…).
+7. **The manifest is the only source.** No warehouse connection, no credentials; `dbt parse` is the only dbt command run (D-012).
+8. **Structure only, never data.** The page holds names, types and descriptions; never rows or query results.
+9. **Project file names and formats are stable.** `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1) and the localStorage key `dbt-erd-layout:<title>` are read by existing projects and pages: change them only through a superseding decision with a migration (D-013).
+10. **One self-contained page.** Python embeds data; the browser lays it out. Every `</` in embedded JSON is escaped (D-014).
+11. **A node is identified by its dbt `unique_id`** in every payload and in the layout.
 
 ## Language convention
 
 - English: code, identifiers, JSON keys, file and folder names, every `.md` in the repo, prompts, skills, agents, commit messages.
-- User language (TODO(project): French by default?): UI strings, exported content, messages shown to the end user.
+- User language: the page is in English or French (`language` in the config, D-016); every UI string exists in both. CLI messages stay in English (D-004).
 
 ## How to work
 
@@ -42,7 +51,7 @@ uv run template-python --version          # the CLI
 - To build the roadmap autonomously, or resume it, use `/build-roadmap`. Progress and blocking questions live in `docs/progress.md`.
 - Each agent returns at most ten lines. Details go into `docs/`, not into the conversation.
 - Definition of done: tests green (`not live`), ruff clean, no new duplicate-code finding, docs and the relevant `CLAUDE.md` updated, `CHANGELOG.md` entry added.
-- Each package under `src/template_python/` has its own `CLAUDE.md` (rules and module table). Read it before touching the package; keep it true after.
+- Each package under `src/dbtscope/` has its own `CLAUDE.md` (rules and module table). Read it before touching the package; keep it true after.
 
 ## Git workflow
 
@@ -64,4 +73,6 @@ uv run template-python --version          # the CLI
 
 ## Out of scope (do not build unless asked)
 
-- TODO(project): list what is explicitly not part of this version.
+- Several dbt projects in one page (brief § 8, decision 6).
+- Replacing `dbt docs`, observability (Elementary / `edr`) or a full data catalogue (brief § 2).
+- Any connection to the warehouse, any data preview.
