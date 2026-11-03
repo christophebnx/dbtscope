@@ -60,3 +60,6 @@ What is drawn (`select`, `exclude`), its kind, domain and layer are lists of dbt
 
 **D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.**
 Aligned with D-001. Why: one interpreter floor for the whole repository.
+
+**D-018 — Trajectory mode (M1): lineage only, whole chain by default, dim the rest, filters never cut the chain.**
+Settled with the user on 2026-11-03. The trajectory of a table follows `ref` / `source` lineage only, not business relations (up / down has no meaning for them). It covers the whole upstream and downstream chain by default, with a depth (1, 2, 3, all) and a direction (up, down, both) to narrow it. The universe keeps its layout: the trajectory is highlighted and the rest dimmed, so tables stay where users know them. Tables of the chain hidden by a domain, layer or type filter are brought back, as search does, and counted. Rejected: following the **Links** selector, a fixed 1–3 depth as in the Detail focus, showing the trajectory alone with a new layout, respecting the filters (the chain would look broken).
