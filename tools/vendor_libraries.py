@@ -3,9 +3,10 @@
     uv run python tools/vendor_libraries.py           # download every file of render/page.LIBRARIES
     uv run python tools/vendor_libraries.py --check   # verify the files on disk against their sha256
 
-Downloads each library from its CDN URL (the bytes of the default page) and each licence, writes
-them with `storage/files.atomic_write`, writes `vendor/README.md` (provenance) and prints the
-sha256 of each script, to paste into `LIBRARIES`. TLS is always verified; behind a proxy set
+Downloads each library from its CDN URL (the bytes of the default page) and each licence, verifies
+them all, then writes them with `storage/files.atomic_write` (a failed download leaves vendor/
+unchanged), writes `vendor/README.md` (provenance) and prints the sha256 of each script, to paste
+into `LIBRARIES`. TLS is always verified; behind a proxy set
 `SSL_CERT_FILE` to its CA bundle. Never run from the tests (they need no network, D-022).
 To upgrade a library: change its `Library` in `render/page.py`, then run this script.
 """
@@ -73,12 +74,36 @@ def _readme() -> str:
     return "\n".join(lines)
 
 
+def _problem(name: str, data: bytes) -> str | None:
+    """Why a fetched file cannot be vendored (None when it can): the page inlines it as UTF-8 text,
+    where `<!--` or `<script` could confuse the HTML parser (see `tests/unit/test_vendor.py`)."""
+    if not data:
+        return f"{name}: empty"
+    try:
+        text = data.decode("utf-8").lower()
+    except UnicodeDecodeError:
+        return f"{name}: not UTF-8"
+    if "<!--" in text or "<script" in text:
+        return f"{name}: holds <!-- or <script"
+    return None
+
+
+def _fetch_all() -> dict[str, bytes]:
+    """{file name: bytes} of every vendored file, all fetched and verified; raises before any write."""
+    fetched = {name: _fetch(url) for name, url in _files()}
+    problems = [p for p in (_problem(name, data) for name, data in fetched.items()) if p]
+    if problems:
+        raise ValueError("; ".join(problems))
+    return fetched
+
+
 def download() -> None:
-    """Fetch every vendored file and the README; print the sha256 of each script."""
-    for name, url in _files():
-        data = _fetch(url)
+    """Fetch and verify every vendored file, then write them all and the README (vendor/ is left
+    unchanged when one fails); print the sha256 of each file."""
+    urls = dict(_files())
+    for name, data in _fetch_all().items():
         atomic_write(FOLDER / name, data)
-        print(f"{hashlib.sha256(data).hexdigest()}  {name}  ({len(data):,} bytes, {url})")
+        print(f"{hashlib.sha256(data).hexdigest()}  {name}  ({len(data):,} bytes, {urls[name]})")
     atomic_write(FOLDER / "README.md", _readme().encode("utf-8"))
 
 
