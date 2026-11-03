@@ -20,6 +20,8 @@ cli.run
 
 The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail (D-014). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
+The page logic is tested in headless Chromium with Python Playwright, under `tests/browser/`: those tests carry the `browser` marker, are excluded by default and from CI, and run with `uv run --group browser pytest -m browser` (D-019).
+
 Design brief of the universe view, with the scoping decisions and the prototype results: `docs/brief-universe-view.md`.
 
 ## Layers
