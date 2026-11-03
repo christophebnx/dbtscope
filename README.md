@@ -81,11 +81,11 @@ Both tabs let you drag things where you want them:
 
 Every move is saved in the browser at once. To share an arrangement with the team, click **Export layout** (top right), save the file as `dbt-erd-layout.json` next to `dbt_project.yml` and commit it: `dbtscope` embeds it in every page it generates (`layout_file` in the config to use another path). Whichever copy was saved last wins, the browser's or the file's. **Import layout** loads such a file into the page; **Reset layout** forgets the arrangement of the current tab.
 
-The page holds the structure only (table and column names, descriptions), no data. By default it loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render.
+The page holds the structure only (table and column names, descriptions), no data. By default it loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render, unless it is built offline (below).
 
 ### Offline page
 
-With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0), Expat 2.2.5 (MIT) the Emscripten 1.37.36 runtime (MIT OR NCSA) and the musl 1.1.15 libc it bundles (MIT), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
+With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0), Expat 2.2.5 (MIT), the Emscripten 1.37.36 runtime (MIT OR NCSA) and the musl 1.1.15 libc it bundles (MIT), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
 
 ## Configuration
 

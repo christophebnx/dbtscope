@@ -8,6 +8,7 @@ User-visible behaviour of the generated page, kept true by the ui-designer and t
 - Light theme: background `#f5f6f8`, surface `#ffffff`, text `#1f2933`, muted `#6b7280`, one accent `#2f6fb5`.
 - Native controls (`button`, `select`, `input` + `datalist`, `details`). Visible focus. Touch targets of at least 44 px on coarse pointers for new controls.
 - No horizontal scroll at 360 px; checked at 360 and 1280 px.
+- The ☰ button of each toolbar opens and closes the side panel; it is named "Filters" ("Filtres") and exposes `aria-expanded`.
 
 ## Universe view — trajectory mode (M1, D-018)
 
