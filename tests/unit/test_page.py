@@ -40,3 +40,24 @@ def test_page_has_the_trajectory_mode() -> None:
         "function trajectory(",
     ):
         assert marker in page
+
+
+M1_SCRIPT_TAGS = """\
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>"""
+
+
+def test_cdn_page_keeps_the_m1_script_tags() -> None:
+    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    after_data = page.split('id="data">', 1)[1].split("</script>\n", 1)[1]
+    assert after_data.startswith(M1_SCRIPT_TAGS + "\n<script>\n// Detail view")
+    assert page.count("<script src") == 4
+    assert "/*! d3" not in page
+
+
+def test_title_with_a_placeholder_is_not_substituted() -> None:
+    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {"title": "{{DATA}}"}))
+    assert "<title>{{DATA}}</title>" in page
+    assert page_data(page)["title"] == "{{DATA}}"

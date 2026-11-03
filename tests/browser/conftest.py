@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from dbtscope import cli
-from dbtscope.render.page import ASSETS
+from dbtscope.render.page import LIBRARIES
 
 try:
     from playwright import sync_api
@@ -46,7 +46,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 @pytest.fixture(scope="session")
 def cdn(request: pytest.FixtureRequest) -> dict[str, bytes]:
     """{url: script body} for every `<script src>` of the page, cached in `.pytest_cache`."""
-    urls = re.findall(r'<script src="([^"]+)"', (ASSETS / "page.html").read_text(encoding="utf-8"))
+    urls = [lib.url for lib in LIBRARIES]
     folder = Path(request.config.cache.mkdir("cdn"))
     scripts = {}
     for url in urls:
