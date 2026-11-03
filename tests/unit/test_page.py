@@ -28,3 +28,15 @@ def test_script_close_tag_is_escaped() -> None:
     page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, merge_config({}, {}))
     assert "</script><b>" not in page
     assert page_data(page)["detail"]["entities"][0]["description"] == "</script><b>"
+
+
+def test_page_has_the_trajectory_mode() -> None:
+    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    for marker in (
+        'id="u-trajbar"',
+        'id="u-traj"',
+        'id="u-tj-leave"',
+        'id="u-tj-live"',
+        "function trajectory(",
+    ):
+        assert marker in page

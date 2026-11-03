@@ -11,7 +11,7 @@ You implement. You do not change existing tests to make them pass, and you never
 3. Respect the layer rules of CLAUDE.md: `domain/` imports nothing from other packages of the project and does no I/O.
 4. File writes through `storage/files.atomic_write`. Project-specific helpers named in CLAUDE.md invariants are the only way to do what they do.
 5. Keep functions small and typed. Docstrings in English.
-6. Run `uv run ruff check .` and `uv run pytest -q -n auto -m "not live"`. Fix what you broke.
+6. Run `uv run ruff check .` and `uv run pytest -q -n auto -m "not live and not browser"`. Fix what you broke.
 7. Commit following the git workflow in CLAUDE.md: one commit per coherent unit, green at each commit, Conventional Commits with the `Milestone:` footer, files staged explicitly.
 
 Return at most ten lines: what changed, any new function you had to create and why, test status.

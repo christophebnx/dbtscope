@@ -37,9 +37,25 @@
       <span class="meta" id="u-meta"></span>
       <span class="grow"></span>
       <input id="u-q" list="u-names" autocomplete="off"><datalist id="u-names"></datalist>
+      <button id="u-traj" type="button" disabled></button>
       <button id="u-fit"></button>
     </div>
     <div class="canvas-box" id="u-stage">
+      <div class="trajbar" id="u-trajbar" role="region" hidden>
+        <span class="tj-start"><span id="u-tj-title"></span> <i id="u-tj-dot"></i><b id="u-tj-start"></b></span>
+        <label><span id="u-tj-h-dir"></span> <select id="u-tj-dir"></select></label>
+        <label><span id="u-tj-h-depth"></span> <select id="u-tj-depth"></select></label>
+        <details id="u-tj-counts"><summary id="u-tj-sum"></summary><ul id="u-tj-list"></ul></details>
+        <span id="u-tj-empty" hidden></span>
+        <span class="tj-hidden" id="u-tj-hidden"></span>
+        <span class="tj-back" id="u-tj-back"></span>
+        <span class="tj-legend"><span><i class="mk start"></i><span id="u-tj-l-start"></span></span>
+          <span><i class="mk up"></i><span id="u-tj-l-up"></span></span>
+          <span><i class="mk down"></i><span id="u-tj-l-down"></span></span></span>
+        <span class="grow"></span>
+        <button id="u-tj-leave" type="button"></button>
+      </div>
+      <span class="sr-only" id="u-tj-live" role="status" aria-live="polite"></span>
       <canvas id="u-canvas"></canvas>
       <div id="u-tip"></div>
     </div>

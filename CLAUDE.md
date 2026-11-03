@@ -19,12 +19,15 @@ Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the univ
 ```bash
 uv sync                                   # install (creates .venv and uv.lock)
 uv run pre-commit install                 # pre-commit and commit-msg hooks
-uv run pytest -q -n auto -m "not live"    # tests in parallel; drop -n auto to debug one test
+uv run pytest -q -n auto -m "not live and not browser"   # tests in parallel; drop -n auto to debug one test
+uv run --group browser pytest -q -m browser tests/browser   # page tests in headless Chromium (D-019)
 uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
 uv run dbtscope --version                 # the CLI
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
 ```
+
+Browser tests need network access to the page's CDNs (first run) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).
 
 ## Invariants — never violate
 
@@ -50,7 +53,7 @@ uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a pag
 - For any feature or change, use the `/feature` skill: architect → ui-designer (UI changes only) → developer → tester → reviewer (+ ui-designer review for UI changes) → documentation.
 - To build the roadmap autonomously, or resume it, use `/build-roadmap`. Progress and blocking questions live in `docs/progress.md`.
 - Each agent returns at most ten lines. Details go into `docs/`, not into the conversation.
-- Definition of done: tests green (`not live`), ruff clean, no new duplicate-code finding, docs and the relevant `CLAUDE.md` updated, `CHANGELOG.md` entry added.
+- Definition of done: tests green (`not live and not browser`; browser tests too when the page changed), ruff clean, no new duplicate-code finding, docs and the relevant `CLAUDE.md` updated, `CHANGELOG.md` entry added.
 - Each package under `src/dbtscope/` has its own `CLAUDE.md` (rules and module table). Read it before touching the package; keep it true after.
 
 ## Git workflow

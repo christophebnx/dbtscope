@@ -21,6 +21,10 @@ dev = [
     "pylint>=3.2",
     "pre-commit>=3.8",
 ]
+# D-019: browser tests only; not installed by `uv sync` (run with `uv run --group browser`).
+browser = [
+    "playwright==1.63.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -40,8 +44,9 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF"]
 testpaths = ["tests"]
 markers = [
     "live: calls a real paid or remote service (costs money, needs network); never run by default",
+    "browser: drives the page in headless Chromium (needs the CDN scripts and a local browser); never run by default",
 ]
-addopts = "-m 'not live'"
+addopts = "-m 'not live and not browser'"
 
 [tool.coverage.run]
 source = ["dbtscope"]

@@ -42,6 +42,17 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - Side panel: tick **layers**, **types** and **domains** on and off. All layers are shown by default; `universe.hidden_kinds` unticks types at opening.
 - Double-click a domain to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the Detail view doesn't include it). Search finds a table even when filters hide it.
 
+#### Trajectory
+
+Where a table's data comes from (upstream) and where it goes (downstream), following `ref` / `source` lineage only, whatever **Links** shows.
+
+- **Enter**: click a table (once zoomed in enough to see tables), or find it with the search box and click **Trajectory**. Clicking another table moves the trajectory to it.
+- **Read**: the universe does not move. The start table has a double ring, upstream tables a dashed violet ring, downstream tables a solid orange ring; everything else is dimmed. Lineage arrows run along the data flow at every zoom level. The tooltip says "Upstream, level 2" and similar.
+- **Bar** above the canvas: the start table, **Direction** (both, upstream, downstream) and **Depth** (1, 2, 3 or all levels; default all), the counts (open them for one line per domain) and **Leave**. **Fit** frames the trajectory.
+- **Filters**: tables of the chain hidden by a domain, layer or type filter are brought back (those filters are ticked on again and the bar says how many). Unticking a filter while in the mode hides those tables until the trajectory changes; the bar counts them. Leaving does not untick anything.
+- **Leave**: **Leave**, `Esc`, or a click on the background.
+- **Limit**: only tables in the universe scope (`universe.select` / `exclude`) are in the chain. A chain that goes through an excluded table stops there, and the page cannot tell.
+
 A table's domain is, in this order: its dbt **`group`** (the owner shows on hover), its **`meta.domain`**, the first matching **`domains`** rule of the config, then `group_by`. Declaring dbt groups is the cleanest way to get business domains without any config.
 
 Layers follow the data flow from left to right inside each domain. Without `layers` in the config, they are the first folder under `models/` (plus sources, seeds and snapshots), ordered by usual prefixes: `raw`/`stg`/`staging` → `int`/`vault` → `mart`/`dp`.
@@ -166,6 +177,14 @@ uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
 uv run dbtscope --version
 ```
+
+The page itself is tested in headless Chromium with Playwright (`tests/browser/`, marker `browser`), excluded from the default run and from CI (D-019):
+
+```bash
+uv run --group browser pytest -q -m browser tests/browser
+```
+
+They need internet access the first time (the CDN scripts are then cached in `.pytest_cache`) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (path to the executable). On a dev machine without one, run `uv run --group browser playwright install chromium` once.
 
 Layout of the code (details in `docs/architecture.md`):
 

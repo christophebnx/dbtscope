@@ -20,6 +20,8 @@ cli.run
 
 The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail (D-014). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
+The page logic is tested in headless Chromium with Python Playwright, under `tests/browser/`: those tests carry the `browser` marker, are excluded by default and from CI, and run with `uv run --group browser pytest -m browser` (D-019).
+
 Design brief of the universe view, with the scoping decisions and the prototype results: `docs/brief-universe-view.md`.
 
 ## Layers
@@ -53,6 +55,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Domain of a node (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
 | Validate an exported layout | `domain/layout.check_layout` |
 | Assemble the HTML page | `render/page.render_page` |
+| Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
+| Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Map an error to a CLI exit code and message | `cli.main` |
 | Check a commit message | `tools/check_commit_message.problems` |

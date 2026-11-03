@@ -5,7 +5,7 @@ description: Prepares a new version: version bump, changelog, checks, local anno
 
 # Release
 
-1. Run the full suite: `uv run pytest -q -n auto -m "not live"`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pylint --disable=all --enable=duplicate-code src`. Stop on any failure.
+1. Run the full suite: `uv run pytest -q -n auto -m "not live and not browser"`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pylint --disable=all --enable=duplicate-code src`. Stop on any failure.
 2. Ask the user for the version number if not given (semantic versioning).
 3. Update `version` in pyproject.toml (`__version__` is read from the installed metadata, nothing else to edit).
 4. Move CHANGELOG.md [Unreleased] entries under the new version with today's date.
