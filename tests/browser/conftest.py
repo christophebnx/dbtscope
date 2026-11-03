@@ -10,6 +10,7 @@ into the pytest cache and served to the page through `page.route`; every other r
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import urllib.request
@@ -19,6 +20,7 @@ from typing import Any
 
 import pytest
 
+from dbtscope import cli
 from dbtscope.render.page import ASSETS
 
 try:
@@ -109,3 +111,19 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
         errors = list(p.errors)
         p.page.context.close()
         assert errors == [], f"the page reported errors: {errors}"
+
+
+@pytest.fixture
+def build_page(dbt_project: Path) -> Callable[[str], tuple[Path, dict[str, Any]]]:
+    """Generate the shop page with an optional `dbt-erd.yml`; return it and its embedded payload."""
+
+    def build(config: str = "") -> tuple[Path, dict[str, Any]]:
+        if config:
+            (dbt_project / "dbt-erd.yml").write_text(config, encoding="utf-8")
+        assert cli.main(["--project-dir", str(dbt_project), "--no-parse", "--no-open"]) == 0
+        html = dbt_project / "erd_output" / "erd.html"
+        text = html.read_text(encoding="utf-8")
+        data = json.loads(text.split('<script type="application/json" id="data">')[1].split("</script>")[0])
+        return html, data
+
+    return build

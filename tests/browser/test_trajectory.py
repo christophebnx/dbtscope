@@ -12,25 +12,12 @@ from typing import Any
 
 import pytest
 
-from dbtscope import cli
-
 pytestmark = pytest.mark.browser
 
 CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
 
 
 # ---------------------------------------------------------------- helpers
-
-
-def build(project: Path, config: str = "") -> tuple[Path, dict[str, Any]]:
-    """Generate the shop page; return it and its embedded payload."""
-    if config:
-        (project / "dbt-erd.yml").write_text(config, encoding="utf-8")
-    assert cli.main(["--project-dir", str(project), "--no-parse", "--no-open"]) == 0
-    html = project / "erd_output" / "erd.html"
-    text = html.read_text(encoding="utf-8")
-    data = json.loads(text.split('<script type="application/json" id="data">')[1].split("</script>")[0])
-    return html, data
 
 
 def names(ids: dict[str, int]) -> dict[str, int]:
@@ -71,8 +58,8 @@ def checkbox(p: Any, panel: str, label: str) -> Any:
 
 
 @pytest.fixture
-def shop_page(dbt_project: Path, open_page: Any) -> tuple[Any, dict[str, Any]]:
-    html, data = build(dbt_project)
+def shop_page(build_page: Any, open_page: Any) -> tuple[Any, dict[str, Any]]:
+    html, data = build_page()
     return open_page(html), data
 
 
@@ -195,13 +182,15 @@ def test_trajectory_button_enters_for_the_table_found(shop_page: tuple[Any, dict
     }
 
 
-def test_table_without_lineage_shows_the_empty_state(dbt_project: Path, open_page: Any) -> None:
+def test_table_without_lineage_shows_the_empty_state(
+    dbt_project: Path, build_page: Any, open_page: Any
+) -> None:
     manifest = json.loads((dbt_project / "target" / "manifest.json").read_text())
     lone = dict(manifest["nodes"]["model.shop.stg_orders"])
     lone.update(unique_id="model.shop.lonely", name="lonely", depends_on={"nodes": []})
     manifest["nodes"]["model.shop.lonely"] = lone
     (dbt_project / "target" / "manifest.json").write_text(json.dumps(manifest))
-    html, _ = build(dbt_project)
+    html, _ = build_page()
     p = open_page(html)
     enter_by_button(p, "lonely")
     s = p.state()
@@ -442,9 +431,9 @@ def test_search_still_centres_and_reveals_outside_the_mode(shop_page: tuple[Any,
     ],
 )
 def test_bar_strings_in_both_languages(
-    dbt_project: Path, open_page: Any, lang: str, expected: dict[str, str]
+    build_page: Any, open_page: Any, lang: str, expected: dict[str, str]
 ) -> None:
-    html, _ = build(dbt_project, f"language: {lang}\n")
+    html, _ = build_page(f"language: {lang}\n")
     p = open_page(html)
     enter_by_button(p, "stg_orders")
     for selector, text in expected.items():
@@ -630,7 +619,7 @@ def zoom_out_below_far(p: Any) -> float:
     p.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     for _ in range(40):
         k = p.page.evaluate(TRANSFORM)[2]
-        if k < 0.4:
+        if k < FAR * 0.8:
             return k
         p.page.mouse.wheel(0, 200)
         p.page.wait_for_timeout(50)
