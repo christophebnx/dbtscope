@@ -1,19 +1,25 @@
 // Detail view: entity-relationship diagram with columns, laid out by Graphviz (Viz.js).
 // Started the first time its tab is shown; the returned handle lets the universe view open a table here.
-function startDetail(DATA, LAYOUT) {
+function startDetail(DATA, LAYOUT, EXPORT) {
 const $d = id => document.getElementById('d-' + id);
 const T = {
   en: { all: 'All groups', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels', clear: 'Show all',
         cols: 'All columns', fit: 'Fit', q: 'Highlight…', focused: 'Focused: ', tables: 'tables', rels: 'relations',
         foreign: 'dashed: other group', more: n => `+ ${n} columns`, none: 'No table for these filters.',
         computing: 'Laying out…', error: 'Render error: ', hGroup: 'Group', hDepth: 'Around the focused table',
-        hCols: 'Columns', hKinds: 'Types',
+        hCols: 'Columns', hKinds: 'Types', filters: 'Filters',
+        exportImage: 'Export image', png: 'PNG', svg: 'SVG',
+        pngTitle: 'Save the visible diagram as a PNG image (high resolution)',
+        svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
         hint: 'Wheel: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus' },
   fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
         cols: 'Toutes les colonnes', fit: 'Recentrer', q: 'Surligner…', focused: 'Ciblé : ', tables: 'tables', rels: 'relations',
         foreign: 'pointillé : autre groupe', more: n => `+ ${n} colonnes`, none: 'Aucune table pour ces filtres.',
         computing: 'Calcul du schéma…', error: 'Erreur de rendu : ', hGroup: 'Groupe', hDepth: 'Autour de la table ciblée',
-        hCols: 'Colonnes', hKinds: 'Types',
+        hCols: 'Colonnes', hKinds: 'Types', filters: 'Filtres',
+        exportImage: 'Exporter l\'image', png: 'PNG', svg: 'SVG',
+        pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
+        svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
         hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table : la déplacer · clic : surligner ses liens · double-clic : cibler' },
 }[DATA.lang] ;
 const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
@@ -88,7 +94,22 @@ $d('fit').onclick = () => pz && (pz.resize(), pz.fit(), pz.center());
 // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
 const refit = () => { if (pz && box.clientWidth) { pz.resize(); pz.fit(); pz.center(); } };
 window.addEventListener('resize', refit);
-$d('toggle').onclick = () => { $d('panel').classList.toggle('closed'); refit(); };
+$d('toggle').title = T.filters; $d('toggle').setAttribute('aria-label', T.filters);
+$d('toggle').onclick = () => {
+  $d('toggle').setAttribute('aria-expanded', String(!$d('panel').classList.toggle('closed')));
+  refit();
+};
+const pngBtn = $d('export-png'), svgBtn = $d('export-svg');
+$d('export-h').textContent = T.exportImage;
+pngBtn.textContent = T.png; pngBtn.title = T.pngTitle;
+svgBtn.textContent = T.svg; svgBtn.title = T.svgTitle;
+// enabled only while a diagram is drawn and svg-pan-zoom drives it
+const canExport = on => { pngBtn.disabled = svgBtn.disabled = !on; };
+pngBtn.onclick = () => EXPORT.save('detail', 'png', pngImage, pngBtn);
+svgBtn.onclick = () => EXPORT.save('detail', 'svg', async () => {
+  const text = svgImage(1);
+  return text && new Blob([text], { type: 'image/svg+xml' });
+}, svgBtn);
 
 // type checkboxes and the focus autocomplete follow the selected group
 function refreshControls() {
@@ -210,6 +231,7 @@ function startDrag(ev, g, svg) {
 
 // keepView: redraw without moving the camera (after a drop)
 function render(keepView) {
+  canExport(false);
   const ids = visibleIds();
   const { dot, relCount } = buildDot(ids);
   $d('meta').textContent = `${ids.size} / ${scope.size} ${T.tables} · ${relCount} ${T.rels}` +
@@ -240,6 +262,7 @@ function render(keepView) {
       pz = svgPanZoom(svg, { zoomScaleSensitivity: 0.3, maxZoom: 40, fit: true, center: true, dblClickZoomEnabled: false });
       if (view) { pz.zoom(view.zoom); pz.pan(view.pan); }
       wire(svg);
+      canExport(true);
     };
     init();
   }).catch(err => { viz = new Viz(); if (seq === renderSeq) box.innerHTML = `<div class="msg">${T.error}${esc(err)}</div>`; });
@@ -267,9 +290,78 @@ function wire(svg) {
   if (q.value) q.oninput();
 }
 
+// --- image export -------------------------------------------------------------
+// CSS of page.css that changes how the diagram looks, inlined into the exported SVG when it differs from
+// its default (everything else is Graphviz presentation attributes). A new such #d-graph rule adds its
+// property here.
+const INLINE = { opacity: '1' };
+const XLINK = 'http://www.w3.org/1999/xlink', XMLNS = 'http://www.w3.org/2000/xmlns/';
+const overlaps = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+const pageBackground = () => getComputedStyle(document.body).backgroundColor;
+
+// The visible part of the diagram as a standalone SVG document, `scale` x its size on screen (the
+// drawing stays vector); null when nothing is drawn. Only what is shown: tables and links outside the
+// visible area, tooltips and svg-pan-zoom's own markup are left out; ids (dbt unique_ids) are kept.
+function svgImage(scale) {
+  const svg = pz && box.querySelector('svg');
+  if (!svg) return null;
+  const vp = svg.querySelector('g.svg-pan-zoom_viewport'), r = svg.getBoundingClientRect();
+  const m = vp.getScreenCTM().inverse();
+  const corner = (x, y) => { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(m); };
+  const a = corner(r.left, r.top), b = corner(r.right, r.bottom);
+  const clone = svg.cloneNode(true);
+  const originals = [svg, ...svg.querySelectorAll('*')], copies = [clone, ...clone.querySelectorAll('*')];
+  const cvp = copies[originals.indexOf(vp)], cut = [];
+  originals.forEach((el, i) => {
+    const copy = copies[i], style = getComputedStyle(el);
+    copy.style.removeProperty('cursor');
+    Object.entries(INLINE).forEach(([prop, plain]) => { if (style[prop] !== plain) copy.style[prop] = style[prop]; });
+    if (el.matches('g.node, g.edge') && !overlaps(el.getBoundingClientRect(), r)) cut.push(copy);
+  });
+  cut.forEach(el => el.remove());
+  clone.querySelectorAll('title, #svg-pan-zoom-controls').forEach(el => el.remove());
+  [clone, ...clone.querySelectorAll('*')].forEach(el => {
+    el.removeAttribute('title'); el.removeAttributeNS(XLINK, 'title');
+    if (el.classList.length) {
+      [...el.classList].filter(c => c.startsWith('svg-pan-zoom')).forEach(c => el.classList.remove(c));
+      if (!el.classList.length) el.removeAttribute('class');
+    }
+    if (!el.getAttribute('style')) el.removeAttribute('style');
+  });
+  cvp.removeAttribute('transform'); cvp.style.removeProperty('transform');
+  if (!cvp.getAttribute('style')) cvp.removeAttribute('style');
+  const w = b.x - a.x, h = b.y - a.y;
+  clone.setAttribute('viewBox', `${a.x} ${a.y} ${w} ${h}`);
+  clone.setAttribute('width', r.width * scale); clone.setAttribute('height', r.height * scale);
+  clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  clone.setAttributeNS(XMLNS, 'xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttributeNS(XMLNS, 'xmlns:xlink', XLINK);
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  Object.entries({ x: a.x, y: a.y, width: w, height: h, fill: pageBackground() }).forEach(([k, v]) => bg.setAttribute(k, v));
+  clone.insertBefore(bg, clone.firstChild);
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+}
+
+// the same SVG rasterised at 2 x the screen resolution (a data: URL keeps the canvas untainted)
+async function pngImage() {
+  const svg = pz && box.querySelector('svg');
+  if (!svg) return null;
+  const r = svg.getBoundingClientRect(), s = EXPORT.scale(r.width, r.height);
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgImage(s));
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = Math.round(r.width * s); c.height = Math.round(r.height * s);
+  const g = c.getContext('2d');
+  g.fillStyle = pageBackground(); g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(img, 0, 0, c.width, c.height);
+  return EXPORT.png(c);
+}
+
 refreshControls();
 render();
 
+// svgImage is for the browser tests; the page uses it through the export buttons
 return {
   shown: refit,
   relayout: () => render(),
@@ -282,5 +374,6 @@ return {
     refreshControls();
     render();
   },
+  svgImage,
 };
 }

@@ -24,6 +24,7 @@ This runs `dbt parse` (no warehouse connection), writes `erd_output/erd.html` an
 | `--no-parse` | reuse the existing `target/manifest.json` |
 | `--manifest FILE` | read this manifest instead (implies no parse) |
 | `--no-open` | don't open the browser (CI) |
+| `--offline` | embed the JavaScript libraries: the page works with no network (or `offline: true` in the config) |
 | `--dbt EXE` | dbt executable (default: `dbt`) |
 
 `dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12 and PyYAML.
@@ -67,6 +68,10 @@ Layers follow the data flow from left to right inside each domain. Without `laye
 - Opens on the largest group. When more than 12 tables are referenced by nothing else (links, satellites, facts), they are spread over three columns instead of one endless one.
 - Zoom with the wheel, drag the background to pan, click a table to highlight its links, search to highlight by name.
 
+### Export image
+
+Each tab's toolbar ends with **Export image**: **PNG** in the universe, **PNG** and **SVG** in the detail. The image is exactly the drawing on screen (zoom, filters, detail level, search mark, highlight, trajectory dimming), on the page background, without the panels, toolbars, the trajectory bar or tooltips. PNGs are at twice the screen resolution (less on very large screens, to stay within browser canvas limits); the SVG holds only the tables and links in the visible area and opens on its own in a browser, a slide or a doc tool. Files are named `<page title>-universe.png`, `<page title>-detail.png` and `<page title>-detail.svg`, the title reduced to letters, digits, `-` and `_`. The buttons are disabled while the view has nothing drawn.
+
 ### Manual arrangement
 
 Both tabs let you drag things where you want them:
@@ -76,7 +81,11 @@ Both tabs let you drag things where you want them:
 
 Every move is saved in the browser at once. To share an arrangement with the team, click **Export layout** (top right), save the file as `dbt-erd-layout.json` next to `dbt_project.yml` and commit it: `dbtscope` embeds it in every page it generates (`layout_file` in the config to use another path). Whichever copy was saved last wins, the browser's or the file's. **Import layout** loads such a file into the page; **Reset layout** forgets the arrangement of the current tab.
 
-The page holds the structure only (table and column names, descriptions), no data. It loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render.
+The page holds the structure only (table and column names, descriptions), no data. By default it loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render, unless it is built offline (below).
+
+### Offline page
+
+With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0), Expat 2.2.5 (MIT), the Emscripten 1.37.36 runtime (MIT OR NCSA) and the musl 1.1.15 libc it bundles (MIT), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
 
 ## Configuration
 
@@ -89,6 +98,7 @@ output: erd_output/erd.html   # relative to the dbt project
 language: en                  # en | fr
 view: universe                # tab shown at opening: universe | detail
 layout_file: dbt-erd-layout.json   # arrangement exported from the page, embedded when present
+offline: false                # true: embed the libraries, the page needs no network (~2.5 MB more)
 
 # detail view
 select: ["*_hub", "*_link", "*_sat"]
@@ -184,7 +194,7 @@ The page itself is tested in headless Chromium with Playwright (`tests/browser/`
 uv run --group browser pytest -q -m browser tests/browser
 ```
 
-They need internet access the first time (the CDN scripts are then cached in `.pytest_cache`) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (path to the executable). On a dev machine without one, run `uv run --group browser playwright install chromium` once.
+They need no network (the page's libraries are served from their vendored copies, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (path to the executable). On a dev machine without one, run `uv run --group browser playwright install chromium` once.
 
 Layout of the code (details in `docs/architecture.md`):
 
@@ -192,7 +202,8 @@ Layout of the code (details in `docs/architecture.md`):
 |---|---|
 | `src/dbtscope/domain/` | Pure rules: selectors, manifest parsing, config validation, data of both views |
 | `src/dbtscope/storage/` | Reads the manifest, `dbt-erd.yml`, presets and layout; atomic file writer |
-| `src/dbtscope/render/` | `render_page` and the page assets: `page.html`, `page.css`, `boot.js`, `universe.js` (d3-force + canvas), `detail.js` (Graphviz via Viz.js) |
+| `src/dbtscope/render/` | `render_page` and the page assets: `page.html`, `page.css`, `boot.js`, `universe.js` (d3-force + canvas), `detail.js` (Graphviz via Viz.js); `vendor/`: the libraries embedded by `--offline` and their licences |
+| `tools/vendor_libraries.py` | Refreshes `render/vendor/` from the CDN URLs of `render/page.LIBRARIES` (`--check` verifies the hashes) |
 | `src/dbtscope/presets/` | Built-in presets: `data_vault.yml`, `star_schema.yml` |
 | `src/dbtscope/cli.py` | The `dbtscope` command |
 | `docs/` | `architecture.md`, `decisions.md`, `roadmap.md`, `progress.md`, `brief-universe-view.md` |
@@ -201,7 +212,7 @@ Python embeds both views' data as JSON; each view lays itself out in the browser
 
 ### Working with Claude Code
 
-The repository carries a [Claude Code](https://claude.com/claude-code) workflow: project rules in `CLAUDE.md` (and one per package), agents in `.claude/agents/` (architect, ui-designer, developer, tester, reviewer, documentation), skills in `.claude/skills/` (`/feature`, `/build-roadmap`, `/release`, `/add-fixture`, `/add-decision`), and hooks that keep secrets and `main` safe. Every change goes through `/feature <request or milestone>`; quality gates are the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI on Ubuntu, Windows and macOS.
+The repository carries a [Claude Code](https://claude.com/claude-code) workflow: project rules in `CLAUDE.md` (and one per package), agents in `.claude/agents/` (architect, ui-designer, developer, tester, reviewer, documentation), skills in `.claude/skills/` (`/feature`, `/build-roadmap`, `/release`, `/add-fixture`, `/add-decision`), and hooks that keep secrets and `main` safe. Every change goes through `/feature <request or milestone>`; quality gates are the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI (one Ubuntu job: ruff, the default test suite, gitleaks).
 
 ## License
 

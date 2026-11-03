@@ -59,8 +59,46 @@ Done when:
 6. English and French strings complete; the ui-designer review passes; README section "The page" describes the mode.
 7. Browser test and performance check pass; Python tests green, ruff clean, docs, CLAUDE.md files and CHANGELOG updated.
 
-## M2 — Finishing (v0.4 of the brief, § 10)
+## M2 — Image export and offline page (v0.4 of the brief, § 10)
 
-- Light theme and print, PNG / SVG export, owners of dbt groups, offline page (no CDN).
+Scope settled with the user (D-021): **image export** and an **offline page**. The light theme and the owners of dbt groups already exist (one light theme in `page.css`; owners on domain hover since v0.2). Print and the small-screen fixes are not in M2: see "Later" below.
 
-Done when: to be detailed with the user before starting.
+### Image export
+
+- **What**: exactly what is on screen in the current tab: zoom, filters, trajectory highlight, detail level. Not the panels, toolbars or tooltips. Background filled with the page background (never transparent), so the image reads the same anywhere.
+- **Universe**: PNG of the canvas, drawn again off screen at twice the screen resolution (sharp on slides and in documents).
+- **Detail**: SVG of the drawn diagram cut to the visible area (styles inlined, so the file renders alone in a browser, a slide or a doc tool), and PNG of the same at twice the screen resolution.
+- **Where**: one **Export image** control in the toolbar of each tab (universe: PNG; detail: two buttons, PNG and SVG). Keyboard reachable, disabled while the view has nothing drawn (empty state).
+- **File name**: `<page title>-<universe|detail>.<png|svg>`, title reduced to letters, digits, `-` and `_`.
+- **Content rule**: the image holds what the page shows (names, kinds, links), nothing more (invariant 8).
+- Every new UI string in English and French (D-016).
+
+### Offline page
+
+- **Option**: `--offline` on the command line, or `offline: true` in `dbt-erd.yml` (the option wins). Default unchanged: the libraries load from the CDNs (D-014), and the page stays small.
+- **With it**: d3 7.9.0, Viz.js 2.1.2 (`viz.js` + `full.render.js`) and svg-pan-zoom 3.6.1 are embedded in the page (~2.5 MB more), which then works with no network at all.
+- **Where the libraries come from**: vendored in the package, `src/dbtscope/render/vendor/`, at the exact versions of the CDN URLs, with their licence files (d3: ISC, Viz.js: MIT, svg-pan-zoom: BSD-2-Clause, and Graphviz, Expat, Emscripten and musl, compiled into `full.render.js`). Generating an offline page needs no network either.
+- **One list of libraries**: name, version, CDN URL and vendored file live in one place (`render/page.py`), which writes either the `<script src>` tags or the inline scripts; `page.html` has a single placeholder for them (invariant 2).
+- **Safety**: an embedded library must not close its `<script>` block: every `</script` in a vendored file is escaped as `<\/script` (invariant 10; the JSON escapes every `<`, D-023), and a unit test checks the rendered offline page has exactly as many `</script>` as `<script` tags.
+- **CLI summary**: says when the page is offline and its size.
+- **Python**: config key `offline` (bool, `domain/config.py`), CLI flag (`cli.py`), `render_page(..., offline=False)` (`render/page.py`). Unit tests for each.
+
+### Tests
+
+- Unit: config key (default, file, CLI override, invalid value), offline page holds no `https://` script and no CDN URL, `</script` escaped, CDN page unchanged byte for byte when `offline` is false (the M0 comparison still holds), vendored versions match the CDN URLs.
+- Browser (`browser` marker, D-019): the offline page loads and works with **every** network request blocked (universe drawn, detail drawn, trajectory works); export produces a PNG of the expected pixel size (2 × the canvas) and a valid SVG that parses and holds the visible table names; exports reflect filters and the trajectory dimming; no console error. The browser tests serve the vendored libraries and need no network (D-022).
+
+Done when:
+
+1. `dbtscope --offline` (or `offline: true`) writes a page that, opened with networking disabled, shows both views and the trajectory mode like the CDN page.
+2. Without the option, the page loads the same CDN scripts as the one M1 produced; it differs only by the export controls (and by `<` escaped in the data, D-023).
+3. **Export image** in the universe saves a PNG at 2 × the screen resolution of exactly the current view; in the detail, PNG and SVG of the visible diagram; the SVG opens alone in a browser with the same look.
+4. Files are named `<title>-<view>.<ext>`; the controls work with the keyboard; strings exist in en and fr; the ui-designer review passes.
+5. The licences of the vendored libraries ship in the package; README documents `--offline`, `offline:` and the export.
+6. Default tests green, browser tests green, ruff clean, docs, CLAUDE.md files and CHANGELOG updated.
+
+## Later (not scheduled)
+
+- Print stylesheet: the current view on one page, without panels and toolbars.
+- Small screens: side panel closed by default under 600 px (needs a decision: it changes the opening state); layout buttons at 44 px on touch screens.
+- Plural agreement in counts ("1 table", "1 colonne").

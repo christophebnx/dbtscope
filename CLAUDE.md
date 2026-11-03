@@ -25,9 +25,13 @@ uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
 uv run dbtscope --version                 # the CLI
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
+uv run dbtscope --project-dir <dbt project> --no-parse --no-open --offline   # self-contained page, no network
+uv run python tools/vendor_libraries.py --check   # vendored libraries match their sha256 (downloads nothing)
 ```
 
-Browser tests need network access to the page's CDNs (first run) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).
+Browser tests need no network (the page's libraries are served from `src/dbtscope/render/vendor/`, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).
+
+The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited by hand. To add or upgrade one, change `render/page.LIBRARIES`, run `uv run python tools/vendor_libraries.py` (network, TLS verified) and paste the printed sha256 into `LIBRARIES`.
 
 ## Invariants — never violate
 
@@ -40,7 +44,7 @@ Browser tests need network access to the page's CDNs (first run) and a local Chr
 7. **The manifest is the only source.** No warehouse connection, no credentials; `dbt parse` is the only dbt command run (D-012).
 8. **Structure only, never data.** The page holds names, types and descriptions; never rows or query results.
 9. **Project file names and formats are stable.** `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1) and the localStorage key `dbt-erd-layout:<title>` are read by existing projects and pages: change them only through a superseding decision with a migration (D-013).
-10. **One self-contained page.** Python embeds data; the browser lays it out. Every `</` in embedded JSON is escaped (D-014).
+10. **One self-contained page.** Python embeds data; the browser lays it out. Every `<` of the embedded JSON is written `\u003c`, and every `</script` of an inlined library `<\/script` (D-014, D-023).
 11. **A node is identified by its dbt `unique_id`** in every payload and in the layout.
 
 ## Language convention

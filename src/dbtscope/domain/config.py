@@ -5,6 +5,8 @@
     output: erd_output/erd.html   # relative to the dbt project directory
     language: fr                  # en | fr
     view: universe                # tab shown when the page opens: universe | detail
+    offline: true                 # embed d3, Viz.js and svg-pan-zoom: the page works with no network
+                                  # (~2.5 MB more); default false: the libraries load from CDNs
 
     # detail view (entity-relationship diagram with columns)
     select: ["tag:DV_CORE"]       # see selectors.py for the syntax
@@ -63,6 +65,7 @@ DEFAULTS: dict[str, Any] = {
     "layers": [],
     "universe": {},
     "layout_file": "dbt-erd-layout.json",
+    "offline": False,
 }
 DEFAULT_KIND_COLOR = "#777777"
 GROUP_BY_RE = re.compile(r"^(schema|database|package|none|folder(:\d+)?|tag:.+)$")
@@ -119,6 +122,8 @@ def _validate(config: Config) -> None:
         raise ConfigError(f"Invalid group_by {config['group_by']!r}")
     _check_choice(config["language"], "language", ("en", "fr"))
     _check_choice(config["view"], "view", ("universe", "detail"))
+    if not isinstance(config["offline"], bool):
+        raise ConfigError("offline must be true or false")
     _validate_rules(config, "kinds", color=True)
     for kind in config["kinds"]:
         kind["color"] = kind["color"] or DEFAULT_KIND_COLOR

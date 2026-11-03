@@ -49,3 +49,15 @@ def test_preset_rules_are_not_mutated() -> None:
 def test_invalid_config(bad: dict[str, Any]) -> None:
     with pytest.raises(ConfigError):
         merge_config({}, bad)
+
+
+def test_offline_defaults_to_false_and_the_file_wins() -> None:
+    assert merge_config({}, {})["offline"] is False
+    assert merge_config({}, {"offline": True})["offline"] is True
+    assert merge_config({"offline": True}, {"offline": False})["offline"] is False
+
+
+@pytest.mark.parametrize("value", ["true", 1, None])
+def test_offline_must_be_a_bool(value: Any) -> None:
+    with pytest.raises(ConfigError, match="offline must be true or false"):
+        merge_config({}, {"offline": value})

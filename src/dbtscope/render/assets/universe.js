@@ -26,7 +26,7 @@ function trajectory(lineage, start, direction, depth) {
   return { up: direction === 'down' ? new Map() : walk(parents), down: direction === 'up' ? new Map() : walk(children) };
 }
 
-function startUniverse(DATA, lang, openInDetail, detailIds, LAYOUT) {
+function startUniverse(DATA, lang, openInDetail, detailIds, LAYOUT, EXPORT) {
 const $u = id => document.getElementById('u-' + id);
 const T = {
   en: { links: 'Links', relations: 'business relations', lineage: 'lineage', both: 'both', detail: 'Tables',
@@ -45,7 +45,8 @@ const T = {
         lgStart: 'start', leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
         fitTraj: 'Frame the trajectory', tipStart: 'Start of the trajectory',
         tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}`,
-        clickTraj: 'Click: show its trajectory',
+        clickTraj: 'Click: show its trajectory', filters: 'Filters',
+        exportImage: 'Export image', png: 'PNG', pngTitle: 'Save the view as shown as a PNG image (high resolution)',
         hint: 'Wheel: zoom · drag the background to pan · drag a table, or a domain by its name, to arrange them · '
             + 'click a table to see its trajectory (Esc to leave) · '
             + 'double-click a domain to zoom in, a table to open its detail' },
@@ -65,7 +66,9 @@ const T = {
         lgStart: 'départ', leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
         fitTraj: 'Cadrer la trajectoire', tipStart: 'Départ de la trajectoire',
         tipUp: d => `En amont, niveau ${d}`, tipDown: d => `En aval, niveau ${d}`,
-        clickTraj: 'Clic : afficher sa trajectoire',
+        clickTraj: 'Clic : afficher sa trajectoire', filters: 'Filtres',
+        exportImage: 'Exporter l\'image', png: 'PNG',
+        pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
         hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
             + 'clic sur une table : sa trajectoire (Échap pour quitter) · '
             + 'double-clic sur un domaine pour le cadrer, sur une table pour son détail' },
@@ -90,7 +93,8 @@ const state = {
   kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
   links: DATA.defaults.links, detail: DATA.defaults.detail,
 };
-const stage = $u('stage'), canvas = $u('canvas'), ctx = canvas.getContext('2d'), tip = $u('tip');
+const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
+let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const layoutCache = new Map();
 let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], domains = [], routes = [], tree = null;
@@ -133,7 +137,14 @@ function refreshPanel() {
 refreshPanel();
 $u('all').onclick = () => { DATA.domains.forEach(d => state.domains.add(d.key)); refreshPanel(); relayout(); };
 $u('none').onclick = () => { state.domains.clear(); refreshPanel(); relayout(); };
-$u('toggle').onclick = () => { $u('panel').classList.toggle('closed'); resize(); fit(false); };
+$u('toggle').title = T.filters; $u('toggle').setAttribute('aria-label', T.filters);
+$u('toggle').onclick = () => {
+  $u('toggle').setAttribute('aria-expanded', String(!$u('panel').classList.toggle('closed')));
+  resize(); fit(false);
+};
+$u('export-h').textContent = T.exportImage;
+$u('export').textContent = T.png; $u('export').title = T.pngTitle;
+$u('export').onclick = () => EXPORT.save('universe', 'png', image, $u('export'));
 $u('fit').onclick = () => fit(true);
 $u('names').innerHTML = N.map(n => `<option value="${esc(n.name)}">`).join('');
 // a table by its exact name, case-insensitive (search box, Trajectory button)
@@ -306,10 +317,18 @@ const roleOf = i => !traj ? null : i === traj.start ? 'start' : traj.up.has(i) ?
 const trajMembers = () => traj ? [traj.start, ...traj.up.keys(), ...traj.down.keys()] : [];
 const trajDist = i => i === traj.start ? 0 : Math.min(traj.up.get(i) ?? Infinity, traj.down.get(i) ?? Infinity);
 
-function draw() {
-  const t0 = performance.now(), dpr = window.devicePixelRatio || 1, k = t.k, W = stage.clientWidth, H = stage.clientHeight;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+// Draws the view on the screen, or on `target` (an exported image) at `scale` device pixels per CSS
+// pixel, over the same W x H area. Keep it synchronous: it swaps the closure's ctx until it returns.
+function draw(target = screenCtx, scale = window.devicePixelRatio || 1) {
+  const onScreen = target === screenCtx;
+  ctx = target;
+  try { paint(onScreen, scale); } finally { ctx = screenCtx; }
+}
+function paint(onScreen, scale) {
+  const t0 = performance.now(), k = t.k, W = stage.clientWidth, H = stage.clientHeight;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  if (onScreen) $u('export').disabled = !visible.length;
   if (!visible.length) {
     ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(T.empty, 24, 40);
     return;
@@ -370,8 +389,7 @@ function draw() {
   ctx.restore();
 
   // screen-space text: domain names first, then table names by importance, skipping any that would overlap
-  const taken = [];
-  labelHits = [];
+  const taken = [], hits = [];
   const free = (x, y, w, h) => !taken.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
   ctx.textAlign = 'center';
   domains.forEach(d => {
@@ -386,13 +404,26 @@ function draw() {
     let bx = sx - 40;
     d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = KIND[kind].color; ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
     taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
-    labelHits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
+    hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
   });
   ctx.globalAlpha = 1;
   if (!cards) drawNames(orderLabels(labels), screen, free, taken, k);
   ctx.textAlign = 'left';
+  if (!onScreen) return;
+  labelHits = hits;
   perf.draw = performance.now() - t0;
   $u('meta').textContent = `${visible.length} ${T.tables} · ${edges.length} ${T.linksN} · ${domains.length} ${T.domainsN}`;
+}
+// the view as shown (filters, zoom, detail level, search mark, trajectory) as a PNG at 2 x the screen
+// resolution; hover is pointer state, like the tooltip, so it is left out. null when nothing is drawn.
+function image() {
+  if (!visible.length) return null;
+  const W = stage.clientWidth, H = stage.clientHeight, s = EXPORT.scale(W, H), c = document.createElement('canvas');
+  c.width = Math.round(W * s); c.height = Math.round(H * s);
+  const pointer = hover;
+  hover = null;
+  try { draw(c.getContext('2d'), s); } finally { hover = pointer; }
+  return EXPORT.png(c);
 }
 
 // names by priority: in the trajectory mode its tables first (start, then by distance), then the hovered one, then by score
@@ -706,5 +737,6 @@ new ResizeObserver(() => {
 }).observe(stage);
 layout(); resize(); fit(false);
 
-return { shown: () => { resize(); }, relayout, trajectoryState };
+// image is for the browser tests' pixel comparison; the page uses it through #u-export
+return { shown: () => { resize(); }, relayout, trajectoryState, image };
 }

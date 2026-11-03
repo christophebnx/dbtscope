@@ -15,7 +15,7 @@
 | `errors.py` | `DomainError(ValueError)`, base of every module's error class |
 | `selectors.py` | Selector syntax (`name`, `tag`, `path`, `schema`, `database`, `package`, `type`; `,` = and, list = or): `matches`, `matches_any`, `SelectorError` |
 | `manifest.py` | `parse_manifest(dict) -> Project`: nodes, relations (`relationships` tests, FK constraints), lineage (`depends_on`), dbt groups, root project |
-| `config.py` | `DEFAULTS`, `UNIVERSE_DEFAULTS`, `CONFIG_FILE`, `merge_config(preset, file_config)` (defaults < preset < file, validated), `ConfigError` |
+| `config.py` | `DEFAULTS` (including `offline`, a bool: embed the libraries in the page), `UNIVERSE_DEFAULTS`, `CONFIG_FILE`, `merge_config(preset, file_config)` (defaults < preset < file, validated), `ConfigError` |
 | `classify.py` | Rules shared by both views: `in_scope`, `group_of`, `first_rule`, `key_columns`, `background`, `OTHER` |
 | `detail.py` | Detail view: `select` (nodes and relations drawn), `detail_data` (JSON payload) |
 | `universe.py` | Universe view: `domain_of`, `flow_rank`, `universe_data` (JSON payload), `TYPE_KINDS`, `PALETTE`, `FLOW_PREFIXES` |

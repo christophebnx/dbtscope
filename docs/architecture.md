@@ -14,13 +14,13 @@ cli.run
   domain/detail.select + detail_data    ERD payload (selected tables, relations, kinds, key columns)
   domain/universe.universe_data         universe payload (every table: domains, layers, kinds, relations, lineage)
   storage/project_files.read_layout     dbt-erd-layout.json, if present -> domain/layout.check_layout
-  render/page.render_page               one HTML page: assets + JSON payload
+  render/page.render_page               one HTML page: assets + JSON payload (+ vendored libraries with --offline)
   storage/files.atomic_write            erd_output/erd.html, then the browser opens it
 ```
 
 The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail (D-014). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
-The page logic is tested in headless Chromium with Python Playwright, under `tests/browser/`: those tests carry the `browser` marker, are excluded by default and from CI, and run with `uv run --group browser pytest -m browser` (D-019).
+The page logic is tested in headless Chromium with Python Playwright, under `tests/browser/`: those tests carry the `browser` marker, are excluded by default and from CI, and run with `uv run --group browser pytest -m browser` (D-019). They need no network: the page's libraries are served from their vendored copies (D-022).
 
 Design brief of the universe view, with the scoping decisions and the prototype results: `docs/brief-universe-view.md`.
 
@@ -33,7 +33,7 @@ Design brief of the universe view, with the scoping decisions and the prototype 
 | `render/` | The HTML page: its assets (`assets/`) and `render_page`, which embeds the view data. | `domain` |
 | `cli.py` | Command-line entry point: parses arguments, runs `dbt parse`, calls the layers, writes the page, opens the browser, maps errors to exit codes (D-004). | everything |
 
-Data folders (not packages): `presets/` (built-in `*.yml` presets, read by `storage/project_files`), `render/assets/` (page shell, CSS, scripts).
+Data folders (not packages): `presets/` (built-in `*.yml` presets, read by `storage/project_files`), `render/assets/` (page shell, CSS, scripts), `render/vendor/` (vendored libraries and licences, refreshed by `tools/vendor_libraries.py`).
 
 Add a row when adding a package, and the matching entry in `ALLOWED` of `tests/unit/test_layering.py`. Each package has a `CLAUDE.md` with its rules and module table.
 
@@ -55,8 +55,15 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Domain of a node (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
 | Validate an exported layout | `domain/layout.check_layout` |
 | Assemble the HTML page | `render/page.render_page` |
+| JavaScript libraries of the page (CDN URL, vendored file, licence, hash) | `render/page.LIBRARIES` |
+| Script tags or inline libraries of the page | `render/page._scripts` |
+| Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
+| Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
+| Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
+| Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
+| Visible detail diagram as a standalone SVG | `render/assets/detail.js svgImage` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Map an error to a CLI exit code and message | `cli.main` |
 | Check a commit message | `tools/check_commit_message.problems` |

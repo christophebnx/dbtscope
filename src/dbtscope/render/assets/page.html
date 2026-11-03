@@ -15,6 +15,7 @@
     <button id="l-import"></button>
     <input type="file" id="l-file" accept=".json,application/json" hidden>
   </span>
+  <span class="sr-only" id="export-live" role="status" aria-live="polite"></span>
 </nav>
 
 <section class="tab" id="tab-universe">
@@ -33,12 +34,14 @@
   </aside>
   <div class="stage">
     <div class="toolbar">
-      <button id="u-toggle">☰</button>
+      <button id="u-toggle" type="button" aria-controls="u-panel" aria-expanded="true">☰</button>
       <span class="meta" id="u-meta"></span>
       <span class="grow"></span>
       <input id="u-q" list="u-names" autocomplete="off"><datalist id="u-names"></datalist>
       <button id="u-traj" type="button" disabled></button>
       <button id="u-fit"></button>
+      <span class="export" role="group" aria-labelledby="u-export-h"><span id="u-export-h"></span>
+        <button id="u-export" type="button"></button></span>
     </div>
     <div class="canvas-box" id="u-stage">
       <div class="trajbar" id="u-trajbar" role="region" hidden>
@@ -76,7 +79,7 @@
   </aside>
   <div class="stage">
     <div class="toolbar">
-      <button id="d-toggle">☰</button>
+      <button id="d-toggle" type="button" aria-controls="d-panel" aria-expanded="true">☰</button>
       <span class="meta" id="d-meta"></span>
       <span class="focus-info" id="d-focus-info"></span>
       <span class="grow"></span>
@@ -84,16 +87,15 @@
       <button id="d-clear"></button>
       <input id="d-q">
       <button id="d-fit"></button>
+      <span class="export" role="group" aria-labelledby="d-export-h"><span id="d-export-h"></span>
+        <button id="d-export-png" type="button" disabled></button><button id="d-export-svg" type="button" disabled></button></span>
     </div>
     <div class="canvas-box"><div id="d-graph"></div></div>
   </div>
 </section>
 
 <script type="application/json" id="data">{{DATA}}</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+{{SCRIPTS}}
 <script>
 {{DETAIL_JS}}
 </script>
