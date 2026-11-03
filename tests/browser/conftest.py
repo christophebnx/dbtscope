@@ -4,16 +4,15 @@ Skipped when Playwright is not installed (`uv sync --group browser`): every test
 marked skip at collection, so `pytest -m browser tests/browser` reports skips instead of crashing.
 Chromium is never installed by the tooling: it comes from `PLAYWRIGHT_BROWSERS_PATH`, or from
 `DBTSCOPE_CHROMIUM` (an executable path).
-The CDN scripts of the page (D-014) are downloaded once with `urllib` (TLS verified, proxy honoured)
-into the pytest cache and served to the page through `page.route`; every other request is aborted.
+The CDN scripts of the page (D-014) are served through `page.route` from their vendored copies in
+`src/dbtscope/render/vendor/` (the same bytes, sha256-checked); every other request is aborted, so the
+tests need no network (D-022).
 """
 
 from __future__ import annotations
 
 import json
 import os
-import re
-import urllib.request
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,7 @@ from typing import Any
 import pytest
 
 from dbtscope import cli
-from dbtscope.render.page import LIBRARIES
+from dbtscope.render.page import LIBRARIES, VENDOR
 
 try:
     from playwright import sync_api
@@ -44,21 +43,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest.fixture(scope="session")
-def cdn(request: pytest.FixtureRequest) -> dict[str, bytes]:
-    """{url: script body} for every `<script src>` of the page, cached in `.pytest_cache`."""
-    urls = [lib.url for lib in LIBRARIES]
-    folder = Path(request.config.cache.mkdir("cdn"))
-    scripts = {}
-    for url in urls:
-        cached = folder / re.sub(r"[^A-Za-z0-9._-]", "_", url.split("://", 1)[1])
-        if not cached.exists() or not cached.stat().st_size:
-            with urllib.request.urlopen(url, timeout=60) as response:
-                body = response.read()
-            tmp = cached.with_suffix(".part")
-            tmp.write_bytes(body)
-            tmp.replace(cached)
-        scripts[url] = cached.read_bytes()
-    return scripts
+def cdn() -> dict[str, bytes]:
+    """{CDN url: script body} for every library of the page, from its vendored copy (D-022)."""
+    return {lib.url: (VENDOR / lib.file).read_bytes() for lib in LIBRARIES}
 
 
 @pytest.fixture(scope="session")

@@ -14,6 +14,17 @@ PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
 
 
 @dataclass(frozen=True)
+class Notice:
+    """Licence of a component compiled into a vendored library (Graphviz and Expat in full.render.js)."""
+
+    name: str  # "Graphviz"
+    version: str  # "2.40.1"
+    spdx: str  # "EPL-1.0"
+    file: str  # licence file name, in render/vendor/
+    url: str  # where the licence file was fetched from
+
+
+@dataclass(frozen=True)
 class Library:
     """A JavaScript library of the page: CDN script of the default page, vendored copy and licence."""
 
@@ -21,11 +32,14 @@ class Library:
     version: str  # "7.9.0"
     url: str  # CDN URL of the default page
     file: str  # vendored file name, in render/vendor/
+    spdx: str  # SPDX id of the licence
     licence: str  # licence file name, in render/vendor/
     licence_url: str  # where the licence file was fetched from
     sha256: str  # of the vendored file (= the CDN bytes)
+    notices: tuple[Notice, ...] = ()  # components compiled into the file, with their own licence
 
 
+VIZ_LICENCE = "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE"
 # In loading order: full.render.js registers itself on the Viz of viz.js.
 LIBRARIES: tuple[Library, ...] = (
     Library(
@@ -33,36 +47,57 @@ LIBRARIES: tuple[Library, ...] = (
         "7.9.0",
         "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js",
         "d3.min.js",
+        "ISC",
         "LICENSE-d3.txt",
         "https://cdn.jsdelivr.net/npm/d3@7.9.0/LICENSE",
-        "",
+        "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539",
     ),
     Library(
         "viz.js",
         "2.1.2",
         "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js",
         "viz.js",
+        "MIT",
         "LICENSE-viz.js.txt",
-        "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE",
-        "",
+        VIZ_LICENCE,
+        "f111f22be005ceaf625f06c5a36ba7aa27703dbc0753914559edd1c24715b6e5",
     ),
     Library(
         "viz.js",
         "2.1.2",
         "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js",
         "full.render.js",
+        "MIT",
         "LICENSE-viz.js.txt",
-        "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE",
-        "",
+        VIZ_LICENCE,
+        "3a0aace75d0b1677a4afda3b38b7697a569a02636cb3d7a04114f2cc2a95d8d4",
+        # built from these versions (Makefile of viz.js v2.1.2, header of full.render.js)
+        (
+            Notice(
+                "Graphviz",
+                "2.40.1",
+                "EPL-1.0",
+                "LICENSE-graphviz.txt",
+                "https://gitlab.com/graphviz/graphviz/-/raw/2.40.1/epl-v10.txt",
+            ),
+            Notice(
+                "Expat",
+                "2.2.5",
+                "MIT",
+                "LICENSE-expat.txt",
+                "https://raw.githubusercontent.com/libexpat/libexpat/R_2_2_5/expat/COPYING",
+            ),
+        ),
     ),
     Library(
         "svg-pan-zoom",
         "3.6.1",
         "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js",
         "svg-pan-zoom.min.js",
+        "BSD-2-Clause",
         "LICENSE-svg-pan-zoom.txt",
         "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE",
-        "",
+        "f463710320089c61d0f57cec2b886c02de04e21eb92ebd22eaa327fdf0a6b7c6",
     ),
 )
 

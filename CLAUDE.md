@@ -27,7 +27,7 @@ uv run dbtscope --version                 # the CLI
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
 ```
 
-Browser tests need network access to the page's CDNs (first run) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).
+Browser tests need no network (the page's libraries are served from `src/dbtscope/render/vendor/`, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).
 
 ## Invariants — never violate
 

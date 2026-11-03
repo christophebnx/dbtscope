@@ -44,7 +44,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF"]
 testpaths = ["tests"]
 markers = [
     "live: calls a real paid or remote service (costs money, needs network); never run by default",
-    "browser: drives the page in headless Chromium (needs the CDN scripts and a local browser); never run by default",
+    "browser: drives the page in headless Chromium (needs a local browser); never run by default",
 ]
 addopts = "-m 'not live and not browser'"
 
