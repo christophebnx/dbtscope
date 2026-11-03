@@ -51,7 +51,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */
-.toolbar .export { display:inline-flex; align-items:center; gap:6px; flex:none; white-space:nowrap; }
+.toolbar .export { display:inline-flex; align-items:center; gap:6px; flex:none; white-space:nowrap; margin-left:auto; }
 .toolbar .export > span { color:var(--muted); font-size:13px; }
 .toolbar .export button[aria-disabled="true"] { cursor:progress; }
 .canvas-box { flex:1; min-height:0; position:relative; overflow:hidden; }

@@ -536,12 +536,17 @@ Scope: the two **Export image** controls, their feedback, and one wording fix in
 +-----------+------------------------------------------------------------------------------------+
 ```
 
-(At 1280 px the toolbar holds everything on one line; it is drawn on two above only for width.)
+(At 1280 px the universe toolbar holds everything on one line; it is drawn on two above only for width.)
 
-1280 px, detail:
+1280 px, detail: with the panel open the toolbar does not hold on one line; it wraps, and `margin-left:auto` on `.export` keeps the export group at the right end of the second line, in English and French (`tests/browser/test_page_styles.py`):
 
 ```
+panel closed (one line when it fits):
 | [☰] 42 / 310 tables · 57 relations   [Focus on a table…] [Show all] [Highlight…] [Fit]  Export image [PNG] [SVG] |
+
+panel open:
+| [☰] 42 / 310 tables · 57 relations [Focus on a table…] [Show all] [Highlight…] [Fit] |
+|                                                          Export image [PNG] [SVG] |
 ```
 
 360 px, panel closed (the toolbar already wraps, `flex-wrap:wrap`; the export group never splits):

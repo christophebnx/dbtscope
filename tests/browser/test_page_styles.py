@@ -82,3 +82,22 @@ def test_no_horizontal_scroll_at_360_px(build_page: Any, open_page: Any, lang: s
     show_detail(p)
     close_panel(p, "d")
     assert scroll_width(p) <= NARROW["width"], "Detail tab"
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_export_group_ends_the_detail_toolbar_when_it_wraps(
+    build_page: Any, open_page: Any, lang: str
+) -> None:
+    # 1280 px with the panel open: the detail toolbar wraps, Export image stays at its right end
+    p = open_page(build_page(f"language: {lang}\n")[0])
+    show_detail(p)
+    assert p.page.is_visible("#d-panel")
+    bar = p.page.locator("#tab-detail .toolbar").bounding_box()
+    group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()
+    first = p.page.locator("#d-toggle").bounding_box()
+    assert bar and group and first
+    assert group["y"] > first["y"], "the toolbar wraps at 1280 px with the panel open"
+    padding = p.page.evaluate(
+        "parseFloat(getComputedStyle(document.querySelector('#tab-detail .toolbar')).paddingRight)"
+    )
+    assert abs(bar["x"] + bar["width"] - padding - (group["x"] + group["width"])) <= 1, (bar, group)
