@@ -133,16 +133,25 @@ def test_offline_page_names_no_cdn_and_loads_no_remote_script() -> None:
     assert not re.search(r"""\bimport\s*\(\s*["']https?://""", page)
 
 
-def test_offline_page_carries_the_graphviz_and_expat_licence_texts() -> None:
+def test_offline_page_carries_the_graphviz_expat_and_emscripten_licence_texts() -> None:
     page = _offline_page()
     notices = [n for lib in LIBRARIES for n in lib.notices]
-    assert {n.name for n in notices} == {"Graphviz", "Expat"}
+    assert {n.name for n in notices} == {"Graphviz", "Expat", "Emscripten"}
     for notice in notices:
         text = (VENDOR / notice.file).read_text(encoding="utf-8").strip()
         assert text.splitlines()[0] in page
         assert text.splitlines()[-1].replace("*/", "* /") in page  # the whole text, not a heading
     # banners are /*! comments, so minifiers and readers keep them
     assert page.count("/*! ") >= len(LIBRARIES)
+
+
+def test_offline_banner_says_where_the_graphviz_source_is() -> None:
+    page = _offline_page()
+    start = page.index("Includes Graphviz 2.40.1, EPL-1.0. Licence:")
+    section = page[start : page.index("Includes Expat", start)]
+    assert "\nSource: https://gitlab.com/graphviz/graphviz/-/tree/2.40.1" in section
+    assert page.count("\nSource: ") == 1  # only the notices that set one
+    assert "Includes Emscripten 1.37.36, MIT OR NCSA. Licence:" in page
 
 
 def test_offline_page_escapes_script_close_in_the_data_too() -> None:

@@ -15,8 +15,10 @@ To upgrade a library: change its `Library` in `src/dbtscope/render/page.py`, the
 | `LICENSE-viz.js.txt` | viz.js 2.1.2 | MIT | https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE | |
 | `LICENSE-graphviz.txt` | Graphviz 2.40.1 (in `full.render.js`) | EPL-1.0 | https://gitlab.com/graphviz/graphviz/-/raw/2.40.1/epl-v10.txt | |
 | `LICENSE-expat.txt` | Expat 2.2.5 (in `full.render.js`) | MIT | https://raw.githubusercontent.com/libexpat/libexpat/R_2_2_5/expat/COPYING | |
+| `LICENSE-emscripten.txt` | Emscripten 1.37.36 (in `full.render.js`) | MIT OR NCSA | https://raw.githubusercontent.com/emscripten-core/emscripten/1.37.36/LICENSE | |
 | `LICENSE-svg-pan-zoom.txt` | svg-pan-zoom 3.6.1 | BSD-2-Clause | https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE | |
 
 `full.render.js` is Graphviz 2.40.1 and Expat 2.2.5 compiled with Emscripten 1.37.36 by
-Viz.js 2.1.2. Graphviz is under the Eclipse Public License 1.0: its source code is available
-from https://graphviz.org/ and https://gitlab.com/graphviz/graphviz (tag `2.40.1`).
+Viz.js 2.1.2; it holds Emscripten's runtime code (MIT OR NCSA). Graphviz is under the
+Eclipse Public License 1.0: its source code is available from https://graphviz.org/ and
+https://gitlab.com/graphviz/graphviz (tag `2.40.1`); the offline page says so in its banner.

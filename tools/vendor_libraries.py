@@ -67,8 +67,9 @@ def _readme() -> str:
     lines += [
         "",
         "`full.render.js` is Graphviz 2.40.1 and Expat 2.2.5 compiled with Emscripten 1.37.36 by",
-        "Viz.js 2.1.2. Graphviz is under the Eclipse Public License 1.0: its source code is available",
-        "from https://graphviz.org/ and https://gitlab.com/graphviz/graphviz (tag `2.40.1`).",
+        "Viz.js 2.1.2; it holds Emscripten's runtime code (MIT OR NCSA). Graphviz is under the",
+        "Eclipse Public License 1.0: its source code is available from https://graphviz.org/ and",
+        "https://gitlab.com/graphviz/graphviz (tag `2.40.1`); the offline page says so in its banner.",
         "",
     ]
     return "\n".join(lines)

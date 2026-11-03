@@ -85,7 +85,7 @@ The page holds the structure only (table and column names, descriptions), no dat
 
 ### Offline page
 
-With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0) and Expat 2.2.5 (MIT), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
+With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0), Expat 2.2.5 (MIT) and the Emscripten 1.37.36 runtime (MIT OR NCSA), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
 
 ## Configuration
 

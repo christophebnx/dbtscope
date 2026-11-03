@@ -15,13 +15,15 @@ PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
 
 @dataclass(frozen=True)
 class Notice:
-    """Licence of a component compiled into a vendored library (Graphviz and Expat in full.render.js)."""
+    """Licence of a component compiled into a vendored library (Graphviz, Expat and the Emscripten
+    runtime in full.render.js)."""
 
     name: str  # "Graphviz"
     version: str  # "2.40.1"
     spdx: str  # "EPL-1.0"
     file: str  # licence file name, in render/vendor/
     url: str  # where the licence file was fetched from
+    source: str = ""  # where its source code is, when the licence asks to say so (EPL-1.0 § 3)
 
 
 @dataclass(frozen=True)
@@ -71,7 +73,8 @@ LIBRARIES: tuple[Library, ...] = (
         "LICENSE-viz.js.txt",
         VIZ_LICENCE,
         "3a0aace75d0b1677a4afda3b38b7697a569a02636cb3d7a04114f2cc2a95d8d4",
-        # built from these versions (Makefile of viz.js v2.1.2, header of full.render.js)
+        # built from these versions, with Emscripten's runtime compiled in (Makefile of viz.js
+        # v2.1.2, header of full.render.js)
         (
             Notice(
                 "Graphviz",
@@ -79,6 +82,7 @@ LIBRARIES: tuple[Library, ...] = (
                 "EPL-1.0",
                 "LICENSE-graphviz.txt",
                 "https://gitlab.com/graphviz/graphviz/-/raw/2.40.1/epl-v10.txt",
+                "https://gitlab.com/graphviz/graphviz/-/tree/2.40.1",
             ),
             Notice(
                 "Expat",
@@ -86,6 +90,13 @@ LIBRARIES: tuple[Library, ...] = (
                 "MIT",
                 "LICENSE-expat.txt",
                 "https://raw.githubusercontent.com/libexpat/libexpat/R_2_2_5/expat/COPYING",
+            ),
+            Notice(
+                "Emscripten",
+                "1.37.36",
+                "MIT OR NCSA",
+                "LICENSE-emscripten.txt",
+                "https://raw.githubusercontent.com/emscripten-core/emscripten/1.37.36/LICENSE",
             ),
         ),
     ),
@@ -123,13 +134,16 @@ def _comment(text: str) -> str:
     return _inline(text.strip().replace("*/", "* /"))
 
 
+def _notice(n: Notice) -> str:
+    """Banner section of a component compiled in: its licence, then where its source is (if set)."""
+    section = f"Includes {n.name} {n.version}, {n.spdx}. Licence:\n{_comment(_vendored(n.file))}"
+    return section + (f"\nSource: {_comment(n.source)}" if n.source else "")
+
+
 def _banner(lib: Library) -> str:
     """`/*! name version, SPDX. Licence: ... */`, with the licences of the components compiled in."""
     sections = [f"{lib.name} {lib.version}, {lib.spdx}. Licence:\n{_comment(_vendored(lib.licence))}"]
-    sections += [
-        f"Includes {n.name} {n.version}, {n.spdx}. Licence:\n{_comment(_vendored(n.file))}"
-        for n in lib.notices
-    ]
+    sections += [_notice(n) for n in lib.notices]
     return "/*! " + "\n\n".join(sections) + "\n*/"
 
 
