@@ -585,15 +585,14 @@ canvas.addEventListener('dblclick', ev => {
   const d = domainAt(ev);
   if (d) zoomTo(d.x, d.y, 0.92 * Math.min(stage.clientWidth, stage.clientHeight - top()) / (2 * d.r + 60));
 });
-// single click: a table enters the trajectory mode, or moves it; the background leaves it.
+// single click: a table enters the trajectory mode, or moves it; only the empty background
+// (no table, domain label or domain halo, at any zoom) leaves it.
 // d3-drag and d3-zoom swallow the click that ends a drag or a pan.
 canvas.addEventListener('click', ev => {
   if (ev.detail > 1) return;   // the second click of a double-click
-  if (t.k >= FAR) {
-    const n = pick(ev);
-    if (n) { enterTrajectory(n.i); return; }
-    if (traj && !labelAt(...d3.pointer(ev, canvas))) leaveTrajectory(false);
-  } else if (traj && !domainAt(ev)) leaveTrajectory(false);
+  const n = t.k >= FAR ? pick(ev) : null;
+  if (n) { enterTrajectory(n.i); return; }
+  if (traj && !labelAt(...d3.pointer(ev, canvas)) && !domainAt(ev)) leaveTrajectory(false);
 });
 
 // ---------------------------------------------------------------- trajectory mode

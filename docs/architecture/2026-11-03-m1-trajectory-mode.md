@@ -85,7 +85,7 @@ The mode adds a layer on top of the existing drawing. No new layout runs.
 - **Single click** uses a new `canvas.addEventListener('click', ...)`.
   - It ignores `ev.detail > 1`, so the second click of a double-click does nothing.
   - On a table, picked with `pick(ev)` at `t.k >= FAR`: call `enterTrajectory(n.i)`. This enters the mode, or moves the trajectory when already in it.
-  - Off a table (the background): call `leaveTrajectory()` if in the mode. At `t.k >= FAR` this means no table under the pointer and not on a domain label (`labelHits`). At `t.k < FAR`, where stars cannot be aimed at, it means outside every domain halo (`!domainAt(ev)`).
+  - Off a table (the background): call `leaveTrajectory()` if in the mode. At every zoom this means no table under the pointer (tables are only picked at `t.k >= FAR`), not on a domain label (`labelHits`) and outside every domain halo (`!domainAt(ev)`), so a click or double-click on a domain halo never leaves the mode.
   - A drag that moved a table, or a pan, fires no `click`: d3-drag and d3-zoom suppress the click after movement (default `clickDistance` 0). The browser test checks this.
 - **Double-click** stays as it is. The first click of a double-click on a table enters, or moves, the trajectory, and the double-click then opens Detail or zooms in as before. This is accepted: delaying single clicks by the double-click interval would add about 250 ms latency to every entry. Flagged for the ui-designer review (risk 2).
 - **Trajectory button** (`#u-traj`), next to the search box. It resolves `$u('q').value` with the same lookup as search (§ 5, `findByName`) and calls `enterTrajectory(n.i)`. It is disabled while the box holds no exact table name (updated on `input`). Its title is "Trajectory of the table found".
@@ -420,6 +420,7 @@ Inside `#u-stage`, before the canvas:
   - if the event target is `#u-q` or a `select`, do nothing (Esc belongs to the datalist / open list);
   - else leave.
 - On leave by `Leave` or `Esc` with focus inside the bar: focus → `#u-traj` if enabled, else `#u-q`. On leave by a background click: focus not moved.
+- A background click means a click on empty background, outside every table, domain label and domain halo, at any zoom: a click on a domain halo never leaves the mode.
 - Focus ring: the browser default is kept; add `.trajbar :focus-visible, #u-traj:focus-visible { outline:2px solid var(--accent); outline-offset:2px }` (3:1 against white and the bar).
 
 ### Canvas rendering

@@ -18,13 +18,15 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #tabs { display:flex; align-items:stretch; gap:4px; padding:0 16px; background:var(--surface); border-bottom:1px solid var(--border); }
 #tabs .brand { font-weight:600; font-size:15px; margin-right:16px; align-self:center; }
 #tabs button { border:none; border-bottom:2px solid transparent; border-radius:0; background:none; color:var(--muted); padding:11px 12px 9px; }
-#tabs button:disabled { color:var(--muted); border-color:var(--border); cursor:default; }
-.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-button.on { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+#tabs button.on { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 #tabs .grow { flex:1; }
 #tabs .layout-actions { display:flex; gap:6px; align-items:center; }
 #tabs .layout-actions button { font-size:12px; padding:4px 9px; color:var(--muted); }
 #tabs .layout-actions button:hover { color:var(--accent); }
+@media (max-width:600px) {
+  #tabs { flex-wrap:wrap; padding:0 8px; }
+  #tabs .layout-actions { flex-wrap:wrap; }
+}
 .tab { flex:1; min-height:0; display:none; }
 .tab.on { display:flex; }
 
