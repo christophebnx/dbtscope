@@ -101,7 +101,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #u-q { flex:1 1 140px; width:auto; min-width:0; }
   .tj-start { flex:1 1 100%; }
   .tj-start b { max-width:none; }
-  #u-tj-list { left:auto; right:0; min-width:0; max-width:calc(100vw - 24px); }
+  #u-tj-list { left:0; right:auto; min-width:0; max-width:calc(100vw - 24px); }
 }
 @media (pointer:coarse) {
   .trajbar button, .trajbar select, #u-tj-counts summary, #u-traj { min-height:44px; }
