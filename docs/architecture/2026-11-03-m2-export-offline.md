@@ -37,26 +37,55 @@ Current state:
 ```python
 VENDOR = resources.files("dbtscope") / "render" / "vendor"
 
+
 @dataclass(frozen=True)
 class Library:
-    name: str          # "d3"
-    version: str       # "7.9.0"
-    url: str           # CDN URL of the default page
-    file: str          # vendored file name, in render/vendor/
-    licence: str       # licence file name, in render/vendor/
-    licence_url: str   # where the licence file was fetched from
-    sha256: str        # of the vendored file (= the CDN bytes)
+    name: str  # "d3"
+    version: str  # "7.9.0"
+    url: str  # CDN URL of the default page
+    file: str  # vendored file name, in render/vendor/
+    licence: str  # licence file name, in render/vendor/
+    licence_url: str  # where the licence file was fetched from
+    sha256: str  # of the vendored file (= the CDN bytes)
+
 
 LIBRARIES: tuple[Library, ...] = (
-    Library("d3", "7.9.0", "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js",
-            "d3.min.js", "LICENSE-d3.txt", "https://cdn.jsdelivr.net/npm/d3@7.9.0/LICENSE", "<hex>"),
-    Library("viz.js", "2.1.2", "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js",
-            "viz.js", "LICENSE-viz.js.txt", "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE", "<hex>"),
-    Library("viz.js", "2.1.2", "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js",
-            "full.render.js", "LICENSE-viz.js.txt", "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE", "<hex>"),
-    Library("svg-pan-zoom", "3.6.1", "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js",
-            "svg-pan-zoom.min.js", "LICENSE-svg-pan-zoom.txt",
-            "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE", "<hex>"),
+    Library(
+        "d3",
+        "7.9.0",
+        "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js",
+        "d3.min.js",
+        "LICENSE-d3.txt",
+        "https://cdn.jsdelivr.net/npm/d3@7.9.0/LICENSE",
+        "<hex>",
+    ),
+    Library(
+        "viz.js",
+        "2.1.2",
+        "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js",
+        "viz.js",
+        "LICENSE-viz.js.txt",
+        "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE",
+        "<hex>",
+    ),
+    Library(
+        "viz.js",
+        "2.1.2",
+        "https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js",
+        "full.render.js",
+        "LICENSE-viz.js.txt",
+        "https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE",
+        "<hex>",
+    ),
+    Library(
+        "svg-pan-zoom",
+        "3.6.1",
+        "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js",
+        "svg-pan-zoom.min.js",
+        "LICENSE-svg-pan-zoom.txt",
+        "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE",
+        "<hex>",
+    ),
 )
 ```
 
