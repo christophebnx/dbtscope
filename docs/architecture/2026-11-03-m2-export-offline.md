@@ -131,8 +131,12 @@ src/dbtscope/render/vendor/
   LICENSE-d3.txt             https://cdn.jsdelivr.net/npm/d3@7.9.0/LICENSE            (ISC)
   LICENSE-viz.js.txt         https://cdn.jsdelivr.net/npm/viz.js@2.1.2/LICENSE         (MIT; see risk 5)
   LICENSE-svg-pan-zoom.txt   https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE   (BSD-2-Clause)
+  LICENSE-graphviz.txt       https://gitlab.com/graphviz/graphviz/-/raw/2.40.1/epl-v10.txt   (EPL-1.0)
+  LICENSE-expat.txt          https://raw.githubusercontent.com/libexpat/libexpat/R_2_2_5/expat/COPYING   (MIT)
   README.md                  provenance: one line per file (URL, version, sha256, licence), how to refresh
 ```
+
+- **As built (risk 5 resolved).** The viz.js 2.1.2 npm package ships only its own MIT `LICENSE`. `full.render.js` says in its header, and the `Makefile` of viz.js v2.1.2 confirms, that it is Graphviz 2.40.1 and Expat 2.2.5 compiled with Emscripten 1.37.36. Their licences are vendored as `LICENSE-graphviz.txt` (Graphviz's `COPYING` points to `epl-v10.txt`) and `LICENSE-expat.txt`, and listed as `Notice`s of the `full.render.js` entry of `LIBRARIES` (`Library.notices`, with `Library.spdx` for the banner). The offline banner of `full.render.js` holds the three licences; `vendor/README.md` and the README give the Graphviz source URL. The cdnjs SRI sha512 of the three cdnjs files match the vendored bytes.
 
 - **The scripts come from the exact CDN URLs the default page loads**, so the offline page runs the same bytes as the CDN page.
   - If a jsdelivr licence path returns 404, take the file from the npm tarball of the same version: `https://registry.npmjs.org/<pkg>/-/<pkg>-<version>.tgz`, extracted into its own empty folder in the scratchpad.
