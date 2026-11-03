@@ -146,10 +146,11 @@ def test_offline_page_names_no_cdn_and_loads_no_remote_script() -> None:
     assert not re.search(r"""\bimport\s*\(\s*["']https?://""", page)
 
 
-def test_offline_page_carries_the_graphviz_expat_and_emscripten_licence_texts() -> None:
+def test_offline_page_carries_the_licence_texts_of_the_compiled_in_components() -> None:
     page = _offline_page()
     notices = [n for lib in LIBRARIES for n in lib.notices]
-    assert {n.name for n in notices} == {"Graphviz", "Expat", "Emscripten"}
+    assert {n.name for n in notices} == {"Graphviz", "Expat", "Emscripten", "musl"}
+    assert "Includes musl 1.1.15, MIT. Licence:" in page
     for notice in notices:
         text = (VENDOR / notice.file).read_text(encoding="utf-8").strip()
         assert text.splitlines()[0] in page

@@ -50,12 +50,13 @@ def test_licence_files_ship(spdx: str, file: str) -> None:
     assert LICENCE_WORDS[spdx] in (VENDOR / file).read_text(encoding="utf-8")
 
 
-def test_graphviz_expat_and_emscripten_notices_ride_with_full_render() -> None:
+def test_compiled_in_notices_ride_with_full_render() -> None:
     (full,) = [lib for lib in LIBRARIES if lib.file == "full.render.js"]
     assert {(n.name, n.version, n.spdx) for n in full.notices} == {
         ("Graphviz", "2.40.1", "EPL-1.0"),
         ("Expat", "2.2.5", "MIT"),
         ("Emscripten", "1.37.36", "MIT OR NCSA"),
+        ("musl", "1.1.15", "MIT"),
     }
     header = (VENDOR / full.file).read_text(encoding="utf-8")[:200]
     assert "Graphviz 2.40.1, Expat 2.2.5, Emscripten 1.37.36" in header

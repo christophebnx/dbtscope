@@ -98,6 +98,13 @@ LIBRARIES: tuple[Library, ...] = (
                 "LICENSE-emscripten.txt",
                 "https://raw.githubusercontent.com/emscripten-core/emscripten/1.37.36/LICENSE",
             ),
+            Notice(  # the libc Emscripten 1.37.36 bundles and links into the compiled code
+                "musl",
+                "1.1.15",
+                "MIT",
+                "LICENSE-musl.txt",
+                "https://raw.githubusercontent.com/emscripten-core/emscripten/1.37.36/system/lib/libc/musl/COPYRIGHT",
+            ),
         ),
     ),
     Library(

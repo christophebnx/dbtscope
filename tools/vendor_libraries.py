@@ -67,7 +67,8 @@ def _readme() -> str:
     lines += [
         "",
         "`full.render.js` is Graphviz 2.40.1 and Expat 2.2.5 compiled with Emscripten 1.37.36 by",
-        "Viz.js 2.1.2; it holds Emscripten's runtime code (MIT OR NCSA). Graphviz is under the",
+        "Viz.js 2.1.2; it holds Emscripten's runtime code (MIT OR NCSA) and the musl 1.1.15 libc",
+        "Emscripten bundles (MIT). Graphviz is under the",
         "Eclipse Public License 1.0: its source code is available from https://graphviz.org/ and",
         "https://gitlab.com/graphviz/graphviz (tag `2.40.1`); the offline page says so in its banner.",
         "",
@@ -99,8 +100,9 @@ def _fetch_all() -> dict[str, bytes]:
 
 
 def download() -> None:
-    """Fetch and verify every vendored file, then write them all and the README (vendor/ is left
-    unchanged when one fails); print the sha256 of each file."""
+    """Fetch and verify every vendored file, then write them all and the README; print the sha256
+    of each file. A failed fetch or verification leaves vendor/ unchanged; a disk error while
+    writing can still leave it half updated (rerun the tool)."""
     urls = dict(_files())
     for name, data in _fetch_all().items():
         atomic_write(FOLDER / name, data)
