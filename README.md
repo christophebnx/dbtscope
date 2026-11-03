@@ -201,7 +201,7 @@ Python embeds both views' data as JSON; each view lays itself out in the browser
 
 ### Working with Claude Code
 
-The repository carries a [Claude Code](https://claude.com/claude-code) workflow: project rules in `CLAUDE.md` (and one per package), agents in `.claude/agents/` (architect, ui-designer, developer, tester, reviewer, documentation), skills in `.claude/skills/` (`/feature`, `/build-roadmap`, `/release`, `/add-fixture`, `/add-decision`), and hooks that keep secrets and `main` safe. Every change goes through `/feature <request or milestone>`; quality gates are the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI on Ubuntu, Windows and macOS.
+The repository carries a [Claude Code](https://claude.com/claude-code) workflow: project rules in `CLAUDE.md` (and one per package), agents in `.claude/agents/` (architect, ui-designer, developer, tester, reviewer, documentation), skills in `.claude/skills/` (`/feature`, `/build-roadmap`, `/release`, `/add-fixture`, `/add-decision`), and hooks that keep secrets and `main` safe. Every change goes through `/feature <request or milestone>`; quality gates are the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI (one Ubuntu job: ruff, the default test suite, gitleaks).
 
 ## License
 

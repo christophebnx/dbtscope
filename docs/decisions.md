@@ -8,7 +8,7 @@ Each entry: the decision, why, and what it rules out. Do not reverse a decision 
 One tool for the interpreter, the virtual environment, dependencies and the lock file. CI runs `uv sync --locked`, so a dependency change without a lock update fails. Rejected: pip + requirements files (no lock of transitive versions), Poetry (slower, second tool).
 
 **D-002 — Lint and format with ruff; duplicate code detected with pylint `duplicate-code`.**
-Ruff runs in CI, in pre-commit and after every Claude Code edit (`.claude/hooks/format.py`). Pylint runs only its duplicate-code checker: it is the mechanical half of the one-responsibility rule (D-006); the reviewer agent covers the other half.
+Ruff runs in CI, in pre-commit and after every Claude Code edit (`.claude/hooks/format.py`). Pylint runs only its duplicate-code checker, in pre-commit (in CI until D-020): it is the mechanical half of the one-responsibility rule (D-006); the reviewer agent covers the other half.
 
 ## Code structure
 
@@ -66,3 +66,6 @@ Settled with the user on 2026-11-03. The trajectory of a table follows `ref` / `
 
 **D-019 — Browser tests carry the `browser` marker and are excluded by default; CI does not run them.**
 The page logic (universe trajectory mode first) is tested in headless Chromium with Python Playwright, under `tests/browser/`. These tests need the CDN scripts of D-014 (fetched once into the pytest cache) and a local Chromium. So, like `live` tests (invariant 5), they are excluded by `addopts` (`-m 'not live and not browser'`) and run explicitly with `uv run --group browser pytest -m browser`. Playwright sits in a separate dependency group, `browser`, which `uv sync` does not install. `playwright install` is never run by the tooling: the browser comes from `PLAYWRIGHT_BROWSERS_PATH`, or from `DBTSCOPE_CHROMIUM` (an executable path). CI does not run them: they need network access to the CDNs, a ~150 MB browser download per OS, and their timing assertions are unreliable on shared runners. They are part of the definition of done of a page milestone, run locally by the tester. Rejected: in the default suite (network, invariant 5), Node Playwright (a second runner), a CI job (cost and flakiness for little gain until the page is offline, M2).
+
+**D-020 — Minimal CI: one Ubuntu job with ruff, the default tests and a secret scan.**
+Asked by the user on 2026-11-03. `.github/workflows/ci.yml` runs one job on Ubuntu: `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest -n auto -m "not live and not browser"`, then gitleaks on the pushed history. Supersedes the CI part of D-002 (pylint `duplicate-code` now runs in pre-commit only) and the test run on Windows and macOS of the template; coverage and the `dbtscope --version` smoke step are dropped too. Why: fast, cheap feedback on what matters most. Kept: `uv sync --locked` (D-001). Accepted risk: an OS-specific bug (paths, line endings) is caught only on a developer's machine.

@@ -12,6 +12,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- CI reduced to one Ubuntu job: ruff, the default test suite and a gitleaks secret scan (D-020). Duplicate-code detection stays in pre-commit; Windows and macOS test runs and coverage are gone.
 - Command renamed from `dbt-erd` to `dbtscope`; `dbt-erd.yml`, `dbt-erd-layout.json` and the layout format are unchanged (D-013).
 - Requires Python ≥ 3.12 (was ≥ 3.10).
 - Errors (bad config, bad layout file, unknown selector field, missing manifest) print `dbtscope: error: <message>` and exit with code 1 instead of a traceback or a bare message; the page is written atomically.
