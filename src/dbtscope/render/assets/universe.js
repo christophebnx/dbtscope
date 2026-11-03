@@ -1,6 +1,31 @@
 // Universe view: every table of the project as a star, grouped into one constellation per data
 // domain. d3-force lays out the tables inside each domain, then the domains; a canvas draws it.
 // Started the first time its tab is shown.
+
+// Trajectory of one table along the lineage, a page global so it stays pure and testable.
+// lineage: [[child, parent], ...]; data flows from parent to child.
+// direction: 'up' | 'down' | 'both'; depth: 1 | 2 | 3 | Infinity.
+// -> { up: Map(index -> distance), down: Map(index -> distance) }; start is in neither map.
+// Breadth-first, so the distance is the shortest path; the seen set stops on a cycle of a malformed manifest.
+function trajectory(lineage, start, direction, depth) {
+  const parents = new Map(), children = new Map();
+  const push = (m, k, v) => { const l = m.get(k); if (l) l.push(v); else m.set(k, [v]); };
+  lineage.forEach(([child, parent]) => { push(parents, child, parent); push(children, parent, child); });
+  const walk = adj => {
+    const dist = new Map(), seen = new Set([start]);
+    let frontier = [start];
+    for (let d = 1; d <= depth && frontier.length; d++) {
+      const next = [];
+      frontier.forEach(i => (adj.get(i) || []).forEach(j => {
+        if (!seen.has(j)) { seen.add(j); dist.set(j, d); next.push(j); }
+      }));
+      frontier = next;
+    }
+    return dist;
+  };
+  return { up: direction === 'down' ? new Map() : walk(parents), down: direction === 'up' ? new Map() : walk(children) };
+}
+
 function startUniverse(DATA, lang, openInDetail, detailIds, LAYOUT) {
 const $u = id => document.getElementById('u-' + id);
 const T = {
@@ -10,7 +35,19 @@ const T = {
         domainsN: 'domains', columns: 'columns', owner: 'owner', empty: 'No table for these filters.',
         openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
         frame: 'Double-click: zoom on this domain',
+        trajectory: 'Trajectory', trajFound: 'Trajectory of the table found', trajOf: 'Trajectory of',
+        direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream',
+        d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
+        countUp: n => `${n} upstream`, countDown: n => `${n} downstream`,
+        noLineage: 'No upstream or downstream table', noUp: 'No upstream table', noDown: 'No downstream table',
+        brought: n => n === 1 ? '1 table brought back by the trajectory' : `${n} tables brought back by the trajectory`,
+        hiddenN: n => n === 1 ? '1 hidden by the filters' : `${n} hidden by the filters`,
+        lgStart: 'start', leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
+        fitTraj: 'Frame the trajectory', tipStart: 'Start of the trajectory',
+        tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}`,
+        clickTraj: 'Click: show its trajectory',
         hint: 'Wheel: zoom · drag the background to pan · drag a table, or a domain by its name, to arrange them · '
+            + 'click a table to see its trajectory (Esc to leave) · '
             + 'double-click a domain to zoom in, a table to open its detail' },
   fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', both: 'les deux', detail: 'Tables',
         names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', kinds: 'Types', domains: 'Domaines',
@@ -18,7 +55,19 @@ const T = {
         domainsN: 'domaines', columns: 'colonnes', owner: 'propriétaire', empty: 'Aucune table pour ces filtres.',
         openDetail: 'Double-clic : ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic : zoomer',
         frame: 'Double-clic : cadrer ce domaine',
+        trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
+        direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval',
+        d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
+        countUp: n => `${n} en amont`, countDown: n => `${n} en aval`,
+        noLineage: 'Aucune table en amont ni en aval', noUp: 'Aucune table en amont', noDown: 'Aucune table en aval',
+        brought: n => n === 1 ? '1 table ramenée par la trajectoire' : `${n} tables ramenées par la trajectoire`,
+        hiddenN: n => n === 1 ? '1 masquée par les filtres' : `${n} masquées par les filtres`,
+        lgStart: 'départ', leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
+        fitTraj: 'Cadrer la trajectoire', tipStart: 'Départ de la trajectoire',
+        tipUp: d => `En amont, niveau ${d}`, tipDown: d => `En aval, niveau ${d}`,
+        clickTraj: 'Clic : afficher sa trajectoire',
         hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
+            + 'clic sur une table : sa trajectoire (Échap pour quitter) · '
             + 'double-clic sur un domaine pour le cadrer, sur une table pour son détail' },
 }[lang];
 
@@ -46,6 +95,11 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const layoutCache = new Map();
 let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], domains = [], routes = [], tree = null;
 let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0 };
+// trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
+const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
+const DEPTH = { d1: 1, d2: 2, d3: 3, dall: Infinity };
+let traj = null, layoutRuns = 0;   // layoutRuns: read by the test hook only
+const bar = $u('trajbar'), live = $u('tj-live');
 
 // ---------------------------------------------------------------- controls
 const options = (el, values, current) => {
@@ -82,13 +136,24 @@ $u('none').onclick = () => { state.domains.clear(); refreshPanel(); relayout(); 
 $u('toggle').onclick = () => { $u('panel').classList.toggle('closed'); resize(); fit(false); };
 $u('fit').onclick = () => fit(true);
 $u('names').innerHTML = N.map(n => `<option value="${esc(n.name)}">`).join('');
-$u('q').onchange = ev => {
-  const n = N.find(n => n.name.toLowerCase() === ev.target.value.trim().toLowerCase());
-  if (!n) return;
-  if (!P[n.i]) {  // filtered out: bring its domain, layer and type back first
+// a table by its exact name, case-insensitive (search box, Trajectory button)
+const findByName = text => { const q = String(text).trim().toLowerCase(); return N.find(n => n.name.toLowerCase() === q); };
+// tick back on the domain, layer and type of every listed table that is filtered out; recompute once
+// if anything changed; returns how many of the listed tables were hidden
+function reveal(indices) {
+  let count = 0;
+  indices.forEach(i => {
+    if (P[i]) return;
+    const n = N[i]; count++;
     state.domains.add(n.domain); state.layers.add(n.layer); state.kinds.add(n.kind);
-    refreshPanel(); relayout();
-  }
+  });
+  if (count) { refreshPanel(); relayout(); }
+  return count;
+}
+$u('q').onchange = ev => {
+  const n = findByName(ev.target.value);
+  if (!n) return;
+  reveal([n.i]);
   found = n.i;
   zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5));
 };
@@ -125,6 +190,7 @@ function separate(ns, pad = 4) {
 
 // ---------------------------------------------------------------- layout
 function layout() {
+  layoutRuns++;
   const t0 = performance.now();
   visible = N.filter(n => state.domains.has(n.domain) && state.layers.has(n.layer) && state.kinds.has(n.kind));
   const vis = new Set(visible.map(n => n.i));
@@ -222,8 +288,23 @@ function layoutDomain(members) {
 
 // ---------------------------------------------------------------- drawing
 const C = { bg: '#f5f6f8', text: '#1f2933', muted: '#6b7280', card: '#ffffff', route: 'rgba(71,85,105,.22)',
-            arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)' };
+            arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
+            up: '#6d28d9', down: '#c2410c' };   // trajectory: upstream (dashed marks), downstream (solid marks)
+const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of domains holding none of it
+stage.style.setProperty('--traj-up', C.up); stage.style.setProperty('--traj-down', C.down);
 const FONT = '"Segoe UI", Arial, sans-serif';
+
+// filled arrowhead at 55 % of the segment a -> b, pointing at b, in the current fill style
+function arrowHead(ax, ay, bx, by, size) {
+  const ang = Math.atan2(by - ay, bx - ax), mx = ax + (bx - ax) * 0.55, my = ay + (by - ay) * 0.55;
+  ctx.beginPath(); ctx.moveTo(mx + Math.cos(ang) * size, my + Math.sin(ang) * size);
+  ctx.lineTo(mx + Math.cos(ang + 2.5) * size, my + Math.sin(ang + 2.5) * size);
+  ctx.lineTo(mx + Math.cos(ang - 2.5) * size, my + Math.sin(ang - 2.5) * size); ctx.fill();
+}
+// role of a table in the trajectory: 'start' | 'up' | 'down' | null (a table in both maps is drawn as upstream)
+const roleOf = i => !traj ? null : i === traj.start ? 'start' : traj.up.has(i) ? 'up' : traj.down.has(i) ? 'down' : null;
+const trajMembers = () => traj ? [traj.start, ...traj.up.keys(), ...traj.down.keys()] : [];
+const trajDist = i => i === traj.start ? 0 : Math.min(traj.up.get(i) ?? Infinity, traj.down.get(i) ?? Infinity);
 
 function draw() {
   const t0 = performance.now(), dpr = window.devicePixelRatio || 1, k = t.k, W = stage.clientWidth, H = stage.clientHeight;
@@ -236,14 +317,19 @@ function draw() {
   const [x0, y0] = t.invert([0, 0]), [x1, y1] = t.invert([W, H]);
   const inView = (x, y, w, h) => x + w / 2 > x0 && x - w / 2 < x1 && y + h / 2 > y0 && y - h / 2 < y1;
   const screen = (x, y) => [x * k + t.x, y * k + t.y];
+  // in the trajectory mode, domains holding none of its drawn tables are context only
+  const tdom = traj ? new Set(trajMembers().filter(i => P[i]).map(i => N[i].domain)) : null;
+  const ctxAlpha = d => tdom && !tdom.has(d.k) ? DIM_CTX : 1;
 
   ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
   domains.forEach(d => {
     const c = DOM[d.k].color, g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);
     g.addColorStop(0, c + '26'); g.addColorStop(1, c + '0a');
+    ctx.globalAlpha = ctxAlpha(d);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
     ctx.strokeStyle = c + '66'; ctx.lineWidth = 1.5 / k; ctx.stroke();
   });
+  ctx.globalAlpha = traj ? DIM : 1;
 
   if (k < 0.6) {  // from afar: one route per pair of domains, arrowed along the data flow
     routes.forEach(r => {
@@ -251,16 +337,12 @@ function draw() {
       ctx.strokeStyle = C.route; ctx.fillStyle = C.arrow;
       ctx.lineWidth = (1 + Math.log2(r.c)) * 1.6 / k;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      if (r.dir) {
-        const ang = Math.atan2(b.y - a.y, b.x - a.x), mx = a.x + (b.x - a.x) * 0.55, my = a.y + (b.y - a.y) * 0.55, s = 9 / k;
-        ctx.beginPath(); ctx.moveTo(mx + Math.cos(ang) * s, my + Math.sin(ang) * s);
-        ctx.lineTo(mx + Math.cos(ang + 2.5) * s, my + Math.sin(ang + 2.5) * s);
-        ctx.lineTo(mx + Math.cos(ang - 2.5) * s, my + Math.sin(ang - 2.5) * s); ctx.fill();
-      }
+      if (r.dir) arrowHead(a.x, a.y, b.x, b.y, 9 / k);
     });
   }
-  // table-level links: hidden from afar (the routes say it), faint at mid zoom, full when close
-  const near = hover != null ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
+  // table-level links: hidden from afar (the routes say it), faint at mid zoom, full when close;
+  // hover dimming is off in the trajectory mode, whose dimming replaces it
+  const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
   ctx.lineWidth = 1 / k;
   edges.forEach(([a, b]) => {
     const hl = near && (a === hover || b === hover), cross = N[a].domain !== N[b].domain;
@@ -271,32 +353,19 @@ function draw() {
 
   const cards = state.detail !== 'names' && k > 0.35;
   const labels = [];
-  visible.forEach(n => {
+  const drawTable = n => {
     const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y, b.w, b.h)) return;
-    const col = KIND[n.kind].color, mark = n.i === hover || n.i === found;
-    ctx.globalAlpha = near && !near.has(n.i) ? 0.2 : 1;
-    if (cards) {
-      const x = p.x - b.w / 2, y = p.y - b.h / 2;
-      ctx.fillStyle = C.card; ctx.fillRect(x, y, b.w, b.h);
-      ctx.strokeStyle = mark ? C.text : col; ctx.lineWidth = (mark ? 2.5 : 1) / Math.min(k, 1); ctx.strokeRect(x, y, b.w, b.h);
-      ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
-      if (k > 0.6) {
-        ctx.fillStyle = '#fff'; ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
-        ctx.font = `9px ${FONT}`;
-        b.shown.forEach((r, j) => {
-          ctx.fillStyle = r[2] ? C.text : C.muted; ctx.fillText(r[0], x + 5, y + 28 + j * 11);
-          ctx.fillStyle = '#9aa3af'; ctx.fillText(r[1], x + b.w - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
-        });
-        if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${b.more}`, x + 5, y + 28 + b.shown.length * 11); }
-      }
-    } else {
-      const r = Math.max(starR(n), 2.5 / k);
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 / k; ctx.stroke();
-      if (mark) { ctx.strokeStyle = C.text; ctx.lineWidth = 2 / k; ctx.beginPath(); ctx.arc(p.x, p.y, r + 4 / k, 0, 7); ctx.stroke(); }
-      labels.push(n);
-    }
-  });
+    const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, role = roleOf(n.i);
+    ctx.globalAlpha = traj ? (role ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1;
+    if (cards) drawCard(n, p, b, col, mark, role, k);
+    else { drawStar(n, p, col, mark, role, k); labels.push(n); }
+  };
+  if (traj) {  // trajectory tables after its edges, so arrows never cover them
+    visible.forEach(n => { if (!roleOf(n.i)) drawTable(n); });
+    ctx.globalAlpha = 1;
+    drawTrajectoryEdges(k);
+    visible.forEach(n => { if (roleOf(n.i)) drawTable(n); });
+  } else visible.forEach(drawTable);
   ctx.globalAlpha = 1;
   ctx.restore();
 
@@ -307,6 +376,7 @@ function draw() {
   ctx.textAlign = 'center';
   domains.forEach(d => {
     const dd = DOM[d.k], [sx, sy] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
+    ctx.globalAlpha = ctxAlpha(d);
     ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = dd.color;
     ctx.fillText(dd.label, sx, sy - 22);
     const w = Math.max(ctx.measureText(dd.label).width, 80) + 8;
@@ -318,26 +388,90 @@ function draw() {
     taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
     labelHits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
   });
-  if (!cards) {
-    labels.sort((a, b) => labelScore(b) - labelScore(a));
-    if (hover != null && P[hover]) labels.unshift(N[hover]);
-    let shown = 0;
-    for (const n of labels) {
-      if (shown >= 400) break;
-      const strong = labelScore(n) >= 10 || n.i === hover;
-      ctx.font = `${strong ? 600 : 400} 11px ${FONT}`;
-      const [sx, sy] = screen(P[n.i].x, P[n.i].y), r = Math.max(starR(n) * k, 2.5);
-      const w = ctx.measureText(n.name).width + 6, y = sy + r + 2;
-      if (!free(sx - w / 2, y, w, 14)) continue;
-      taken.push([sx - w / 2, y, w, 14]); shown++;
-      ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(sx - w / 2, y, w, 14);
-      ctx.fillStyle = strong ? C.text : C.muted;
-      ctx.fillText(n.name, sx, y + 11);
-    }
-  }
+  ctx.globalAlpha = 1;
+  if (!cards) drawNames(orderLabels(labels), screen, free, taken, k);
   ctx.textAlign = 'left';
   perf.draw = performance.now() - t0;
   $u('meta').textContent = `${visible.length} ${T.tables} · ${edges.length} ${T.linksN} · ${domains.length} ${T.domainsN}`;
+}
+
+// names by priority: in the trajectory mode its tables first (start, then by distance), then the hovered one, then by score
+function orderLabels(labels) {
+  labels.sort((a, b) => labelScore(b) - labelScore(a));
+  const hov = hover != null && P[hover] ? [N[hover]] : [];
+  if (!traj) return [...hov, ...labels];
+  const inT = labels.filter(n => roleOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
+  return [...inT, ...hov, ...labels.filter(n => !roleOf(n.i))];
+}
+function drawNames(labels, screen, free, taken, k) {
+  let shown = 0;
+  for (const n of labels) {
+    if (shown >= 400) break;
+    const role = roleOf(n.i);
+    const strong = role ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover;
+    ctx.font = `${strong ? 600 : 400} 11px ${FONT}`;
+    const [sx, sy] = screen(P[n.i].x, P[n.i].y), r = Math.max(starR(n) * k, 2.5);
+    const w = ctx.measureText(n.name).width + 6, y = sy + r + 2;
+    if (!free(sx - w / 2, y, w, 14)) continue;
+    taken.push([sx - w / 2, y, w, 14]); shown++;
+    ctx.globalAlpha = traj && !role ? DIM : 1;
+    ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(sx - w / 2, y, w, 14);
+    ctx.fillStyle = strong || role ? C.text : C.muted;
+    ctx.fillText(n.name, sx, y + 11);
+  }
+  ctx.globalAlpha = 1;
+}
+// a ring around a star: dashed for upstream, as on the legend
+function ring(p, r, color, width, dashed, k) {
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.setLineDash(dashed ? [5 / k, 3 / k] : []);
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function drawStar(n, p, col, mark, role, k) {
+  const far = k < 0.6, r = Math.max(starR(n), (role ? 3 : 2.5) / k);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 / k; ctx.stroke();
+  if (role === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); return; }
+  let out = 4 / k;
+  if (role) { out = (far ? 3 : 4) / k; ring(p, r + out, C[role], (far ? 1.5 : 2) / k, role === 'up', k); out += 3 / k; }
+  if (mark) ring(p, r + out, C.text, 2 / k, false, k);
+}
+function drawCard(n, p, b, col, mark, role, k) {
+  const x = p.x - b.w / 2, y = p.y - b.h / 2, mk = Math.min(k, 1);
+  ctx.fillStyle = C.card; ctx.fillRect(x, y, b.w, b.h);
+  ctx.strokeStyle = role === 'start' ? C.text : role ? C[role] : mark ? C.text : col;
+  ctx.lineWidth = (role === 'start' ? 3 : role ? 2.5 : mark ? 2.5 : 1) / mk;
+  ctx.setLineDash(role === 'up' ? [6 / mk, 3 / mk] : []);
+  ctx.strokeRect(x, y, b.w, b.h);
+  ctx.setLineDash([]);
+  if (role === 'start' || (role && mark)) {  // outer rectangle 3 px outside
+    const o = 3 / k + ctx.lineWidth / 2;
+    ctx.strokeStyle = C.text; ctx.lineWidth = 1.5 / mk; ctx.strokeRect(x - o, y - o, b.w + 2 * o, b.h + 2 * o);
+  }
+  ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
+  if (k > 0.6) {
+    ctx.fillStyle = '#fff'; ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
+    ctx.font = `9px ${FONT}`;
+    b.shown.forEach((r, j) => {
+      ctx.fillStyle = r[2] ? C.text : C.muted; ctx.fillText(r[0], x + 5, y + 28 + j * 11);
+      ctx.fillStyle = '#9aa3af'; ctx.fillText(r[1], x + b.w - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
+    });
+    if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${b.more}`, x + 5, y + 28 + b.shown.length * 11); }
+  }
+}
+// the lineage edges of the trajectory, parent -> child, at every zoom and whatever the Links selector shows
+function drawTrajectoryEdges(k) {
+  const far = k < 0.6, lw = (far ? 1.5 : 2) / k, head = (far ? 7 : 8) / k;
+  traj.edges.forEach(([c, p, dir]) => {
+    const a = P[p], b = P[c];
+    if (!a || !b) return;   // hidden by a filter changed in the mode
+    ctx.strokeStyle = C[dir]; ctx.fillStyle = C[dir]; ctx.lineWidth = lw;
+    ctx.setLineDash(dir === 'up' ? [5 / k, 3 / k] : []);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.setLineDash([]);
+    if (!far || Math.hypot(b.x - a.x, b.y - a.y) * k >= 24) arrowHead(a.x, a.y, b.x, b.y, head);
+  });
 }
 
 // ---------------------------------------------------------------- navigation
@@ -346,7 +480,7 @@ const drag = d3.drag().container(canvas).filter(ev => !ev.button)
   .subject(ev => {
     const n = t.k >= FAR ? pickAt(...t.invert([ev.x, ev.y])) : null;
     if (n) return { n, x: ev.x, y: ev.y };
-    const hit = labelHits.find(h => ev.x >= h.x && ev.x <= h.x + h.w && ev.y >= h.y && ev.y <= h.y + h.h);
+    const hit = labelAt(ev.x, ev.y);
     return hit ? { d: hit.d, x: ev.x, y: ev.y } : null;
   })
   .on('start', ev => { ev.subject.moved = false; tip.style.display = 'none'; canvas.style.cursor = 'grabbing'; })
@@ -375,20 +509,30 @@ const drag = d3.drag().container(canvas).filter(ev => !ev.button)
     draw();
   });
 const sel = d3.select(canvas).call(drag).call(zoom).on('dblclick.zoom', null);
-const TOP = 0;   // room kept free at the top of the canvas
-function fit(animate) {
-  if (!domains.length) return draw();
-  const bx0 = d3.min(domains, d => d.x - d.r), by0 = d3.min(domains, d => d.y - d.r);
-  const bx1 = d3.max(domains, d => d.x + d.r), by1 = d3.max(domains, d => d.y + d.r);
+// room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
+const top = () => traj ? bar.offsetHeight : 0;
+// frame a world-space box, at most at scale kMax
+function frame(bx0, by0, bx1, by1, animate, kMax = Infinity) {
   // domain names sit above the halos at a fixed screen size: keep that strip free at the top
-  const NAME = 46, w = stage.clientWidth, h = stage.clientHeight - TOP - NAME;
-  const k = 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0));
-  const tr = d3.zoomIdentity.translate(w / 2, TOP + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
+  const NAME = 46, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
+  const k = Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0)));
+  const tr = d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
   (animate ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
 }
+// the whole universe, or the drawn tables of the trajectory while the mode is on
+function fit(animate) {
+  const tj = trajMembers().filter(i => P[i]);
+  if (tj.length) {
+    return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y - B[i].h / 2),
+      d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].h / 2), animate, 2);
+  }
+  if (!domains.length) return draw();
+  frame(d3.min(domains, d => d.x - d.r), d3.min(domains, d => d.y - d.r),
+    d3.max(domains, d => d.x + d.r), d3.max(domains, d => d.y + d.r), animate);
+}
 function zoomTo(x, y, k) {
-  const w = stage.clientWidth, h = stage.clientHeight - TOP;
-  sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(w / 2, TOP + h / 2).scale(k).translate(-x, -y));
+  const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
+  sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(w / 2, top0 + h / 2).scale(k).translate(-x, -y));
 }
 const pick = ev => pickAt(...t.invert(d3.pointer(ev, canvas)));
 function pickAt(wx, wy) {
@@ -401,6 +545,8 @@ function pickAt(wx, wy) {
     : Math.hypot(wx - p.x, wy - p.y) <= Math.max(8, 8 / t.k);
   return hit ? n : null;
 }
+// the domain name under a screen point, if any
+const labelAt = (x, y) => labelHits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
 function domainAt(ev) {
   const [wx, wy] = t.invert(d3.pointer(ev, canvas));
   return domains.find(d => Math.hypot(wx - d.x, wy - d.y) < d.r);
@@ -410,12 +556,13 @@ canvas.addEventListener('mousemove', ev => {
   if (h !== hover) { hover = h; draw(); }
   const d = n ? null : domainAt(ev);
   const [px, py] = d3.pointer(ev, canvas);
-  canvas.style.cursor = (n && t.k >= FAR) || labelHits.some(h => px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) ? 'grab' : '';
+  canvas.style.cursor = (n && t.k >= FAR) || labelAt(px, py) ? 'grab' : '';
   if (!n && !d) { tip.style.display = 'none'; return; }
   if (n) {
+    const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
     tip.innerHTML = `<b>${esc(n.name)}</b><div class="m">${esc(DOM[n.domain].label)} · ${esc(LAYER[n.layer].label)} · ${esc(KIND[n.kind].label)} · ${n.cols.length} ${T.columns}</div>` +
-      (n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : '') +
-      `<div class="a">${t.k < FAR ? T.frame : detailIds.has(n.id) ? T.openDetail : T.zoomIn}</div>`;
+      trajTip(n.i) + (n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : '') +
+      `<div class="a">${t.k < FAR ? T.frame : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
   } else {
     const dd = DOM[d.k];
     tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${d.n} ${T.tables}${dd.owner ? ` · ${T.owner} : ${esc(dd.owner)}` : ''}</div><div class="a">${T.frame}</div>`;
@@ -436,15 +583,123 @@ canvas.addEventListener('dblclick', ev => {
     return;
   }
   const d = domainAt(ev);
-  if (d) zoomTo(d.x, d.y, 0.92 * Math.min(stage.clientWidth, stage.clientHeight - TOP) / (2 * d.r + 60));
+  if (d) zoomTo(d.x, d.y, 0.92 * Math.min(stage.clientWidth, stage.clientHeight - top()) / (2 * d.r + 60));
 });
+// single click: a table enters the trajectory mode, or moves it; the background leaves it.
+// d3-drag and d3-zoom swallow the click that ends a drag or a pan.
+canvas.addEventListener('click', ev => {
+  if (ev.detail > 1) return;   // the second click of a double-click
+  if (t.k >= FAR) {
+    const n = pick(ev);
+    if (n) { enterTrajectory(n.i); return; }
+    if (traj && !labelAt(...d3.pointer(ev, canvas))) leaveTrajectory(false);
+  } else if (traj && !domainAt(ev)) leaveTrajectory(false);
+});
+
+// ---------------------------------------------------------------- trajectory mode
+const num = v => v.toLocaleString(lang);
+// "5 upstream · 1 downstream", restricted to the direction shown
+function countsText(u, d) {
+  const dir = trajOpts.direction;
+  return dir === 'up' ? T.countUp(num(u)) : dir === 'down' ? T.countDown(num(d)) : `${T.countUp(num(u))} · ${T.countDown(num(d))}`;
+}
+function trajTip(i) {
+  if (!traj) return '';
+  if (i === traj.start) return `<div class="tj start">${T.tipStart}</div>`;
+  return (traj.up.has(i) ? `<div class="tj up">${T.tipUp(traj.up.get(i))}</div>` : '')
+    + (traj.down.has(i) ? `<div class="tj down">${T.tipDown(traj.down.get(i))}</div>` : '');
+}
+function enterTrajectory(i) {
+  const { up, down } = trajectory(DATA.lineage, i, trajOpts.direction, trajOpts.depth);
+  const tedges = [];
+  DATA.lineage.forEach(([c, p]) => {
+    if (up.has(p) && (c === i || up.has(c))) tedges.push([c, p, 'up']);
+    else if (down.has(c) && (p === i || down.has(p))) tedges.push([c, p, 'down']);
+  });
+  traj = { start: i, up, down, edges: tedges, brought: 0 };
+  bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
+  traj.brought = reveal(trajMembers());
+  const n = N[i], summary = renderBar();
+  live.textContent = `${T.trajOf} ${n.name}: ${summary}.` + (traj.brought ? ` ${T.brought(traj.brought)}.` : '');
+  draw();
+}
+function leaveTrajectory(restoreFocus) {
+  if (!traj) return;
+  const inBar = bar.contains(document.activeElement);
+  traj = null; bar.hidden = true; $u('tj-counts').open = false;
+  $u('fit').removeAttribute('title');
+  live.textContent = T.closed;
+  if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
+  draw();
+}
+// fills the bar from the current trajectory; returns the counts (or empty-state) text
+function renderBar() {
+  const n = N[traj.start], u = traj.up.size, d = traj.down.size, empty = u + d === 0;
+  $u('tj-dot').style.background = KIND[n.kind].color;
+  $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
+  const per = new Map();
+  const tally = (m, key) => m.forEach((_, j) => {
+    const c = per.get(N[j].domain) || { u: 0, d: 0 }; c[key]++; per.set(N[j].domain, c);
+  });
+  tally(traj.up, 'u'); tally(traj.down, 'd');
+  const rows = [...per].map(([k, c]) => ({ k, total: c.u + c.d, text: `${DOM[k].label}: ${countsText(c.u, c.d)}` }))
+    .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
+  $u('tj-list').replaceChildren(...rows.map(r => {
+    const li = document.createElement('li'), dot = document.createElement('i');
+    dot.style.background = DOM[r.k].color; li.append(dot, r.text);
+    return li;
+  }));
+  const sum = $u('tj-sum'), emptyText = { both: T.noLineage, up: T.noUp, down: T.noDown }[trajOpts.direction];
+  sum.textContent = countsText(u, d); sum.title = rows.map(r => r.text).join('\n');
+  $u('tj-counts').hidden = empty; $u('tj-empty').hidden = !empty;
+  $u('tj-empty').textContent = empty ? emptyText : '';
+  const hidden = trajMembers().filter(j => !P[j]).length;
+  $u('tj-hidden').textContent = hidden ? T.hiddenN(hidden) : '';
+  $u('tj-back').textContent = traj.brought ? T.brought(traj.brought) : '';
+  $u('fit').title = T.fitTraj;
+  return empty ? emptyText : sum.textContent;
+}
+bar.setAttribute('aria-label', T.trajectory);
+$u('tj-title').textContent = T.trajOf;
+$u('tj-h-dir').textContent = T.direction; $u('tj-h-depth').textContent = T.depth;
+$u('tj-l-start').textContent = T.lgStart; $u('tj-l-up').textContent = T.up; $u('tj-l-down').textContent = T.down;
+$u('tj-leave').textContent = T.leave; $u('tj-leave').title = T.leaveTitle;
+options($u('tj-dir'), ['both', 'up', 'down'], trajOpts.direction);
+options($u('tj-depth'), ['dall', 'd1', 'd2', 'd3'], 'dall');
+$u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start); };
+$u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start); };
+$u('tj-leave').onclick = () => leaveTrajectory(true);
+const trajBtn = $u('traj'), syncTrajBtn = () => { trajBtn.disabled = !findByName($u('q').value); };
+trajBtn.textContent = T.trajectory; trajBtn.title = T.trajFound;
+$u('q').addEventListener('input', syncTrajBtn); $u('q').addEventListener('change', syncTrajBtn);
+trajBtn.onclick = () => {
+  const n = findByName($u('q').value);
+  if (!n) return;
+  enterTrajectory(n.i);
+  $u('tj-dir').focus();
+};
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape' || !traj || !document.getElementById('tab-universe').classList.contains('on')) return;
+  const counts = $u('tj-counts');
+  if (counts.open) { counts.open = false; $u('tj-sum').focus(); return; }
+  if (ev.target === $u('q') || ev.target.tagName === 'SELECT') return;   // Esc belongs to the open list
+  leaveTrajectory(true);
+});
+// read-only view of the trajectory mode, for the browser tests; ids are dbt unique_ids
+function trajectoryState() {
+  const ids = m => Object.fromEntries([...(m || [])].map(([i, d]) => [N[i].id, d]));
+  return { active: !!traj, start: traj ? N[traj.start].id : null, direction: trajOpts.direction,
+    depth: trajOpts.depth === Infinity ? 'all' : trajOpts.depth, up: ids(traj && traj.up), down: ids(traj && traj.down),
+    brought: traj ? traj.brought : 0, layoutRuns };
+}
 
 function resize() {
   const dpr = window.devicePixelRatio || 1, w = stage.clientWidth, h = stage.clientHeight;
   canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   draw();
 }
-function relayout() { found = null; hover = null; layout(); fit(false); draw(); }
+// recompute the layout; the trajectory is kept (indices into N are stable, only P changes)
+function relayout() { found = null; hover = null; layout(); if (traj) renderBar(); fit(false); draw(); }
 let size = '';
 new ResizeObserver(() => {
   const s = stage.clientWidth + 'x' + stage.clientHeight;
@@ -452,5 +707,5 @@ new ResizeObserver(() => {
 }).observe(stage);
 layout(); resize(); fit(false);
 
-return { shown: () => { resize(); }, relayout };
+return { shown: () => { resize(); }, relayout, trajectoryState };
 }

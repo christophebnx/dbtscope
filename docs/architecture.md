@@ -55,6 +55,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Domain of a node (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
 | Validate an exported layout | `domain/layout.check_layout` |
 | Assemble the HTML page | `render/page.render_page` |
+| Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
+| Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Map an error to a CLI exit code and message | `cli.main` |
 | Check a commit message | `tools/check_commit_message.problems` |
