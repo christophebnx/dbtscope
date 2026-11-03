@@ -106,9 +106,40 @@ def _asset(name: str) -> str:
     return (ASSETS / name).read_text(encoding="utf-8")
 
 
-def _scripts() -> str:
-    """The `<script src>` tags of the libraries, in loading order."""
-    return "\n".join(f'<script src="{lib.url}"></script>' for lib in LIBRARIES)
+def _vendored(name: str) -> str:
+    return (VENDOR / name).read_text(encoding="utf-8")
+
+
+SCRIPT_CLOSE = re.compile(r"</(script)", re.IGNORECASE)
+
+
+def _inline(text: str) -> str:
+    """Text that cannot close its `<script>` block: `</script` becomes `<\\/script` (same JavaScript)."""
+    return SCRIPT_CLOSE.sub(r"<\\/\1", text)
+
+
+def _comment(text: str) -> str:
+    """A licence text made safe inside a `/* */` comment of an inline script."""
+    return _inline(text.strip().replace("*/", "* /"))
+
+
+def _banner(lib: Library) -> str:
+    """`/*! name version, SPDX. Licence: ... */`, with the licences of the components compiled in."""
+    sections = [f"{lib.name} {lib.version}, {lib.spdx}. Licence:\n{_comment(_vendored(lib.licence))}"]
+    sections += [
+        f"Includes {n.name} {n.version}, {n.spdx}. Licence:\n{_comment(_vendored(n.file))}"
+        for n in lib.notices
+    ]
+    return "/*! " + "\n\n".join(sections) + "\n*/"
+
+
+def _scripts(offline: bool = False) -> str:
+    """The libraries, in loading order: `<script src>` tags (CDN), or inline blocks with their licence."""
+    if not offline:
+        return "\n".join(f'<script src="{lib.url}"></script>' for lib in LIBRARIES)
+    return "\n".join(
+        f"<script>\n{_banner(lib)}\n{_inline(_vendored(lib.file))}\n</script>" for lib in LIBRARIES
+    )
 
 
 def render_page(
@@ -116,8 +147,12 @@ def render_page(
     universe: dict[str, Any],
     config: dict[str, Any],
     layout: dict[str, Any] | None = None,
+    offline: bool = False,
 ) -> str:
-    """Return page.html with its scripts, the data of both views and the saved manual layout."""
+    """Return page.html with its scripts, the data of both views and the saved manual layout.
+
+    `offline` embeds the vendored libraries (and their licences) instead of loading them from the CDNs.
+    """
     payload = json.dumps(
         {
             "title": config["title"],
@@ -132,7 +167,7 @@ def render_page(
     ).replace("</", "<\\/")  # "</" would close the <script> blocks the JSON and scripts are embedded in
     parts = {
         "STYLE": _asset("page.css"),
-        "SCRIPTS": _scripts(),
+        "SCRIPTS": _scripts(offline),
         "DETAIL_JS": _asset("detail.js"),
         "UNIVERSE_JS": _asset("universe.js"),
         "BOOT_JS": _asset("boot.js"),

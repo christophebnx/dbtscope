@@ -25,6 +25,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
 uv run dbtscope --version                 # the CLI
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
+uv run dbtscope --project-dir <dbt project> --no-parse --no-open --offline   # self-contained page, no network
 ```
 
 Browser tests need no network (the page's libraries are served from `src/dbtscope/render/vendor/`, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).

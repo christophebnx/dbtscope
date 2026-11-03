@@ -24,6 +24,7 @@ This runs `dbt parse` (no warehouse connection), writes `erd_output/erd.html` an
 | `--no-parse` | reuse the existing `target/manifest.json` |
 | `--manifest FILE` | read this manifest instead (implies no parse) |
 | `--no-open` | don't open the browser (CI) |
+| `--offline` | embed the JavaScript libraries: the page works with no network (or `offline: true` in the config) |
 | `--dbt EXE` | dbt executable (default: `dbt`) |
 
 `dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12 and PyYAML.
@@ -76,7 +77,11 @@ Both tabs let you drag things where you want them:
 
 Every move is saved in the browser at once. To share an arrangement with the team, click **Export layout** (top right), save the file as `dbt-erd-layout.json` next to `dbt_project.yml` and commit it: `dbtscope` embeds it in every page it generates (`layout_file` in the config to use another path). Whichever copy was saved last wins, the browser's or the file's. **Import layout** loads such a file into the page; **Reset layout** forgets the arrangement of the current tab.
 
-The page holds the structure only (table and column names, descriptions), no data. It loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render.
+The page holds the structure only (table and column names, descriptions), no data. By default it loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render.
+
+### Offline page
+
+With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices: d3 (ISC), Viz.js (MIT), svg-pan-zoom (BSD-2-Clause), and Graphviz 2.40.1 (EPL-1.0) and Expat 2.2.5 (MIT), which Viz.js compiles into `full.render.js`; the licence files ship in the package. Graphviz source: <https://gitlab.com/graphviz/graphviz> (tag `2.40.1`).
 
 ## Configuration
 
@@ -89,6 +94,7 @@ output: erd_output/erd.html   # relative to the dbt project
 language: en                  # en | fr
 view: universe                # tab shown at opening: universe | detail
 layout_file: dbt-erd-layout.json   # arrangement exported from the page, embedded when present
+offline: false                # true: embed the libraries, the page needs no network (~2.5 MB more)
 
 # detail view
 select: ["*_hub", "*_link", "*_sat"]
@@ -184,7 +190,7 @@ The page itself is tested in headless Chromium with Playwright (`tests/browser/`
 uv run --group browser pytest -q -m browser tests/browser
 ```
 
-They need internet access the first time (the CDN scripts are then cached in `.pytest_cache`) and a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (path to the executable). On a dev machine without one, run `uv run --group browser playwright install chromium` once.
+They need no network (the page's libraries are served from their vendored copies, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (path to the executable). On a dev machine without one, run `uv run --group browser playwright install chromium` once.
 
 Layout of the code (details in `docs/architecture.md`):
 
@@ -192,7 +198,8 @@ Layout of the code (details in `docs/architecture.md`):
 |---|---|
 | `src/dbtscope/domain/` | Pure rules: selectors, manifest parsing, config validation, data of both views |
 | `src/dbtscope/storage/` | Reads the manifest, `dbt-erd.yml`, presets and layout; atomic file writer |
-| `src/dbtscope/render/` | `render_page` and the page assets: `page.html`, `page.css`, `boot.js`, `universe.js` (d3-force + canvas), `detail.js` (Graphviz via Viz.js) |
+| `src/dbtscope/render/` | `render_page` and the page assets: `page.html`, `page.css`, `boot.js`, `universe.js` (d3-force + canvas), `detail.js` (Graphviz via Viz.js); `vendor/`: the libraries embedded by `--offline` and their licences |
+| `tools/vendor_libraries.py` | Refreshes `render/vendor/` from the CDN URLs of `render/page.LIBRARIES` (`--check` verifies the hashes) |
 | `src/dbtscope/presets/` | Built-in presets: `data_vault.yml`, `star_schema.yml` |
 | `src/dbtscope/cli.py` | The `dbtscope` command |
 | `docs/` | `architecture.md`, `decisions.md`, `roadmap.md`, `progress.md`, `brief-universe-view.md` |

@@ -1,7 +1,11 @@
+import re
+
+import pytest
 from conftest import page_data
 
 from dbtscope.domain.config import merge_config
-from dbtscope.render.page import render_page
+from dbtscope.render import page as page_module
+from dbtscope.render.page import LIBRARIES, VENDOR, render_page
 
 DETAIL = {"title": "x", "lang": "en", "grouped": False, "kinds": [], "relations": [], "entities": []}
 
@@ -61,3 +65,35 @@ def test_title_with_a_placeholder_is_not_substituted() -> None:
     page = render_page(DETAIL, {"nodes": []}, merge_config({}, {"title": "{{DATA}}"}))
     assert "<title>{{DATA}}</title>" in page
     assert page_data(page)["title"] == "{{DATA}}"
+
+
+def _offline_page() -> str:
+    return render_page(DETAIL, {"nodes": []}, merge_config({}, {}), offline=True)
+
+
+def test_offline_page_embeds_every_library_in_order() -> None:
+    page = _offline_page()
+    assert not re.search(r"<script[^>]*\bsrc=", page, re.IGNORECASE)
+    assert all(lib.url not in page for lib in LIBRARIES)
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+    positions = [page.index(f"/*! {lib.name} {lib.version}, {lib.spdx}. Licence:") for lib in LIBRARIES[:2]]
+    positions.append(page.index("Includes Graphviz 2.40.1, EPL-1.0. Licence:"))
+    positions.append(page.index("/*! svg-pan-zoom 3.6.1, BSD-2-Clause. Licence:"))
+    positions.append(page.index("// Detail view"))
+    assert positions == sorted(positions)
+    for lib in LIBRARIES:
+        first = (VENDOR / lib.licence).read_text(encoding="utf-8").strip().splitlines()[0]
+        assert first in page
+    assert "Includes Expat 2.2.5, MIT. Licence:" in page
+    assert page_data(page)["title"] == "dbt ERD"
+    # minified libraries hold "{{" of their own: check no placeholder of the shell is left
+    for name in ("STYLE", "SCRIPTS", "DETAIL_JS", "UNIVERSE_JS", "BOOT_JS", "TITLE", "DATA"):
+        assert "{{" + name + "}}" not in page
+
+
+def test_inlined_libraries_cannot_close_their_script(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(page_module, "_vendored", lambda name: 'var a = "</script>", b = "</SCRIPT"; /* */')
+    page = _offline_page()
+    assert '"<\\/script>"' in page and '"<\\/SCRIPT"' in page
+    assert "* /" in page  # a licence cannot end the banner comment early
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))

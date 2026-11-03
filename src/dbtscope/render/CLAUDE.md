@@ -3,7 +3,7 @@
 - Builds the single self-contained HTML page from the view data computed in `domain/`. No business rule here: what is drawn, grouped and coloured is decided in `domain/detail.py` and `domain/universe.py`.
 - Imports allowed: the standard library and `domain`. Reads its own assets through `importlib.resources`, never from the working directory.
 - The page lays itself out in the browser (d3-force + canvas for the universe, Graphviz via Viz.js for the detail); Python only embeds the data as JSON.
-- Any `</` in the embedded JSON is escaped, so data can never close a `<script>` block.
+- Any `</` in the embedded JSON is escaped, so data can never close a `<script>` block. Every `</script` of an inlined library (and of its licence banner) is escaped as `<\/script`; a vendored file must hold neither `<!--` nor `<script` (`tests/unit/test_vendor.py`).
 - The JS writes and reads the layout format `dbt-erd-layout` (`domain/layout.LAYOUT_FORMAT`) and the localStorage key `dbt-erd-layout:<title>`: change them only with a decision that supersedes D-013.
 - UI strings live in the tables at the top of each script (`L` in boot.js, `T` in universe.js and detail.js), in every supported language (`en`, `fr`).
 - Names and descriptions from the manifest are untrusted: set them with `textContent` / `title`, or pass them through `esc` before any `innerHTML`.
@@ -14,7 +14,7 @@
 
 | Module | Owns |
 |---|---|
-| `page.py` | `render_page(detail, universe, config, layout)`: assembles `assets/page.html` with its CSS, scripts and the JSON payload, in one substitution pass. `LIBRARIES` (`Library`, `Notice`): the one list of the page's JavaScript libraries (CDN URL, vendored file, licence, sha256); `_scripts` writes their tags into `{{SCRIPTS}}` |
+| `page.py` | `render_page(detail, universe, config, layout, offline=False)`: assembles `assets/page.html` with its CSS, scripts and the JSON payload, in one substitution pass. `LIBRARIES` (`Library`, `Notice`): the one list of the page's JavaScript libraries (CDN URL, vendored file, licence, sha256); `_scripts(offline)` writes into `{{SCRIPTS}}` either their `<script src>` tags or, offline, one inline block per library with its licence banner |
 | `vendor/` | The libraries of `LIBRARIES` at the exact CDN bytes, their licences (and those of Graphviz and Expat, compiled into `full.render.js`), `README.md` (provenance). Written only by `tools/vendor_libraries.py`, never edited by hand; `-text` in `.gitattributes` |
 | `assets/page.html`, `assets/page.css` | Page shell, tabs, side panels, toolbars, the trajectory bar (`#u-trajbar`, an overlay at the top of the universe canvas so the stage never resizes) |
 | `assets/boot.js` | Tabs, shared layout store (browser storage + embedded file), export / import / reset of the layout |

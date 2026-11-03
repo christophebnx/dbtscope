@@ -62,6 +62,14 @@ class Page:
     def __init__(self, page: Any) -> None:
         self.page = page
         self.errors: list[str] = []
+        self.requests: list[str] = []  # every URL the page asked for
+
+    def download(self, selector: str) -> tuple[str, bytes]:
+        """Click `selector` and return the (suggested file name, bytes) of the download it starts."""
+        with self.page.expect_download() as info:
+            self.page.click(selector)
+        download = info.value
+        return download.suggested_filename, Path(download.path()).read_bytes()
 
     def state(self) -> dict[str, Any]:
         return self.page.evaluate("views.universe.trajectoryState()")
@@ -69,7 +77,10 @@ class Page:
 
 @pytest.fixture
 def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Page]]:
-    """open_page(html_path) -> Page, with the universe view started; checks no error was reported."""
+    """open_page(html_path, viewport, scale, offline) -> Page, with the universe view started.
+
+    `scale` is the device pixel ratio. `offline` blocks every request but the page itself (no CDN
+    fulfilment, so a library that was not embedded fails the test). Checks no error was reported."""
     opened: list[Page] = []
 
     def route(r: Any) -> None:
@@ -81,13 +92,23 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
         else:
             r.abort()
 
-    def _open(html: Path, viewport: dict[str, int] | None = None) -> Page:
-        context = browser.new_context(viewport=viewport or VIEWPORT)
+    def _open(
+        html: Path, viewport: dict[str, int] | None = None, scale: float = 1, offline: bool = False
+    ) -> Page:
+        context = browser.new_context(
+            viewport=viewport or VIEWPORT, device_scale_factor=scale, accept_downloads=True
+        )
         page = context.new_page()
         wrapped = Page(page)
         page.on("console", lambda m: m.type == "error" and wrapped.errors.append(m.text))
         page.on("pageerror", lambda e: wrapped.errors.append(str(e)))
-        page.route("**/*", route)
+        page.on("request", lambda r: wrapped.requests.append(r.url))
+        if offline:
+            context.set_offline(True)
+            own = html.as_uri()
+            page.route("**/*", lambda r: r.continue_() if r.request.url == own else r.abort())
+        else:
+            page.route("**/*", route)
         page.goto(html.as_uri())
         page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
         opened.append(wrapped)
@@ -101,13 +122,14 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
 
 
 @pytest.fixture
-def build_page(dbt_project: Path) -> Callable[[str], tuple[Path, dict[str, Any]]]:
-    """Generate the shop page with an optional `dbt-erd.yml`; return it and its embedded payload."""
+def build_page(dbt_project: Path) -> Callable[..., tuple[Path, dict[str, Any]]]:
+    """Generate the shop page with an optional `dbt-erd.yml` and extra CLI arguments (`--offline`);
+    return it and its embedded payload."""
 
-    def build(config: str = "") -> tuple[Path, dict[str, Any]]:
+    def build(config: str = "", *args: str) -> tuple[Path, dict[str, Any]]:
         if config:
             (dbt_project / "dbt-erd.yml").write_text(config, encoding="utf-8")
-        assert cli.main(["--project-dir", str(dbt_project), "--no-parse", "--no-open"]) == 0
+        assert cli.main(["--project-dir", str(dbt_project), "--no-parse", "--no-open", *args]) == 0
         html = dbt_project / "erd_output" / "erd.html"
         text = html.read_text(encoding="utf-8")
         data = json.loads(text.split('<script type="application/json" id="data">')[1].split("</script>")[0])

@@ -14,7 +14,7 @@ cli.run
   domain/detail.select + detail_data    ERD payload (selected tables, relations, kinds, key columns)
   domain/universe.universe_data         universe payload (every table: domains, layers, kinds, relations, lineage)
   storage/project_files.read_layout     dbt-erd-layout.json, if present -> domain/layout.check_layout
-  render/page.render_page               one HTML page: assets + JSON payload
+  render/page.render_page               one HTML page: assets + JSON payload (+ vendored libraries with --offline)
   storage/files.atomic_write            erd_output/erd.html, then the browser opens it
 ```
 
