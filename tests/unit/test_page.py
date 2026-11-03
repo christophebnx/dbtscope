@@ -97,3 +97,20 @@ def test_inlined_libraries_cannot_close_their_script(monkeypatch: pytest.MonkeyP
     assert '"<\\/script>"' in page and '"<\\/SCRIPT"' in page
     assert "* /" in page  # a licence cannot end the banner comment early
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_page_has_the_export_controls() -> None:
+    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    for marker in (
+        'id="u-export"',
+        'id="d-export-png"',
+        'id="d-export-svg"',
+        'id="export-live" role="status" aria-live="polite"',
+        "const EXPORT =",
+        "function svgImage(",
+        "function image(",
+    ):
+        assert marker in page
+    # the controls live in the toolbars, never in the drawn area
+    for box in page.split('class="canvas-box"')[1:]:
+        assert "export" not in box.split("</section>", 1)[0]

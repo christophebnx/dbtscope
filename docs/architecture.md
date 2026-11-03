@@ -60,6 +60,10 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
+| Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
+| Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
+| Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
+| Visible detail diagram as a standalone SVG | `render/assets/detail.js svgImage` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Map an error to a CLI exit code and message | `cli.main` |
 | Check a commit message | `tools/check_commit_message.problems` |

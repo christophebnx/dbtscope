@@ -68,6 +68,10 @@ Layers follow the data flow from left to right inside each domain. Without `laye
 - Opens on the largest group. When more than 12 tables are referenced by nothing else (links, satellites, facts), they are spread over three columns instead of one endless one.
 - Zoom with the wheel, drag the background to pan, click a table to highlight its links, search to highlight by name.
 
+### Export image
+
+Each tab's toolbar ends with **Export image**: **PNG** in the universe, **PNG** and **SVG** in the detail. The image is exactly the drawing on screen (zoom, filters, detail level, search mark, highlight, trajectory dimming), on the page background, without the panels, toolbars, the trajectory bar or tooltips. PNGs are at twice the screen resolution (less on very large screens, to stay within browser canvas limits); the SVG holds only the tables and links in the visible area and opens on its own in a browser, a slide or a doc tool. Files are named `<page title>-universe.png`, `<page title>-detail.png` and `<page title>-detail.svg`, the title reduced to letters, digits, `-` and `_`. The buttons are disabled while the view has nothing drawn.
+
 ### Manual arrangement
 
 Both tabs let you drag things where you want them:
