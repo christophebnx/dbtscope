@@ -1,11 +1,13 @@
 [project]
 name = "dbtscope"
-version = "0.1.0"
+version = "0.2.0"
 description = "Interactive map of a dbt project: domain universe and ERD, from the manifest."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.scripts]
 dbtscope = "dbtscope.cli:main"

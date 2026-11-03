@@ -1,0 +1,18 @@
+# Data Vault 2.0 naming: <entity>_hub, <a>_<b>_link, <entity>_sat, ...
+# Only the core is selected by default; reference tables and business vault
+# objects have a kind so that a project can add them to `select`.
+title: Raw vault
+group_by: schema
+key_columns: "^(hk_|hd_)"
+select: ["*_hub", "*_link", "*_nhlink", "*_sal", "*_sat", "*_nhsat", "*_masat", "*_effsat"]
+exclude: ["vw_*", "stg_*"]
+kinds:
+  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
+  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
+  - {key: nhlink, label: NH link, color: "#1f8a8a", match: ["*_nhlink"]}
+  - {key: sal, label: Same-as link, color: "#8e5bb5", match: ["*_sal"]}
+  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat", "*_nhsat", "*_masat", "*_effsat"]}
+  - {key: refhub, label: Ref hub, color: "#5b7fa6", match: ["*_refhub"]}
+  - {key: refsat, label: Ref sat, color: "#a8924a", match: ["*_refsat"]}
+  - {key: pit, label: PIT, color: "#b5651d", match: ["*_pit"]}
+  - {key: bridge, label: Bridge, color: "#8a5a44", match: ["*_bridge"]}

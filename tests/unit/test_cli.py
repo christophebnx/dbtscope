@@ -1,27 +1,106 @@
+import json
+import subprocess
+from pathlib import Path
+
 import pytest
+from conftest import page_data, write_config
 
 from dbtscope import __version__
 from dbtscope.cli import main
 
-
-def test_hello_prints_a_greeting(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["hello", "Ada"]) == 0
-    assert capsys.readouterr().out == "Hello, Ada!\n"
+OFFLINE = ["--no-parse", "--no-open"]
 
 
-def test_domain_error_exits_1(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["hello", " "]) == 1
-    assert capsys.readouterr().err == "dbtscope: error: name is empty\n"
+def test_writes_a_self_contained_page(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = dbt_project / "out" / "erd.html"
+    args = ["--project-dir", str(dbt_project), "--preset", "star_schema", "--view", "detail", "-o", str(out)]
+    assert main([*args, *OFFLINE]) == 0
+    page = out.read_text(encoding="utf-8")
+    assert "<title>Star schema</title>" in page
+    data = page_data(page)
+    assert data["view"] == "detail"
+    assert len(data["detail"]["entities"]) == 4 and len(data["detail"]["relations"]) == 3
+    assert len(data["universe"]["nodes"]) == 6
+    report = capsys.readouterr().out
+    assert "universe: 6 tables in 4 domains, 4 relations, 5 lineage links" in report
+    assert "detail:   4 tables (2 Fact, 2 Dimension), 3 relations" in report
 
 
-def test_no_command_exits_2(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main([]) == 2
-    assert "usage:" in capsys.readouterr().err
+def test_default_output_is_in_the_project(dbt_project: Path) -> None:
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 0
+    assert (dbt_project / "erd_output" / "erd.html").is_file()
 
 
-def test_unknown_command_exits_2() -> None:
+def test_embeds_exported_layout(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    layout = {
+        "format": "dbt-erd-layout",
+        "version": 1,
+        "savedAt": "2026-11-03T10:00:00Z",
+        "universe": {"names": {"domains": {"sales": [10, 20]}, "nodes": {}}},
+    }
+    (dbt_project / "dbt-erd-layout.json").write_text(json.dumps(layout), encoding="utf-8")
+    out = dbt_project / "erd.html"
+    assert main(["--project-dir", str(dbt_project), "-o", str(out), *OFFLINE]) == 0
+    page = out.read_text(encoding="utf-8")
+    assert page_data(page)["layout"] == layout
+    assert "const LAYOUT" in page
+    assert "saved 2026-11-03T10:00:00Z" in capsys.readouterr().out
+
+    (dbt_project / "dbt-erd-layout.json").write_text('{"nodes": []}', encoding="utf-8")
+    assert main(["--project-dir", str(dbt_project), "-o", str(out), *OFFLINE]) == 1
+    assert "is not a layout exported by the page" in capsys.readouterr().err
+
+
+def test_errors_exit_1(tmp_path: Path, dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--project-dir", str(tmp_path / "nowhere"), *OFFLINE]) == 1
+    assert capsys.readouterr().err.startswith("dbtscope: error: No dbt_project.yml in ")
+
+    write_config(dbt_project, "view: map\n")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    assert "view must be" in capsys.readouterr().err
+
+    write_config(dbt_project, "select: ['nothing_*']\nuniverse: {select: ['nothing_*']}\n")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    assert "No node matches the selection" in capsys.readouterr().err
+
+    write_config(dbt_project, "select: ['colour:red']\n")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    assert "unknown selector field" in capsys.readouterr().err
+
+    (dbt_project / "target" / "manifest.json").unlink()
+    (dbt_project / "dbt-erd.yml").unlink()
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    assert "Manifest not found" in capsys.readouterr().err
+
+
+def test_missing_dbt_executable(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--project-dir", str(dbt_project), "--no-open", "--dbt", "no-such-dbt-exe"]) == 1
+    assert "`no-such-dbt-exe` not found on PATH" in capsys.readouterr().err
+
+
+def test_runs_dbt_parse_in_the_project(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls = []
+
+    def fake_run(command: list[str], cwd: Path, check: bool) -> subprocess.CompletedProcess[bytes]:
+        calls.append((command, cwd))
+        return subprocess.CompletedProcess(command, 0 if len(calls) == 1 else 2)
+
+    monkeypatch.setattr("dbtscope.cli.shutil.which", lambda exe: exe)
+    monkeypatch.setattr("dbtscope.cli.subprocess.run", fake_run)
+    opened = []
+    monkeypatch.setattr("dbtscope.cli.webbrowser.open", opened.append)
+    assert main(["--project-dir", str(dbt_project)]) == 0
+    assert calls == [(["dbt", "parse"], dbt_project.resolve())]
+    assert opened == [(dbt_project / "erd_output" / "erd.html").resolve().as_uri()]
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 1
+    assert "dbt parse failed." in capsys.readouterr().err
+
+
+def test_bad_option_exits_2() -> None:
     with pytest.raises(SystemExit) as exit_info:
-        main(["nope"])
+        main(["--view", "map"])
     assert exit_info.value.code == 2
 
 

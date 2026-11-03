@@ -1,4 +1,4 @@
-"""dbtscope: TODO(project) one-line description."""
+"""dbtscope: interactive map of a dbt project (domain universe and ERD), from the manifest."""
 
 from importlib.metadata import PackageNotFoundError, version
 

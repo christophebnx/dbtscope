@@ -17,6 +17,7 @@ PACKAGE = Path(__file__).resolve().parents[2] / "src" / PACKAGE_NAME
 ALLOWED: dict[str, set[str]] = {
     "domain": set(),
     "storage": {"domain"},
+    "render": {"domain"},
 }
 
 
