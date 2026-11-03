@@ -114,3 +114,49 @@ def test_page_has_the_export_controls() -> None:
     # the controls live in the toolbars, never in the drawn area
     for box in page.split('class="canvas-box"')[1:]:
         assert "export" not in box.split("</section>", 1)[0]
+
+
+# ---------------------------------------------------------------- M2 acceptance gaps (tester)
+
+CDN_HOSTS = ("cdnjs.cloudflare.com", "cdn.jsdelivr.net")
+
+
+def test_offline_page_names_no_cdn_and_loads_no_remote_script() -> None:
+    page = _offline_page()
+    # every opening <script> tag is a bare inline block (or the JSON payload): nothing to fetch
+    assert set(re.findall(r"<script\b[^>]*>", page, re.IGNORECASE)) == {
+        "<script>",
+        '<script type="application/json" id="data">',
+    }
+    assert not re.search(r"<script[^>]*https?://", page, re.IGNORECASE)
+    assert not any(host in page for host in CDN_HOSTS)
+    assert not re.search(r"""\bimport\s*\(\s*["']https?://""", page)
+
+
+def test_offline_page_carries_the_graphviz_and_expat_licence_texts() -> None:
+    page = _offline_page()
+    notices = [n for lib in LIBRARIES for n in lib.notices]
+    assert {n.name for n in notices} == {"Graphviz", "Expat"}
+    for notice in notices:
+        text = (VENDOR / notice.file).read_text(encoding="utf-8").strip()
+        assert text.splitlines()[0] in page
+        assert text.splitlines()[-1].replace("*/", "* /") in page  # the whole text, not a heading
+    # banners are /*! comments, so minifiers and readers keep them
+    assert page.count("/*! ") >= len(LIBRARIES)
+
+
+def test_offline_page_escapes_script_close_in_the_data_too() -> None:
+    entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": "</SCRIPT>x"}
+    entity["columns"] = []
+    config = merge_config({}, {"title": "</script> t"})
+    page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, config, offline=True)
+    assert "</SCRIPT>x" not in page and "</script> t" not in page
+    assert page_data(page)["detail"]["entities"][0]["description"] == "</SCRIPT>x"
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_offline_page_differs_from_the_cdn_page_only_in_the_scripts() -> None:
+    cdn = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    offline = _offline_page()
+    head, tail = cdn.split(M1_SCRIPT_TAGS)
+    assert offline.startswith(head) and offline.endswith(tail)

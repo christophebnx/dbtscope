@@ -146,3 +146,29 @@ def test_invalid_offline_value_exits_1(dbt_project: Path, capsys: pytest.Capture
     write_config(dbt_project, 'offline: "yes"\n')
     assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
     assert "dbtscope: error: offline must be true or false" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["yes", "True", "on"])
+def test_offline_accepts_yaml_booleans(dbt_project: Path, value: str) -> None:
+    write_config(dbt_project, f"offline: {value}\n")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 0
+    assert _is_offline((dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("text", ["offline: 1\n", "offline:\n", "offline: [true]\n"])
+def test_offline_non_bool_in_the_file_exits_1(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str], text: str
+) -> None:
+    write_config(dbt_project, text)
+    assert main(["--project-dir", str(dbt_project), *OFFLINE, "--offline"]) == 1
+    assert "offline must be true or false" in capsys.readouterr().err
+    assert not (dbt_project / "erd_output" / "erd.html").exists()
+
+
+def test_offline_page_is_larger_and_keeps_the_payload(dbt_project: Path) -> None:
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 0
+    cdn = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE, "--offline"]) == 0
+    offline = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert len(offline.encode()) > len(cdn.encode()) + 2_000_000
+    assert page_data(offline) == page_data(cdn)

@@ -1,0 +1,122 @@
+"""Offline page (M2 criterion 1, D-021, D-022) on the synthetic `shop` project.
+
+The page is built with `--offline` (or `offline: true`) and opened with the browser offline and every
+request but the page's own `file:` URL aborted: d3, Viz.js and svg-pan-zoom must come from the page.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+pytestmark = pytest.mark.browser
+
+BG = (0xF5, 0xF6, 0xF8)  # C.bg of universe.js
+# how many pixels of the screen canvas differ from the background (the universe is drawn)
+DRAWN = f"""() => {{ const c = document.getElementById('u-canvas'), g = c.getContext('2d');
+  const d = g.getImageData(0, 0, c.width, c.height).data; let n = 0;
+  for (let i = 0; i < d.length; i += 4)
+    if (Math.abs(d[i] - {BG[0]}) + Math.abs(d[i + 1] - {BG[1]}) + Math.abs(d[i + 2] - {BG[2]}) > 30) n++;
+  return n; }}"""
+UPSTREAM = {"fct_orders", "stg_orders", "dim_customer", "dim_product", "orders"}
+
+
+def only_own_requests(p: Any, html: Any) -> None:
+    own = html.as_uri()
+    assert p.requests, "the page itself was requested"
+    assert set(p.requests) == {own}, f"requests other than the page: {set(p.requests) - {own}}"
+
+
+def check_offline_page(p: Any, html: Any) -> None:
+    p.page.wait_for_function("document.getElementById('u-meta').textContent.length > 0")
+    assert p.page.text_content("#u-meta").startswith("6 tables"), p.page.text_content("#u-meta")
+    assert p.page.evaluate(DRAWN) > 500, "the universe canvas holds only the background"
+    assert p.page.evaluate("[typeof d3.forceSimulation, typeof Viz, typeof svgPanZoom]") == ["function"] * 3
+    assert p.page.evaluate("typeof Viz.render") == "function", "full.render.js registered on Viz"
+
+    # trajectory mode from fct_returns: its whole upstream
+    p.page.fill("#u-q", "fct_returns")
+    p.page.click("#u-traj")
+    state = p.state()
+    assert state["active"] and state["start"].endswith(".fct_returns")
+    p.page.click("#u-tj-leave")
+    assert not p.state()["active"]
+
+    # detail view: Graphviz runs inline, on the main thread, with no worker and no fetch
+    p.page.click("#tabs button[data-tab=detail]")
+    p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
+    assert p.page.locator("#d-graph svg g.node").count() == 5
+    p.page.wait_for_function("!document.getElementById('d-export-svg').disabled")
+    only_own_requests(p, html)
+
+
+def upstream_names(p: Any) -> set[str]:
+    return {uid.rsplit(".", 1)[1] for uid in p.state()["up"]}
+
+
+@pytest.mark.parametrize(
+    ("config", "args"), [("", ("--offline",)), ("offline: true\n", ())], ids=["flag", "config"]
+)
+def test_offline_page_works_with_every_request_blocked(
+    build_page: Any, open_page: Any, config: str, args: tuple[str, ...]
+) -> None:
+    html, _ = build_page(config, *args)
+    p = open_page(html, offline=True)
+    check_offline_page(p, html)  # the fixture then checks no console error was reported
+
+
+def test_offline_trajectory_reaches_the_whole_upstream(build_page: Any, open_page: Any) -> None:
+    html, _ = build_page("", "--offline")
+    p = open_page(html, offline=True)
+    p.page.fill("#u-q", "fct_returns")
+    p.page.click("#u-traj")
+    assert p.page.is_visible("#u-trajbar")
+    assert upstream_names(p) == UPSTREAM
+    assert p.state()["down"] == {}
+    only_own_requests(p, html)
+
+
+def test_offline_detail_draws_every_table(build_page: Any, open_page: Any) -> None:
+    html, data = build_page("", "--offline")
+    p = open_page(html, offline=True)
+    p.page.click("#tabs button[data-tab=detail]")
+    p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
+    p.page.wait_for_function("!document.getElementById('d-export-png').disabled")
+    drawn = set(p.page.eval_on_selector_all("#d-graph svg g.node", "ns => ns.map(n => n.id)"))
+    assert drawn == {e["id"] for e in data["detail"]["entities"]} and len(drawn) == 5
+    assert p.page.locator("#d-graph svg g.edge").count() == len(data["detail"]["relations"])
+    only_own_requests(p, html)
+
+
+def test_offline_page_exports_images(build_page: Any, open_page: Any) -> None:
+    html, _ = build_page("", "--offline")
+    p = open_page(html, offline=True)
+    name, body = p.download("#u-export")
+    assert name == "dbt-ERD-universe.png" and body[:8] == b"\x89PNG\r\n\x1a\n"
+    p.page.click("#tabs button[data-tab=detail]")
+    p.page.wait_for_function("!document.getElementById('d-export-svg').disabled", timeout=30_000)
+    name, body = p.download("#d-export-svg")
+    assert name == "dbt-ERD-detail.svg" and b"<svg" in body
+    name, body = p.download("#d-export-png")
+    assert name == "dbt-ERD-detail.png" and body[:8] == b"\x89PNG\r\n\x1a\n"
+    only_own_requests(p, html)
+
+
+def test_the_blocking_is_real_the_cdn_page_cannot_start(build_page: Any, browser: Any) -> None:
+    """Negative control: the default (CDN) page opened the same way has no libraries."""
+    html, _ = build_page()
+    context = browser.new_context(viewport={"width": 1280, "height": 800})
+    try:
+        context.set_offline(True)
+        page = context.new_page()
+        errors: list[str] = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        own = html.as_uri()
+        page.route("**/*", lambda r: r.continue_() if r.request.url == own else r.abort())
+        page.goto(own)
+        page.wait_for_timeout(300)
+        assert page.evaluate("typeof d3") == "undefined"
+        assert errors, "the CDN page should fail without its libraries"
+    finally:
+        context.close()
