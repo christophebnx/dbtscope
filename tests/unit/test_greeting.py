@@ -1,7 +1,7 @@
 import pytest
 
-from template_python.domain.errors import DomainError
-from template_python.domain.greeting import NAME_LIMIT, GreetingError, greeting
+from dbtscope.domain.errors import DomainError
+from dbtscope.domain.greeting import NAME_LIMIT, GreetingError, greeting
 
 
 def test_greeting_strips_the_name() -> None:

@@ -1,7 +1,7 @@
 """Command-line entry point.
 
 Exit codes: 0 success, 1 error, 2 usage (no command, unknown command, bad option).
-Errors print `template-python: error: <message>` on stderr. Tests call `main([...])` in-process.
+Errors print `dbtscope: error: <message>` on stderr. Tests call `main([...])` in-process.
 """
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import argparse
 import sys
 from collections.abc import Sequence
 
-from template_python import __version__
-from template_python.domain.errors import DomainError
-from template_python.domain.greeting import greeting
+from dbtscope import __version__
+from dbtscope.domain.errors import DomainError
+from dbtscope.domain.greeting import greeting
 
-PROG = "template-python"
+PROG = "dbtscope"
 
 
 def build_parser() -> argparse.ArgumentParser:
