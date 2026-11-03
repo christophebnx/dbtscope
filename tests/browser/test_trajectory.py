@@ -586,3 +586,121 @@ def test_detail_level_change_in_the_mode_keeps_the_trajectory(shop_page: tuple[A
     x, y = centre(p, "fct_orders")
     p.page.mouse.click(x, y)
     assert p.state()["start"] == "model.shop.fct_orders", "a card is clicked too"
+
+
+# ---------------------------------------------------------------- review fixes (95904fb)
+
+FAR = 0.5  # universe.js: below this scale tables are not picked and a double-click frames a domain
+
+# Move the pointer over a grid of canvas points (below the bar) and sort them by what the page shows
+# there: "halo" = the domain tooltip without the grab cursor (no table, no domain label), "empty" =
+# no tooltip and no grab cursor. Synthetic mousemoves read the page's own hit-testing.
+SCAN = """([step]) => {
+  const c = document.getElementById('u-canvas'), tip = document.getElementById('u-tip');
+  const bar = document.getElementById('u-trajbar'), r = c.getBoundingClientRect();
+  const top = r.top + (bar.hidden ? 0 : bar.offsetHeight) + step;
+  const labels = new Set(PAGE.universe.domains.map(d => d.label)), out = { halo: [], empty: [] };
+  for (let y = top; y < r.bottom - step; y += step)
+  for (let x = r.left + step; x < r.right - step; x += step) {
+    c.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+    if (c.style.cursor === 'grab') continue;
+    if (tip.style.display !== 'block') { out.empty.push([x, y]); continue; }
+    const b = tip.querySelector('b'), m = tip.querySelector('.m');
+    if (b && labels.has(b.textContent) && m && !m.textContent.includes(' columns')) out.halo.push([x, y]);
+  }
+  c.dispatchEvent(new MouseEvent('mouseleave'));
+  return out;
+}"""
+
+
+def scan(p: Any, step: int = 6) -> dict[str, list[tuple[float, float]]]:
+    """{"halo": [...], "empty": [...]}: points whose four neighbours (one step away) are of the same sort."""
+    got = p.page.evaluate(SCAN, [step])
+    out = {}
+    for sort, points in got.items():
+        pts = {(x, y) for x, y in points}
+        out[sort] = [
+            (x, y) for x, y in pts if {(x + step, y), (x - step, y), (x, y + step), (x, y - step)} <= pts
+        ]
+    return out
+
+
+def zoom_out_below_far(p: Any) -> float:
+    box = p.page.locator("#u-canvas").bounding_box()
+    p.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    for _ in range(40):
+        k = p.page.evaluate(TRANSFORM)[2]
+        if k < 0.4:
+            return k
+        p.page.mouse.wheel(0, 200)
+        p.page.wait_for_timeout(50)
+    raise AssertionError(f"could not zoom out below {FAR}: k = {k}")
+
+
+@pytest.mark.parametrize("zoom", ["far", "close"])
+def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
+    shop_page: tuple[Any, dict], zoom: str
+) -> None:
+    p, _ = shop_page
+    if zoom == "close":
+        x, y = centre(p, "fct_orders")
+        p.page.mouse.click(x, y)
+        assert p.page.evaluate(TRANSFORM)[2] >= FAR
+    else:
+        enter_by_button(p, "fct_orders")
+        assert zoom_out_below_far(p) < FAR
+    assert p.state()["active"] is True
+    points = scan(p)
+    assert points["halo"], "no point on a domain halo away from tables and labels"
+    assert points["empty"], "no point on the empty background"
+    for x, y in sorted(points["halo"])[:: max(1, len(points["halo"]) // 3)][:3]:
+        p.page.mouse.click(x, y)
+        s = p.state()
+        assert s["active"] is True, f"a click on a domain halo at ({x}, {y}) left the mode ({zoom})"
+        assert s["start"] == "model.shop.fct_orders"
+    p.page.mouse.click(*points["empty"][0])
+    assert p.state()["active"] is False, f"a click on the empty background must leave ({zoom})"
+
+
+@pytest.mark.parametrize(("select", "value"), [("#u-tj-depth", "d3"), ("#u-tj-dir", "up")])
+def test_changing_an_option_reticks_a_filter_unticked_in_the_mode(
+    shop_page: tuple[Any, dict], select: str, value: str
+) -> None:
+    """Documented (design note § 2): an untick in the mode holds until the next trajectory change."""
+    p, data = shop_page
+    enter_by_button(p, "fct_returns")
+    orders = node(data, "orders")
+    kind = next(k["label"] for k in data["universe"]["kinds"] if k["key"] == orders["kind"])
+    checkbox(p, "kinds", kind).uncheck()
+    assert p.page.inner_text("#u-tj-hidden") == "1 hidden by the filters"
+    p.page.select_option(select, value)
+    s = p.state()
+    assert checkbox(p, "kinds", kind).is_checked(), "the trajectory change ticks the filter back on"
+    assert s["brought"] == 1
+    assert "orders" in names(s["up"])
+    assert p.page.inner_text("#u-tj-hidden") == ""
+    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the trajectory"
+
+
+@pytest.mark.parametrize("how", ["brought_by_the_trajectory", "filtered_then_found", "filtered_in_the_mode"])
+def test_double_click_on_a_table_back_from_the_filters_opens_detail(
+    shop_page: tuple[Any, dict], how: str
+) -> None:
+    p, data = shop_page
+    assert "model.shop.stg_orders" in {e["id"] for e in data["detail"]["entities"]}
+    key = node(data, "stg_orders")["domain"]
+    staging = next(d["label"] for d in data["universe"]["domains"] if d["key"] == key)
+    if how == "filtered_in_the_mode":
+        enter_by_button(p, "fct_returns")
+    checkbox(p, "domains", staging).uncheck()
+    if how == "brought_by_the_trajectory":
+        enter_by_button(p, "fct_returns")
+        assert p.state()["brought"] == 1
+    x, y = centre(p, "stg_orders")  # the search reveals it when it is still filtered
+    assert checkbox(p, "domains", staging).is_checked()
+    p.page.mouse.dblclick(x, y)
+    p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+    assert p.page.is_hidden("#tab-universe")
+    p.page.wait_for_function(
+        "document.getElementById('d-focus-info').textContent.includes('stg_orders')", timeout=30_000
+    )

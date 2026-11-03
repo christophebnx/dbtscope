@@ -1,7 +1,9 @@
 """Browser tests (D-019): the generated page driven in headless Chromium with Python Playwright.
 
-Skipped when Playwright is not installed (`uv sync --group browser`). Chromium is never installed by
-the tooling: it comes from `PLAYWRIGHT_BROWSERS_PATH`, or from `DBTSCOPE_CHROMIUM` (an executable path).
+Skipped when Playwright is not installed (`uv sync --group browser`): every test of this folder is
+marked skip at collection, so `pytest -m browser tests/browser` reports skips instead of crashing.
+Chromium is never installed by the tooling: it comes from `PLAYWRIGHT_BROWSERS_PATH`, or from
+`DBTSCOPE_CHROMIUM` (an executable path).
 The CDN scripts of the page (D-014) are downloaded once with `urllib` (TLS verified, proxy honoured)
 into the pytest cache and served to the page through `page.route`; every other request is aborted.
 """
@@ -17,11 +19,26 @@ from typing import Any
 
 import pytest
 
-sync_api = pytest.importorskip("playwright.sync_api")
+from dbtscope.render.page import ASSETS
 
-from dbtscope.render.page import ASSETS  # noqa: E402
+try:
+    from playwright import sync_api
+except ImportError:  # the `browser` dependency group is not installed
+    sync_api = None
 
 VIEWPORT = {"width": 1280, "height": 800}
+HERE = Path(__file__).parent
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip the browser tests cleanly when Playwright is absent (a module-level importorskip in a
+    conftest aborts the whole collection instead)."""
+    if sync_api is not None:
+        return
+    skip = pytest.mark.skip(reason="Playwright is not installed (uv sync --group browser)")
+    for item in items:
+        if HERE in item.path.parents:
+            item.add_marker(skip)
 
 
 @pytest.fixture(scope="session")
