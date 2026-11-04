@@ -144,9 +144,9 @@ def _test_relations(tests: list[RelationshipTest], tables: dict[str, Table]) -> 
         kwargs = test.test_metadata.kwargs
         child = test.attached_node
         depends = [n for n in _depends_on(test.depends_on) if n in tables]
-        parents = [n for n in depends if n != child]
         if not child and len(depends) == 2:
             child = depends[0]
+        parents = [n for n in depends if n != child]
         if child not in tables or len(parents) != 1:
             continue  # self-references and unresolved refs can't be drawn
         column = (kwargs.column_name or kwargs.from_) if kwargs else None

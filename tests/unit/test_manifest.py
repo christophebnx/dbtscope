@@ -316,11 +316,6 @@ def test_a_relationships_test_without_kwargs_key_is_kept() -> None:
     assert any(r.column == "customer_id" for r in parse_manifest(_with(test)).relations)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="app bug (pre-M3 too): manifest._test_relations computes `parents` before the "
-    "`attached_node` fallback `child = depends[0]`, so a test without attached_node is never drawn",
-)
 def test_relationships_where_and_a_test_without_attached_node() -> None:
     test = relationships_test("fct_returns", "order_ref", "fct_orders", "order_id")
     test["test_metadata"] = {"name": "relationships_where", "namespace": "dbt_utils",
