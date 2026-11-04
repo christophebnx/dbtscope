@@ -35,7 +35,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 
 ## Invariants — never violate
 
-1. **Layering.** `domain/` is pure business logic: it imports nothing from other packages of `dbtscope`, does no I/O, reads no clock or environment implicitly (pass `now`, paths and values in). Everything else may depend on `domain/`. `tests/unit/test_layering.py` enforces this.
+1. **Layering.** `domain/` is pure business logic: it imports nothing from other packages of `dbtscope` (only the standard library and declared pure libraries such as pydantic v2, D-025), does no I/O, reads no clock or environment implicitly (pass `now`, paths and values in). Everything else may depend on `domain/`. `tests/unit/test_layering.py` enforces this.
 2. **One responsibility, one implementation.** Before writing a function, check the responsibility map in `docs/architecture.md` and search the codebase. Reuse or extend; write new code only when nothing fits, and say why in your summary. Similar-looking code with a different responsibility is fine.
 3. **File writes are atomic.** Every write of a user or state file goes through `storage/files.atomic_write` (temp file + fsync + rename). No partial state on failure.
 4. **Never read secrets.** Never read `.env`, `config.toml`, `.local/credentials/`, or any real user data. Work only with `.local/dev-data/` and `tests/fixtures/`. A hook enforces this.
