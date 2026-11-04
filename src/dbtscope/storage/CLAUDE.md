@@ -11,4 +11,4 @@
 | Module | Owns |
 |---|---|
 | `files.py` | `atomic_write(path, data)`: temp file in the same folder, fsync, `os.replace`, folder fsync (POSIX) |
-| `project_files.py` | Inputs of a dbt project: `read_manifest` (→ `Project`; invalid JSON is a `ManifestError`), `load_config` (`dbt-erd.yml` + preset → `Config`), `preset_names`, `read_preset` (built-in `presets/*.yml`, a dict), `read_layout` |
+| `project_files.py` | Inputs of a dbt project: `read_manifest` (→ `Project`), `load_config` (`dbt-erd.yml` + preset → `Config`), `preset_names`, `read_preset` (built-in `presets/*.yml`, a dict), `read_layout`. `_read_json`: a JSON file that is not UTF-8, not valid JSON or nested too deeply is a one-line `ManifestError` / `LayoutError` |

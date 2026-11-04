@@ -51,3 +51,37 @@ def test_read_manifest_reports_invalid_json(tmp_path: Path) -> None:
     with pytest.raises(ManifestError) as info:
         read_manifest(path)
     assert str(info.value) == f"manifest: {path} is not valid JSON: Expecting value (line 2)"
+
+
+DEEP = b"[" * 100_000 + b"]" * 100_000
+
+
+@pytest.mark.parametrize(
+    ("data", "problem"),
+    [
+        (b'{"nodes": {"\xff": {}}}', "is not UTF-8 (invalid byte at offset 12)"),
+        (DEEP, "is nested too deeply"),
+    ],
+)
+def test_read_manifest_reports_undecodable_files(tmp_path: Path, data: bytes, problem: str) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_bytes(data)
+    with pytest.raises(ManifestError) as info:
+        read_manifest(path)
+    assert str(info.value) == f"manifest: {path} {problem}"
+
+
+@pytest.mark.parametrize(
+    ("data", "problem"),
+    [
+        (b'{"format": "\xff"}', "is not UTF-8 (invalid byte at offset 12)"),
+        (DEEP, "is nested too deeply"),
+        (b"not json", "is not valid JSON: Expecting value (line 1)"),
+    ],
+)
+def test_read_layout_reports_undecodable_files(tmp_path: Path, data: bytes, problem: str) -> None:
+    path = tmp_path / "dbt-erd-layout.json"
+    path.write_bytes(data)
+    with pytest.raises(LayoutError) as info:
+        read_layout(path)
+    assert str(info.value) == f"{path} {problem}"

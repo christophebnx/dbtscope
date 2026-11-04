@@ -74,12 +74,6 @@ def test_a_manifest_that_is_not_json(
     assert message.startswith(f"manifest: {dbt_project / 'target' / 'manifest.json'} is not valid JSON: ")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=UnicodeDecodeError,
-    reason="app bug: storage/project_files.read_manifest catches JSONDecodeError only; "
-    "a manifest that is not UTF-8 escapes as a UnicodeDecodeError traceback",
-)
 def test_a_manifest_that_is_not_utf8(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _write_manifest(dbt_project, b'{"nodes": {"\xff": {}}}')
     assert _fails_on_one_line(dbt_project, capsys).startswith("manifest: ")

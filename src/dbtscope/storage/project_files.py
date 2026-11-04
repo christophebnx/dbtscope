@@ -10,22 +10,30 @@ from typing import Any
 import yaml
 
 from dbtscope.domain.config import CONFIG_FILE, Config, ConfigError, merge_config
-from dbtscope.domain.layout import check_layout
+from dbtscope.domain.errors import DomainError
+from dbtscope.domain.layout import LayoutError, check_layout
 from dbtscope.domain.manifest import ManifestError, parse_manifest
 from dbtscope.domain.model import Project
 
 PRESETS = resources.files("dbtscope") / "presets"
 
 
+def _read_json[E: DomainError](path: Path, error: type[E], prefix: str = "") -> Any:
+    """The JSON value in the file at `path`; a file that cannot be decoded raises a one-line `error`."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as problem:
+        message = f"is not valid JSON: {problem.msg} (line {problem.lineno})"
+    except UnicodeDecodeError as problem:
+        message = f"is not UTF-8 (invalid byte at offset {problem.start})"
+    except RecursionError:
+        message = "is nested too deeply"
+    raise error(f"{prefix}{path} {message}")
+
+
 def read_manifest(path: Path) -> Project:
     """Parse the dbt `manifest.json` at `path`."""
-    try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise ManifestError(
-            f"manifest: {path} is not valid JSON: {error.msg} (line {error.lineno})"
-        ) from error
-    return parse_manifest(manifest)
+    return parse_manifest(_read_json(path, ManifestError, "manifest: "))
 
 
 def preset_names() -> list[str]:
@@ -67,8 +75,4 @@ def read_layout(path: Path) -> dict[str, Any] | None:
     """The layout exported from the page, or None when `path` does not exist."""
     if not path.is_file():
         return None
-    try:
-        layout = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        layout = None
-    return check_layout(layout, str(path))
+    return check_layout(_read_json(path, LayoutError), str(path))
