@@ -22,6 +22,7 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 - M4.2: `~` is not expanded in path options; the shell does it, so a quoted `"~/x.yml"` is read as a folder named `~`.
 - M4.2: a Ctrl-C during the imports, before `cli.main` runs, can still print a Python traceback.
 - M4.3: the GitHub Actions example of the README was not run (YAML parsed, action versions checked); the Mermaid diagrams render with mermaid-cli 11 and are to be checked on GitHub after the push.
+- CI is paused (D-032): no automatic run while development pushes are frequent. Turn it back on before relying on pull request checks; run the `all-os` manual run once to check Windows and macOS (the Windows branch of `atomic_write` is untested so far).
 
 ## Blocking question
 
