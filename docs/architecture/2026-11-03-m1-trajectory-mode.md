@@ -1,6 +1,6 @@
 # M1 — Trajectory mode of the universe view (design note)
 
-Status: APPROVED FOR AUTONOMOUS MODE. The roadmap (M1) and D-018 describe this behaviour, and no documented decision is superseded. D-019 below is a new decision. It extends invariant 5 and does not reverse it.
+Status: DONE (2026-11-03). The CDN download of the browser tests (lines 198, 205, 297) is superseded by D-022. APPROVED FOR AUTONOMOUS MODE. The roadmap (M1) and D-018 describe this behaviour, and no documented decision is superseded. D-019 below is a new decision. It extends invariant 5 and does not reverse it.
 
 ## Context
 

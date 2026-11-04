@@ -1,6 +1,6 @@
 # M3 — Typed data model with pydantic v2 (design note)
 
-Status: APPROVED FOR AUTONOMOUS MODE (implements roadmap M3 and D-024; D-025 below records the dependency change D-024 implies, it opens no new choice)
+Status: DONE (2026-11-04). Since M4.2: the CLI is Typer (line 135, D-026); manifest errors read `manifest <path>: …` (lines 195, 301, D-029). APPROVED FOR AUTONOMOUS MODE (implements roadmap M3 and D-024; D-025 below records the dependency change D-024 implies, it opens no new choice)
 
 ## Context
 

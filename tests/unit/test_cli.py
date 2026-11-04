@@ -4,24 +4,28 @@ from __future__ import annotations
 
 import errno
 import os
+import re
 import subprocess
 import sys
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
+import typer
 from conftest import NO_PARSE_NO_OPEN, page_data, write_config, write_layout, write_manifest, write_preset
 
 from dbtscope import __version__
-from dbtscope.cli import EPILOG, _count, _size, main
+from dbtscope.cli import EPILOG, _count, _size, app, main
+from dbtscope.domain.config import View
 from dbtscope.render.page import LIBRARIES
-from dbtscope.storage.project_files import CONFIG_HINT, PRESETS
+from dbtscope.storage.project_files import CONFIG_HINT, PRESETS, preset_names
 
 USAGE = "; see dbtscope --help"
 SELECTOR_FIELDS = "(expected database, name, package, path, schema, tag or type)"
 Capsys = pytest.CaptureFixture[str]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def fails(args: list[str], capsys: Capsys, code: int = 1) -> str:
@@ -92,6 +96,60 @@ def test_help_groups_the_options_and_shows_the_examples(
     for example in ("dbtscope --preset data_vault", "dbtscope --no-parse --no-open -o map.html"):
         assert any(line.strip().startswith(example) for line in lines)
     assert "--install-completion" not in text and "--no-offline" not in text and " --parse" not in text
+
+
+def command_options() -> dict[str, str]:
+    """`{option name: help panel}` of the command, `-h` / `--help` and unpanelled options in "Other"."""
+    panels = {name: "Other" for name in app.info.context_settings["help_option_names"]}
+    for param in typer.main.get_command(app).params:
+        for name in [*param.opts, *param.secondary_opts]:
+            panels[name] = getattr(param, "rich_help_panel", None) or "Other"
+    return panels
+
+
+def readme_options() -> tuple[dict[str, str], dict[str, str]]:
+    """`{option: panel}` and `{option: row}` of the table of README § Options (panel rows in bold)."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "\n## Options\n" in readme, "README.md has no `## Options` section"
+    section = readme.split("\n## Options\n")[1].split("\n## ")[0]
+    panels: dict[str, str] = {}
+    rows: dict[str, str] = {}
+    panel = ""
+    for row in (line for line in section.splitlines() if line.startswith("| ")):
+        cells = [cell.strip() for cell in row.strip("|").split("|")]
+        if re.fullmatch(r"\*\*(\w+)\*\*", cells[0]) and not any(cells[1:]):
+            panel = cells[0].strip("*")
+            continue
+        for span in re.findall(r"`([^`]*)`", cells[0]):
+            for name in re.findall(r"(?<![\w-])-{1,2}[a-z][a-z-]*", span):
+                panels[name], rows[name] = panel, row
+    return panels, rows
+
+
+def test_readme_options_match_the_command() -> None:
+    panels, rows = readme_options()
+    assert panels == command_options()
+    assert all(f"`{name}`" in rows["--preset"] for name in preset_names())
+    assert all(f"`{view}`" in rows["--view"] for view in get_args(View))
+    exit_codes = EPILOG[EPILOG.index("Exit codes:") :]
+    assert exit_codes in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def documented_options(text: str) -> list[str]:
+    """The options of every `dbtscope` call (several per line too) in the fenced blocks of a Markdown text."""
+    blocks = re.findall(r"^```[^\n]*\n(.*?)^```", text, flags=re.MULTILINE | re.DOTALL)
+    options = []
+    for line in "\n".join(blocks).splitlines():
+        for call in re.finditer(r"(?:^|[\s(])dbtscope(?=\s|$)", line):
+            words = re.split(r"\s#|[|;)]|&&", line[call.end() :])[0].split()
+            options += [word.split("=")[0] for word in words if word.startswith("-")]
+    return options
+
+
+@pytest.mark.parametrize("doc", ["README.md", "CLAUDE.md"])
+def test_documented_commands_use_real_options(doc: str) -> None:
+    options = documented_options((ROOT / doc).read_text(encoding="utf-8"))
+    assert options and set(options) <= set(command_options())
 
 
 def test_version(capsys: Capsys) -> None:

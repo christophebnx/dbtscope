@@ -2,35 +2,72 @@
 
 How the system is built. Why it is built that way: `docs/decisions.md`. Design notes of each change: `docs/architecture/`.
 
+## Where facts live
+
+Each fact has one home; other files link to it instead of copying it.
+
+| Fact | Home | Other files link to it |
+|---|---|---|
+| Options, their defaults, relative-path rules | `--help` (`cli.py`), mirrored once in README § Options and checked by `tests/unit/test_cli.py` | `CLAUDE.md` Commands, this file |
+| Streams, message form, exit codes | D-029 (contract); for users: streams in README § Options, message form and exit codes (the epilog's words) in README § Troubleshooting | this file § Overview, CHANGELOG |
+| Domain resolution order | D-015 (rule); README § Universe (users, a numbered list) | glossary, responsibility map |
+| Config keys, presets, precedence | README § Configuration; D-030 (preset rules) | this file § Configuration, `domain/CLAUDE.md` |
+| Run flow and the module of each step | this file § Overview (diagram) | README § Development |
+| Layers and allowed imports | this file § Layers (diagram and table); enforced by `tests/unit/test_layering.py` | `CLAUDE.md` invariant 1, README |
+| Developer commands, browser-test setup | `CLAUDE.md` § Commands | README § Development, agents, skills |
+| CI content | D-020 and `.github/workflows/ci.yml` | README |
+| Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | README § Offline page, roadmap M2 |
+| Page behaviour for users / for the designer | README § The page / `docs/ui-spec.md` (strings, colours, states) | — |
+| Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
+| The `/feature` workflow | `.claude/skills/feature/SKILL.md`; diagram in README § Working with Claude Code | D-007 |
+
 ## Overview
 
 `dbtscope` is a command-line tool run from (or pointed at) a dbt project. It never connects to the warehouse: everything comes from the dbt manifest (D-012). One run:
 
-```
-cli.run
-  cli._resolve                         check --project-dir, --config, --manifest, --dbt (absolute paths)
-  storage/project_files.load_config     dbt-erd.yml + preset (built-in or file) -> domain/config.merge_config -> LoadedConfig
-  cli._output                           the page path (-o, else output: of the config), checked
-  cli._dbt_parse                        dbt parse (skipped with --no-parse / --manifest; its output on stderr, D-029)
-  storage/project_files.read_manifest   target/manifest.json  -> domain/manifest.parse_manifest -> Project
-  domain/detail.select + detail_data    DetailPayload (selected tables, relations, kinds, key columns)
-  domain/universe.universe_data         UniversePayload (every table: domains, layers, kinds, relations, lineage)
-  storage/project_files.read_layout     dbt-erd-layout.json, if present -> domain/layout.check_layout
-  render/page.render_page               one HTML page: assets + JSON payload (+ vendored libraries with --offline)
-  storage/files.atomic_write            erd_output/erd.html (cli._write_page), then the browser opens it
+```mermaid
+flowchart TD
+    A["dbtscope command (cli.main)"] --> B["check the paths given (cli._resolve)"]
+    B --> C["read dbt-erd.yml and the preset (storage/project_files.load_config)"]
+    C --> D{"--no-parse or --manifest?"}
+    D -- no --> E["dbt parse in the project folder (cli._dbt_parse), its output on stderr"]
+    D -- yes --> F["manifest.json"]
+    E --> F
+    F --> G["typed model: Project (read_manifest, domain/manifest.parse_manifest)"]
+    G --> H["detail view: DetailPayload (domain/detail)"]
+    G --> I["universe view: UniversePayload (domain/universe)"]
+    L["dbt-erd-layout.json, if present (read_layout)"] --> J
+    H --> J["one HTML page (render/page.render_page)"]
+    I --> J
+    J --> K["erd_output/erd.html (storage/files.atomic_write)"]
+    K --> S["summary on stdout"]
+    S --> W["browser opens the page and lays out both views"]
 ```
 
-stdout holds only the success summary (first line: the absolute page path); progress, dbt's output, warnings and errors go to stderr. Every failure ends in `cli.main` as one line `dbtscope: error: <what happened>; <what to do>` with exit code 1 (2 for a usage error, 130 for Ctrl-C), never a traceback (D-004, D-029).
+Every failure ends in `cli.main`. Streams, message form and exit codes: D-029.
 
 Data is typed with pydantic v2 at four layers (D-024, D-025): manifest input (`domain/manifest_schema`, only the fields read), domain model (`domain/model`: `Table`, `Column`, `Relation`, `LineageEdge`, `Group`, `Project`), configuration (`domain/config`: `Config`, `Rule`, `UniverseSettings`) and page payloads (`domain/payload`, the Python → JavaScript contract). Models are frozen; a malformed manifest or configuration stops the run with one line naming the field (`domain/errors.validation_message`). The page JSON is byte for byte what it was before the models (`tests/unit/test_reference_pages.py`).
 
 The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail (D-014). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
-The page logic is tested in headless Chromium with Python Playwright, under `tests/browser/`: those tests carry the `browser` marker, are excluded by default and from CI, and run with `uv run --group browser pytest -m browser` (D-019). They need no network: the page's libraries are served from their vendored copies (D-022).
+Page tests: `tests/browser/` (D-019, D-022; commands in `CLAUDE.md`).
 
 Design brief of the universe view, with the scoping decisions and the prototype results: `docs/brief-universe-view.md`.
 
 ## Layers
+
+```mermaid
+flowchart TD
+    CLI["cli.py (Typer)"] --> ST["storage/"]
+    CLI --> R["render/"]
+    CLI --> D["domain/ (standard library and pydantic only)"]
+    ST --> D
+    R --> D
+    T["tools/vendor_libraries.py"] -.-> R
+    T -.-> ST
+```
+
+An arrow is an allowed import. `tests/unit/test_layering.py` enforces the rows of the table. `tools/` (dotted) is outside the package.
 
 | Package | Role | May import (project packages) |
 |---|---|---|
@@ -69,7 +106,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |
 | Which columns are keys | `domain/classify.key_columns` |
-| Domain key of a table (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
+| Domain key of a table (order: D-015) | `domain/universe.domain_of` |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
@@ -121,7 +158,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |
 | Classification of a table by the `kinds` rules (hub, fact…) or its built-in fallback | **kind** (`kinds`, `BuiltinKind`, `TYPE_KINDS`) | type, category | The page labels kinds "Types": UI text, frozen with the page. |
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
-| Data domain of the universe (dbt group > `meta.domain` > `domains` rules > `group_by`) | **domain** | constellation (allowed in UI prose only) | |
+| Data domain of the universe (resolution: D-015) | **domain** | constellation (allowed in UI prose only) | |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |
@@ -131,6 +168,6 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 
 ## Configuration
 
-Settings live in the analysed dbt project, not in this repository: `dbt-erd.yml` next to `dbt_project.yml` (keys in `domain/config.py` and the README), optionally starting from a preset: built-in (`--preset` or `preset: <name>`) or a YAML file (`--preset-file` or `preset: <path>`, relative to the config file's folder), validated on its own with closed keys (D-030); `dbt-erd-layout.json` holds the shared manual arrangement. Precedence: defaults < preset < file < command-line options. The tool needs no secret.
+Keys, presets and precedence: README § Configuration; preset rules: D-030; layout file: D-013. The tool needs no secret.
 
 Convention of this repository: secrets in `.env` (git-ignored, template in `.env.example`), machine-specific settings in `config.toml` (git-ignored), local runtime data in `.local/` (git-ignored; `.local/dev-data/` for development, `.local/credentials/` never read by Claude Code).
