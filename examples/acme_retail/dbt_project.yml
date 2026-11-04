@@ -1,0 +1,9 @@
+name: acme_retail
+version: "1.0.0"
+config-version: 2
+profile: acme_retail
+models:
+  acme_retail:
+    staging: {+materialized: view, +schema: staging}
+    raw_vault: {+materialized: table, +schema: raw_vault}
+    marts: {+materialized: table, +schema: marts}

@@ -1,0 +1,8 @@
+version: 2
+seeds:
+  - name: country_codes
+    description: ISO country codes
+  - name: currency_rates
+    description: Monthly conversion rates to the euro
+  - name: calendar
+    description: One row per day

@@ -12,7 +12,7 @@ Read this file at the start of every session. It is the source of truth for how 
 4. **Conventions as config**: selectors and ordered rules in `dbt-erd.yml` (kinds, domains, layers), with Data Vault and star schema presets.
 5. **Shared manual layout**: arrangements dragged in the page are exported to `dbt-erd-layout.json` and embedded in later pages.
 
-Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands), `docs/ui-spec.md` (the page's design), `docs/architecture/` (design notes), `docs/briefs/` (briefs).
+Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands), `docs/ui-spec.md` (the page's design), `docs/architecture/` (design notes), `docs/briefs/` (briefs), `examples/acme_retail/` (the example dbt project, a test input, D-033).
 
 ## Commands
 
@@ -28,6 +28,8 @@ uv run dbtscope --help                    # options by panel, examples, streams 
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open --offline   # self-contained page, no network
 uv run python tools/vendor_libraries.py --check   # vendored libraries match their sha256 (downloads nothing)
+uv run python tools/example_manifest.py --dbt <dbt>   # regenerate the example manifest (needs dbt-duckdb, D-033)
+DBTSCOPE_DBT=<dbt> uv run pytest -q tests/integration/test_example_project.py   # committed manifest == fresh dbt parse (D-033)
 ```
 
 Browser tests need no network (the page's libraries are served from `src/dbtscope/render/vendor/`, D-022) but a local Chromium, found through `PLAYWRIGHT_BROWSERS_PATH` or `DBTSCOPE_CHROMIUM` (an executable path). Never run `playwright install` from the tooling (D-019).

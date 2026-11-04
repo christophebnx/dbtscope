@@ -17,9 +17,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import NO_PARSE_NO_OPEN, page_data, write_config
+from conftest import page_of, write_config, write_example
 
-from dbtscope import cli
 from dbtscope.render.page import LIBRARIES, VENDOR
 
 try:
@@ -176,9 +175,7 @@ def build_page(dbt_project: Path) -> Callable[..., tuple[Path, dict[str, Any]]]:
     def build(config: str = "", *args: str) -> tuple[Path, dict[str, Any]]:
         if config:
             write_config(dbt_project, config)
-        assert cli.main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN, *args]) == 0
-        html = dbt_project / "erd_output" / "erd.html"
-        return html, page_data(html.read_text(encoding="utf-8"))
+        return page_of(dbt_project, *args)
 
     return build
 
@@ -187,4 +184,11 @@ def build_page(dbt_project: Path) -> Callable[..., tuple[Path, dict[str, Any]]]:
 def shop_page(build_page: Callable[..., tuple[Path, dict[str, Any]]], open_page: Callable[..., Page]) -> Shop:
     """The default shop page, opened, and its payload."""
     html, data = build_page()
+    return open_page(html), data
+
+
+@pytest.fixture
+def example_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, dict[str, Any]]:
+    """The page of the example project `acme_retail` (D-033), opened, and its payload."""
+    html, data = page_of(write_example(tmp_path / "acme_retail"))
     return open_page(html), data

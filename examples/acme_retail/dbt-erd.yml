@@ -1,0 +1,28 @@
+# dbtscope configuration (https://github.com/christophebnx/dbtscope)
+preset: data_vault
+title: ACME retail
+language: en
+view: universe
+# detail view: the raw vault and the star schema marts
+select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
+kinds:
+  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
+  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
+  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
+  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}
+  - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
+# universe view: marts take their domain from their dbt group, the vault from meta.domain;
+# staging tables and sources are placed by these rules
+domains:
+  - {key: sales, label: Sales, color: "#d9822b", match: ["type:source,schema:raw_erp,orders", "type:source,schema:raw_erp,order_lines", "type:source,schema:raw_erp,stores", "stg_erp__orders", "stg_erp__order_lines", "stg_erp__stores"]}
+  - {key: customer, label: Customer, color: "#4da3ff", match: ["type:source,schema:raw_erp,customers", "stg_erp__customers", "customers_snapshot", "country_codes"]}
+  - {key: product, label: Product, color: "#2e8b57", match: ["type:source,schema:raw_erp,products", "type:source,schema:raw_erp,suppliers", "stg_erp__products", "stg_erp__suppliers", "products_snapshot"]}
+  - {key: marketing, label: Marketing, color: "#c2549d", match: ["type:source,schema:raw_crm", "type:source,schema:raw_web", "stg_crm__*", "stg_web__*"]}
+  - {key: finance, label: Finance, color: "#c9a227", match: ["type:source,schema:raw_billing", "stg_billing__*", "currency_rates"]}
+  - {key: logistics, label: Logistics, color: "#5b7fa6", match: ["type:source,schema:raw_wms", "stg_wms__*"]}
+  - {key: shared, label: Shared, color: "#777777", match: ["calendar"]}
+layers:
+  - {key: source, label: Sources, match: ["type:source"]}
+  - {key: staging, label: Staging, match: ["path:models/staging/*", "type:seed", "type:snapshot"]}
+  - {key: vault, label: Raw vault, match: ["path:models/raw_vault/*"]}
+  - {key: marts, label: Marts, match: ["path:models/marts/*"]}

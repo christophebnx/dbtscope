@@ -1,0 +1,5 @@
+# dbt parse needs a profile, not a warehouse: this duckdb file is never queried by dbtscope.
+acme_retail:
+  target: dev
+  outputs:
+    dev: {type: duckdb, path: acme_retail.duckdb, threads: 1}

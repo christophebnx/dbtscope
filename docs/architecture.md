@@ -19,6 +19,7 @@ Each fact has one home; other files link to it instead of copying it.
 | Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | README § Offline page, roadmap M2 |
 | Page behaviour for users / for the designer | README § The page / `docs/ui-spec.md` (strings, colours, states) | — |
 | Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
+| Example project and its manifest | D-033, `tests/fixtures/acme_retail/notes.md` | README § Try it on the example project, `examples/acme_retail/README.md` |
 | The `/feature` workflow | `.claude/skills/feature/SKILL.md`; diagram in README § Working with Claude Code | D-007 |
 
 ## Overview
@@ -65,6 +66,8 @@ flowchart TD
     R --> D
     T["tools/vendor_libraries.py"] -.-> R
     T -.-> ST
+    E["tools/example_manifest.py"] -.-> CLI
+    E -.-> ST
 ```
 
 An arrow is an allowed import. `tests/unit/test_layering.py` enforces the rows of the table. `tools/` (dotted) is outside the package.
@@ -114,6 +117,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Every vendored file and where it comes from (URL, label, SPDX id, script sha256) | `render/page.vendored_files`, `VendoredFile` |
 | Script tags or inline libraries of the page | `render/page._scripts` |
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
+| Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
@@ -137,10 +141,12 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Build the `shop` test manifest and its parts (tests) | `tests/conftest.shop_manifest`, `model`, `source`, `relationships_test`; `SHOP` (id prefix) |
 | Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |
 | Write a test project and its files (tests) | `tests/conftest.write_project`, `write_manifest`, `write_config`, `write_layout`; fixtures `dbt_project`, `shop` |
+| Copy the example project with its committed manifest (tests) | `tests/conftest.write_example`, `EXAMPLE`, `EXAMPLE_MANIFEST`, `EXAMPLE_EXPECTED`, `EXAMPLE_TOOL` (paths and `LOCAL` ignore list owned by `tools/example_manifest`); fixture `example_project` |
+| Build a project's page from its manifest and read its payload (tests) | `tests/conftest.page_of` |
 | Read the embedded data block of a page (tests) | `tests/conftest.data_block` (bytes), `page_data` (dict) |
 | Import a script by path (`tools/`, `.claude/hooks/`) (tests) | `tests/conftest.load_script` |
 | CLI arguments that build from the written manifest (tests) | `tests/conftest.NO_PARSE_NO_OPEN` |
-| Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `Page` |
+| Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `example_page`, `Page` |
 | Block every request but the page's own (browser tests) | `tests/browser/conftest.only_own_url` |
 | Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `close_panel`, `scroll_width`, `names`, `names_of`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
 

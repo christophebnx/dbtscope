@@ -1,0 +1,141 @@
+version: 2
+sources:
+  - name: erp
+    description: Raw tables of the ERP system
+    schema: raw_erp
+    tables:
+      - name: customers
+        columns:
+          - name: customer_id
+          - name: name
+          - name: email
+          - name: country_code
+          - name: created_at
+      - name: orders
+        columns:
+          - name: order_id
+          - name: customer_id
+          - name: store_id
+          - name: ordered_at
+          - name: status
+      - name: order_lines
+        columns:
+          - name: order_line_id
+          - name: order_id
+          - name: product_id
+          - name: quantity
+          - name: unit_price
+      - name: products
+        columns:
+          - name: product_id
+          - name: label
+          - name: category
+          - name: supplier_id
+          - name: list_price
+      - name: suppliers
+        columns:
+          - name: supplier_id
+          - name: name
+          - name: country_code
+      - name: stores
+        columns:
+          - name: store_id
+          - name: name
+          - name: city
+          - name: country_code
+          - name: opened_at
+  - name: crm
+    description: Raw tables of the CRM system
+    schema: raw_crm
+    tables:
+      - name: contacts
+        columns:
+          - name: contact_id
+          - name: customer_id
+          - name: channel
+          - name: consent
+          - name: updated_at
+      - name: campaigns
+        columns:
+          - name: campaign_id
+          - name: name
+          - name: channel
+          - name: starts_at
+          - name: ends_at
+          - name: budget
+      - name: campaign_members
+        columns:
+          - name: campaign_id
+          - name: contact_id
+          - name: responded_at
+  - name: web
+    description: Raw tables of the WEB system
+    schema: raw_web
+    tables:
+      - name: sessions
+        columns:
+          - name: session_id
+          - name: customer_id
+          - name: campaign_id
+          - name: started_at
+          - name: device
+      - name: page_views
+        columns:
+          - name: page_view_id
+          - name: session_id
+          - name: url
+          - name: viewed_at
+  - name: billing
+    description: Raw tables of the BILLING system
+    schema: raw_billing
+    tables:
+      - name: invoices
+        columns:
+          - name: invoice_id
+          - name: order_id
+          - name: issued_at
+          - name: amount
+          - name: currency
+      - name: payments
+        columns:
+          - name: payment_id
+          - name: invoice_id
+          - name: paid_at
+          - name: amount
+          - name: method
+      - name: refunds
+        columns:
+          - name: refund_id
+          - name: payment_id
+          - name: refunded_at
+          - name: amount
+          - name: reason
+  - name: wms
+    description: Raw tables of the WMS system
+    schema: raw_wms
+    tables:
+      - name: warehouses
+        columns:
+          - name: warehouse_id
+          - name: name
+          - name: city
+          - name: country_code
+      - name: shipments
+        columns:
+          - name: shipment_id
+          - name: order_id
+          - name: warehouse_id
+          - name: carrier_id
+          - name: shipped_at
+          - name: delivered_at
+      - name: carriers
+        columns:
+          - name: carrier_id
+          - name: name
+          - name: service_level
+      - name: stock_levels
+        columns:
+          - name: warehouse_id
+          - name: product_id
+          - name: measured_at
+          - name: quantity

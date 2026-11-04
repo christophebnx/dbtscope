@@ -42,6 +42,39 @@ dbtscope --version
 
 uv provides Python ≥ 3.12 and the dependencies (PyYAML, pydantic v2, Typer) in an isolated environment, so a project pinned to pydantic v1 is not affected. `dbt` is only needed to run `dbt parse`: it must be on `PATH` (or given with `--dbt`), with the project's adapter and profile installed. No connection is made.
 
+### Private repository
+
+uv clones the repository with git, so git must be able to read it. Pick one of three ways (Windows, macOS and Linux alike):
+
+1. **GitHub CLI.** Install it (Windows: `winget install --id GitHub.cli`; macOS: `brew install gh`; Linux: your distribution's package), then:
+
+   ```bash
+   gh auth login
+   gh auth setup-git      # git now uses your GitHub CLI login for github.com
+   ```
+
+2. **SSH**, with a key added to your GitHub account:
+
+   ```bash
+   uv tool install git+ssh://git@github.com/christophebnx/dbtscope.git
+   ```
+
+3. **A fine-grained token** (only this repository, Contents read-only), in the variable `DBTSCOPE_TOKEN`. Pass it to git through environment variables, never inside the install URL: uv keeps that URL. In bash:
+
+   ```bash
+   export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.https://x-access-token:${DBTSCOPE_TOKEN}@github.com/christophebnx/dbtscope.insteadOf" GIT_CONFIG_VALUE_0="https://github.com/christophebnx/dbtscope"
+   ```
+
+   In PowerShell:
+
+   ```powershell
+   $env:GIT_CONFIG_COUNT = "1"
+   $env:GIT_CONFIG_KEY_0 = "url.https://x-access-token:$($env:DBTSCOPE_TOKEN)@github.com/christophebnx/dbtscope.insteadOf"
+   $env:GIT_CONFIG_VALUE_0 = "https://github.com/christophebnx/dbtscope"
+   ```
+
+Check the access: `git ls-remote https://github.com/christophebnx/dbtscope` (with SSH: `git ls-remote git@github.com:christophebnx/dbtscope.git`) lists the refs, with no prompt. Then install as above. `uv tool upgrade` and `uvx` use the same access.
+
 ### Run once without installing
 
 ```bash
@@ -114,6 +147,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - name: Give git access to the private dbtscope repository
+        env:
+          DBTSCOPE_TOKEN: ${{ secrets.DBTSCOPE_TOKEN }}
+        run: git config --global url."https://x-access-token:${DBTSCOPE_TOKEN}@github.com/christophebnx/dbtscope".insteadOf "https://github.com/christophebnx/dbtscope"
       - name: Install dbt and dbtscope
         run: |
           uv tool install dbt-core --with dbt-postgres   # your adapter
@@ -128,6 +165,8 @@ jobs:
           name: dbt-map
           path: erd_output/erd.html
 ```
+
+The token is a fine-grained personal access token (resource owner `christophebnx`, only the `dbtscope` repository, Contents read-only, with an expiry date), stored as the secret `DBTSCOPE_TOKEN` of your dbt repository. `actions/checkout` sets its credentials only in the checked-out repository, so it does not interfere.
 
 If a dbt job already produces `target/manifest.json`, skip the dbt install and pass that file with `--manifest`. A `profiles.yml` whose values come from `env_var()` needs those variables set, or a default, even for `dbt parse`.
 
@@ -166,6 +205,20 @@ cd shop-map; dbtscope --no-parse
 ```
 
 The file must be `dbt_project.yml`: a `dbt_project.yaml` is refused with a rename hint. `--manifest <file>` works too, but still needs a folder with `dbt_project.yml`, because the config and the layout are read from there. Add `dbt-erd.yml` and `dbt-erd-layout.json` next to it if you have them.
+
+## Try it on the example project
+
+The repository holds a fake but complete dbt project, [`examples/acme_retail/`](examples/acme_retail/): a retailer with 5 source systems, a staging layer, a Data Vault and star-schema marts. Its universe shows domains taken from dbt groups and `meta.domain`; its detail view shows relations from `relationships` tests and `foreign_key` constraints. Clone the repository (the same access as [above](#private-repository)), install dbt with the duckdb adapter, and run from the repository root:
+
+```bash
+git clone https://github.com/christophebnx/dbtscope   # with SSH: git clone git@github.com:christophebnx/dbtscope.git
+cd dbtscope
+uv tool install dbt-core --with dbt-duckdb
+dbtscope --project-dir examples/acme_retail                              # runs dbt parse, opens the page
+dbtscope --project-dir examples/acme_retail --no-open -o acme-map.html   # batch: no browser
+```
+
+In PowerShell, write the folder `examples\acme_retail`. No connection is made: the example's `profiles.yml` names a local duckdb file that `dbt parse` never opens.
 
 ## Options
 
@@ -450,6 +503,8 @@ uv run pytest -q -n auto -m "not live and not browser"
 
 The page itself is tested in headless Chromium (`tests/browser/`, marker `browser`), excluded from the default run and from CI. Those tests need no network but a local Chromium; on a dev machine without one, run `uv run --group browser playwright install chromium` once, by hand (the tooling never runs it, D-019).
 
+The example project `examples/acme_retail/` is also a test input: its `dbt parse` manifest is committed in `tests/fixtures/acme_retail/`, and a check against a fresh `dbt parse` runs when `DBTSCOPE_DBT` names a dbt with dbt-duckdb (D-033).
+
 How the code is built (the run, the layers and their allowed imports, the responsibility map): [`docs/architecture.md`](docs/architecture.md). Why: [`docs/decisions.md`](docs/decisions.md). CI runs one Ubuntu job (D-020, `.github/workflows/ci.yml`).
 
 ### Working with Claude Code
@@ -476,4 +531,4 @@ Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks)
 
 ## Licence
 
-MIT, see `LICENSE`.
+Apache License 2.0, see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The JavaScript libraries embedded in offline pages keep their own licences, listed in [`src/dbtscope/render/vendor/README.md`](src/dbtscope/render/vendor/README.md).

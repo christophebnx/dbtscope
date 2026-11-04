@@ -14,6 +14,7 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M4.2b Preset files | done | | Built per `docs/architecture/2026-11-04-m4.2b-preset-file.md` (D-030), asked by the user on 2026-11-04: `--preset-file`, a path in the `preset:` key, every preset validated with `extra="forbid"`. Pages byte-identical. Default suite 433 tests / 2.9 s → 544 / 3.3 s; browser suite unchanged at 84 |
 | M4.3 Documentation | done | | Built per `docs/architecture/2026-11-04-m4.3-documentation.md`, no decision, no code change. README opens with install (Windows, macOS, Linux) and four use cases (bash and PowerShell); one home per fact (`docs/architecture.md` § Where facts live); three Mermaid diagrams (run, layers, `/feature`), domain resolution as a numbered list; troubleshooting lists every error message of the code. Two tests keep the README options and the documented commands in line with `--help` |
 | M4.4 Fix: untyped columns | done | | Found by the user: an untyped column broke the detail view (empty Graphviz `<font>`). Fixed in `render/assets/detail.js`, browser regression test, M3 reference pages regenerated (+102 bytes each, data unchanged). Default suite 547, browser suite 85 |
+| M5.1 Example project `acme_retail` | done | | Built per `docs/architecture/2026-11-04-m5.1-example-project.md` (D-033), no change under `src/`; reference pages untouched. Real counts: 95 tables, 7 domains, 58 relations (53 tests, 5 FK), 110 lineage links (estimate 106: dbt adds 4 FK targets to `depends_on`), detail 54 tables in `main_raw_vault` / `main_marts`, 16 untyped columns. Manifest 1,199,888 bytes, 103,642 compressed; `dbt parse` (dbt-core 1.12.6, dbt-duckdb 1.11.1) emits no warning. Default suite 551 + 1 skip / ~4.8 s; browser 86 / ~143 s; `DBTSCOPE_DBT` check passed (~5.4 s) |
 
 ## Open points
 
@@ -22,6 +23,7 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 - M4.2: the read-only output cases (permission denied, read-only file system) are covered only by monkeypatched tests: the sandbox ran as root, which bypasses permissions.
 - M4.2: `~` is not expanded in path options; the shell does it, so a quoted `"~/x.yml"` is read as a folder named `~`.
 - M4.2: a Ctrl-C during the imports, before `cli.main` runs, can still print a Python traceback.
+- M5.1: the private-repository install (GitHub CLI, SSH, token) and the GitHub Actions token step were not run; `git ls-remote` was checked. The example is not checked with dbt Fusion here (the user ran it on macOS).
 - M4.3: the GitHub Actions example of the README was not run (YAML parsed, action versions checked); the Mermaid diagrams render with mermaid-cli 11 and are to be checked on GitHub after the push.
 - CI is paused (D-032): no automatic run while development pushes are frequent. Turn it back on before relying on pull request checks; run the `all-os` manual run once to check Windows and macOS (the Windows branch of `atomic_write` is untested so far).
 
