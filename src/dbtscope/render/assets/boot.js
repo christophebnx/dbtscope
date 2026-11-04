@@ -73,17 +73,36 @@ const EXPORT = (() => {
 
 const views = {};
 let current = null;
+let flow = null;   // the flow view (D-036), started on first use; an overlay of the Universe tab, not a view of `views`
 function showTab(name) {
   current = name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT)
-    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT);
+    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
+  if (name === 'universe' && flow && flow.isOpen()) flow.shown();
 }
 function openInDetail(id) {
   showTab('detail');
   views.detail.focus(id);
+}
+// the universe under the flow overlay: unreachable (no focus, no click, skipped by screen readers) while it is open
+function coverUniverse(on) {
+  [document.getElementById('u-panel'), document.querySelector('#tab-universe > .stage')].forEach(el => { el.inert = on; });
+}
+// open the flow of a trajectory (from the universe's Flow button); the universe state is left untouched
+function openFlow(id, direction, depth) {
+  if (!flow) flow = startFlow(PAGE.universe, EXPORT, closeFlow);
+  coverUniverse(true);
+  flow.open(id, direction, depth);
+  document.getElementById('f-back').focus();
+}
+// back to the universe exactly as it was (Back, Esc)
+function closeFlow() {
+  flow.close();
+  coverUniverse(false);
+  document.getElementById('u-tj-flow').focus();
 }
 document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => showTab(b.dataset.tab); });
 

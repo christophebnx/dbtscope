@@ -19,7 +19,7 @@ Design: `docs/architecture/2026-11-03-m1-trajectory-mode.md` § UI design.
 
 - **Purpose.** From one table, show where its data comes from (upstream) and where it goes (downstream) along the `ref` / `source` lineage, without moving the universe.
 - **Entering.** A single click on a table when zoomed in enough to see tables, or the **Trajectory** button next to the search box (disabled until the box holds an exact table name). Clicking another table moves the trajectory. A drag or a pan never enters it.
-- **Bar.** Overlaid at the top of the canvas, in this order: "Trajectory of" + the start table; **Direction** (both, upstream, downstream; default both); **Depth** (all levels, 1, 2, 3 levels; default all); the counts ("5 upstream · 1 downstream"), which open a per-domain breakdown on click and show it on hover; "N hidden by the filters" when a filter changed in the mode hides trajectory tables; "N tables brought back by the trajectory" ("1 table brought back by the trajectory"); a legend (start, upstream, downstream); **Leave**. Direction and depth are kept for the session.
+- **Bar.** Overlaid at the top of the canvas, in this order: "Trajectory of" + the start table; **Direction** (both, upstream, downstream; default both); **Depth** (all levels, 1, 2, 3 levels; default all); the counts ("5 upstream · 1 downstream"), which open a per-domain breakdown on click and show it on hover; "N hidden by the filters" when a filter changed in the mode hides trajectory tables; "N tables brought back by the trajectory" ("1 table brought back by the trajectory"); a legend (start, upstream, downstream); **Flow** (opens the flow view, below; disabled when the trajectory is empty); **Leave**. Direction and depth are kept for the session.
 - **Empty state.** "No upstream or downstream table" (or "No upstream table" / "No downstream table" for one direction).
 - **Drawing.** The start table has a double dark ring; upstream tables a dashed violet ring (`#6d28d9`), downstream tables a solid burnt-orange ring (`#c2410c`); trajectory lineage edges are drawn with arrows along the data flow at every zoom, dashed upstream, whatever **Links** shows. Everything else is dimmed (tables, names, links, routes at 20 %; domains without a trajectory table at 45 %). Trajectory names are placed first.
 - **Tooltip.** "Start of the trajectory", "Upstream, level n" or "Downstream, level n"; the action line adds "Click: show its trajectory".
@@ -28,6 +28,25 @@ Design: `docs/architecture/2026-11-03-m1-trajectory-mode.md` § UI design.
 - **Leaving.** **Leave**, `Esc` (first closes the open breakdown), or a click on the background. Focus returns to the Trajectory button (or the search box) when it was in the bar.
 - **Screen readers.** A polite live region announces the start table and counts on each change, the brought-back count, and "Trajectory closed".
 - Nothing about the trajectory is saved (D-013).
+
+## Universe view — flow view (M5.3, D-036)
+
+Design: `docs/architecture/2026-11-04-m5.3-flow-view.md` § UI design.
+
+- **Purpose.** See the current trajectory in data-flow order: upstream on the left, the start, downstream on the right, every arrow pointing right, without changing the universe.
+- **Opening.** **Flow** ("Flux") in the trajectory bar, before **Leave**; title "Show this trajectory as a left-to-right flow". Same start, direction and depth as the trajectory. Disabled when the trajectory has no table for its direction. The flow covers the whole Universe tab (filters panel included); the universe underneath cannot be reached and does not change.
+- **Header**, in order: **← Universe** ("Back to the universe (Esc)"); "Flow of" + kind dot + start table; **Direction** and **Depth** (they change the flow only, never the universe trajectory); counts ("24 tables · 22 upstream · 1 downstream", plural agreement, or the empty text "No downstream table"); **N domains** (a list: start / upstream / downstream marks, then each domain present with its colour and table count); the cap message when the flow is limited; **Fit** ("Show the whole flow"); **Export image** PNG / SVG.
+- **Tables.** A box per table: the name on the kind colour (as in the universe and the detail), a domain colour band on the left edge, then the depth (`−2` upstream, `+1` downstream) and the layer. The start has a thick dark frame and reads "start" instead of a depth. Columns follow the lineage, with the configured layers as a floor, so layers form bands where the lineage follows them.
+- **Arrows.** Upstream dashed violet (`#6d28d9`), downstream solid burnt orange (`#c2410c`), as in the trajectory mode.
+- **Initial view.** The whole flow if it is readable (scale 0.75 or more); otherwise scale 0.75 centred on the start. **Fit** always shows the whole flow. Wheel / pinch zoom, drag to pan; tables cannot be dragged.
+- **Recentre.** A click (or Enter / Space on a focused table) redraws the flow from that table, with the flow's direction and depth; the header follows. The universe trajectory does not move: **← Universe** then **Flow** returns to its start.
+- **Tooltip.** Name; domain · layer · type · N columns; "Upstream, level n" / "Downstream, level n" / "Start of the trajectory"; the description; "Click: show its flow" (not on the start). Not shown on touch.
+- **Limit.** At most 150 tables. Above that the depth is reduced to the largest level that fits ("Depth reduced to 2 levels: the chosen depth has 412 tables, a flow draws at most 150"), or, when level 1 alone is too large, only the first 149 direct tables are drawn ("Only 149 of the 420 tables at level 1 are drawn (at most 150 per flow)").
+- **States.** "Laying out…" while Graphviz runs (export disabled); "Render error: …" with the header still usable; a direction with no table draws the start alone.
+- **Keyboard.** On open, focus is on **← Universe**. Tab order: header controls, then the tables left to right. `Esc` closes the domain list first, then the flow; it never also leaves the trajectory. On close, focus returns to **Flow**.
+- **Screen readers.** A polite live region announces "Flow of <table>: <counts>." on open and recentre (with the cap message), and "Flow closed". Each table is a button named by its name and level.
+- **Small screens.** No horizontal scroll at 360 px; the header wraps; 44 px controls on coarse pointers.
+- Nothing about the flow is saved (D-013).
 
 ## Top bar — layout buttons
 
@@ -41,7 +60,7 @@ Design: `docs/architecture/2026-11-03-m2-export-offline.md` § UI design.
 - **Control.** At the right end of each tab's toolbar, after **Fit**: the muted label **Export image** ("Exporter l'image") and one button per format, **PNG** in the universe, **PNG** and **SVG** in the detail. A native button group named "Export image"; tooltips "Save the view as shown as a PNG image (high resolution)", "Save the visible diagram as a PNG image (high resolution)", "Save the visible diagram as an SVG image (vector, opens in any browser)".
 - **What is exported.** The drawing as it is on screen: zoom, pan, filters, detail level, search mark, highlight, trajectory rings and dimming. Not the panels, toolbars, trajectory bar, tooltips or hover. No caption or legend is added. Background filled with the page background.
 - **Formats.** Universe PNG and detail PNG at twice the screen resolution (lowered on very large screens to stay within browser limits); detail SVG cut to the visible area, styles inlined, opens alone in a browser.
-- **File name.** `<page title>-universe.png`, `<page title>-detail.png`, `<page title>-detail.svg`; the title keeps ASCII letters, digits, `-` and `_` (accents dropped), `dbtscope` if nothing is left.
+- **File name.** `<page title>-universe.png`, `<page title>-detail.png`, `<page title>-detail.svg`, and for the flow view `<page title>-flow.png` / `-flow.svg` (M5.3); the title keeps ASCII letters, digits, `-` and `_` (accents dropped), `dbtscope` if nothing is left.
 - **States.** Disabled while nothing is drawn (no table for the filters; detail laying out or in error). While an export runs, the clicked button ignores further clicks (`aria-disabled`, progress cursor) and keeps focus. Success: a polite live region in the top bar says "Image created: <file>" ("Image créée : <file>"). Failure: an alert "The image could not be created." ("L'image n'a pas pu être créée."), nothing is downloaded.
 - **Keyboard.** In tab order after Fit; Enter or Space exports; no shortcut. Focus stays on the button.
 - **Small screens.** The group wraps as one piece with the toolbar; no horizontal scroll at 360 px. 44 px targets on coarse pointers.

@@ -278,10 +278,20 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 
 - **Enter**: click a table (once zoomed in enough to see tables), or find it with the search box and click **Trajectory**. Clicking another table moves the trajectory to it.
 - **Read**: the universe does not move. The start table has a double ring, upstream tables a dashed violet ring, downstream tables a solid orange ring; everything else is dimmed. Lineage arrows run along the data flow at every zoom level. The tooltip says "Upstream, level 2" and similar.
-- **Bar** above the canvas: the start table, **Direction** (both, upstream, downstream) and **Depth** (1, 2, 3 or all levels; default all), the counts (open them for one line per domain) and **Leave**. **Fit** frames the trajectory.
+- **Bar** above the canvas: the start table, **Direction** (both, upstream, downstream) and **Depth** (1, 2, 3 or all levels; default all), the counts (open them for one line per domain), **Flow** and **Leave**. **Fit** frames the trajectory.
 - **Filters**: tables of the chain hidden by a domain, layer or type filter are brought back (those filters are ticked on again and the bar says how many). Unticking a filter while in the mode hides those tables until the trajectory changes; the bar counts them. Leaving does not untick anything.
 - **Leave**: **Leave**, `Esc`, or a click on the background.
 - **Limit**: only tables in the universe scope (`universe.select` / `exclude`) are in the chain. A chain that goes through an excluded table stops there, and the page cannot tell.
+
+#### Flow
+
+**Flow** in the trajectory bar draws the same trajectory (same start, direction and depth) as a left-to-right diagram: upstream tables on the left, the start in a thick dark frame, downstream tables on the right, every arrow pointing right (dashed violet upstream, solid orange downstream).
+
+- **Tables**: the name on the kind colour, the domain as a colour band on the left edge, then the depth (`−2` is two hops upstream, `+1` one hop downstream) and the layer. Columns follow the lineage, with your layers as a floor, so sources, staging, vault and marts form bands when the lineage follows them.
+- **Header**: **← Universe**, the start table, **Direction** and **Depth** (they change the flow only), the counts, **N domains** (a legend and each domain with its colour and table count), **Fit** and **Export image** (PNG, SVG).
+- **Recentre**: click a table (or Enter on a focused one) to draw its own flow. The universe trajectory does not move.
+- **Back**: **← Universe** or `Esc` returns to the universe exactly as it was (filters, zoom, trajectory). Nothing is saved.
+- **Limit**: a flow draws at most 150 tables. Above that the depth is reduced to the deepest level that fits, or only the first 149 direct tables are drawn, and the header says so.
 
 ### Detail
 
@@ -297,11 +307,11 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 
 Each tab's toolbar ends with **Export image**:
 
-- **Formats**: PNG in the universe, PNG and SVG in the detail.
+- **Formats**: PNG in the universe, PNG and SVG in the detail and in the flow.
 - **Content**: exactly the drawing on screen (zoom, filters, detail level, search mark, highlight, trajectory dimming), on the page background, without the panels, toolbars, the trajectory bar or tooltips.
 - **PNG**: twice the screen resolution (less on very large screens, to stay within browser canvas limits).
 - **SVG**: only the tables and links in the visible area; it opens on its own in a browser, a slide or a doc tool.
-- **File names**: `<page title>-universe.png`, `<page title>-detail.png` and `<page title>-detail.svg`, the title reduced to letters, digits, `-` and `_`.
+- **File names**: `<page title>-universe.png`, `<page title>-detail.png`, `<page title>-detail.svg`, `<page title>-flow.png` and `<page title>-flow.svg`, the title reduced to letters, digits, `-` and `_`.
 - The buttons are disabled while the view has nothing drawn.
 
 ### Manual arrangement
