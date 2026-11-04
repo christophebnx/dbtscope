@@ -25,6 +25,12 @@ def test_config_file_and_preset_option(dbt_project: Path) -> None:
     assert load_config(dbt_project, preset="data_vault").title == "Raw vault"  # option wins
 
 
+def test_a_yaml_number_as_title_is_its_text(dbt_project: Path) -> None:
+    write_config(dbt_project, "title: 2024\nkinds:\n  - {key: k, label: 7, match: x}\n")
+    config = load_config(dbt_project)
+    assert (config.title, config.kinds[0].label) == ("2024", "7")
+
+
 def test_config_errors(dbt_project: Path) -> None:
     with pytest.raises(ConfigError, match="not found"):
         load_config(dbt_project, dbt_project / "missing.yml")

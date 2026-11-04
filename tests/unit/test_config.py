@@ -27,6 +27,11 @@ def test_rules_are_normalised() -> None:
     assert config.select == ("fct_*",)
 
 
+def test_a_number_as_title_or_label_is_its_text() -> None:
+    config = merge_config({}, {"title": 2024, "kinds": [{"key": "k", "label": 1.5, "match": "x"}]})
+    assert (config.title, config.kinds[0].label) == ("2024", "1.5")
+
+
 def test_explicit_null_label_stays_null() -> None:
     config = merge_config({}, {"layers": [{"key": "raw", "label": None, "match": "stg_*"}]})
     assert config.layers[0].label is None
@@ -117,8 +122,10 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
         ({"kinds": {"key": "a", "match": "x"}}, "kinds: must be a list"),
         ({"kinds": [{"match": "x"}]}, "kinds[0].key: is required (and 1 more problem)"),  # label too
         ({"kinds": [{"key": "a", "match": "x"}, {"key": 1, "match": "x"}]},
-         "kinds[1].key: must be a string (and 1 more problem)"),
-        ({"kinds": [{"key": "a", "label": 2, "match": "x"}]}, "kinds[0].label: must be a string"),
+         "kinds[1].key: must be a string"),  # the label defaulted to the key is a number: its text
+        ({"kinds": [{"key": "a", "label": [2], "match": "x"}]}, "kinds[0].label: must be a string"),
+        ({"title": {"a": 1}}, "title: must be a string"),
+        ({"title": True}, "title: must be a string"),
         ({"kinds": [{"key": "a", "match": [None]}]}, "kinds[0].match[0]: must be a string"),
         ({"domains": [{"key": "a", "color": 0x123, "match": "x"}]}, "domains[0].color: must be a string"),
         ({"domains": "sales"}, "domains[0]: must be a mapping"),

@@ -73,7 +73,13 @@ def _as_list(value: Any) -> Any:
     return (value,) if isinstance(value, str) else value
 
 
+def _as_text(value: Any) -> Any:
+    """A YAML number (`title: 2024`) is its text; anything else is checked as is (lists still fail)."""
+    return str(value) if isinstance(value, int | float) and not isinstance(value, bool) else value
+
+
 StrList = Annotated[tuple[str, ...], BeforeValidator(_as_list)]
+Text = Annotated[str, BeforeValidator(_as_text)]
 
 
 class Rule(BaseModel):
@@ -82,7 +88,7 @@ class Rule(BaseModel):
     model_config = SETTINGS
 
     key: str
-    label: str | None  # the key when absent; an explicit `label: null` stays null
+    label: Text | None  # the key when absent; an explicit `label: null` stays null
     color: str | None = None
     match: StrList
 
@@ -114,7 +120,7 @@ class Config(BaseModel):
 
     model_config = SETTINGS
 
-    title: str = "dbt ERD"
+    title: Text = "dbt ERD"
     output: str = "erd_output/erd.html"
     language: Literal["en", "fr"] = "en"
     view: Literal["universe", "detail"] = "universe"
