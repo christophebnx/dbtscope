@@ -9,14 +9,17 @@ dim_customer (group sales_team)   dim_product (meta.domain products)
 
 from __future__ import annotations
 
+import gzip
 import importlib.util
 import json
+import shutil
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import pytest
 
+from dbtscope import cli
 from dbtscope.domain.model import Project, Table
 from dbtscope.domain.payload import DetailPayload, UniverseDefaults, UniversePayload
 from dbtscope.storage.project_files import read_manifest
@@ -24,6 +27,9 @@ from dbtscope.storage.project_files import read_manifest
 SHOP = "model.shop."  # unique_id prefix of the models of `shop`
 NO_PARSE_NO_OPEN = ("--no-parse", "--no-open")  # build from the written manifest, open nothing
 DATA_OPEN = '<script type="application/json" id="data">'
+ROOT = Path(__file__).resolve().parent.parent
+EXAMPLE_MANIFEST = ROOT / "tests" / "fixtures" / "acme_retail" / "manifest.json.gz"  # its dbt parse
+EXAMPLE_EXPECTED: dict[str, Any] = json.loads(EXAMPLE_MANIFEST.with_name("expected.json").read_text("utf-8"))
 
 
 def model(
@@ -158,6 +164,15 @@ def write_manifest(project: Path, data: dict[str, Any] | bytes) -> None:
         path.write_text(json.dumps(data), encoding="utf-8")
 
 
+def write_example(folder: Path) -> Path:
+    """Copy the example project into `folder` (which must not exist) with its committed manifest;
+    leftovers of a local run (`EXAMPLE_TOOL.LOCAL`) are not copied."""
+    shutil.copytree(EXAMPLE, folder, ignore=shutil.ignore_patterns(*EXAMPLE_TOOL.LOCAL))
+    (folder / "target").mkdir(exist_ok=True)
+    write_manifest(folder, gzip.decompress(EXAMPLE_MANIFEST.read_bytes()))
+    return folder
+
+
 def write_layout(project: Path, layout: dict[str, Any]) -> None:
     (project / "dbt-erd-layout.json").write_text(json.dumps(layout), encoding="utf-8")
 
@@ -166,6 +181,12 @@ def write_layout(project: Path, layout: dict[str, Any]) -> None:
 def dbt_project(tmp_path: Path) -> Path:
     """The `shop` project directory: dbt_project.yml and target/manifest.json."""
     return write_project(tmp_path)
+
+
+@pytest.fixture
+def example_project(tmp_path: Path) -> Path:
+    """A copy of the example project `acme_retail` with its committed manifest (D-033)."""
+    return write_example(tmp_path / "acme_retail")
 
 
 @pytest.fixture
@@ -198,6 +219,14 @@ def page_data(page: str) -> dict[str, Any]:
     return json.loads(data_block(page.encode("utf-8")))
 
 
+def page_of(project: Path, *args: str) -> tuple[Path, dict[str, Any]]:
+    """Generate the page of `project` from its manifest, with extra CLI arguments (`--offline`);
+    return it and its embedded payload."""
+    assert cli.main(["--project-dir", str(project), *NO_PARSE_NO_OPEN, *args]) == 0
+    html = project / "erd_output" / "erd.html"
+    return html, page_data(html.read_text(encoding="utf-8"))
+
+
 def load_script(path: Path) -> ModuleType:
     """Import a script that is not in a package (`tools/`, `.claude/hooks/`) by its path."""
     spec = importlib.util.spec_from_file_location(path.stem, path)
@@ -205,3 +234,7 @@ def load_script(path: Path) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+EXAMPLE_TOOL = load_script(ROOT / "tools" / "example_manifest.py")  # owns the example's paths (D-033)
+EXAMPLE = EXAMPLE_TOOL.EXAMPLE  # the example dbt project

@@ -1,0 +1,283 @@
+version: 2
+models:
+  - name: dim_date
+    description: Calendar dimension
+    config:
+      group: sales
+      access: public
+    columns:
+      - name: date_key
+        data_type: date
+        data_tests: [unique, not_null]
+      - name: year
+        data_type: integer
+      - name: month
+        data_type: integer
+      - name: weekday
+        data_type: varchar
+  - name: dim_customer
+    description: One row per customer, with its marketing consent
+    config:
+      group: customer
+      access: public
+    columns:
+      - name: customer_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: name
+        data_type: varchar
+      - name: email
+        data_type: varchar
+      - name: country_code
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_country'), field: country_code}}}]
+      - name: has_consent
+        data_type: boolean
+  - name: dim_country
+    description: Countries and regions
+    config:
+      group: customer
+      access: public
+    columns:
+      - name: country_code
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: country_name
+        data_type: varchar
+      - name: region
+        data_type: varchar
+  - name: dim_product
+    description: One row per product, with its supplier
+    config:
+      group: product
+      access: public
+    columns:
+      - name: product_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: label
+        data_type: varchar
+      - name: category
+        data_type: varchar
+      - name: supplier_name
+        data_type: varchar
+      - name: list_price
+        data_type: decimal(12,2)
+  - name: dim_store
+    description: Physical stores
+    config:
+      group: sales
+      access: public
+    columns:
+      - name: store_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: name
+        data_type: varchar
+      - name: city
+        data_type: varchar
+      - name: country_code
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_country'), field: country_code}}}]
+  - name: dim_campaign
+    description: Marketing campaigns
+    config:
+      group: marketing
+      access: public
+    columns:
+      - name: campaign_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: name
+        data_type: varchar
+      - name: channel
+      - name: budget
+        data_type: decimal(12,2)
+  - name: dim_warehouse
+    description: Warehouses
+    config:
+      group: logistics
+      access: public
+    columns:
+      - name: warehouse_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: name
+        data_type: varchar
+      - name: city
+        data_type: varchar
+  - name: dim_carrier
+    description: Carriers and their service level
+    config:
+      group: logistics
+      access: public
+    columns:
+      - name: carrier_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: name
+        data_type: varchar
+      - name: service_level
+  - name: fct_orders
+    description: One row per order
+    config:
+      group: sales
+      access: public
+      contract:
+        enforced: true
+    columns:
+      - name: order_key
+        data_type: varchar
+        constraints: [{type: primary_key}]
+      - name: customer_key
+        data_type: varchar
+        constraints:
+          - type: foreign_key
+            to: ref('dim_customer')
+            to_columns: [customer_key]
+      - name: store_key
+        data_type: varchar
+        constraints:
+          - type: foreign_key
+            to: ref('dim_store')
+            to_columns: [store_key]
+      - name: order_date
+        data_type: date
+        constraints:
+          - type: foreign_key
+            to: ref('dim_date')
+            to_columns: [date_key]
+      - name: status
+        data_type: varchar
+  - name: fct_order_lines
+    description: One row per order line
+    config:
+      group: sales
+      access: public
+      contract:
+        enforced: true
+    columns:
+      - name: order_line_key
+        data_type: varchar
+        constraints: [{type: primary_key}]
+      - name: order_key
+        data_type: varchar
+        constraints:
+          - type: foreign_key
+            to: ref('fct_orders')
+            to_columns: [order_key]
+      - name: product_key
+        data_type: varchar
+        constraints:
+          - type: foreign_key
+            to: ref('dim_product')
+            to_columns: [product_key]
+      - name: quantity
+        data_type: integer
+      - name: net_amount
+        data_type: decimal(12,2)
+  - name: fct_campaign_responses
+    description: Who answered which campaign
+    config:
+      group: marketing
+      access: public
+    columns:
+      - name: campaign_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_campaign'), field: campaign_key}}}]
+      - name: customer_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_customer'), field: customer_key}}}]
+      - name: responded_at
+        data_type: timestamp
+  - name: fct_web_sessions
+    description: Web sessions with their page views
+    config:
+      group: marketing
+      access: public
+    columns:
+      - name: session_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: customer_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_customer'), field: customer_key}}}]
+      - name: campaign_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_campaign'), field: campaign_key}}}]
+      - name: page_views
+  - name: fct_invoices
+    description: Invoices
+    config:
+      group: finance
+      access: public
+    columns:
+      - name: invoice_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: order_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('fct_orders'), field: order_key}}}]
+      - name: issued_date
+        data_type: date
+        data_tests: [{relationships: {arguments: {to: ref('dim_date'), field: date_key}}}]
+      - name: amount
+        data_type: decimal(12,2)
+      - name: currency
+        data_type: varchar
+  - name: fct_payments
+    description: Payments and refunds, in euros
+    config:
+      group: finance
+      access: public
+    columns:
+      - name: payment_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: invoice_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('fct_invoices'), field: invoice_key}}}]
+      - name: paid_date
+        data_type: date
+        data_tests: [{relationships: {arguments: {to: ref('dim_date'), field: date_key}}}]
+      - name: amount_eur
+        data_type: decimal(12,2)
+      - name: refunded_eur
+        data_type: decimal(12,2)
+  - name: fct_shipments
+    description: Shipments and delivery lead time
+    config:
+      group: logistics
+      access: public
+    columns:
+      - name: shipment_key
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: order_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('fct_orders'), field: order_key}}}]
+      - name: warehouse_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_warehouse'), field: warehouse_key}}}]
+      - name: carrier_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_carrier'), field: carrier_key}}}]
+      - name: lead_time_days
+        data_type: integer
+  - name: fct_stock_levels
+    description: Daily stock per warehouse and product
+    config:
+      group: logistics
+      access: public
+    columns:
+      - name: warehouse_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_warehouse'), field: warehouse_key}}}]
+      - name: product_key
+        data_type: varchar
+        data_tests: [{relationships: {arguments: {to: ref('dim_product'), field: product_key}}}]
+      - name: measured_date
+        data_type: date
+        data_tests: [{relationships: {arguments: {to: ref('dim_date'), field: date_key}}}]
+      - name: quantity
+        data_type: integer
