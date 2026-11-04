@@ -1,15 +1,19 @@
 name: ci
 
-# D-020: one job on Ubuntu, kept minimal: ruff, the default test suite, a secret scan.
+# D-020, D-031: one Ubuntu job on pull requests and on main; ruff, the default tests, a secret scan.
 
 on:
-  push:
   pull_request:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read  # gitleaks lists the commits of a pull request
 
 jobs:
   check:
@@ -22,10 +26,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          python-version: "3.12"
+          python-version: "3.12"  # the floor of requires-python
       - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - run: uv run ruff check . && uv run ruff format --check .
       - run: uv run pytest -q -n auto -m "not live and not browser"
       - uses: gitleaks/gitleaks-action@v2
         env:

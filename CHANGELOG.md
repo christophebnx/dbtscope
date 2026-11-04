@@ -15,6 +15,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- CI (D-031): runs on pull requests and on pushes to `main` only (no longer on every branch push or by hand), with a read-only token; same checks as before.
 - README opens with install and use cases (bash and PowerShell); diagrams of the run, the layers and the `/feature` workflow; troubleshooting lists every error message; two tests keep the README options and the documented commands in line with `--help` (M4.3).
 - CLI rebuilt with Typer (M4.2, D-026, D-029). `--help` groups the options (Project, dbt, Output, Page), states each default and ends with examples; `--preset` and `--view` are checked choices. Option names, `-h`, `--version` and `python -m dbtscope` are unchanged. Typer is now a runtime dependency (`typer>=0.27.2`, with rich and shellingham).
 - CLI output (D-029): stdout holds only the summary, whose first line is the **absolute** path of the page; progress lines (`Running dbt parse in …...`, `Opening the page in the browser...`) and **dbt's own output** now go to stderr (scripts that read dbt's log from dbtscope's stdout must read stderr). dbt runs with `DBT_USE_COLORS=false` when stderr is not a terminal and the variable is unset. The summary always has a `page:` line (view, language, CDN or offline, size) and a `config:` line, counts use thousands separators and the singular for 1, and the `layout:` line gives the file and when it was saved.
