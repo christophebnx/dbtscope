@@ -178,6 +178,16 @@ def write_config(project: Path, text: str) -> None:
     (project / "dbt-erd.yml").write_text(text, encoding="utf-8")
 
 
+PRESET_TEXT = "title: Team\nlanguage: fr\nkinds:\n  - {key: fact, label: Fact, match: ['fct_*']}\n"
+
+
+def write_preset(path: Path, text: str = PRESET_TEXT) -> Path:
+    """Write a preset file at `path` (its folders created) and return `path`."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
 def data_block(page: bytes) -> bytes:
     """The exact bytes of the embedded JSON data block of a page."""
     return page.split(DATA_OPEN.encode(), 1)[1].split(b"</script>", 1)[0]

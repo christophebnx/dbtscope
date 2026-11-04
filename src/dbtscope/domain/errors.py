@@ -18,6 +18,7 @@ PROBLEMS = {
     "dict_type": "must be a mapping",
     "model_type": "must be a mapping",
     "model_attributes_type": "must be a mapping",
+    "extra_forbidden": "unknown key",
 }
 
 Location = tuple[str | int, ...]
@@ -65,14 +66,16 @@ def _problem(error: ErrorDetails) -> str:
     return lower_first(str(error["msg"]))
 
 
-def validation_message(error: ValidationError, prefix: Location = ()) -> str:
+def validation_message(error: ValidationError, prefix: Location = (), first: str = "") -> str:
     """One line for a pydantic error: `<location>: <problem>` of the first problem, and how many more.
 
     `prefix` is prepended to the location (e.g. `("nodes", unique_id)` for a manifest entry
-    validated on its own).
+    validated on its own). `first` is a pydantic error type shown before the others when present
+    (`extra_forbidden`: a misspelt preset key explains the rest).
     """
-    first = error.errors()[0]
-    location = _location(prefix + tuple(first["loc"]))
-    message = f"{location}: {_problem(first)}" if location else _problem(first)
+    details = error.errors()
+    shown = next((d for d in details if d["type"] == first), details[0])
+    location = _location(prefix + tuple(shown["loc"]))
+    message = f"{location}: {_problem(shown)}" if location else _problem(shown)
     more = error.error_count() - 1
     return message + (f" (and {more} more problem{'s' if more > 1 else ''})" if more else "")

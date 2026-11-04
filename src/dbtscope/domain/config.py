@@ -1,6 +1,7 @@
 """Configuration rules: defaults, preset and `dbt-erd.yml` merged, then validated.
 
-    preset: data_vault            # start from a built-in preset (optional)
+    preset: data_vault            # start from a built-in preset (optional), or a preset file:
+                                  # preset: team.yml (relative to this file's folder)
     title: Raw vault
     output: erd_output/erd.html   # relative to the dbt project directory
     language: fr                  # en | fr
@@ -35,6 +36,10 @@ Keys set in the file replace the preset's (lists are not merged); `universe` is 
 Unknown keys are ignored (existing files keep working, invariant 9). The defaults are the field
 defaults of `Config` and `UniverseSettings`.
 Reading the files is the caller's job (`storage/project_files.load_config`).
+
+A preset (built-in or file) is validated on its own before the merge (`check_preset`, D-030): it
+holds the keys above except `preset` (no chaining), `output` and `layout_file` (project paths),
+and an unknown key is an error. `dbt-erd.yml` stays lenient.
 """
 
 from __future__ import annotations
@@ -64,6 +69,14 @@ Links = Literal["relations", "lineage", "both"]  # links drawn in the universe v
 DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
 # unknown keys are accepted silently, as before the typed model: existing files keep working
 SETTINGS = ConfigDict(extra="ignore", frozen=True)
+# a preset is closed: a misspelt key is an error (D-030)
+PRESET_SETTINGS = ConfigDict(extra="forbid", frozen=True)
+NOT_IN_PRESET = {
+    "preset": "a preset cannot load another preset",
+    "output": "belongs to dbt-erd.yml, not to a preset",
+    "layout_file": "belongs to dbt-erd.yml, not to a preset",
+}
+PRESET_SUFFIXES = (".yml", ".yaml")
 
 
 class ConfigError(DomainError):
@@ -161,6 +174,62 @@ class Config(BaseModel):
     @classmethod
     def _kind_colors(cls, kinds: tuple[Rule, ...]) -> tuple[Rule, ...]:
         return tuple(k if k.color else k.model_copy(update={"color": DEFAULT_KIND_COLOR}) for k in kinds)
+
+
+class PresetRule(Rule):
+    """A rule of a preset: the fields of `Rule`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
+PresetRuleList = Annotated[tuple[PresetRule, ...], BeforeValidator(_as_list)]
+
+
+class PresetUniverse(UniverseSettings):
+    """The `universe` section of a preset: the fields of `UniverseSettings`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
+class Preset(Config):
+    """A preset checked on its own: the keys of `Config` except `NOT_IN_PRESET`, no other key.
+
+    Only a validator (`check_preset`): the run's config is always `merge_config`'s `Config`.
+    """
+
+    model_config = PRESET_SETTINGS
+
+    kinds: PresetRuleList = ()
+    domains: PresetRuleList = ()
+    layers: PresetRuleList = ()
+    universe: PresetUniverse = PresetUniverse()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_project_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for key, problem in NOT_IN_PRESET.items():
+                if key in data:
+                    raise ValueError(f"{key}: {problem}")
+        return data
+
+
+def check_preset(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` unchanged if it is a valid preset; else a `ConfigError` (unknown key, refused key, type).
+
+    Validation only: the raw settings returned are merged as they are, so a valid preset gives
+    the same `Config` as before strict validation (byte-identical pages).
+    """
+    try:
+        Preset.model_validate(data)
+    except ValidationError as error:
+        raise ConfigError(validation_message(error, first="extra_forbidden")) from error  # the typo first
+    return data
+
+
+def is_preset_path(value: str) -> bool:
+    """A `preset:` value names a file when it holds `/` or `\\` or ends with .yml / .yaml (any case)."""
+    return "/" in value or "\\" in value or value.lower().endswith(PRESET_SUFFIXES)
 
 
 def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any:

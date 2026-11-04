@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import NO_PARSE_NO_OPEN, page_data, write_config, write_layout, write_manifest
+from conftest import NO_PARSE_NO_OPEN, page_data, write_config, write_layout, write_manifest, write_preset
 
 from dbtscope import __version__
-from dbtscope.cli import _count, _size, main
+from dbtscope.cli import EPILOG, _count, _size, main
 from dbtscope.render.page import LIBRARIES
-from dbtscope.storage.project_files import CONFIG_HINT
+from dbtscope.storage.project_files import CONFIG_HINT, PRESETS
 
 USAGE = "; see dbtscope --help"
 SELECTOR_FIELDS = "(expected database, name, package, path, schema, tag or type)"
@@ -319,7 +319,10 @@ def test_config_option_problems(dbt_project: Path, monkeypatch: pytest.MonkeyPat
             "select: ['bogus:x']\n",
             f": unknown selector field 'bogus' in 'bogus:x' {SELECTOR_FIELDS}; {CONFIG_HINT}",
         ),
-        ("preset: nope\n", ": unknown preset 'nope'; choose data_vault or star_schema"),
+        (
+            "preset: nope\n",
+            ": unknown preset 'nope'; choose data_vault or star_schema, or give the path of a preset file",
+        ),
     ],
     ids=["selector", "file-preset"],
 )
@@ -620,3 +623,125 @@ def test_a_path_with_a_too_long_name_is_a_clean_error(dbt_project: Path, option:
     args = build(dbt_project, option, too_long) if option != "--project-dir" else build(Path(too_long))
     message = fails(args, capsys)
     assert not message.startswith("internal error") and "file name too long" in message
+
+
+# --- preset files (M4.2b, D-030) ------------------------------------------------------------
+
+
+def config_line(capsys: Capsys) -> str:
+    return capsys.readouterr().out.splitlines()[-1]
+
+
+def test_an_empty_preset_file_is_a_usage_error(capsys: Capsys) -> None:
+    message = fails(["--preset-file", "", "--no-open"], capsys, code=2)
+    assert "'--preset-file'" in message and message.endswith(f": must not be empty{USAGE}")
+
+
+def test_preset_and_preset_file_together_are_a_usage_error(dbt_project: Path, capsys: Capsys) -> None:
+    message = fails(build(dbt_project, "--preset", "data_vault", "--preset-file", "x.yml"), capsys, code=2)
+    assert "'--preset-file'" in message and "--preset" in message.replace("--preset-file", "")
+    assert message.endswith(USAGE) and not (dbt_project / "erd_output").exists()
+
+
+def test_a_missing_preset_file_names_its_absolute_path(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    monkeypatch.chdir(dbt_project)
+    assert fails(build(dbt_project, "--preset-file", "missing.yml"), capsys) == (
+        f"preset {dbt_project / 'missing.yml'} not found; check --preset-file"
+    )
+    assert not (dbt_project / "erd_output").exists()
+
+
+def test_a_preset_file_is_relative_to_the_current_folder(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    elsewhere = dbt_project / "elsewhere"
+    path = write_preset(elsewhere / "team.yml")
+    monkeypatch.chdir(elsewhere)
+    assert main(build(dbt_project, "--preset-file", "team.yml")) == 0
+    assert config_line(capsys) == f"  config:   none (built-in defaults), preset {path}"
+    page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert page_data(page)["detail"]["title"] == "Team"
+
+
+def test_an_unknown_key_in_a_preset_file_is_one_line(dbt_project: Path, capsys: Capsys) -> None:
+    path = write_preset(dbt_project / "team.yml", "tittle: Team\n")
+    assert fails(build(dbt_project, "--preset-file", str(path)), capsys) == (
+        f"preset {path}: tittle: unknown key; fix the file"
+    )
+
+
+def test_help_lists_preset_file_in_the_project_panel(monkeypatch: pytest.MonkeyPatch, capsys: Capsys) -> None:
+    monkeypatch.setenv("COLUMNS", "80")
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert main(["--help"]) == 0
+    lines = [line.rstrip() for line in capsys.readouterr().out.splitlines()]
+    assert max(map(len, lines)) <= 80
+    text = "\n".join(lines)
+    preset, preset_file, dbt_panel = (text.index(s) for s in (" --preset ", " --preset-file ", "╭─ dbt ─"))
+    assert text.index("╭─ Project ─") < preset < preset_file < dbt_panel
+    examples = [line.strip() for line in EPILOG.split("\n\n")[0].splitlines()]
+    assert all(any(line.strip() == example for line in lines) for example in examples)
+
+
+@pytest.mark.parametrize(
+    ("config", "args", "expected"),
+    [
+        ("preset: team.yml\n", (), "{config}, preset {project}/team.yml"),
+        ("title: x\n", ("--preset-file", "{project}/team.yml"), "{config}, preset {project}/team.yml"),
+        ("preset: data_vault\nselect: ['*']\n", (), "{config}, preset data_vault"),
+    ],
+    ids=["key-path", "option", "key-name"],
+)
+def test_the_summary_names_the_applied_preset(
+    dbt_project: Path, capsys: Capsys, config: str, args: tuple[str, ...], expected: str
+) -> None:
+    write_preset(dbt_project / "team.yml")
+    write_config(dbt_project, config)
+    assert main(build(dbt_project, *(a.format(project=dbt_project) for a in args))) == 0
+    path = dbt_project / "dbt-erd.yml"
+    assert config_line(capsys) == "  config:   " + expected.format(config=path, project=dbt_project)
+
+
+def test_an_empty_selection_names_the_preset_file(dbt_project: Path, capsys: Capsys) -> None:
+    path = write_preset(
+        dbt_project / "team.yml", "select: ['nothing_*']\nuniverse: {select: ['nothing_*']}\n"
+    )
+    assert fails(build(dbt_project, "--preset-file", str(path)), capsys) == (
+        f"no table matches the selection of preset {path}; check select, exclude and universe.select"
+    )
+
+
+@pytest.mark.parametrize("name", ["data_vault", "star_schema"])
+def test_a_builtin_preset_as_a_file_gives_the_same_page(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.chdir(dbt_project)
+    path = dbt_project / "copy" / f"{name}.yml"
+    path.parent.mkdir()
+    path.write_bytes((PRESETS / f"{name}.yml").read_bytes())
+    assert main(build(dbt_project, "--preset", name, "-o", "builtin.html")) == 0
+    assert main(build(dbt_project, "--preset-file", str(path), "-o", "file.html")) == 0
+    assert (dbt_project / "builtin.html").read_bytes() == (dbt_project / "file.html").read_bytes()
+
+
+def test_preset_file_replaces_the_preset_key_of_the_config(dbt_project: Path, capsys: Capsys) -> None:
+    path = write_preset(dbt_project / "team.yml")
+    write_config(dbt_project, "preset: data_vault\n")
+    assert main(build(dbt_project, "--preset-file", str(path))) == 0
+    assert config_line(capsys) == f"  config:   {dbt_project / 'dbt-erd.yml'}, preset {path}"
+    page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert page_data(page)["detail"]["title"] == "Team"
+
+
+def test_a_preset_file_that_is_a_folder_fails(dbt_project: Path, capsys: Capsys) -> None:
+    assert fails(build(dbt_project, "--preset-file", str(dbt_project)), capsys) == (
+        f"preset {dbt_project} is a folder; check --preset-file"
+    )
+
+
+@pytest.mark.parametrize("value", ["nope", "../team.yml"])
+def test_a_wrong_preset_points_at_preset_file(value: str, capsys: Capsys) -> None:
+    message = fails(["--preset", value, "--no-open"], capsys, code=2)
+    assert message.endswith(f" (or use --preset-file for a preset file){USAGE}")

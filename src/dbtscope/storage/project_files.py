@@ -1,8 +1,8 @@
-"""Read the inputs of a dbt project: manifest, `dbt-erd.yml`, built-in presets, exported layout.
+"""Read the inputs of a dbt project: manifest, `dbt-erd.yml`, presets, exported layout.
 
 Every error is one line naming the file as `<kind> <path>` (`manifest /abs/manifest.json`,
-`config /abs/dbt-erd.yml`, `layout /abs/dbt-erd-layout.json`, `preset data_vault`) and ends
-with what to do (D-029).
+`config /abs/dbt-erd.yml`, `layout /abs/dbt-erd-layout.json`, `preset data_vault`,
+`preset /abs/team.yml`) and ends with what to do (D-029).
 """
 
 from __future__ import annotations
@@ -15,7 +15,14 @@ from typing import Any, NamedTuple
 
 import yaml
 
-from dbtscope.domain.config import CONFIG_FILE, Config, ConfigError, merge_config
+from dbtscope.domain.config import (
+    CONFIG_FILE,
+    Config,
+    ConfigError,
+    check_preset,
+    is_preset_path,
+    merge_config,
+)
 from dbtscope.domain.errors import DomainError, in_words, lower_first
 from dbtscope.domain.layout import LAYOUT_HINT, LayoutError, check_layout
 from dbtscope.domain.manifest import ManifestError, parse_manifest
@@ -95,12 +102,43 @@ def _read_yaml(path: Path | Traversable, source: str) -> dict[str, Any]:
     return data
 
 
-def read_preset(name: str) -> dict[str, Any]:
-    """The settings of a built-in preset."""
+def read_preset(name: str, choices_hint: str = "") -> dict[str, Any]:
+    """The settings of a built-in preset, checked as a preset (D-030).
+
+    `choices_hint` is added after the list of names when `name` is unknown.
+    """
     names = preset_names()
     if name not in names:  # a name, never a path (`../x` is refused)
-        raise ConfigError(f"unknown preset {name!r}; choose {in_words(names)}")
-    return _read_yaml(PRESETS / f"{name}.yml", f"preset {name}")
+        raise ConfigError(f"unknown preset {name!r}; choose {in_words(names)}{choices_hint}")
+    source = f"preset {name}"
+    data = _read_yaml(PRESETS / f"{name}.yml", source)
+    try:
+        return check_preset(data)
+    except ConfigError as error:  # a packaging bug: the test of every built-in preset rules it out
+        raise ConfigError(f"{source}: {error}; check the installation") from error
+
+
+def read_preset_file(path: Path, setting: str) -> dict[str, Any]:
+    """The settings of the preset file at `path` (absolute), checked as a preset (D-030).
+
+    `setting` names where the path came from (`--preset-file`, `preset in config <path>`) for
+    the hints of a missing, folder or refused path.
+    """
+    source = f"preset {path}"
+    try:
+        kind = path_kind(path)
+    except OSError as error:
+        raise ConfigError(
+            f"cannot use {source}: {os_reason(error)}; {refused_hint(error, setting)}"
+        ) from error
+    if kind != "file":
+        what = {"missing": "not found", "folder": "is a folder"}.get(kind, "is not a regular file")
+        raise ConfigError(f"{source} {what}; check {setting}")
+    data = _read_yaml(path, source)
+    try:
+        return check_preset(data)
+    except ConfigError as error:
+        raise ConfigError(f"{source}: {error}; {CONFIG_HINT}") from error
 
 
 def config_source(path: Path) -> str:
@@ -109,33 +147,66 @@ def config_source(path: Path) -> str:
 
 
 class LoadedConfig(NamedTuple):
-    """The config of a run and the file it was read from (None: no file, defaults and preset only)."""
+    """The config of a run, the file it was read from (None: no file) and the preset applied.
+
+    `preset` is a built-in name or the absolute path of a preset file, whatever gave it (the
+    command line or the file's `preset` key); None when no preset was applied.
+    """
 
     config: Config
     path: Path | None
+    preset: str | Path | None
+
+
+def _load_preset(reference: str | Path, setting: str) -> dict[str, Any]:
+    """A built-in preset (a `str` name) or a preset file (an absolute `Path`, `setting` gave it)."""
+    if isinstance(reference, Path):
+        return read_preset_file(reference, setting)
+    return read_preset(reference, ", or give the path of a preset file")
+
+
+def _key_preset(value: object, path: Path) -> str | Path | None:
+    """The preset named by the `preset` key of the config file at `path`: a name, a path or None.
+
+    Any false value (`null`, `""`, `false`, `0`, `[]`) is no preset, as before M4.2b (invariant 9).
+    A path is read from the config file's folder, `\\` read as `/` so that a file shared across
+    systems works everywhere (D-030); no `~` or variable expansion.
+    """
+    if not value:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError(f"{config_source(path)}: preset: must be a string; {CONFIG_HINT}")
+    if not is_preset_path(value):
+        return value
+    return (path.parent / value.replace("\\", "/")).resolve()
 
 
 def load_config(
-    project_dir: Path, config_path: Path | None = None, preset: str | None = None
+    project_dir: Path, config_path: Path | None = None, preset: str | Path | None = None
 ) -> LoadedConfig:
-    """Defaults < preset < config file; `preset` (the --preset option) overrides the file's `preset`.
+    """Defaults < preset < config file; `preset` (the command line) overrides the file's `preset`.
 
-    The one place that decides which file is read: an explicit `config_path` always (a missing
-    one is a read error), else `dbt-erd.yml` in `project_dir` when it exists. Errors from the
-    file are prefixed with `config <path>: `.
+    `preset` is a built-in name (`--preset`) or the absolute path of a preset file
+    (`--preset-file`). The one place that decides which file is read: an explicit
+    `config_path` always (a missing one is a read error), else `dbt-erd.yml` in `project_dir`
+    when it exists. Errors from the config file are prefixed with `config <path>: `.
     """
     path = config_path or project_dir / CONFIG_FILE
     if not (config_path or path_kind(path) == "file"):
-        return LoadedConfig(merge_config(read_preset(preset) if preset else {}, {}), None)
+        preset_config = _load_preset(preset, "--preset-file") if preset else {}
+        return LoadedConfig(merge_config(preset_config, {}), None, preset)
     source = config_source(path)
     file_config = _read_yaml(path, source)
-    name = preset or file_config.get("preset")
+    setting = "--preset-file" if preset else f"preset in {source}"
+    preset = preset or _key_preset(file_config.get("preset"), path)
     try:
-        preset_config = read_preset(name) if name else {}
-    except ConfigError as error:  # already says what to do
-        raise ConfigError(f"{source}: {error}") from error
+        preset_config = _load_preset(preset, setting) if preset else {}
+    except ConfigError as error:
+        if isinstance(preset, Path):  # the preset file's own message names it
+            raise
+        raise ConfigError(f"{source}: {error}") from error  # an unknown name: already says what to do
     try:
-        return LoadedConfig(merge_config(preset_config, file_config), path)
+        return LoadedConfig(merge_config(preset_config, file_config), path, preset)
     except ConfigError as error:
         raise ConfigError(f"{source}: {error}; {CONFIG_HINT}") from error
 

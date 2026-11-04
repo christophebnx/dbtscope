@@ -9,7 +9,7 @@ How the system is built. Why it is built that way: `docs/decisions.md`. Design n
 ```
 cli.run
   cli._resolve                         check --project-dir, --config, --manifest, --dbt (absolute paths)
-  storage/project_files.load_config     dbt-erd.yml + preset  -> domain/config.merge_config -> LoadedConfig
+  storage/project_files.load_config     dbt-erd.yml + preset (built-in or file) -> domain/config.merge_config -> LoadedConfig
   cli._output                           the page path (-o, else output: of the config), checked
   cli._dbt_parse                        dbt parse (skipped with --no-parse / --manifest; its output on stderr, D-029)
   storage/project_files.read_manifest   target/manifest.json  -> domain/manifest.parse_manifest -> Project
@@ -60,8 +60,10 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Tables, columns, relations, lineage, groups, project | `domain/model` |
 | Merge and validate the configuration | `domain/config.merge_config`, `Config` |
 | Python → JavaScript page data contract | `domain/payload` |
-| Read `dbt-erd.yml` and built-in presets | `storage/project_files.load_config`, `read_preset` |
-| The config file a run reads (`--config`, else `dbt-erd.yml`), returned with the config | `storage/project_files.load_config` (`LoadedConfig`) |
+| Read `dbt-erd.yml` and presets (built-in by name, file by path) | `storage/project_files.load_config`, `read_preset`, `read_preset_file` |
+| Validate a preset on its own (closed keys, D-030) | `domain/config.check_preset`, `Preset` |
+| Tell a preset name from a preset path | `domain/config.is_preset_path` |
+| The config file a run reads (`--config`, else `dbt-erd.yml`), returned with the config and the preset applied | `storage/project_files.load_config` (`LoadedConfig`) |
 | Read a project file as UTF-8 text, JSON or a YAML mapping, with one-line errors | `storage/project_files._read_text`, `_read_json`, `_read_yaml` |
 | Decide whether a table is in a view's scope | `domain/classify.in_scope` |
 | Group of a table (`group_by`) | `domain/classify.group_of` |
@@ -85,7 +87,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Words of an `OSError` (`permission denied`) | `storage/files.os_reason` |
 | Command-line options and help | `cli.app`, `cli.command`, `Options` |
 | What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind`, `refused_hint` |
-| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option) |
+| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
 | How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
 | Run `dbt parse` (output on stderr, OS errors and exit code as `RunError`) | `cli._dbt_parse` |
 | Write the page, OS errors named by the output | `cli._write_page` |
@@ -129,6 +131,6 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 
 ## Configuration
 
-Settings live in the analysed dbt project, not in this repository: `dbt-erd.yml` next to `dbt_project.yml` (keys in `domain/config.py` and the README), optionally starting from a built-in preset (`--preset` or `preset:`); `dbt-erd-layout.json` holds the shared manual arrangement. Precedence: defaults < preset < file < command-line options. The tool needs no secret.
+Settings live in the analysed dbt project, not in this repository: `dbt-erd.yml` next to `dbt_project.yml` (keys in `domain/config.py` and the README), optionally starting from a preset: built-in (`--preset` or `preset: <name>`) or a YAML file (`--preset-file` or `preset: <path>`, relative to the config file's folder), validated on its own with closed keys (D-030); `dbt-erd-layout.json` holds the shared manual arrangement. Precedence: defaults < preset < file < command-line options. The tool needs no secret.
 
 Convention of this repository: secrets in `.env` (git-ignored, template in `.env.example`), machine-specific settings in `config.toml` (git-ignored), local runtime data in `.local/` (git-ignored; `.local/dev-data/` for development, `.local/credentials/` never read by Claude Code).

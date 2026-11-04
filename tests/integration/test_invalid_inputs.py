@@ -5,6 +5,8 @@ Real-world manifest shapes that are valid must still build the page.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -110,3 +112,15 @@ def test_view_comes_from_the_command_line_then_the_file(dbt_project: Path) -> No
     write_config(dbt_project, "view: detail\n")
     assert main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN, "--view", "universe"]) == 0
     assert page_data((dbt_project / PAGE).read_text(encoding="utf-8"))["view"] == "universe"
+
+
+def test_a_misspelt_preset_key_fails_in_a_subprocess(dbt_project: Path) -> None:
+    preset = dbt_project / "team.yml"
+    preset.write_text("kinds:\n  - {key: fact, match: 'fct_*', colour: red}\n", encoding="utf-8")
+    args = ["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN, "--preset-file", str(preset)]
+    result = subprocess.run(
+        [sys.executable, "-m", "dbtscope", *args], capture_output=True, text=True, check=False
+    )
+    assert (result.returncode, result.stdout) == (1, "")
+    assert result.stderr == f"dbtscope: error: preset {preset}: kinds[0].colour: unknown key; fix the file\n"
+    assert not (dbt_project / PAGE).exists()

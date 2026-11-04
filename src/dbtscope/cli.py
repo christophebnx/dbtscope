@@ -58,7 +58,8 @@ EPILOG = (
     "  dbtscope --project-dir ../shop --offline   page that works without network"
     "\n\n"
     "Relative paths in options are read from the current folder; the output and "
-    "layout_file keys of the config, from the project folder. The page path and a "
+    "layout_file keys of the config, from the project folder; a preset path in the "
+    "config, from the config file's folder. The page path and a "
     "summary go to stdout; progress, dbt's output, warnings and errors go to stderr. "
     "Exit codes: 0 done, 1 error, 2 wrong option, 130 interrupted."
 )
@@ -91,6 +92,7 @@ class Options:
     no_open: bool = False
     dbt: str | None = None
     offline: bool = False
+    preset_file: str | None = None
 
 
 @dataclass(frozen=True)
@@ -101,6 +103,7 @@ class Inputs:
     config: Path | None
     manifest: Path
     dbt: str | None
+    preset_file: Path | None = None  # absolute; checked when read (`storage/project_files.read_preset_file`)
 
 
 # --- interface ------------------------------------------------------------------------------
@@ -163,6 +166,16 @@ def command(
             help=f"Built-in conventions: {in_words(PRESETS)}.",
         ),
     ] = None,
+    preset_file: Annotated[
+        str | None,
+        _path_option(
+            "--preset-file",
+            metavar="FILE",
+            panel="Project",
+            help="Conventions from a YAML file instead of a built-in --preset: "
+            "the keys of dbt-erd.yml except output, layout_file and preset.",
+        ),
+    ] = None,
     no_parse: Annotated[
         bool,
         _flag("--no-parse", "dbt", "Do not run dbt parse; read target/manifest.json in the project folder."),
@@ -220,7 +233,11 @@ def command(
 ) -> Options:
     """The command line as `Options`; the work is done by `run`, called from `main`."""
     del version  # eager: handled by `_show_version`
-    return Options(project_dir, config, preset, output, view, manifest, no_parse, no_open, dbt, offline)
+    if preset is not None and preset_file is not None:
+        raise typer.BadParameter("cannot be used together with --preset", param_hint="'--preset-file'")
+    return Options(
+        project_dir, config, preset, output, view, manifest, no_parse, no_open, dbt, offline, preset_file
+    )
 
 
 # --- paths ----------------------------------------------------------------------------------
@@ -296,13 +313,18 @@ def _dbt(value: str | None) -> str:
 
 
 def _resolve(options: Options) -> Inputs:
-    """Resolve and check the project, config, manifest and dbt given on the command line."""
+    """Resolve and check the project, config, manifest and dbt given on the command line.
+
+    `--preset-file` is only resolved here: `load_config` checks it, as it checks the file's
+    `preset` key (one implementation, D-030).
+    """
     project = _project(options.project_dir)
     config = _config(options.config)
+    preset_file = Path(options.preset_file).resolve() if options.preset_file is not None else None
     if options.manifest is not None:
-        return Inputs(project, config, _manifest(options.manifest), None)
+        return Inputs(project, config, _manifest(options.manifest), None, preset_file)
     manifest = project / "target" / "manifest.json"
-    return Inputs(project, config, manifest, None if options.no_parse else _dbt(options.dbt))
+    return Inputs(project, config, manifest, None if options.no_parse else _dbt(options.dbt), preset_file)
 
 
 def _output(value: str | None, project: Path, config: Config) -> Path:
@@ -437,7 +459,7 @@ class Report:
     output: Path
     config: Config
     config_path: Path | None
-    preset: str | None
+    preset: str | Path | None  # the preset applied: a built-in name or a preset file
     page_size: int
     layout_path: Path | None  # None when no layout is embedded
     saved_at: object = None  # the layout's `savedAt`
@@ -466,8 +488,8 @@ def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -
 # --- run ------------------------------------------------------------------------------------
 
 
-def _config_label(config_path: Path | None, preset: str | None) -> str:
-    """How messages name the config of the run: its file, the --preset, or the defaults."""
+def _config_label(config_path: Path | None, preset: str | Path | None) -> str:
+    """How messages name the config of the run: its file, the preset applied, or the defaults."""
     if config_path is not None:
         return config_source(config_path)
     return f"preset {preset}" if preset else "the default config"
@@ -497,7 +519,9 @@ def _check_views(detail: DetailPayload, universe: UniversePayload, label: str) -
 def run(options: Options) -> None:
     """Parse the project, build both views, write the page, print the summary, open the browser."""
     inputs = _resolve(options)
-    config, config_path = load_config(inputs.project, inputs.config, options.preset)
+    config, config_path, preset = load_config(
+        inputs.project, inputs.config, inputs.preset_file or options.preset
+    )
     overrides: dict[str, object] = {"view": options.view} if options.view else {}
     if options.offline:
         overrides["offline"] = True
@@ -513,7 +537,7 @@ def run(options: Options) -> None:
             f"manifest {inputs.manifest} holds no model, seed, snapshot or source; "
             "check that it is the manifest of your dbt project"
         )
-    label = _config_label(config_path, options.preset)
+    label = _config_label(config_path, preset)
     detail, universe = _views(parsed, config, label)
     _check_views(detail, universe, label)
     layout_path = (inputs.project / config.layout_file).resolve()
@@ -522,7 +546,7 @@ def run(options: Options) -> None:
     _write_page(output, page_bytes)
     embedded = layout_path if layout is not None else None
     saved_at = layout.get("savedAt") if layout is not None else None
-    report = Report(output, config, config_path, options.preset, len(page_bytes), embedded, saved_at)
+    report = Report(output, config, config_path, preset, len(page_bytes), embedded, saved_at)
     _say(sys.stdout, _summary(report, detail, universe))
     if not options.no_open:
         _open_browser(output)
@@ -538,6 +562,8 @@ def _usage_message(error: typer.TyperException) -> str:
         r"\(Possible options?: (.+)\)$", lambda m: f"(did you mean {in_words(m[1].split(', '))}?)", text
     )
     text = lower_first(text)
+    if getattr(error, "param", None) is not None and error.param.name == "preset":  # a file goes elsewhere
+        text += " (or use --preset-file for a preset file)"
     if text.startswith("got unexpected extra argument"):
         return f"{text}; pass the project folder with --project-dir"
     return f"{text}; {USAGE_HINT}"

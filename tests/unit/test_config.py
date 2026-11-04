@@ -5,7 +5,16 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, ConfigError, Rule, merge_config
+from dbtscope.domain.config import (
+    DEFAULT_KIND_COLOR,
+    NOT_IN_PRESET,
+    Config,
+    ConfigError,
+    Rule,
+    check_preset,
+    is_preset_path,
+    merge_config,
+)
 
 
 def test_defaults_alone_are_valid() -> None:
@@ -167,3 +176,142 @@ def test_rules_and_universe_settings_are_immutable() -> None:
 def test_include_packages_accepts_booleans_only() -> None:
     assert merge_config({}, {"include_packages": True}).include_packages is True
     assert merge_config({"include_packages": True}, {}).include_packages is True
+
+
+# --- presets: validated on their own, closed keys (D-030) -----------------------------------
+
+
+def test_a_valid_preset_is_returned_unchanged() -> None:
+    preset: dict[str, Any] = {
+        "title": "Team",
+        "language": "fr",
+        "kinds": [{"key": "hub", "match": "*_hub"}],
+        "universe": {"links": "lineage", "hidden_kinds": ["hub"]},
+    }
+    assert check_preset(preset) is preset
+    assert preset["kinds"] == [{"key": "hub", "match": "*_hub"}]  # not filled in (label, colour)
+
+
+def test_an_empty_preset_is_valid() -> None:
+    assert check_preset({}) == {}
+
+
+@pytest.mark.parametrize(
+    ("preset", "expected"),
+    [
+        ({"tittle": "x"}, "tittle: unknown key"),
+        ({"kinds": [{"key": "k", "match": "x", "colour": "red"}]}, "kinds[0].colour: unknown key"),
+        ({"domains": [{"key": "d", "match": "x", "bogus": 1}]}, "domains[0].bogus: unknown key"),
+        ({"universe": {"bogus": 1}}, "universe.bogus: unknown key"),
+    ],
+    ids=["top", "rule", "domain-rule", "universe"],
+)
+def test_an_unknown_preset_key_is_refused_with_its_location(preset: dict[str, Any], expected: str) -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset(preset)
+    assert str(info.value) == expected
+
+
+@pytest.mark.parametrize("key", list(NOT_IN_PRESET))
+def test_a_project_key_is_refused_in_a_preset(key: str) -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset({key: "x.yml"})
+    assert str(info.value) == f"{key}: {NOT_IN_PRESET[key]}"
+
+
+@pytest.mark.parametrize(
+    ("preset", "expected"),
+    [
+        ({"offline": "yes"}, "offline: must be true or false"),
+        ({"include_packages": 1}, "include_packages: must be true or false"),
+        ({"language": "EN"}, "language: must be 'en' or 'fr'"),
+        ({"select": 3}, "select: must be a list"),
+        ({"select": [1]}, "select[0]: must be a string"),
+        ({"key_columns": 5}, "key_columns: must be a string"),
+        ({"kinds": {"key": "x"}}, "kinds: must be a list"),
+        ({"universe": []}, "universe: must be a mapping"),
+        ({"title": True}, "title: must be a string"),
+        ({"group_by": "bogus"}, "group_by: invalid value 'bogus'"),
+        ({"key_columns": "("}, "key_columns: invalid regex '('"),
+    ],
+)
+def test_a_wrong_type_in_a_preset_is_refused(preset: dict[str, Any], expected: str) -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset(preset)
+    assert str(info.value).startswith(expected)
+
+
+def test_the_config_shorthands_are_accepted_in_a_preset() -> None:
+    assert check_preset({"select": "fct_*", "title": 2024}) == {"select": "fct_*", "title": 2024}
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("data_vault", False),
+        ("team.yml", True),
+        ("TEAM.YAML", True),
+        ("team.yaml", True),
+        ("./team", True),
+        ("conf/team", True),
+        ("conf\\team", True),
+        ("/abs/team", True),
+    ],
+)
+def test_a_preset_value_is_a_path_or_a_name(value: str, expected: bool) -> None:
+    assert is_preset_path(value) is expected
+
+
+def test_the_config_file_stays_lenient() -> None:
+    assert merge_config({}, {"bogus": 1, "universe": {"bogus": 2}}) == Config()
+
+
+@pytest.mark.parametrize(
+    ("preset", "expected"),
+    [
+        ({"kinds": [{"key": 1, "match": "x"}]}, "kinds[0].key: must be a string"),
+        ({"kinds": [{"key": "k", "match": [1]}]}, "kinds[0].match[0]: must be a string"),
+        ({"layers": [{"key": "k", "match": "x", "color": 3}]}, "layers[0].color: must be a string"),
+        ({"domains": ["sales"]}, "domains[0]: must be a mapping"),
+        ({"universe": {"links": "all"}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
+        ({"universe": {"hidden_kinds": [1]}}, "universe.hidden_kinds[0]: must be a string"),
+        ({"universe": {"hiden_kinds": ["hub"]}}, "universe.hiden_kinds: unknown key"),
+    ],
+    ids=[
+        "rule-key",
+        "rule-match",
+        "rule-color",
+        "rule-not-mapping",
+        "links",
+        "hidden-kinds",
+        "universe-typo",
+    ],
+)
+def test_a_wrong_value_inside_a_preset_section_is_refused(preset: dict[str, Any], expected: str) -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset(preset)
+    assert str(info.value).startswith(expected)
+
+
+def test_the_first_refused_preset_key_is_reported_alone() -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset({"layout_file": "x.json", "output": "x.html", "preset": "y.yml", "tittle": "x"})
+    assert str(info.value) == "preset: a preset cannot load another preset"
+
+
+def test_a_preset_rule_label_may_be_null_or_a_number() -> None:
+    preset: dict[str, Any] = {
+        "kinds": [{"key": "a", "label": None, "match": "x"}, {"key": "b", "label": 7, "match": "y"}]
+    }
+    assert check_preset(preset) is preset
+
+
+@pytest.mark.parametrize("value", ["", "team", "data_vault", "team.yml.bak", "team.json"])
+def test_a_preset_value_without_separator_or_yaml_suffix_is_a_name(value: str) -> None:
+    assert is_preset_path(value) is False
+
+
+def test_an_unknown_preset_key_is_shown_before_other_problems() -> None:
+    with pytest.raises(ConfigError) as info:
+        check_preset({"offline": "yes", "language": "EN", "tittle": "x"})
+    assert str(info.value) == "tittle: unknown key (and 2 more problems)"

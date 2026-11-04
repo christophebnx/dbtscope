@@ -54,7 +54,10 @@ UNTYPED_ALLOWED = {
     ("domain/config.py", "def merge_config(preset: dict[str, Any], file_config: dict[str, Any]) -> Config:"),
     # raw YAML, before validation
     ("storage/project_files.py", "def _read_yaml(path: Path | Traversable, source: str) -> dict[str, Any]:"),
-    ("storage/project_files.py", "def read_preset(name: str) -> dict[str, Any]:"),
+    ("storage/project_files.py", 'def read_preset(name: str, choices_hint: str = "") -> dict[str, Any]:'),
+    ("storage/project_files.py", "def read_preset_file(path: Path, setting: str) -> dict[str, Any]:"),
+    ("storage/project_files.py", "def _load_preset(reference: str | Path, setting: str) -> dict[str, Any]:"),
+    ("domain/config.py", "def check_preset(data: dict[str, Any]) -> dict[str, Any]:"),
     # the layout file is not modelled in M3 (roadmap)
     ("domain/layout.py", "def check_layout(layout: Any, source: str) -> dict[str, Any]:"),
     ("storage/project_files.py", "def read_layout(path: Path) -> dict[str, Any] | None:"),

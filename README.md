@@ -14,7 +14,7 @@ uvx --from git+https://github.com/christophebnx/dbtscope dbtscope --preset data_
 
 This runs `dbt parse` (no warehouse connection), writes `erd_output/erd.html` and opens it in the browser.
 
-Options, grouped as in `dbtscope --help`. Relative paths given as options are read from the current folder; the `output` and `layout_file` keys of the config, from the project folder.
+Options, grouped as in `dbtscope --help`. Relative paths given as options are read from the current folder; the `output` and `layout_file` keys of the config, from the project folder; a preset path in the config, from the config file's folder.
 
 | Option | |
 |---|---|
@@ -22,6 +22,7 @@ Options, grouped as in `dbtscope --help`. Relative paths given as options are re
 | `--project-dir FOLDER` | dbt project folder, holding `dbt_project.yml` (default: the current folder) |
 | `--config FILE` | config file (default: `dbt-erd.yml` in the project folder, if present) |
 | `--preset NAME` | built-in conventions: `data_vault` or `star_schema` |
+| `--preset-file FILE` | conventions from a YAML file instead of a built-in `--preset`: the keys of `dbt-erd.yml` except `output`, `layout_file` and `preset` (cannot be used with `--preset`) |
 | **dbt** | |
 | `--no-parse` | do not run `dbt parse`; read `target/manifest.json` in the project folder |
 | `--manifest FILE` | read this `manifest.json` instead of running `dbt parse` |
@@ -101,7 +102,7 @@ With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the thr
 Put a `dbt-erd.yml` next to `dbt_project.yml` (the file keeps the name it had before the tool became `dbtscope`, so existing configs keep working). Every key is optional; keys you set replace the preset's.
 
 ```yaml
-preset: data_vault            # start from a built-in preset
+preset: data_vault            # start from a built-in preset, or a preset file: preset: team.yml
 title: Raw vault
 output: erd_output/erd.html   # relative to the dbt project
 language: en                  # en | fr
@@ -135,9 +136,26 @@ universe:
   hidden_kinds: []            # types unticked at opening
 ```
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex. `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys are ignored. An invalid value stops the run with one line naming the key, for example `dbtscope: error: view: must be 'universe' or 'detail'`; an invalid manifest likewise names the field (`dbtscope: error: manifest: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex. `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the key, for example `dbtscope: error: view: must be 'universe' or 'detail'`; an invalid manifest likewise names the field (`dbtscope: error: manifest: <location>: <problem>`).
 
 `kinds` colour both views. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other".
+
+### Preset files
+
+A team can keep its conventions in its own preset file and share it between projects:
+
+```yaml
+# conventions/team.yml
+key_columns: "(_id|_key)$"
+kinds: [{key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}]
+```
+
+- Give it with `--preset-file conventions/team.yml` (relative to the current folder), or with `preset: conventions/team.yml` in `dbt-erd.yml` (relative to the folder of the config file; `\` works as `/`).
+- In `preset:`, a value holding `/` or `\` or ending with `.yml` / `.yaml` is a file; any other value is a built-in name.
+- A preset file holds the keys of `dbt-erd.yml` except `output`, `layout_file` and `preset` (a preset does not load another one).
+- Unlike `dbt-erd.yml`, a preset is closed: an unknown or misspelt key stops the run, for example `dbtscope: error: preset /home/ana/conventions/team.yml: kinds[0].colour: unknown key; fix the file`.
+- Precedence is unchanged: defaults < preset < `dbt-erd.yml` < command line; `--preset` or `--preset-file` replaces the `preset:` key.
+- The summary names the preset applied (`config:   …, preset /home/ana/conventions/team.yml`).
 
 ### Selectors
 
@@ -202,7 +220,10 @@ Every failure is one line on stderr, `dbtscope: error: <what happened>; <what to
 | `config …: <key>: <problem>` | fix that key of the config file |
 | `layout … is not a layout exported by the page` / `version … is not supported` | export the layout again from the page, or delete the file |
 | `cannot write …` / `cannot create folder …` | choose another `--output` (or free some space); a page file name of more than about 235 characters is too long, because the page is first written to a temporary file next to it |
-| `invalid value for '--preset'` | the preset is one of `data_vault` or `star_schema` (exit code 2) |
+| `invalid value for '--preset'` | the preset is one of `data_vault` or `star_schema`; for a preset file, use `--preset-file` (exit code 2) |
+| `invalid value for '--preset-file': cannot be used together with --preset` | keep one of the two options (exit code 2) |
+| `preset … not found` / `is a folder` | check `--preset-file` (relative to the current folder) or the `preset:` key (relative to the config file's folder) |
+| `preset …: <key>: unknown key` / `belongs to dbt-erd.yml, not to a preset` | fix that key of the preset file: a preset holds the keys of `dbt-erd.yml` except `output`, `layout_file` and `preset` |
 
 Warnings (`dbtscope: warning: …`, exit code 0) say when the browser could not be opened (the page's `file://` address is printed) or when one view of the page is empty.
 
