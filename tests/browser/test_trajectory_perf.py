@@ -13,18 +13,21 @@ from typing import Any
 import pytest
 
 from dbtscope.domain.config import merge_config
+from dbtscope.domain.payload import DetailPayload, UniversePayload
 from dbtscope.render.page import render_page
 
 pytestmark = pytest.mark.browser
 
 TABLES, DOMAINS, CHAIN = 1500, 30, 50
-DETAIL = {"title": "perf", "lang": "en", "grouped": False, "kinds": [], "relations": [], "entities": []}
+DETAIL = DetailPayload.model_validate(
+    {"title": "perf", "lang": "en", "grouped": False, "kinds": [], "relations": [], "entities": []}
+)
 LAYERS = ["sources", "staging", "core", "marts", "reports"]
 KINDS = [("source", "#94a3b8"), ("fact", "#2f6fb5"), ("dim", "#2e8b57")]
 HUB = 1000
 
 
-def universe_payload() -> dict[str, Any]:
+def universe_payload() -> UniversePayload:
     rng = random.Random(7)
     nodes = [
         {
@@ -48,18 +51,20 @@ def universe_payload() -> dict[str, Any]:
         a, b = rng.randrange(TABLES), rng.randrange(TABLES)
         if a != b:
             relations.add((a, b))
-    return {
-        "nodes": nodes,
-        "relations": [list(p) for p in sorted(relations)],
-        "lineage": [list(p) for p in sorted(lineage)],
-        "domains": [
-            {"key": f"d{d:02d}", "label": f"domain {d:02d}", "color": "#2f6fb5", "owner": ""}
-            for d in range(DOMAINS)
-        ],
-        "layers": [{"key": k, "label": k.title()} for k in LAYERS],
-        "kinds": [{"key": k, "label": k.title(), "color": c} for k, c in KINDS],
-        "defaults": {"links": "both", "detail": "names", "hiddenKinds": []},
-    }
+    return UniversePayload.model_validate(
+        {
+            "nodes": nodes,
+            "relations": [list(p) for p in sorted(relations)],
+            "lineage": [list(p) for p in sorted(lineage)],
+            "domains": [
+                {"key": f"d{d:02d}", "label": f"domain {d:02d}", "color": "#2f6fb5", "owner": ""}
+                for d in range(DOMAINS)
+            ],
+            "layers": [{"key": k, "label": k.title()} for k in LAYERS],
+            "kinds": [{"key": k, "label": k.title(), "color": c} for k, c in KINDS],
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+        }
+    )
 
 
 @pytest.fixture

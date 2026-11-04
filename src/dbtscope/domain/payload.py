@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 PAYLOAD = ConfigDict(extra="forbid", frozen=True)
 
@@ -98,9 +98,7 @@ class UniverseDefaults(BaseModel):
 
     links: str
     detail: str
-    hidden_kinds: tuple[str, ...] = Field(
-        serialization_alias="hiddenKinds", validation_alias=AliasChoices("hidden_kinds", "hiddenKinds")
-    )
+    hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
 
 
 class UniversePayload(BaseModel):

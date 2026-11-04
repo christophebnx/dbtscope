@@ -78,10 +78,11 @@ def test_page_payload_wraps_both_views() -> None:
     assert list(json.loads(_json(page))) == ["title", "lang", "view", "detail", "universe", "layout"]
 
 
-def test_defaults_accept_the_page_name_too() -> None:
-    assert UniverseDefaults.model_validate(
-        {"links": "both", "detail": "all", "hiddenKinds": ["x"]}
-    ).hidden_kinds == ("x",)
+def test_defaults_are_built_by_their_python_name_only() -> None:
+    defaults = UniverseDefaults.model_validate({"links": "both", "detail": "all", "hidden_kinds": ["x"]})
+    assert defaults.hidden_kinds == ("x",)
+    with pytest.raises(ValidationError):
+        UniverseDefaults.model_validate({"links": "both", "detail": "all", "hiddenKinds": ["x"]})
 
 
 def test_payloads_are_closed_and_immutable() -> None:
