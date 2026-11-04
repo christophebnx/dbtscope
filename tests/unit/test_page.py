@@ -7,9 +7,10 @@ import pytest
 from conftest import DATA_OPEN, data_block, empty_detail, empty_universe, page_data
 
 from dbtscope.domain.config import merge_config
+from dbtscope.domain.layout import LAYOUT_FORMAT
 from dbtscope.domain.payload import DetailPayload
 from dbtscope.render import page as page_module
-from dbtscope.render.page import LIBRARIES, VENDOR, render_page
+from dbtscope.render.page import ASSETS, LIBRARIES, VENDOR, render_page
 
 DETAIL = empty_detail()
 UNIVERSE = empty_universe()
@@ -64,7 +65,7 @@ M1_SCRIPT_TAGS = """\
 def test_cdn_page_keeps_the_m1_script_tags() -> None:
     page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     after_data = page.split('id="data">', 1)[1].split("</script>\n", 1)[1]
-    assert after_data.startswith(M1_SCRIPT_TAGS + "\n<script>\n// Detail view")
+    assert after_data.startswith(M1_SCRIPT_TAGS + "\n<script>\n// Page-wide")
     assert page.count("<script src") == 4
     assert "/*! d3" not in page
 
@@ -95,7 +96,7 @@ def test_offline_page_embeds_every_library_in_order_and_loads_no_remote_script()
     positions = [page.index(f"/*! {lib.name} {lib.version}, {lib.spdx}. Licence:") for lib in LIBRARIES[:2]]
     positions.append(page.index("Includes Graphviz 2.40.1, EPL-1.0. Licence:"))
     positions.append(page.index("/*! svg-pan-zoom 3.6.1, BSD-2-Clause. Licence:"))
-    positions.append(page.index("// Detail view"))
+    positions.append(page.index("// Page-wide"))
     assert positions == sorted(positions)
     for lib in LIBRARIES:
         first = (VENDOR / lib.licence).read_text(encoding="utf-8").strip().splitlines()[0]
@@ -103,7 +104,7 @@ def test_offline_page_embeds_every_library_in_order_and_loads_no_remote_script()
     assert "Includes Expat 2.2.5, MIT. Licence:" in page
     assert page_data(page)["title"] == "dbt ERD"
     # minified libraries hold "{{" of their own: check no placeholder of the shell is left
-    for name in ("STYLE", "SCRIPTS", "DETAIL_JS", "UNIVERSE_JS", "BOOT_JS", "TITLE", "DATA"):
+    for name in ("STYLE", "SCRIPTS", "COMMON_JS", "DETAIL_JS", "UNIVERSE_JS", "BOOT_JS", "TITLE", "DATA"):
         assert "{{" + name + "}}" not in page
 
 
@@ -162,3 +163,30 @@ def test_offline_page_differs_from_the_cdn_page_only_in_the_scripts() -> None:
     offline = _offline_page()
     head, tail = cdn.split(M1_SCRIPT_TAGS)
     assert offline.startswith(head) and offline.endswith(tail)
+
+
+# ---------------------------------------------------------------- M5.2: common.js, layout format
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_common_script_comes_first_in_its_own_block(offline: bool) -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)
+    starts = [
+        page.index("<script>\n" + first)
+        for first in ("// Page-wide", "// Detail view", "// Universe view", "// Page boot")
+    ]
+    assert starts == sorted(starts)
+    common = page[starts[0] : page.index("</script>", starts[0])]
+    assert "const PAGE = JSON.parse" in common and "function startDetail" not in common
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_common_script_cannot_close_its_block() -> None:
+    assert "</script" not in (ASSETS / "common.js").read_text(encoding="utf-8").lower()
+
+
+def test_boot_writes_the_layout_format_once() -> None:
+    boot = (ASSETS / "boot.js").read_text(encoding="utf-8")
+    assert f"const LAYOUT_FORMAT = '{LAYOUT_FORMAT}';" in boot
+    assert boot.count(f"'{LAYOUT_FORMAT}'") == 1
+    assert f"'{LAYOUT_FORMAT}:' + PAGE.title" in boot  # the localStorage key is unchanged (invariant 9)

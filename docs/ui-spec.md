@@ -4,11 +4,14 @@ User-visible behaviour of the generated page, kept true by the ui-designer and t
 
 ## General
 
-- One self-contained page, in English or French (`language`, D-016). Every string comes from the `L` / `T` tables of the scripts, in both languages.
+- One self-contained page, in English or French (`language`, D-016). Every string comes from the string tables of the scripts (`STRINGS` / `L` in `common.js` for page-wide strings, `T` for one view's own), in both languages.
 - Light theme: background `#f5f6f8`, surface `#ffffff`, text `#1f2933`, muted `#6b7280`, one accent `#2f6fb5`.
-- Native controls (`button`, `select`, `input` + `datalist`, `details`). Visible focus. Touch targets of at least 44 px on coarse pointers for new controls.
-- No horizontal scroll at 360 px; checked at 360 and 1280 px.
-- The ☰ button of each toolbar opens and closes the side panel; it is named "Filters" ("Filtres") and exposes `aria-expanded`.
+- Native controls (`button`, `select`, `input` + `datalist`, `details`). Visible focus.
+- **Counts agree in number** (M5.2): "1 table", "2 tables", "1 column", "+ 1 column", "1 relation", "1 table brought back by the trajectory". English is singular for 1 only; French for 0 and 1 ("0 table · 0 lien · 0 domaine", "1 colonne"). Counts with no noun after them ("5 upstream", checkbox counts, the card's "+ N") are unchanged. Design: `docs/architecture/2026-11-04-m5.2-page-polish.md` § UI design.
+- **Touch targets**: on coarse pointers (`pointer: coarse`), every control is at least 44 px high (buttons also 44 px wide): tabs, layout buttons, ☰, search and focus inputs, toolbar and export buttons, panel selects, checkbox rows, the all / none links, the trajectory bar controls. Fine-pointer (desktop) rendering is unchanged.
+- **No horizontal scroll at 360 px**, panel open or closed; checked at 360 and 1280 px. The toolbars, the tabs and the layout buttons wrap.
+- The ☰ button of each toolbar opens and closes the side panel; it is named "Filters" ("Filtres") and exposes `aria-expanded`. Focus stays on it.
+- **Narrow screens (D-035)**: a view that starts in a window 600 px wide or narrower opens with its panel closed (`aria-expanded="false"`), so the drawing fills the screen; the ☰ button, first in the toolbar, reopens it. At that width an open panel sits above the toolbar, full width, at most 45 % of the screen height, scrolling inside itself. Nothing is saved and later resizing does not change the state. Wider windows open with the panel beside the drawing, as before.
 
 ## Universe view — trajectory mode (M1, D-018)
 
@@ -16,7 +19,7 @@ Design: `docs/architecture/2026-11-03-m1-trajectory-mode.md` § UI design.
 
 - **Purpose.** From one table, show where its data comes from (upstream) and where it goes (downstream) along the `ref` / `source` lineage, without moving the universe.
 - **Entering.** A single click on a table when zoomed in enough to see tables, or the **Trajectory** button next to the search box (disabled until the box holds an exact table name). Clicking another table moves the trajectory. A drag or a pan never enters it.
-- **Bar.** Overlaid at the top of the canvas, in this order: "Trajectory of" + the start table; **Direction** (both, upstream, downstream; default both); **Depth** (all levels, 1, 2, 3 levels; default all); the counts ("5 upstream · 1 downstream"), which open a per-domain breakdown on click and show it on hover; "N hidden by the filters" when a filter changed in the mode hides trajectory tables; "N tables brought back by the trajectory"; a legend (start, upstream, downstream); **Leave**. Direction and depth are kept for the session.
+- **Bar.** Overlaid at the top of the canvas, in this order: "Trajectory of" + the start table; **Direction** (both, upstream, downstream; default both); **Depth** (all levels, 1, 2, 3 levels; default all); the counts ("5 upstream · 1 downstream"), which open a per-domain breakdown on click and show it on hover; "N hidden by the filters" when a filter changed in the mode hides trajectory tables; "N tables brought back by the trajectory" ("1 table brought back by the trajectory"); a legend (start, upstream, downstream); **Leave**. Direction and depth are kept for the session.
 - **Empty state.** "No upstream or downstream table" (or "No upstream table" / "No downstream table" for one direction).
 - **Drawing.** The start table has a double dark ring; upstream tables a dashed violet ring (`#6d28d9`), downstream tables a solid burnt-orange ring (`#c2410c`); trajectory lineage edges are drawn with arrows along the data flow at every zoom, dashed upstream, whatever **Links** shows. Everything else is dimmed (tables, names, links, routes at 20 %; domains without a trajectory table at 45 %). Trajectory names are placed first.
 - **Tooltip.** "Start of the trajectory", "Upstream, level n" or "Downstream, level n"; the action line adds "Click: show its trajectory".
@@ -41,7 +44,7 @@ Design: `docs/architecture/2026-11-03-m2-export-offline.md` § UI design.
 - **File name.** `<page title>-universe.png`, `<page title>-detail.png`, `<page title>-detail.svg`; the title keeps ASCII letters, digits, `-` and `_` (accents dropped), `dbtscope` if nothing is left.
 - **States.** Disabled while nothing is drawn (no table for the filters; detail laying out or in error). While an export runs, the clicked button ignores further clicks (`aria-disabled`, progress cursor) and keeps focus. Success: a polite live region in the top bar says "Image created: <file>" ("Image créée : <file>"). Failure: an alert "The image could not be created." ("L'image n'a pas pu être créée."), nothing is downloaded.
 - **Keyboard.** In tab order after Fit; Enter or Space exports; no shortcut. Focus stays on the button.
-- **Small screens.** The group wraps as one piece with the toolbar; no horizontal scroll at 360 px with the panel closed. 44 px targets on coarse pointers.
+- **Small screens.** The group wraps as one piece with the toolbar; no horizontal scroll at 360 px. 44 px targets on coarse pointers.
 
 ## Offline page (M2)
 

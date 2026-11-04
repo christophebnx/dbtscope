@@ -118,6 +118,11 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Script tags or inline libraries of the page | `render/page._scripts` |
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
+| Escape untrusted text for `innerHTML` (page) | `render/assets/common.js esc` |
+| A count with plural agreement (page) | `render/assets/common.js plural` |
+| Side panel toggle and opening state (page) | `render/assets/common.js sidePanel` |
+| A filter checkbox row (page) | `render/assets/common.js filterRow` |
+| Page strings shared by several scripts | `render/assets/common.js STRINGS` / `L` |
 | Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |

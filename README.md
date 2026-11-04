@@ -258,7 +258,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - From afar: the domains, their size, and the routes between them — one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes.
 - Closer: each table, coloured by kind, with its name — or as a card with its key columns or all its fields (**Tables**: names / keys / all fields).
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly.
-- Side panel: tick **layers**, **Types** (the kinds) and **domains** on and off. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
+- Side panel: tick **layers**, **Types** (the kinds) and **domains** on and off. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening. On a phone or a window 600 px wide or narrower, the panels start closed: the ☰ button opens them.
 - Double-click a domain to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the Detail view doesn't include it). Search finds a table even when filters hide it.
 
 A table's domain is the first of:

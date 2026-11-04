@@ -1,16 +1,6 @@
 // Page boot: shared layout store, tabs, the export / import / reset of manual arrangements, and the
-// shared helpers that save files and exported images.
-const PAGE = JSON.parse(document.getElementById('data').textContent);
-document.documentElement.lang = PAGE.lang;
-const L = {
-  en: { universe: 'Universe', detail: 'Detail', reset: 'Reset layout', export: 'Export layout', import: 'Import layout',
-        resetAsk: 'Forget the manual arrangement of this tab?', bad: 'Not a dbt-erd layout file.',
-        imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.' },
-  fr: { universe: 'Univers', detail: 'Détail', reset: 'Réinitialiser la disposition', export: 'Exporter la disposition',
-        import: 'Importer une disposition',
-        resetAsk: 'Oublier la disposition manuelle de cet onglet ?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
-        imageSaved: f => `Image créée : ${f}`, imageError: 'L\'image n\'a pas pu être créée.' },
-}[PAGE.lang];
+// services that save files and exported images. The page-wide globals (PAGE, L…) come from common.js.
+const LAYOUT_FORMAT = 'dbt-erd-layout';   // domain/layout.LAYOUT_FORMAT, the format of the layout file
 
 // Manual positions, per view and per scope (universe: detail level; detail: what is drawn).
 // Kept in the browser, and seeded from the dbt-erd-layout.json embedded at generation:
@@ -30,7 +20,7 @@ const LAYOUT = (() => {
     get: (view, scope) => (data[view] || {})[scope],
     set(view, scope, value) { (data[view] = data[view] || {})[scope] = value; save(); },
     clear(view) { delete data[view]; save(); },
-    dump: () => ({ format: 'dbt-erd-layout', version: 1, ...data }),
+    dump: () => ({ format: LAYOUT_FORMAT, version: 1, ...data }),
     load(d) { data = d; save(); },
   };
 })();
@@ -88,7 +78,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT)
-    : startUniverse(PAGE.universe, PAGE.lang, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT);
+    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT);
   else if (views[name].shown) views[name].shown();
 }
 function openInDetail(id) {
@@ -108,7 +98,7 @@ $l('file').onchange = async ev => {
   if (!file) return;
   try {
     const d = JSON.parse(await file.text());
-    if (d.format !== 'dbt-erd-layout') throw new Error();
+    if (d.format !== LAYOUT_FORMAT) throw new Error();
     LAYOUT.load(d);
     Object.values(views).forEach(v => v.relayout());
   } catch (e) { alert(L.bad); }
