@@ -224,6 +224,7 @@ def render_page(
     parts = {
         "STYLE": _asset("page.css"),
         "SCRIPTS": _scripts(offline),
+        "COMMON_JS": _asset("common.js"),
         "DETAIL_JS": _asset("detail.js"),
         "UNIVERSE_JS": _asset("universe.js"),
         "BOOT_JS": _asset("boot.js"),

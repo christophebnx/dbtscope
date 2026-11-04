@@ -582,7 +582,8 @@ SCAN = """([step]) => {
     if (c.style.cursor === 'grab') continue;
     if (tip.style.display !== 'block') { out.empty.push([x, y]); continue; }
     const b = tip.querySelector('b'), m = tip.querySelector('.m');
-    if (b && labels.has(b.textContent) && m && !m.textContent.includes(' columns')) out.halo.push([x, y]);
+    const table = m && / (columns?|colonnes?)$/.test(m.textContent);  // a table tooltip ends with its columns
+    if (b && labels.has(b.textContent) && m && !table) out.halo.push([x, y]);
   }
   c.dispatchEvent(new MouseEvent('mouseleave'));
   return out;

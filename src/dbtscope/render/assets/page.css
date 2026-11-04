@@ -102,11 +102,19 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .mk.down { border:2px solid var(--traj-down); }
 .trajbar :focus-visible, #u-traj:focus-visible, .export button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 @media (max-width:600px) {
+  /* an open side panel stacks above the toolbar, full width, scrolling inside itself (D-035) */
+  .tab.on { flex-direction:column; }
+  .panel { width:auto; max-height:45vh; box-sizing:border-box; border-right:none; border-bottom:1px solid var(--border); }
   #u-q { flex:1 1 140px; width:auto; min-width:0; }
   .tj-start { flex:1 1 100%; }
   .tj-start b { max-width:none; }
   #u-tj-list { left:0; right:auto; min-width:0; max-width:calc(100vw - 24px); }
 }
+/* touch screens: every control is a 44 px target (D-035); fine pointers are unchanged */
 @media (pointer:coarse) {
-  .trajbar button, .trajbar select, #u-tj-counts summary, #u-traj, .export button { min-height:44px; }
+  button, select, input:not([type=checkbox]):not([type=file]), #u-tj-counts summary,
+  .panel label, .panel h3 a { min-height:44px; }
+  button { min-width:44px; }
+  input:not([type=checkbox]):not([type=file]) { box-sizing:border-box; }
+  .panel h3 a { display:inline-flex; align-items:center; padding:0 8px; }
 }

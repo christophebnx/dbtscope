@@ -124,10 +124,11 @@ def scroll_width(p: Page) -> int:
 
 @pytest.fixture
 def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Page]]:
-    """open_page(html_path, viewport, scale, offline) -> Page, with the universe view started.
+    """open_page(html_path, viewport, scale, offline, touch) -> Page, with the universe view started.
 
     `scale` is the device pixel ratio. `offline` blocks every request but the page itself (no CDN
-    fulfilment, so a library that was not embedded fails the test). Checks no error was reported."""
+    fulfilment, so a library that was not embedded fails the test). `touch` emulates a phone (touch
+    screen, `pointer: coarse`, M5.2). Checks no error was reported."""
     opened: list[Page] = []
 
     def route(r: Any) -> None:
@@ -140,10 +141,18 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
             r.abort()
 
     def _open(
-        html: Path, viewport: dict[str, int] | None = None, scale: float = 1, offline: bool = False
+        html: Path,
+        viewport: dict[str, int] | None = None,
+        scale: float = 1,
+        offline: bool = False,
+        touch: bool = False,
     ) -> Page:
         context = browser.new_context(
-            viewport=viewport or VIEWPORT, device_scale_factor=scale, accept_downloads=True
+            viewport=viewport or VIEWPORT,
+            device_scale_factor=scale,
+            accept_downloads=True,
+            has_touch=touch,
+            is_mobile=touch,
         )
         page = context.new_page()
         wrapped = Page(page)

@@ -151,9 +151,35 @@ Done when: each sub-milestone's criteria in the brief are met, tests green (defa
 
 Done when: the design note's criteria are met; default and browser tests are green; the `DBTSCOPE_DBT` check passed once; ruff is clean with no duplicate-code finding; and D-033, CLAUDE.md, the README, CHANGELOG and progress are updated.
 
+- **M5.2 — Page polish: plurals, script tidy-up, small screens.** (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.2-page-polish.md`, D-035.) One page milestone, so the M3 reference pages are regenerated once.
+  - **Plurals:**
+    - every count the page shows agrees in number, in English and French ("1 table", "0 table", "1 colonne", "+ 1 column", "1 relation"…);
+    - French rule: 0 and 1 are singular;
+    - one helper, `plural(n, [singular, plural])`, with the forms held in the string tables.
+  - **Script tidy-up:**
+    - a new `assets/common.js`, inlined first, holds the page-wide globals: `PAGE`, the `STRINGS` / `L` table, one `esc` (`& < > " '`), `plural`, the side-panel toggle and the filter checkbox row;
+    - one string-table convention, read from `PAGE.lang`;
+    - a `LAYOUT_FORMAT` constant;
+    - indented view bodies;
+    - every finding of the M4.1 note § 6, plus unescaped attribute values found in both views.
+  - **Small screens (D-035):**
+    - at 600 px or narrower, each side panel starts closed;
+    - on coarse pointers every control is a 44 px target;
+    - no horizontal scroll at 360 px;
+    - the desktop rendering is unchanged except for the plurals.
+  - **Unchanged:**
+    - the payload JSON, byte for byte (the `payloads/*.json` of the reference pages do not change; only `expected.json` is regenerated);
+    - the layout format and localStorage key (invariant 9);
+    - the escaping rules (invariant 10).
+
+Done when: the design note's test plan passes (default and browser suites, including the new plural, escaper, panel and touch-target tests); the reference pages are regenerated in the same commit as the asset change, with unchanged payloads; ruff is clean with no duplicate-code finding; and D-035, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
+- Small screens, detail tab: cap the open panel lower (about 35vh) so a filter's effect stays visible under it at 360 × 800 (M5.2 UI review).
+- French typography: a space before the colon in page strings ("Trajectoire de x : …").
 - Print stylesheet: the current view on one page, without panels and toolbars.
-- Small screens: side panel closed by default under 600 px (needs a decision: it changes the opening state); layout buttons at 44 px on touch screens.
-- Plural agreement in counts ("1 table", "1 colonne").
-- Page script tidy-up, see M4.1 design note § 6 (`docs/architecture/2026-11-04-m4.1-code-review.md`).
+- Page text consistency, left out of M5.2 because it changes visible desktop text (M5.2 note § 3):
+  - "owner : x" with French spacing in the English domain tooltip;
+  - counts not locale-formatted outside the trajectory;
+  - "Recadrer" / "Recentrer" for **Fit** in French.
