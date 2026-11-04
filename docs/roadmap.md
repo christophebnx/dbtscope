@@ -133,7 +133,7 @@ Done when:
 Brief: `docs/briefs/2026-11-04-m4-review-cli-docs.md` (read it in full). Three sub-milestones, each through `/feature`:
 
 - **M4.1 — Code review.** Duplicated code, needless weight, redundant or overkill tests, one practice per concern, consistent naming (glossary in `docs/architecture.md`). Page output and CLI output unchanged (M3 reference pages keep passing).
-- **M4.2 — CLI.** Every option exercised in a sandbox with a real `dbt parse` (dbt-core + dbt-duckdb); every failure ends in a clean, explicit message and the right exit code, never a traceback; Typer interface with grouped options and examples in `--help`; option names and exit codes unchanged; `--project-dir` stays the only project option.
+- **M4.2 — CLI.** (Done.) Every option exercised in a sandbox with a real `dbt parse` (dbt-core + dbt-duckdb); every failure ends in a clean, explicit message and the right exit code, never a traceback; Typer interface with grouped options and examples in `--help`; option names and exit codes unchanged; `--project-dir` stays the only project option.
 - **M4.3 — Documentation.** Coherence across all docs; Mermaid diagrams where they help; README opens with the main use cases (install on Windows / macOS / Linux, live analysis, batch / CI output elsewhere, project outside the current folder, without dbt).
 
 Done when: each sub-milestone's criteria in the brief are met, tests green (default and browser), ruff clean, no duplicate-code finding, decisions recorded (D-026 Typer at least), CHANGELOG and progress updated.
