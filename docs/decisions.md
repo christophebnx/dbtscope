@@ -113,3 +113,6 @@ Asked by the user on 2026-11-04 (M5.1, design note `docs/architecture/2026-11-04
 - generating the manifest in every run (needs dbt and an adapter everywhere);
 - a `dbt` pytest marker (the documented `-m "not live and not browser"` overrides `addopts`, so it would run whenever dbt is on `PATH`);
 - committing the generator (a second source of the same files, with a drift test).
+
+**D-034 — dbtscope is licensed under the Apache License 2.0.**
+User decision of 2026-11-04. `LICENSE` holds the Apache License 2.0 text (as published at apache.org), `NOTICE` the copyright line (Christophe B., 2026) and a pointer to the licences of the vendored libraries; `pyproject.toml` declares `license = "Apache-2.0"`. Replaces the MIT licence of the template (not recorded until now). The licences of the libraries embedded in offline pages (d3, Viz.js, svg-pan-zoom, and Graphviz, Expat, Emscripten and musl inside `full.render.js`, D-021) are unchanged and still ship with them. Why: the user's choice; Apache 2.0 adds an explicit patent grant and a NOTICE convention. The project has a single human author, so no other contributor's consent is needed.

@@ -17,6 +17,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- Licence (D-034): dbtscope is now licensed under the Apache License 2.0 (`LICENSE`, `NOTICE`), instead of MIT.
 - CI paused during development (D-031, D-032): no automatic run; started by hand from the Actions tab, with an option to add Windows and macOS to the tests; read-only token; same checks as before.
 - README opens with install and use cases (bash and PowerShell); diagrams of the run, the layers and the `/feature` workflow; troubleshooting lists every error message; two tests keep the README options and the documented commands in line with `--help` (M4.3).
 - CLI rebuilt with Typer (M4.2, D-026, D-029). `--help` groups the options (Project, dbt, Output, Page), states each default and ends with examples; `--preset` and `--view` are checked choices. Option names, `-h`, `--version` and `python -m dbtscope` are unchanged. Typer is now a runtime dependency (`typer>=0.27.2`, with rich and shellingham).

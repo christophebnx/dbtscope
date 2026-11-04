@@ -531,4 +531,4 @@ Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks)
 
 ## Licence
 
-MIT, see `LICENSE`.
+Apache License 2.0, see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The JavaScript libraries embedded in offline pages keep their own licences, listed in [`src/dbtscope/render/vendor/README.md`](src/dbtscope/render/vendor/README.md).
