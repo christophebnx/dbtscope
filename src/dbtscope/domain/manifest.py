@@ -90,8 +90,12 @@ def _depends_on(depends_on: DependsOn | None) -> list[str]:
 
 
 def _owner(group: ManifestGroup) -> str:
+    """The owner's name, else its email (several joined with ", "), else ""."""
     owner = group.owner
-    return (owner.name or owner.email or "") if owner else ""
+    if not owner:
+        return ""
+    email = ", ".join(owner.email) if isinstance(owner.email, list) else owner.email
+    return owner.name or email or ""
 
 
 def _read_nodes(manifest: ManifestFile) -> tuple[dict[str, InputNode], list[RelationshipTest]]:

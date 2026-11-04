@@ -130,7 +130,7 @@ class Owner(BaseModel):
     model_config = INPUT
 
     name: str | None = None
-    email: str | None = None
+    email: str | list[str] | None = None  # manifest v12 allows several addresses
 
 
 class ManifestGroup(BaseModel):

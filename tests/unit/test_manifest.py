@@ -35,6 +35,21 @@ def test_lineage_and_groups(shop: Project) -> None:
     assert shop.groups == {"sales_team": Group(name="sales_team", owner="Ana")}
 
 
+@pytest.mark.parametrize(
+    ("owner", "expected"),
+    [
+        ({"email": "a@x.io"}, "a@x.io"),
+        ({"email": ["a@x.io", "b@x.io"]}, "a@x.io, b@x.io"),  # manifest v12 allows a list
+        ({"name": "Ana", "email": ["a@x.io"]}, "Ana"),  # the name still wins
+        ({"email": []}, ""),
+        ({"name": None, "email": None}, ""),
+    ],
+)
+def test_group_owner_email_as_a_string_or_a_list(owner: dict[str, Any], expected: str) -> None:
+    project = parse_manifest({"groups": {"group.p.g": {"name": "g", "owner": owner}}})
+    assert project.groups["g"].owner == expected
+
+
 def test_tables_carry_group_meta_and_folder(shop: Project) -> None:
     customer = shop.tables["model.shop.dim_customer"]
     assert customer.group == "sales_team"
