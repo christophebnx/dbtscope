@@ -54,7 +54,8 @@ UNTYPED_ALLOWED = {
     ("domain/manifest_schema.py", "nodes: dict[str, dict[str, Any]] = {}"),  # validated per entry
     ("domain/config.py", "def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any:"),
     ("domain/config.py", "def merge_config(preset: dict[str, Any], file_config: dict[str, Any]) -> Config:"),
-    ("storage/project_files.py", "def _read_yaml(text: str, source: str) -> dict[str, Any]:"),  # raw YAML
+    # raw YAML, before validation
+    ("storage/project_files.py", "def _read_yaml(path: Path | Traversable, source: str) -> dict[str, Any]:"),
     ("storage/project_files.py", "def read_preset(name: str) -> dict[str, Any]:"),
     ("storage/project_files.py", "file_config: dict[str, Any] = {}"),
     # the layout file is not modelled in M3 (roadmap)

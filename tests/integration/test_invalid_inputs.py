@@ -79,6 +79,12 @@ def test_a_manifest_that_is_not_utf8(dbt_project: Path, capsys: pytest.CaptureFi
     assert _fails_on_one_line(dbt_project, capsys).startswith("manifest: ")
 
 
+def test_a_config_that_is_not_utf8(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (dbt_project / "dbt-erd.yml").write_bytes(b"title: caf\xe9\n")  # Latin-1, not UTF-8
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message == f"{dbt_project / 'dbt-erd.yml'} is not UTF-8 (invalid byte at offset 10)"
+
+
 def test_a_manifest_with_the_nulls_dbt_writes_builds_the_page(dbt_project: Path) -> None:
     manifest = shop_manifest()
     for node in manifest["nodes"].values():
