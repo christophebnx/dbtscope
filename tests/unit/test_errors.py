@@ -5,7 +5,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError, field_validator
 
-from dbtscope.domain.errors import validation_message
+from dbtscope.domain.errors import in_words, validation_message
 
 
 class Inner(BaseModel):
@@ -86,3 +86,11 @@ def test_empty_location_gives_the_problem_alone() -> None:
     with pytest.raises(ValidationError) as info:
         Outer.model_validate([1])
     assert validation_message(info.value) == "must be a mapping"
+
+
+@pytest.mark.parametrize(
+    ("values", "words"),
+    [([], ""), (["a"], "a"), (["a", "b"], "a or b"), (["a", "b", "c"], "a, b or c")],
+)
+def test_in_words(values: list[str], words: str) -> None:
+    assert in_words(values) == words

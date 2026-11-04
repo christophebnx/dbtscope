@@ -24,6 +24,7 @@ uv run --group browser pytest -q -m browser tests/browser   # page tests in head
 uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
 uv run dbtscope --version                 # the CLI
+uv run dbtscope --help                    # options by panel, examples, streams and exit codes (D-026, D-029)
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open --offline   # self-contained page, no network
 uv run python tools/vendor_libraries.py --check   # vendored libraries match their sha256 (downloads nothing)

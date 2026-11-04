@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
@@ -23,6 +25,19 @@ Location = tuple[str | int, ...]
 
 class DomainError(ValueError):
     """A business rule refused an input. Every domain module's error class derives from it."""
+
+
+def lower_first(text: str) -> str:
+    """`text` with its first letter in lower case: a reason or problem quoted inside a message (D-029)."""
+    return text[:1].lower() + text[1:]
+
+
+def in_words(values: Iterable[str]) -> str:
+    """`a, b or c`: a list of choices as a message or a help sentence writes it (D-029)."""
+    items = list(values)
+    if len(items) < 2:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} or {items[-1]}"
 
 
 def _location(parts: Location) -> str:
@@ -47,8 +62,7 @@ def _problem(error: ErrorDetails) -> str:
         return f"must be {error['ctx']['expected']}"
     if kind == "value_error":
         return str(error["ctx"]["error"])
-    message = str(error["msg"])
-    return message[:1].lower() + message[1:]
+    return lower_first(str(error["msg"]))
 
 
 def validation_message(error: ValidationError, prefix: Location = ()) -> str:

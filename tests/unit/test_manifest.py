@@ -148,15 +148,13 @@ def test_a_malformed_table_names_the_field(change: Any, message: str) -> None:
     manifest["nodes"]["model.shop.x"] = node
     with pytest.raises(ManifestError) as info:
         parse_manifest(manifest)
-    assert str(info.value) == f"manifest: {message}"
+    assert str(info.value) == message
 
 
 def test_a_source_with_another_type_is_refused() -> None:
     manifest = shop_manifest()
     manifest["sources"]["source.shop.erp.orders"]["resource_type"] = "model"
-    with pytest.raises(
-        ManifestError, match=r"^manifest: sources\['source.shop.erp.orders'\].resource_type: "
-    ):
+    with pytest.raises(ManifestError, match=r"^sources\['source.shop.erp.orders'\].resource_type: "):
         parse_manifest(manifest)
 
 
@@ -166,15 +164,15 @@ def test_a_mistyped_relationship_test_names_the_field() -> None:
     with pytest.raises(ManifestError) as info:
         parse_manifest(_with(test))
     location = "nodes['test.shop.relationships_fct_orders_customer_id'].test_metadata.kwargs.field"
-    assert str(info.value) == f"manifest: {location}: must be a string"
+    assert str(info.value) == f"{location}: must be a string"
 
 
 @pytest.mark.parametrize(
     ("manifest", "message"),
     [
-        ([], "manifest: must be a mapping"),
-        ({"nodes": []}, "manifest: nodes: must be a mapping"),
-        ({"groups": {"g": {"owner": None}}}, "manifest: groups.g.name: is required"),
+        ([], "must be a mapping"),
+        ({"nodes": []}, "nodes: must be a mapping"),
+        ({"groups": {"g": {"owner": None}}}, "groups.g.name: is required"),
     ],
 )
 def test_a_malformed_top_level_is_refused(manifest: Any, message: str) -> None:
@@ -402,7 +400,7 @@ def test_more_malformed_fields_name_their_location(change: Any, message: str) ->
     change(manifest)
     with pytest.raises(ManifestError) as info:
         parse_manifest(manifest)
-    assert str(info.value) == f"manifest: {message}"
+    assert str(info.value) == message
 
 
 def test_the_project_does_not_share_state_with_the_manifest_dict() -> None:

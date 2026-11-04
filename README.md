@@ -14,20 +14,29 @@ uvx --from git+https://github.com/christophebnx/dbtscope dbtscope --preset data_
 
 This runs `dbt parse` (no warehouse connection), writes `erd_output/erd.html` and opens it in the browser.
 
+Options, grouped as in `dbtscope --help`. Relative paths given as options are read from the current folder; the `output` and `layout_file` keys of the config, from the project folder.
+
 | Option | |
 |---|---|
-| `--project-dir DIR` | dbt project directory (default: current directory) |
-| `--preset NAME` | built-in preset: `data_vault`, `star_schema` |
-| `--config FILE` | config file (default: `dbt-erd.yml` in the project, if present) |
-| `-o, --output FILE` | page to write (default: `erd_output/erd.html`, or `output` in the config) |
-| `--view universe\|detail` | tab shown when the page opens (default: `universe`, or `view` in the config) |
-| `--no-parse` | reuse the existing `target/manifest.json` |
-| `--manifest FILE` | read this manifest instead (implies no parse) |
-| `--no-open` | don't open the browser (CI) |
-| `--offline` | embed the JavaScript libraries: the page works with no network (or `offline: true` in the config) |
-| `--dbt EXE` | dbt executable (default: `dbt`) |
+| **Project** | |
+| `--project-dir FOLDER` | dbt project folder, holding `dbt_project.yml` (default: the current folder) |
+| `--config FILE` | config file (default: `dbt-erd.yml` in the project folder, if present) |
+| `--preset NAME` | built-in conventions: `data_vault` or `star_schema` |
+| **dbt** | |
+| `--no-parse` | do not run `dbt parse`; read `target/manifest.json` in the project folder |
+| `--manifest FILE` | read this `manifest.json` instead of running `dbt parse` |
+| `--dbt PATH` | dbt executable, a name on `PATH` or a path (default: `dbt`) |
+| **Output** | |
+| `-o, --output FILE` | HTML page to write (default: `output` in the config, else `erd_output/erd.html` in the project folder) |
+| `--no-open` | do not open the page in the browser (CI) |
+| **Page** | |
+| `--view VIEW` | tab shown when the page opens: `universe` or `detail` (default: `view` in the config, else `universe`) |
+| `--offline` | embed the JavaScript libraries so that the page works without network, about 2.5 MB larger (default: `offline` in the config, else off) |
+| `--version`, `-h, --help` | |
 
-`dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12, PyYAML and pydantic v2 (in an environment pinned to pydantic v1, install it isolated with `uv tool install` or `pipx`).
+The page path and a summary go to stdout (the first line is the absolute path of the page, so `dbtscope --no-open | head -1` gives it); progress, `dbt parse`'s own output, warnings and errors go to stderr. Exit codes: 0 done, 1 error, 2 wrong option, 130 interrupted.
+
+`dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12, PyYAML, pydantic v2 and Typer (in an environment pinned to pydantic v1, install it isolated with `uv tool install` or `pipx`).
 
 ## The page
 
@@ -178,6 +187,24 @@ columns:
           to: ref('dim_customer')
           field: customer_id
 ```
+
+## Troubleshooting
+
+Every failure is one line on stderr, `dbtscope: error: <what happened>; <what to do>`, naming the file or option at fault with its absolute path. The most common ones:
+
+| Message starts with | What to do |
+|---|---|
+| `no dbt_project.yml in …` | run from the dbt project folder or pass `--project-dir`; dbt reads `dbt_project.yml`, not `.yaml` |
+| `dbt not found on PATH` | install dbt, pass `--dbt <path>`, or use `--no-parse` with an existing manifest |
+| `dbt parse failed with exit code …` | dbt's own messages are printed right above: fix the project, or pass `--no-parse` |
+| `manifest … not found` | run without `--no-parse` so that `dbt parse` writes it, or check `--manifest` |
+| `manifest … is empty` / `is truncated` / `is not valid JSON` | run `dbt parse` again |
+| `config …: <key>: <problem>` | fix that key of the config file |
+| `layout … is not a layout exported by the page` / `version … is not supported` | export the layout again from the page, or delete the file |
+| `cannot write …` / `cannot create folder …` | choose another `--output` (or free some space); a page file name of more than about 235 characters is too long, because the page is first written to a temporary file next to it |
+| `invalid value for '--preset'` | the preset is one of `data_vault` or `star_schema` (exit code 2) |
+
+Warnings (`dbtscope: warning: …`, exit code 0) say when the browser could not be opened (the page's `file://` address is printed) or when one view of the page is empty.
 
 ## Development
 

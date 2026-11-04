@@ -55,7 +55,6 @@ UNTYPED_ALLOWED = {
     # raw YAML, before validation
     ("storage/project_files.py", "def _read_yaml(path: Path | Traversable, source: str) -> dict[str, Any]:"),
     ("storage/project_files.py", "def read_preset(name: str) -> dict[str, Any]:"),
-    ("storage/project_files.py", "file_config: dict[str, Any] = {}"),
     # the layout file is not modelled in M3 (roadmap)
     ("domain/layout.py", "def check_layout(layout: Any, source: str) -> dict[str, Any]:"),
     ("storage/project_files.py", "def read_layout(path: Path) -> dict[str, Any] | None:"),

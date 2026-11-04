@@ -8,15 +8,19 @@ How the system is built. Why it is built that way: `docs/decisions.md`. Design n
 
 ```
 cli.run
-  dbt parse (subprocess, skipped with --no-parse / --manifest)
-  storage/project_files.load_config     dbt-erd.yml + preset  -> domain/config.merge_config -> Config
+  cli._resolve                         check --project-dir, --config, --manifest, --dbt (absolute paths)
+  storage/project_files.load_config     dbt-erd.yml + preset  -> domain/config.merge_config -> LoadedConfig
+  cli._output                           the page path (-o, else output: of the config), checked
+  cli._dbt_parse                        dbt parse (skipped with --no-parse / --manifest; its output on stderr, D-029)
   storage/project_files.read_manifest   target/manifest.json  -> domain/manifest.parse_manifest -> Project
   domain/detail.select + detail_data    DetailPayload (selected tables, relations, kinds, key columns)
   domain/universe.universe_data         UniversePayload (every table: domains, layers, kinds, relations, lineage)
   storage/project_files.read_layout     dbt-erd-layout.json, if present -> domain/layout.check_layout
   render/page.render_page               one HTML page: assets + JSON payload (+ vendored libraries with --offline)
-  storage/files.atomic_write            erd_output/erd.html, then the browser opens it
+  storage/files.atomic_write            erd_output/erd.html (cli._write_page), then the browser opens it
 ```
+
+stdout holds only the success summary (first line: the absolute page path); progress, dbt's output, warnings and errors go to stderr. Every failure ends in `cli.main` as one line `dbtscope: error: <what happened>; <what to do>` with exit code 1 (2 for a usage error, 130 for Ctrl-C), never a traceback (D-004, D-029).
 
 Data is typed with pydantic v2 at four layers (D-024, D-025): manifest input (`domain/manifest_schema`, only the fields read), domain model (`domain/model`: `Table`, `Column`, `Relation`, `LineageEdge`, `Group`, `Project`), configuration (`domain/config`: `Config`, `Rule`, `UniverseSettings`) and page payloads (`domain/payload`, the Python → JavaScript contract). Models are frozen; a malformed manifest or configuration stops the run with one line naming the field (`domain/errors.validation_message`). The page JSON is byte for byte what it was before the models (`tests/unit/test_reference_pages.py`).
 
@@ -33,7 +37,7 @@ Design brief of the universe view, with the scoping decisions and the prototype 
 | `domain/` | Pure business logic: models (pydantic v2, D-025), rules, validation. No I/O, no clock, no environment (D-003). | nothing |
 | `storage/` | File system and persistence: reads the manifest, config, presets and layout; the single atomic writer. | `domain` |
 | `render/` | The HTML page: its assets (`assets/`) and `render_page`, which embeds the view data. | `domain` |
-| `cli.py` | Command-line entry point: parses arguments, runs `dbt parse`, calls the layers, writes the page, opens the browser, maps errors to exit codes (D-004). | everything |
+| `cli.py` | Command-line entry point, built with Typer (D-026): options and help, checks the paths given, runs `dbt parse` (its output on stderr), calls the layers, writes the page, opens the browser, prints the summary on stdout and maps every outcome to an exit code (D-004, D-029). The only module importing `typer`. | everything |
 
 Data folders (not packages): `presets/` (built-in `*.yml` presets, read by `storage/project_files`), `render/assets/` (page shell, CSS, scripts), `render/vendor/` (vendored libraries and licences, refreshed by `tools/vendor_libraries.py`).
 
@@ -46,6 +50,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Responsibility | Implementation |
 |---|---|
 | Base class of business errors | `domain/errors.DomainError` |
+| A list of choices in words (`a, b or c`) for messages and help | `domain/errors.in_words` |
+| First letter of a quoted reason or problem in lower case | `domain/errors.lower_first` |
 | One-line message of a validation error | `domain/errors.validation_message` |
 | Match a table against selectors | `domain/selectors.matches`, `matches_any` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
@@ -55,13 +61,14 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Merge and validate the configuration | `domain/config.merge_config`, `Config` |
 | Python → JavaScript page data contract | `domain/payload` |
 | Read `dbt-erd.yml` and built-in presets | `storage/project_files.load_config`, `read_preset` |
+| The config file a run reads (`--config`, else `dbt-erd.yml`), returned with the config | `storage/project_files.load_config` (`LoadedConfig`) |
 | Read a project file as UTF-8 text, JSON or a YAML mapping, with one-line errors | `storage/project_files._read_text`, `_read_json`, `_read_yaml` |
 | Decide whether a table is in a view's scope | `domain/classify.in_scope` |
 | Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |
 | Which columns are keys | `domain/classify.key_columns` |
 | Domain key of a table (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
-| Validate an exported layout | `domain/layout.check_layout` |
+| Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
 | JavaScript libraries of the page (CDN URL, vendored file, licence, hash); markup a vendored file may not hold | `render/page.LIBRARIES`, `UNSAFE_MARKUP` |
@@ -75,7 +82,16 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
 | Visible detail diagram as a standalone SVG | `render/assets/detail.js svgImage` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
-| Map an error to a CLI exit code and message | `cli.main` |
+| Words of an `OSError` (`permission denied`) | `storage/files.os_reason` |
+| Command-line options and help | `cli.app`, `cli.command`, `Options` |
+| What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind`, `refused_hint` |
+| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option) |
+| How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
+| Run `dbt parse` (output on stderr, OS errors and exit code as `RunError`) | `cli._dbt_parse` |
+| Write the page, OS errors named by the output | `cli._write_page` |
+| Write one line of the CLI on stdout or stderr | `cli._say` (`_warn`; `_fail`, the one place that collapses whitespace) |
+| The success summary | `cli._summary` |
+| Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
 | Block secrets, protected folders, commits and pushes on `main` (Claude Code) | `.claude/hooks/guard_paths.py` |
 | Format and lint-fix an edited file (Claude Code) | `.claude/hooks/format.py` |

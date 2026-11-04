@@ -39,13 +39,15 @@ def test_an_invalid_manifest_names_the_location(
     manifest = shop_manifest()
     manifest["nodes"]["model.shop.x"] = {k: v for k, v in model("x").items() if k != "unique_id"}
     write_manifest(dbt_project, manifest)
-    assert _fails_on_one_line(dbt_project, capsys) == f"manifest: {NODE_X}.unique_id: is required"
+    path = dbt_project / "target" / "manifest.json"
+    assert _fails_on_one_line(dbt_project, capsys) == f"manifest {path}: {NODE_X}.unique_id: is required"
 
 
 def test_a_manifest_that_is_not_json(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_manifest(dbt_project, b"{")
     message = _fails_on_one_line(dbt_project, capsys)
-    assert message.startswith(f"manifest: {dbt_project / 'target' / 'manifest.json'} is not valid JSON: ")
+    path = dbt_project / "target" / "manifest.json"
+    assert message == f"manifest {path} is truncated (invalid JSON at line 1, column 2); run dbt parse again"
 
 
 def test_a_manifest_with_the_nulls_dbt_writes_builds_the_page(dbt_project: Path) -> None:
@@ -90,7 +92,9 @@ def test_undrawable_relationship_tests_and_other_types_are_skipped(dbt_project: 
 def test_an_invalid_config_names_the_key(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_config(dbt_project, "universe:\n  links: all\n")  # a nested key, through YAML
     message = _fails_on_one_line(dbt_project, capsys)
-    assert message == "universe.links: must be 'relations', 'lineage' or 'both'"
+    config = dbt_project / "dbt-erd.yml"
+    problem = "universe.links: must be 'relations', 'lineage' or 'both'; fix the file"
+    assert message == f"config {config}: {problem}"
 
 
 def test_an_invalid_config_wins_over_valid_command_line_overrides(
@@ -98,7 +102,8 @@ def test_an_invalid_config_wins_over_valid_command_line_overrides(
 ) -> None:
     write_config(dbt_project, "view: map\n")
     message = _fails_on_one_line(dbt_project, capsys, ("--view", "detail", "--offline"))
-    assert message == "view: must be 'universe' or 'detail'"
+    config = dbt_project / "dbt-erd.yml"
+    assert message == f"config {config}: view: must be 'universe' or 'detail'; fix the file"
 
 
 def test_view_comes_from_the_command_line_then_the_file(dbt_project: Path) -> None:
