@@ -4,18 +4,16 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   const $d = id => document.getElementById('d-' + id);
   const T = {
     en: { all: 'All groups', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels', clear: 'Show all',
-          cols: 'All columns', fit: 'Fit', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
+          cols: 'All columns', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
           foreign: 'dashed: other group',
-          computing: 'Laying out…', error: 'Render error: ', hGroup: 'Group', hDepth: 'Around the focused table',
-          hCols: 'Columns', svg: 'SVG',
+          hGroup: 'Group', hDepth: 'Around the focused table', hCols: 'Columns',
           pngTitle: 'Save the visible diagram as a PNG image (high resolution)',
           svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
           hint: 'Wheel: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus' },
     fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
-          cols: 'Toutes les colonnes', fit: 'Recentrer', q: 'Surligner…', focused: 'Ciblé : ', rels: ['relation', 'relations'],
+          cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé : ', rels: ['relation', 'relations'],
           foreign: 'pointillé : autre groupe',
-          computing: 'Calcul du schéma…', error: 'Erreur de rendu : ', hGroup: 'Groupe', hDepth: 'Autour de la table ciblée',
-          hCols: 'Colonnes', svg: 'SVG',
+          hGroup: 'Groupe', hDepth: 'Autour de la table ciblée', hCols: 'Colonnes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
           hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table : la déplacer · clic : surligner ses liens · double-clic : cibler' },
@@ -28,9 +26,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   const state = { group: '', kinds: new Set(DATA.kinds.map(k => k.key)), allColumns: false, focus: null, depth: 1 };
   const box = $d('graph');
-  let pz = null, viz = new Viz(), renderSeq = 0;
-
-  const dotStr = s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n');
+  let pz = null, renderSeq = 0;
 
   // --- group scope ----------------------------------------------------------
   // A group shows its own tables plus the other-group parents its tables point to.
@@ -44,10 +40,10 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   // --- controls -------------------------------------------------------------
   $d('focus').placeholder = T.focus;
-  $d('depth').innerHTML = [T.d1, T.d2, T.d3].map((t, i) => `<option value="${i + 1}">${t}</option>`).join('');
+  fillSelect($d('depth'), [T.d1, T.d2, T.d3].map((t, i) => [String(i + 1), t]));
   $d('clear').textContent = T.clear;
   $d('cols').textContent = T.cols;
-  $d('fit').textContent = T.fit;
+  $d('fit').textContent = L.fit;
   $d('q').placeholder = T.q;
   $d('hint').textContent = T.hint;
   $d('h-group').textContent = T.hGroup; $d('h-depth').textContent = T.hDepth;
@@ -55,7 +51,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   const groupSel = $d('group');
   if (DATA.grouped && GROUPS.length > 1) {
-    groupSel.innerHTML = `<option value="">${T.all}</option>` + GROUPS.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    fillSelect(groupSel, [['', T.all], ...GROUPS.map(g => [g, g])]);
     groupSel.onchange = () => {
       state.group = groupSel.value;
       computeScope();
@@ -83,21 +79,18 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('clear').onclick = () => setFocus(null);
   $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
-  function refit() { if (pz && box.clientWidth) { pz.resize(); pz.fit(); pz.center(); } }
+  const refit = () => panZoomFit(box, pz);
   $d('fit').onclick = refit;
   window.addEventListener('resize', refit);
   sidePanel('d', refit);
   const pngBtn = $d('export-png'), svgBtn = $d('export-svg');
   $d('export-h').textContent = L.exportImage;
   pngBtn.textContent = L.png; pngBtn.title = T.pngTitle;
-  svgBtn.textContent = T.svg; svgBtn.title = T.svgTitle;
+  svgBtn.textContent = L.svg; svgBtn.title = T.svgTitle;
   // enabled only while a diagram is drawn and svg-pan-zoom drives it
   function canExport(on) { pngBtn.disabled = svgBtn.disabled = !on; }
-  pngBtn.onclick = () => EXPORT.save('detail', 'png', pngImage, pngBtn);
-  svgBtn.onclick = () => EXPORT.save('detail', 'svg', async () => {
-    const text = svgImage(1);
-    return text && new Blob([text], { type: 'image/svg+xml' });
-  }, svgBtn);
+  pngBtn.onclick = () => EXPORT.save('detail', 'png', () => pngImage(box, pz, EXPORT), pngBtn);
+  svgBtn.onclick = () => EXPORT.save('detail', 'svg', () => svgFile(box, pz), svgBtn);
 
   // type checkboxes and the focus autocomplete follow the selected group
   function refreshControls() {
@@ -135,10 +128,10 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const k = KIND[e.kind];
     // trailing spaces keep bold names (under-measured by Viz.js) clear of the type column
     // Graphviz rejects an empty <font>: a column without data_type gets an empty cell
-    const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="#888888">${esc(type)}</font>` : ''}</td></tr>`;
+    const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="#888888">${dotText(type)}</font>` : ''}</td></tr>`;
     const keys = e.columns.filter(c => c[2]), rest = e.columns.filter(c => !c[2]);
-    let rows = keys.map(([c, t]) => row(`<b>${esc(c)}</b>`, t)).join('');
-    if (state.allColumns) rows += rest.map(([c, t]) => row(esc(c), t)).join('');
+    let rows = keys.map(([c, t]) => row(`<b>${dotText(c)}</b>`, t)).join('');
+    if (state.allColumns) rows += rest.map(([c, t]) => row(dotText(c), t)).join('');
     else if (rest.length) rows += `<tr><td colspan="2" align="left"><font color="#999999"><i>+ ${plural(rest.length, L.columns)}</i></font></td></tr>`;
     const border = e.id === state.focus ? 4 : 1;
     const style = isForeign(e) ? ' style="dashed"' : '';
@@ -146,7 +139,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);
     return `"${id}" [id="${id}"${pin} tooltip="${dotStr(tip)}" label=<<table border="${border}" cellborder="0" cellspacing="0" cellpadding="5"${style} color="${esc(k.color)}" bgcolor="${esc(k.bg)}">` +
-      `<tr><td colspan="2" bgcolor="${esc(k.color)}"><font color="white" point-size="16"><b>${esc(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
+      `<tr><td colspan="2" bgcolor="${esc(k.color)}"><font color="white" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
   }
 
   // positions: table id -> [x, y] in Graphviz points, every table pinned (for neato); none for dot's own layout
@@ -224,34 +217,27 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       (state.group ? ` · ${T.foreign}` : '');
     $d('focus-info').textContent = state.focus ? T.focused + labelOf(byId.get(state.focus)) : '';
     const view = keepView && pz ? { zoom: pz.getZoom(), pan: pz.getPan() } : null;
-    // destroy() resets the zoom first, which throws if the old svg has no usable size yet
-    if (pz) { try { pz.destroy(); } catch (e) { /* the svg is replaced below anyway */ } pz = null; }
+    pz = panZoomDestroy(pz);
     if (!ids.size) { box.innerHTML = `<div class="msg">${L.empty}</div>`; return; }
-    if (!view) box.innerHTML = `<div class="msg">${T.computing}</div>`;
-    const seq = ++renderSeq, pinned = LAYOUT.get('detail', viewKey()) || {};
-    viz.renderSVGElement(dot).then(svg => {
-      if (![...ids].some(id => pinned[id])) return svg;
-      const pos = centres(svg);
+    if (!view) box.innerHTML = `<div class="msg">${L.computing}</div>`;
+    const seq = ++renderSeq, pinned = LAYOUT.get('detail', viewKey()) || {}, current = () => seq === renderSeq;
+    let svg = null;
+    GRAPHVIZ.render(dot).then(first => {
+      if (![...ids].some(id => pinned[id])) return first;
+      const pos = centres(first);
       Object.entries(pinned).forEach(([id, p]) => { if (pos.has(id)) pos.set(id, p); });
-      return viz.renderSVGElement(buildDot(ids, pos).dot, { engine: 'neato' });
-    }).then(svg => {
-      if (seq !== renderSeq) return; // a newer render was requested while this one was laying out
-      box.innerHTML = ''; box.appendChild(svg);
-      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 ' + parseFloat(svg.getAttribute('width')) + ' ' + parseFloat(svg.getAttribute('height')));
-      svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
-      // svg-pan-zoom fits to the drawing's bbox once and stays stuck at zoom 0 if that bbox is
-      // still empty (page laid out in the background), so wait until the svg has a real size
-      const init = () => {
-        if (seq !== renderSeq) return;
-        const bb = svg.getBBox();
-        if (!(bb.width && bb.height && svg.clientWidth && svg.clientHeight)) return requestAnimationFrame(init);
-        pz = svgPanZoom(svg, { zoomScaleSensitivity: 0.3, maxZoom: 40, fit: true, center: true, dblClickZoomEnabled: false });
-        if (view) { pz.zoom(view.zoom); pz.pan(view.pan); }
-        wire(svg);
-        canExport(true);
-      };
-      init();
-    }).catch(err => { viz = new Viz(); if (seq === renderSeq) box.innerHTML = `<div class="msg">${T.error}${esc(err)}</div>`; });
+      return GRAPHVIZ.render(buildDot(ids, pos).dot, { engine: 'neato' });
+    }).then(drawn => {
+      if (!current()) return null; // a newer render was requested while this one was laying out
+      svg = drawn;
+      return panZoom(box, svg, current);
+    }).then(mounted => {
+      if (!mounted) return;
+      pz = mounted;
+      if (view) { pz.zoom(view.zoom); pz.pan(view.pan); }
+      wire(svg);
+      canExport(true);
+    }).catch(err => { if (current()) box.innerHTML = `<div class="msg">${L.error}${esc(err)}</div>`; });
   }
 
   function wire(svg) {
@@ -276,74 +262,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (q.value) q.oninput();
   }
 
-  // --- image export -------------------------------------------------------------
-  // CSS of page.css that changes how the diagram looks, inlined into the exported SVG when it differs from
-  // its default (everything else is Graphviz presentation attributes). A new such #d-graph rule adds its
-  // property here.
-  const INLINE = { opacity: '1' };
-  const XLINK = 'http://www.w3.org/1999/xlink', XMLNS = 'http://www.w3.org/2000/xmlns/';
-  const overlaps = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
-  const pageBackground = () => getComputedStyle(document.body).backgroundColor;
-
-  // The visible part of the diagram as a standalone SVG document, `scale` x its size on screen (the
-  // drawing stays vector); null when nothing is drawn. Only what is shown: tables and links outside the
-  // visible area, tooltips and svg-pan-zoom's own markup are left out; ids (dbt unique_ids) are kept.
-  function svgImage(scale) {
-    const svg = pz && box.querySelector('svg');
-    if (!svg) return null;
-    const vp = svg.querySelector('g.svg-pan-zoom_viewport'), r = svg.getBoundingClientRect();
-    const m = vp.getScreenCTM().inverse();
-    function corner(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(m); }
-    const a = corner(r.left, r.top), b = corner(r.right, r.bottom);
-    const clone = svg.cloneNode(true);
-    const originals = [svg, ...svg.querySelectorAll('*')], copies = [clone, ...clone.querySelectorAll('*')];
-    const cvp = copies[originals.indexOf(vp)], cut = [];
-    originals.forEach((el, i) => {
-      const copy = copies[i], style = getComputedStyle(el);
-      copy.style.removeProperty('cursor');
-      Object.entries(INLINE).forEach(([prop, plain]) => { if (style[prop] !== plain) copy.style[prop] = style[prop]; });
-      if (el.matches('g.node, g.edge') && !overlaps(el.getBoundingClientRect(), r)) cut.push(copy);
-    });
-    cut.forEach(el => el.remove());
-    clone.querySelectorAll('title, #svg-pan-zoom-controls').forEach(el => el.remove());
-    [clone, ...clone.querySelectorAll('*')].forEach(el => {
-      el.removeAttribute('title'); el.removeAttributeNS(XLINK, 'title');
-      if (el.classList.length) {
-        [...el.classList].filter(c => c.startsWith('svg-pan-zoom')).forEach(c => el.classList.remove(c));
-        if (!el.classList.length) el.removeAttribute('class');
-      }
-      if (!el.getAttribute('style')) el.removeAttribute('style');
-    });
-    cvp.removeAttribute('transform'); cvp.style.removeProperty('transform');
-    if (!cvp.getAttribute('style')) cvp.removeAttribute('style');
-    const w = b.x - a.x, h = b.y - a.y;
-    clone.setAttribute('viewBox', `${a.x} ${a.y} ${w} ${h}`);
-    clone.setAttribute('width', r.width * scale); clone.setAttribute('height', r.height * scale);
-    clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    clone.setAttributeNS(XMLNS, 'xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttributeNS(XMLNS, 'xmlns:xlink', XLINK);
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    Object.entries({ x: a.x, y: a.y, width: w, height: h, fill: pageBackground() }).forEach(([k, v]) => bg.setAttribute(k, v));
-    clone.insertBefore(bg, clone.firstChild);
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  }
-
-  // the same SVG rasterised at 2 x the screen resolution (a data: URL keeps the canvas untainted)
-  async function pngImage() {
-    const svg = pz && box.querySelector('svg');
-    if (!svg) return null;
-    const r = svg.getBoundingClientRect(), s = EXPORT.scale(r.width, r.height);
-    const img = new Image();
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgImage(s));
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = Math.round(r.width * s); c.height = Math.round(r.height * s);
-    const g = c.getContext('2d');
-    g.fillStyle = pageBackground(); g.fillRect(0, 0, c.width, c.height);
-    g.drawImage(img, 0, 0, c.width, c.height);
-    return EXPORT.png(c);
-  }
-
   refreshControls();
   render();
 
@@ -360,6 +278,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       refreshControls();
       render();
     },
-    svgImage,
+    svgImage: scale => svgImage(box, pz, scale),
   };
 }

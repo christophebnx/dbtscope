@@ -227,6 +227,7 @@ def render_page(
         "COMMON_JS": _asset("common.js"),
         "DETAIL_JS": _asset("detail.js"),
         "UNIVERSE_JS": _asset("universe.js"),
+        "FLOW_JS": _asset("flow.js"),
         "BOOT_JS": _asset("boot.js"),
         "TITLE": config.title.replace("&", "&amp;").replace("<", "&lt;"),
         "DATA": json_text,

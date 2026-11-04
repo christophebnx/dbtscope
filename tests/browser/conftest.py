@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_of, write_config, write_example
+from conftest import empty_detail, page_of, write_config, write_example
 
-from dbtscope.render.page import LIBRARIES, VENDOR
+from dbtscope.domain.config import merge_config
+from dbtscope.domain.payload import UniversePayload
+from dbtscope.render.page import LIBRARIES, VENDOR, render_page
 
 try:
     from playwright import sync_api
@@ -110,6 +112,32 @@ def show_detail(p: Page, exportable: bool = True) -> None:
     p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
     if exportable:
         wait_exportable(p)
+
+
+def universe_page(folder: Path, universe: UniversePayload, **config: Any) -> Path:
+    """Write the page of a synthetic universe payload (empty detail view) into `folder`; return it."""
+    html = folder / "erd.html"
+    settings = merge_config({}, {"view": "universe", "title": "perf", **config})
+    html.write_text(render_page(empty_detail("perf"), universe, settings), encoding="utf-8")
+    return html
+
+
+def wait_flow(p: Page) -> None:
+    """Wait until the flow view is drawn and driven (its export buttons are enabled, M5.3)."""
+    p.page.wait_for_function(
+        "flow && flow.state().open && !document.getElementById('f-export-svg').disabled", timeout=60_000
+    )
+
+
+def open_flow(p: Page, name: str, direction: str = "both", depth: str = "dall") -> dict[str, Any]:
+    """Enter the trajectory of the table `name` with these options, open its flow; return flow.state()."""
+    p.page.fill("#u-q", name)
+    p.page.click("#u-traj")
+    p.page.select_option("#u-tj-dir", direction)
+    p.page.select_option("#u-tj-depth", depth)
+    p.page.click("#u-tj-flow")
+    wait_flow(p)
+    return p.page.evaluate("flow.state()")
 
 
 def close_panel(p: Page, view: str) -> None:

@@ -19,6 +19,23 @@
 </nav>
 
 <section class="tab" id="tab-universe">
+  <section id="f-view" role="region" aria-labelledby="f-title" hidden>
+    <div class="toolbar" id="f-bar">
+      <button id="f-back" type="button"><span aria-hidden="true">← </span><span id="f-back-t"></span></button>
+      <h2 class="f-title" id="f-title"><span id="f-of"></span> <i id="f-dot"></i><b id="f-name"></b></h2>
+      <label><span id="f-h-dir"></span> <select id="f-dir"></select></label>
+      <label><span id="f-h-depth"></span> <select id="f-depth"></select></label>
+      <span id="f-counts"></span>
+      <details id="f-domains"><summary id="f-dom-sum"></summary><ul class="tj-pop" id="f-dom-list"></ul></details>
+      <span id="f-cap" hidden></span>
+      <span class="grow"></span>
+      <button id="f-fit" type="button"></button>
+      <span class="export" role="group" aria-labelledby="f-export-h"><span id="f-export-h"></span>
+        <button id="f-export-png" type="button" disabled></button><button id="f-export-svg" type="button" disabled></button></span>
+    </div>
+    <span class="sr-only" id="f-live" role="status" aria-live="polite"></span>
+    <div class="canvas-box"><div id="f-graph"></div><div class="tip" id="f-tip"></div></div>
+  </section>
   <aside class="panel" id="u-panel">
     <h3 id="u-h-links"></h3>
     <select id="u-links"></select>
@@ -48,7 +65,7 @@
         <span class="tj-start"><span id="u-tj-title"></span> <i id="u-tj-dot"></i><b id="u-tj-start"></b></span>
         <label><span id="u-tj-h-dir"></span> <select id="u-tj-dir"></select></label>
         <label><span id="u-tj-h-depth"></span> <select id="u-tj-depth"></select></label>
-        <details id="u-tj-counts"><summary id="u-tj-sum"></summary><ul id="u-tj-list"></ul></details>
+        <details id="u-tj-counts"><summary id="u-tj-sum"></summary><ul class="tj-pop" id="u-tj-list"></ul></details>
         <span id="u-tj-empty" hidden></span>
         <span class="tj-hidden" id="u-tj-hidden"></span>
         <span class="tj-back" id="u-tj-back"></span>
@@ -56,11 +73,12 @@
           <span><i class="mk up"></i><span id="u-tj-l-up"></span></span>
           <span><i class="mk down"></i><span id="u-tj-l-down"></span></span></span>
         <span class="grow"></span>
+        <button id="u-tj-flow" type="button"></button>
         <button id="u-tj-leave" type="button"></button>
       </div>
       <span class="sr-only" id="u-tj-live" role="status" aria-live="polite"></span>
       <canvas id="u-canvas"></canvas>
-      <div id="u-tip"></div>
+      <div class="tip" id="u-tip"></div>
     </div>
   </div>
 </section>
@@ -104,6 +122,9 @@
 </script>
 <script>
 {{UNIVERSE_JS}}
+</script>
+<script>
+{{FLOW_JS}}
 </script>
 <script>
 {{BOOT_JS}}

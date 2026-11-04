@@ -1,71 +1,37 @@
 // Universe view: every table of the project as a star, grouped into one constellation per data
 // domain. d3-force lays out the tables inside each domain, then the domains; a canvas draws it.
-// Started the first time its tab is shown.
+// Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-// Trajectory of one table along the lineage, a page global so it stays pure and testable.
-// lineage: [[child, parent], ...]; data flows from parent to child.
-// direction: 'up' | 'down' | 'both'; depth: 1 | 2 | 3 | Infinity.
-// -> { up: Map(index -> distance), down: Map(index -> distance) }; start is in neither map.
-// Breadth-first, so the distance is the shortest path; the seen set stops on a cycle of a malformed manifest.
-function trajectory(lineage, start, direction, depth) {
-  const parents = new Map(), children = new Map();
-  const push = (m, k, v) => { const l = m.get(k); if (l) l.push(v); else m.set(k, [v]); };
-  lineage.forEach(([child, parent]) => { push(parents, child, parent); push(children, parent, child); });
-  const walk = adj => {
-    const dist = new Map(), seen = new Set([start]);
-    let frontier = [start];
-    for (let d = 1; d <= depth && frontier.length; d++) {
-      const next = [];
-      frontier.forEach(i => (adj.get(i) || []).forEach(j => {
-        if (!seen.has(j)) { seen.add(j); dist.set(j, d); next.push(j); }
-      }));
-      frontier = next;
-    }
-    return dist;
-  };
-  return { up: direction === 'down' ? new Map() : walk(parents), down: direction === 'up' ? new Map() : walk(children) };
-}
-
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
+function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
-    en: { links: 'Links', relations: 'business relations', lineage: 'lineage', both: 'both', detail: 'Tables',
+    en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
           names: 'names', keys: 'keys', all: 'all fields', layers: 'Layers', domains: 'Domains',
-          every: 'all', nothing: 'none', fit: 'Fit', search: 'Find a table…', linksN: ['link', 'links'],
-          domainsN: ['domain', 'domains'], owner: 'owner',
+          every: 'all', nothing: 'none', search: 'Find a table…', linksN: ['link', 'links'], owner: 'owner',
           openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
           frame: 'Double-click: zoom on this domain',
           trajectory: 'Trajectory', trajFound: 'Trajectory of the table found', trajOf: 'Trajectory of',
-          direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream',
-          d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
-          countUp: n => `${n} upstream`, countDown: n => `${n} downstream`,
-          noLineage: 'No upstream or downstream table', noUp: 'No upstream table', noDown: 'No downstream table',
           brought: ['table brought back by the trajectory', 'tables brought back by the trajectory'],
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
-          lgStart: 'start', leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
-          fitTraj: 'Frame the trajectory', tipStart: 'Start of the trajectory',
-          tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}`,
+          leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
+          fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
           clickTraj: 'Click: show its trajectory',
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
           hint: 'Wheel: zoom · drag the background to pan · drag a table, or a domain by its name, to arrange them · '
               + 'click a table to see its trajectory (Esc to leave) · '
               + 'double-click a domain to zoom in, a table to open its detail' },
-    fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', both: 'les deux', detail: 'Tables',
+    fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
           names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
-          every: 'tout', nothing: 'aucun', fit: 'Recadrer', search: 'Chercher une table…', linksN: ['lien', 'liens'],
-          domainsN: ['domaine', 'domaines'], owner: 'propriétaire',
+          every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
+          owner: 'propriétaire',
           openDetail: 'Double-clic : ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic : zoomer',
           frame: 'Double-clic : cadrer ce domaine',
           trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
-          direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval',
-          d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
-          countUp: n => `${n} en amont`, countDown: n => `${n} en aval`,
-          noLineage: 'Aucune table en amont ni en aval', noUp: 'Aucune table en amont', noDown: 'Aucune table en aval',
           brought: ['table ramenée par la trajectoire', 'tables ramenées par la trajectoire'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
-          lgStart: 'départ', leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
-          fitTraj: 'Cadrer la trajectoire', tipStart: 'Départ de la trajectoire',
-          tipUp: d => `En amont, niveau ${d}`, tipDown: d => `En aval, niveau ${d}`,
+          leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
+          fitTraj: 'Cadrer la trajectoire', flow: 'Flux',
+          flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
           clickTraj: 'Clic : afficher sa trajectoire',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
           hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
@@ -104,9 +70,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   const bar = $u('trajbar'), live = $u('tj-live');
 
   // ---------------------------------------------------------------- controls
-  function options(el, values, current) {
-    el.innerHTML = values.map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${T[v]}</option>`).join('');
-  }
+  // a select of string keys, each labelled by the view's T or the shared L
+  const options = (el, values, current) => fillSelect(el, values.map(v => [v, v in T ? T[v] : L[v]]), current);
   options($u('links'), ['relations', 'lineage', 'both'], state.links);
   options($u('detail'), ['names', 'keys', 'all'], state.detail);
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
@@ -114,7 +79,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
-  $u('fit').textContent = T.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
+  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
 
   function checkboxes(el, items, countOf, set, color, title) {
     el.replaceChildren(...items.map(it => filterRow(
@@ -289,9 +254,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   // ---------------------------------------------------------------- drawing
   const C = { bg: '#f5f6f8', text: '#1f2933', muted: '#6b7280', card: '#ffffff', route: 'rgba(71,85,105,.22)',
               arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
-              up: '#6d28d9', down: '#c2410c' };   // trajectory: upstream (dashed marks), downstream (solid marks)
+              ...TRAJ_COLORS };   // trajectory: upstream (dashed marks), downstream (solid marks)
   const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of domains holding none of it
-  stage.style.setProperty('--traj-up', C.up); stage.style.setProperty('--traj-down', C.down);
+  // on the tab, so the trajectory bar and the flow view (an overlay of the tab) both inherit them
+  const tab = document.getElementById('tab-universe');
+  tab.style.setProperty('--traj-up', C.up); tab.style.setProperty('--traj-down', C.down);
   const FONT = '"Segoe UI", Arial, sans-serif';
 
   // filled arrowhead at 55 % of the segment a -> b, pointing at b, in the current fill style
@@ -319,7 +286,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     if (onScreen) {
       $u('export').disabled = !visible.length;
-      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${plural(domains.length, T.domainsN)}`;
+      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${plural(domains.length, L.domainsN)}`;
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -582,8 +549,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
     if (!n && !d) { tip.style.display = 'none'; return; }
     if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
-      tip.innerHTML = `<b>${esc(n.name)}</b><div class="m">${esc(DOM[n.domain].label)} · ${esc(LAYER[n.layer].label)} · ${esc(KIND[n.kind].label)} · ${plural(n.cols.length, L.columns)}</div>` +
-        trajTip(n.i) + (n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : '') +
+      tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + (n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : '') +
         `<div class="a">${t.k < FAR ? T.frame : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
     } else {
       const dd = DOM[d.k];
@@ -618,26 +584,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   });
 
   // ---------------------------------------------------------------- trajectory mode
-  const num = v => v.toLocaleString(PAGE.lang);
-  // "5 upstream · 1 downstream", restricted to the direction shown
-  function countsText(u, d) {
-    const dir = trajOpts.direction;
-    return dir === 'up' ? T.countUp(num(u)) : dir === 'down' ? T.countDown(num(d)) : `${T.countUp(num(u))} · ${T.countDown(num(d))}`;
-  }
-  function trajTip(i) {
-    if (!traj) return '';
-    if (i === traj.start) return `<div class="tj start">${T.tipStart}</div>`;
-    return (traj.up.has(i) ? `<div class="tj up">${T.tipUp(traj.up.get(i))}</div>` : '')
-      + (traj.down.has(i) ? `<div class="tj down">${T.tipDown(traj.down.get(i))}</div>` : '');
-  }
+  const countsText = (u, d) => trajectoryCounts(trajOpts.direction, u, d);
   function enterTrajectory(i) {
     const { up, down } = trajectory(DATA.lineage, i, trajOpts.direction, trajOpts.depth);
-    const tedges = [];
-    DATA.lineage.forEach(([c, p]) => {
-      if (up.has(p) && (c === i || up.has(c))) tedges.push([c, p, 'up']);
-      else if (down.has(c) && (p === i || down.has(p))) tedges.push([c, p, 'down']);
-    });
-    traj = { start: i, up, down, edges: tedges, brought: 0 };
+    traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
     const n = N[i], summary = renderBar();
@@ -658,22 +608,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
     const n = N[traj.start], u = traj.up.size, d = traj.down.size, empty = u + d === 0;
     $u('tj-dot').style.background = KIND[n.kind].color;
     $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
-    const per = new Map();
-    const tally = (m, key) => m.forEach((_, j) => {
-      const c = per.get(N[j].domain) || { u: 0, d: 0 }; c[key]++; per.set(N[j].domain, c);
-    });
-    tally(traj.up, 'u'); tally(traj.down, 'd');
-    const rows = [...per].map(([k, c]) => ({ k, total: c.u + c.d, text: `${DOM[k].label}: ${countsText(c.u, c.d)}` }))
+    const ups = countByDomain(N, traj.up.keys()), downs = countByDomain(N, traj.down.keys());
+    const rows = [...new Set([...ups.keys(), ...downs.keys()])].map(k => [k, ups.get(k) || 0, downs.get(k) || 0])
+      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}: ${countsText(cu, cd)}` }))
       .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
     $u('tj-list').replaceChildren(...rows.map(r => {
       const li = document.createElement('li'), dot = document.createElement('i');
       dot.style.background = DOM[r.k].color; li.append(dot, r.text);
       return li;
     }));
-    const sum = $u('tj-sum'), emptyText = { both: T.noLineage, up: T.noUp, down: T.noDown }[trajOpts.direction];
+    const sum = $u('tj-sum'), emptyText = noTrajectory(trajOpts.direction);
     sum.textContent = countsText(u, d); sum.title = rows.map(r => r.text).join('\n');
     $u('tj-counts').hidden = empty; $u('tj-empty').hidden = !empty;
     $u('tj-empty').textContent = empty ? emptyText : '';
+    $u('tj-flow').disabled = empty;
     const hidden = trajMembers().filter(j => !P[j]).length;
     $u('tj-hidden').textContent = hidden ? plural(hidden, T.hiddenN) : '';
     $u('tj-back').textContent = traj.brought ? plural(traj.brought, T.brought) : '';
@@ -682,9 +630,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   }
   bar.setAttribute('aria-label', T.trajectory);
   $u('tj-title').textContent = T.trajOf;
-  $u('tj-h-dir').textContent = T.direction; $u('tj-h-depth').textContent = T.depth;
-  $u('tj-l-start').textContent = T.lgStart; $u('tj-l-up').textContent = T.up; $u('tj-l-down').textContent = T.down;
+  $u('tj-h-dir').textContent = L.direction; $u('tj-h-depth').textContent = L.depth;
+  $u('tj-l-start').textContent = L.lgStart; $u('tj-l-up').textContent = L.up; $u('tj-l-down').textContent = L.down;
   $u('tj-leave').textContent = T.leave; $u('tj-leave').title = T.leaveTitle;
+  $u('tj-flow').textContent = T.flow; $u('tj-flow').title = T.flowTitle;
+  // the flow view opens on this trajectory and never changes it (D-036)
+  $u('tj-flow').onclick = () => { if (traj) openFlow(N[traj.start].id, trajOpts.direction, trajOpts.depth); };
   options($u('tj-dir'), ['both', 'up', 'down'], trajOpts.direction);
   options($u('tj-depth'), ['dall', 'd1', 'd2', 'd3'], 'dall');
   $u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start); };
@@ -701,7 +652,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
     $u('tj-dir').focus();
   };
   document.addEventListener('keydown', ev => {
-    if (ev.key !== 'Escape' || !traj || !document.getElementById('tab-universe').classList.contains('on')) return;
+    if (ev.key !== 'Escape' || ev.defaultPrevented || !traj || !tab.classList.contains('on')) return;   // the flow's Esc
     const counts = $u('tj-counts');
     if (counts.open) { counts.open = false; $u('tj-sum').focus(); return; }
     if (ev.target === $u('q') || ev.target.tagName === 'SELECT') return;   // Esc belongs to the open list
@@ -729,6 +680,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT) {
   }).observe(stage);
   layout(); resize(); fit(false);
 
-  // image is for the browser tests' pixel comparison; the page uses it through #u-export
-  return { shown: () => { resize(); }, relayout, trajectoryState, image };
+  // image is for the browser tests' pixel comparison; the page uses it through #u-export.
+  // camera (the d3 zoom transform) is for the tests too: closing the flow leaves it as it was.
+  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera: () => ({ x: t.x, y: t.y, k: t.k }) };
 }

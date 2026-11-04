@@ -190,3 +190,39 @@ def test_boot_writes_the_layout_format_once() -> None:
     assert f"const LAYOUT_FORMAT = '{LAYOUT_FORMAT}';" in boot
     assert boot.count(f"'{LAYOUT_FORMAT}'") == 1
     assert f"'{LAYOUT_FORMAT}:' + PAGE.title" in boot  # the localStorage key is unchanged (invariant 9)
+
+
+# ---------------------------------------------------------------- M5.3: the flow view (D-036)
+
+
+def test_page_has_the_flow_view() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    for marker in (
+        'id="f-view"',
+        'id="u-tj-flow"',
+        'id="f-export-png"',
+        'id="f-export-svg"',
+        'id="f-live"',
+        "function startFlow(",
+        "function flowRanks(",
+    ):
+        assert marker in page
+    assert "{{FLOW_JS}}" not in page
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_scripts_come_in_order_common_detail_universe_flow_boot(offline: bool) -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)
+    starts = [
+        page.index("<script>\n" + first)
+        for first in ("// Page-wide", "// Detail view", "// Universe view", "// Flow view", "// Page boot")
+    ]
+    assert starts == sorted(starts)
+    flow = page[starts[3] : page.index("</script>", starts[3])]
+    assert "function startFlow(" in flow and "function startUniverse(" not in flow
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_no_page_script_can_close_its_block() -> None:
+    for name in ("common.js", "detail.js", "universe.js", "flow.js", "boot.js"):
+        assert "</script" not in (ASSETS / name).read_text(encoding="utf-8").lower(), name
