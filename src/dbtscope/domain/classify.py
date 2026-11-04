@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from dbtscope.domain import selectors
-from dbtscope.domain.config import Config, Rule
+from dbtscope.domain.config import Config, Language, Rule
 from dbtscope.domain.model import Relation, Table
 
 
@@ -19,7 +18,7 @@ class BuiltinKind(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str
-    label: dict[Literal["en", "fr"], str]
+    label: dict[Language, str]
     color: str
 
 

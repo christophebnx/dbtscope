@@ -4,6 +4,7 @@ import pytest
 from conftest import empty_universe
 from pydantic import BaseModel, ValidationError
 
+from dbtscope.domain import config
 from dbtscope.domain.payload import (
     DetailEntity,
     DetailKind,
@@ -92,3 +93,17 @@ def test_payloads_are_closed_and_immutable() -> None:
         NODE.name = "b"  # type: ignore[misc]
     with pytest.raises(ValidationError):
         PagePayload(title="t", lang="de", view="detail", detail=DETAIL, universe=UNIVERSE, layout={})  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(("field", "value"), [("links", "all"), ("detail", "both")])
+def test_defaults_take_the_config_choices_only(field: str, value: str) -> None:
+    fields = {"links": "both", "detail": "names", "hidden_kinds": [], field: value}
+    with pytest.raises(ValidationError):
+        UniverseDefaults.model_validate(fields)
+
+
+def test_payload_literals_are_the_config_literals() -> None:
+    assert PagePayload.model_fields["lang"].annotation is config.Language
+    assert PagePayload.model_fields["view"].annotation is config.View
+    assert UniverseDefaults.model_fields["links"].annotation is config.Links
+    assert UniverseDefaults.model_fields["detail"].annotation is config.DetailLevel

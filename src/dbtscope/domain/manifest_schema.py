@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 INPUT = ConfigDict(extra="ignore", frozen=True)
+TableType = Literal["model", "seed", "snapshot"]  # the entries of `nodes` that are drawn
 
 
 class DependsOn(BaseModel):
@@ -59,7 +60,7 @@ class TableNode(BaseModel):
 
     unique_id: str
     name: str
-    resource_type: Literal["model", "seed", "snapshot"]
+    resource_type: TableType
     # `schema` is a deprecated BaseModel attribute: the field has another name, errors still say `schema`
     schema_name: str | None = Field(None, alias="schema")
     database: str | None = None

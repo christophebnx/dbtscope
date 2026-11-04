@@ -7,9 +7,11 @@ together. `render/page.render_page` serialises `PagePayload` (D-023 escaping).
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from dbtscope.domain.config import DetailLevel, Language, Links, View
 
 PAYLOAD = ConfigDict(extra="forbid", frozen=True)
 
@@ -48,7 +50,7 @@ class DetailPayload(BaseModel):
     model_config = PAYLOAD
 
     title: str
-    lang: Literal["en", "fr"]
+    lang: Language
     grouped: bool
     kinds: tuple[DetailKind, ...]
     entities: tuple[DetailEntity, ...]
@@ -96,8 +98,8 @@ class UniverseDefaults(BaseModel):
 
     model_config = PAYLOAD
 
-    links: str
-    detail: str
+    links: Links
+    detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
 
 
@@ -122,8 +124,8 @@ class PagePayload(BaseModel):
     model_config = PAYLOAD
 
     title: str
-    lang: Literal["en", "fr"]
-    view: Literal["universe", "detail"]
+    lang: Language
+    view: View
     detail: DetailPayload
     universe: UniversePayload
     layout: dict[str, Any]  # a `dbt-erd-layout` file, checked by `layout.check_layout`, not modelled

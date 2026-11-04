@@ -58,6 +58,10 @@ CONFIG_FILE = "dbt-erd.yml"
 DEFAULT_KIND_COLOR = "#777777"
 GROUP_BY_RE = re.compile(r"^(schema|database|package|none|folder(:\d+)?|tag:.+)$")
 GROUP_BY_CHOICES = "schema, database, package, folder, folder:N, tag:<glob> or none"
+Language = Literal["en", "fr"]  # page language (D-016)
+View = Literal["universe", "detail"]  # tab shown when the page opens
+Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
+DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
 # unknown keys are accepted silently, as before the typed model: existing files keep working
 SETTINGS = ConfigDict(extra="ignore", frozen=True)
 
@@ -110,8 +114,8 @@ class UniverseSettings(BaseModel):
 
     select: StrList = ("type:model", "type:source", "type:seed", "type:snapshot")
     exclude: StrList = ()
-    links: Literal["relations", "lineage", "both"] = "both"
-    detail: Literal["names", "keys", "all"] = "names"
+    links: Links = "both"
+    detail: DetailLevel = "names"
     hidden_kinds: StrList = ()
 
 
@@ -122,8 +126,8 @@ class Config(BaseModel):
 
     title: Text = "dbt ERD"
     output: str = "erd_output/erd.html"
-    language: Literal["en", "fr"] = "en"
-    view: Literal["universe", "detail"] = "universe"
+    language: Language = "en"
+    view: View = "universe"
     select: StrList = ("type:model",)
     exclude: StrList = ()
     group_by: str = "schema"

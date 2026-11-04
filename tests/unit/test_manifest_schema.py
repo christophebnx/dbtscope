@@ -1,7 +1,10 @@
+from typing import get_args
+
 import pytest
 from conftest import model, relationships_test, source
 from pydantic import ValidationError
 
+from dbtscope.domain.manifest import NODE_TYPES
 from dbtscope.domain.manifest_schema import ManifestFile, NodeHeader, RelationshipTest, SourceNode, TableNode
 
 
@@ -43,3 +46,8 @@ def test_input_models_are_immutable() -> None:
     node = TableNode.model_validate(model("x"))
     with pytest.raises(ValidationError):
         node.name = "y"  # type: ignore[misc]
+
+
+def test_drawn_node_types_are_the_table_node_types() -> None:
+    assert set(get_args(TableNode.model_fields["resource_type"].annotation)) == NODE_TYPES
+    assert {"model", "seed", "snapshot"} == NODE_TYPES

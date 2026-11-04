@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, get_args
 
 from pydantic import BaseModel, ValidationError
 
@@ -31,10 +31,11 @@ from dbtscope.domain.manifest_schema import (
     RelationshipTest,
     SourceNode,
     TableNode,
+    TableType,
 )
 from dbtscope.domain.model import Group, LineageEdge, Project, Relation, Table
 
-NODE_TYPES = {"model", "seed", "snapshot"}
+NODE_TYPES = frozenset(get_args(TableType))
 RELATIONSHIP_TESTS = {"relationships", "relationships_where"}
 REF_RE = re.compile(r"""ref\(\s*['"]([^'"]+)['"]\s*(?:,\s*['"]([^'"]+)['"]\s*)?\)""")
 SOURCE_RE = re.compile(r"""source\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)""")
