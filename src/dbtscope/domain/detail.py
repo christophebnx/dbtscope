@@ -2,41 +2,42 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from dbtscope.domain.classify import OTHER, background, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config
-from dbtscope.domain.manifest import Edge, Node
+from dbtscope.domain.model import Relation, Table
 
 
 def select(
-    nodes: dict[str, Node], relations: list[Edge], config: Config, root_project: str | None = None
-) -> tuple[dict[str, Node], list[Edge]]:
-    """Return the nodes drawn in the detail view and the relations between them."""
+    tables: dict[str, Table], relations: Iterable[Relation], config: Config, root_project: str | None = None
+) -> tuple[dict[str, Table], list[Relation]]:
+    """Return the tables drawn in the detail view and the relations between them."""
     picked = {
-        uid: n for uid, n in nodes.items() if in_scope(n, config, root_project, config.select, config.exclude)
+        uid: t
+        for uid, t in tables.items()
+        if in_scope(t, config, root_project, config.select, config.exclude)
     }
-    return picked, [r for r in relations if r["child"] in picked and r["parent"] in picked]
+    return picked, [r for r in relations if r.child in picked and r.parent in picked]
 
 
-def detail_data(nodes: dict[str, Node], relations: list[Edge], config: Config) -> dict[str, Any]:
-    """The JSON payload of the detail view for the nodes and relations returned by `select`."""
+def detail_data(tables: dict[str, Table], relations: list[Relation], config: Config) -> dict[str, Any]:
+    """The JSON payload of the detail view for the tables and relations returned by `select`."""
     is_key = key_columns(config, relations)
     kinds = config.kinds
 
     entities = []
-    for uid, node in sorted(nodes.items(), key=lambda kv: kv[1]["name"]):
-        kind = first_rule(node, kinds)
+    for uid, table in sorted(tables.items(), key=lambda kv: kv[1].name):
+        kind = first_rule(table, kinds)
         entities.append(
             {
                 "id": uid,
-                "name": node["name"],
-                "group": group_of(node, config.group_by),
+                "name": table.name,
+                "group": group_of(table, config.group_by),
                 "kind": kind.key if kind else OTHER.key,
-                "description": node["description"],
-                "columns": [
-                    [c["name"], c["type"], is_key(uid, c["name"]), c["description"]] for c in node["columns"]
-                ],
+                "description": table.description,
+                "columns": [[c.name, c.data_type, is_key(uid, c.name), c.description] for c in table.columns],
             }
         )
 
@@ -54,5 +55,5 @@ def detail_data(nodes: dict[str, Node], relations: list[Edge], config: Config) -
             for key, label, color in kind_list
         ],
         "entities": entities,
-        "relations": [{"child": r["child"], "parent": r["parent"], "column": r["column"]} for r in relations],
+        "relations": [{"child": r.child, "parent": r.parent, "column": r.column} for r in relations],
     }

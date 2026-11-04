@@ -6,7 +6,8 @@ from conftest import write_config
 
 from dbtscope.domain.config import ConfigError
 from dbtscope.domain.layout import LayoutError
-from dbtscope.storage.project_files import load_config, preset_names, read_layout, read_preset
+from dbtscope.domain.manifest import ManifestError
+from dbtscope.storage.project_files import load_config, preset_names, read_layout, read_manifest, read_preset
 
 
 def test_builtin_presets() -> None:
@@ -42,3 +43,11 @@ def test_read_layout(tmp_path: Path) -> None:
         path.write_text(bad, encoding="utf-8")
         with pytest.raises(LayoutError):
             read_layout(path)
+
+
+def test_read_manifest_reports_invalid_json(tmp_path: Path) -> None:
+    path = tmp_path / "manifest.json"
+    path.write_text('{\n"nodes": ', encoding="utf-8")
+    with pytest.raises(ManifestError) as info:
+        read_manifest(path)
+    assert str(info.value) == f"manifest: {path} is not valid JSON: Expecting value (line 2)"

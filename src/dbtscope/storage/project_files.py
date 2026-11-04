@@ -11,14 +11,21 @@ import yaml
 
 from dbtscope.domain.config import CONFIG_FILE, Config, ConfigError, merge_config
 from dbtscope.domain.layout import check_layout
-from dbtscope.domain.manifest import Project, parse_manifest
+from dbtscope.domain.manifest import ManifestError, parse_manifest
+from dbtscope.domain.model import Project
 
 PRESETS = resources.files("dbtscope") / "presets"
 
 
 def read_manifest(path: Path) -> Project:
     """Parse the dbt `manifest.json` at `path`."""
-    return parse_manifest(json.loads(path.read_text(encoding="utf-8")))
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ManifestError(
+            f"manifest: {path} is not valid JSON: {error.msg} (line {error.lineno})"
+        ) from error
+    return parse_manifest(manifest)
 
 
 def preset_names() -> list[str]:

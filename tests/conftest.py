@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from dbtscope.domain.manifest import Project
+from dbtscope.domain.model import Project, Table
 from dbtscope.storage.project_files import read_manifest
 
 M = "model.shop."
@@ -115,6 +115,13 @@ def shop_manifest() -> dict[str, Any]:
         "sources": {src["unique_id"]: src},
         "groups": {"group.shop.sales_team": {"name": "sales_team", "owner": {"name": "Ana"}}},
     }
+
+
+def table(**fields: Any) -> Table:
+    """A `Table` for unit tests: a model `fct_orders` of `shop`, with `fields` set."""
+    return Table(
+        **{"unique_id": "model.shop.fct_orders", "name": "fct_orders", "resource_type": "model", **fields}
+    )
 
 
 def big_manifest(tables: int = 1500) -> dict[str, Any]:

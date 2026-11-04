@@ -1,13 +1,13 @@
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.detail import detail_data, select
-from dbtscope.domain.manifest import Project
+from dbtscope.domain.model import Project
 from dbtscope.storage.project_files import read_preset
 
 
 def test_star_schema_preset(shop: Project) -> None:
     config = merge_config(read_preset("star_schema"), {})
-    nodes, relations = select(shop.nodes, shop.relations, config, shop.root)
-    assert sorted(n["name"] for n in nodes.values()) == [
+    nodes, relations = select(shop.tables, shop.relations, config, shop.root)
+    assert sorted(n.name for n in nodes.values()) == [
         "dim_customer",
         "dim_product",
         "fct_orders",
@@ -34,7 +34,7 @@ def test_unmatched_tables_are_other_in_the_user_language(shop: Project) -> None:
         "kinds": [{"key": "core", "label": "Cœur", "color": "#ff0000", "match": "tag:core"}],
     }
     config = merge_config(read_preset("star_schema"), file_config)
-    data = detail_data(*select(shop.nodes, shop.relations, config, shop.root), config)
+    data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config)
     assert sorted(e["name"] for e in data["entities"]) == ["dim_customer", "dim_product", "fct_orders"]
     assert {e["kind"] for e in data["entities"]} == {"core", "other"}
     assert [k["label"] for k in data["kinds"]] == ["Cœur", "Autre"]

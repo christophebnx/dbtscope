@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from itertools import cycle
 from typing import Any
 
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import Config, Rule
-from dbtscope.domain.manifest import Edge, Node, Project
+from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 
-# kinds for nodes no configured kind matches
+# kinds for tables no configured kind matches
 TYPE_KINDS: dict[str, BuiltinKind] = {
     "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
     "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#8b5cf6"),
@@ -33,29 +34,29 @@ FLOW_PREFIXES = [
 UNRANKED = 4.5
 
 
-def domain_of(node: Node, config: Config) -> tuple[str, Rule | None]:
+def domain_of(table: Table, config: Config) -> tuple[str, Rule | None]:
     """dbt group > meta.domain > `domains` rules > group_by. Returns (key, matching rule or None)."""
-    if node["group"]:
-        return node["group"], None
-    if node["meta"].get("domain"):
-        return str(node["meta"]["domain"]), None
-    rule = first_rule(node, config.domains)
+    if table.group:
+        return table.group, None
+    if table.meta.get("domain"):
+        return str(table.meta["domain"]), None
+    rule = first_rule(table, config.domains)
     if rule:
         return rule.key, rule
-    return group_of(node, config.group_by) or "", None
+    return group_of(table, config.group_by) or "", None
 
 
-def _default_layer(node: Node) -> str:
-    if node["type"] in ("source", "seed", "snapshot"):
-        return node["type"] + "s"
-    return node["folder"].split("/")[0] if node["folder"] else "models"
+def _default_layer(table: Table) -> str:
+    if table.resource_type in ("source", "seed", "snapshot"):
+        return table.resource_type + "s"
+    return table.folder.split("/")[0] if table.folder else "models"
 
 
-def _layer_of(node: Node, config: Config) -> str:
+def _layer_of(table: Table, config: Config) -> str:
     """The first matching `layers` rule, "other" when none matches, or the default layer."""
     if not config.layers:
-        return _default_layer(node)
-    layer = first_rule(node, config.layers)
+        return _default_layer(table)
+    layer = first_rule(table, config.layers)
     return layer.key if layer else OTHER.key
 
 
@@ -78,7 +79,7 @@ def _domains(records: list[dict[str, Any]], config: Config, project: Project) ->
         else:
             color = rule.color if rule and rule.color else next(palette)
             label = rule.label if rule and rule.label else key
-        domains.append({"key": key, "label": label, "color": color, "owner": group["owner"] if group else ""})
+        domains.append({"key": key, "label": label, "color": color, "owner": group.owner if group else ""})
     return domains
 
 
@@ -104,39 +105,35 @@ def _kinds(used: set[str], config: Config) -> list[dict[str, str]]:
 def universe_data(project: Project, config: Config) -> dict[str, Any]:
     """The JSON payload of the universe view."""
     universe = config.universe
-    nodes = {
-        uid: n
-        for uid, n in project.nodes.items()
-        if in_scope(n, config, project.root, universe.select, universe.exclude)
+    tables = {
+        uid: t
+        for uid, t in project.tables.items()
+        if in_scope(t, config, project.root, universe.select, universe.exclude)
     }
-    ids = sorted(nodes, key=lambda uid: (nodes[uid]["name"], uid))
+    ids = sorted(tables, key=lambda uid: (tables[uid].name, uid))
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
     records = []
     for uid in ids:
-        node = nodes[uid]
-        domain, _ = domain_of(node, config)
-        layer_key = _layer_of(node, config)
-        kind = first_rule(node, config.kinds) or TYPE_KINDS.get(node["type"], OTHER)
+        table = tables[uid]
+        domain, _ = domain_of(table, config)
+        layer_key = _layer_of(table, config)
+        kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
         records.append(
             {
                 "id": uid,
-                "name": node["name"],
+                "name": table.name,
                 "domain": domain,
                 "layer": layer_key,
                 "kind": kind.key,
-                "desc": node["description"][:DESCRIPTION_LIMIT],
-                "cols": [[c["name"], c["type"], int(is_key(uid, c["name"]))] for c in node["columns"]],
+                "desc": table.description[:DESCRIPTION_LIMIT],
+                "cols": [[c.name, c.data_type, int(is_key(uid, c.name))] for c in table.columns],
             }
         )
 
-    def pairs(edges: list[Edge]) -> list[list[int]]:
-        found = {
-            (index[e["child"]], index[e["parent"]])
-            for e in edges
-            if e["child"] in index and e["parent"] in index
-        }
+    def pairs(edges: Iterable[Relation | LineageEdge]) -> list[list[int]]:
+        found = {(index[e.child], index[e.parent]) for e in edges if e.child in index and e.parent in index}
         return [list(p) for p in sorted(found)]
 
     return {

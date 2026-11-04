@@ -115,7 +115,7 @@ def run(args: argparse.Namespace) -> None:
         raise RunError(f"Manifest not found: {manifest_path} (run without --no-parse)")
 
     dbt = read_manifest(manifest_path)
-    nodes, relations = select(dbt.nodes, dbt.relations, config, dbt.root)
+    nodes, relations = select(dbt.tables, dbt.relations, config, dbt.root)
     detail = detail_data(nodes, relations, config)
     universe = universe_data(dbt, config)
     if not nodes and not universe["nodes"]:

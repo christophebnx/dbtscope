@@ -172,3 +172,21 @@ def test_offline_page_is_larger_and_keeps_the_payload(dbt_project: Path) -> None
     offline = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
     assert len(offline.encode()) > len(cdn.encode()) + 2_000_000
     assert page_data(offline) == page_data(cdn)
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('{"nodes": {"model.shop.x": {"name": "x", "resource_type": "model"}}}',
+         "dbtscope: error: manifest: nodes['model.shop.x'].unique_id: is required\n"),
+        ('{"nodes": ', "dbtscope: error: manifest: "),
+    ],
+)  # fmt: skip
+def test_invalid_manifest_exits_1_with_one_line(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str], text: str, message: str
+) -> None:
+    (dbt_project / "target" / "manifest.json").write_text(text, encoding="utf-8")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith(message) and err.count("\n") == 1 and "Traceback" not in err
+    assert not (dbt_project / "erd_output" / "erd.html").exists()

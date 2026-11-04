@@ -1,5 +1,5 @@
 from dbtscope.domain.config import merge_config
-from dbtscope.domain.manifest import Project
+from dbtscope.domain.model import Project
 from dbtscope.domain.universe import UNRANKED, flow_rank, universe_data
 from dbtscope.storage.project_files import read_preset
 
