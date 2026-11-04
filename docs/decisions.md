@@ -58,7 +58,7 @@ What is drawn (`select`, `exclude`), its kind, domain and layer are lists of dbt
 **D-016 — Page languages: English and French; CLI messages in English.**
 `language: en | fr` in the config picks the page language; UI strings live in tables at the top of each page script, and labels built in Python (`Other`, `No domain`) exist in both. The CLI stays in English (D-004). Supersedes, for the page only, the "from locale files" part of D-011: the page is a single file, so its strings are inline.
 
-**D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.**
+**D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.** (Dependency clause superseded by D-025.)
 Aligned with D-001. Why: one interpreter floor for the whole repository.
 
 **D-018 — Trajectory mode (M1): lineage only, whole chain by default, dim the rest, filters never cut the chain.**
@@ -78,3 +78,9 @@ Since M2 the libraries of the page are vendored in `src/dbtscope/render/vendor/`
 
 **D-023 — Embedded JSON escapes every `<`.**
 `render/page.render_page` writes every `<` of the JSON payload as `\u003c`, the same JSON, instead of only `</` as `<\/`. Why: a dbt description holding `<!-- <script>` puts the HTML parser in the script double-escaped state, where the data block's own `</script>` no longer closes it and the page scripts after it never run. With no `<` left in the block, no data can end or disturb it. Supersedes the `</`-only rule of CLAUDE.md invariant 10 and `render/CLAUDE.md` (D-014 itself sets no escaping rule and is unchanged). The default page changes bytes only where the data holds `<`. Rejected: escaping `<!--` and `<script` one by one (easy to miss a variant such as `<SCRIPT` or `<!--` split by escapes).
+
+**D-024 — A typed data model with pydantic v2, at four layers; the page JSON is unchanged.**
+Settled with the user on 2026-11-04. Tables, columns, relations, lineage, groups, the project, the configuration and the page payloads become pydantic v2 models in `domain/` instead of `dict[str, Any]`; the manifest is read through models of the fields dbtscope uses (unknown fields ignored). Why: the data model becomes explicit and checked, key typos and malformed manifests fail early with a clear message, and the Python → JavaScript contract is written down. The JSON embedded in the page stays byte for byte what it is (positional arrays included), so the page scripts do not change. An unexpected manifest (a field dbtscope reads is missing or mistyped) stops the run with `dbtscope: error: manifest: …`, exit code 1. Rejected: validating the inputs only (the domain would keep untyped dicts); changing the page format to named objects (JavaScript changes and a larger page for no user benefit); skipping invalid nodes with a warning (a table could silently go missing from the map).
+
+**D-025 — pydantic v2 is the second runtime dependency.**
+Recorded on 2026-11-04 as the consequence of D-024 (design note `docs/architecture/2026-11-04-m3-typed-model.md`). `pydantic>=2.7` joins PyYAML in `[project] dependencies`; `domain/` may import it (declared pure library, `domain/CLAUDE.md`). Supersedes, for this clause only, "PyYAML the only runtime dependency" of D-017 (the Python ≥ 3.12 floor of D-017 holds). Why: the typed model of D-024 needs it, and it replaces the hand-written validation. Accepted cost: pydantic-core is a compiled wheel (~2 MB per platform); an environment pinning pydantic v1 next to an old dbt needs an isolated install (`uv tool install`, `pipx`). Rejected: vendoring a validation library; keeping hand-written checks.

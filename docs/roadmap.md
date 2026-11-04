@@ -97,6 +97,37 @@ Done when:
 5. The licences of the vendored libraries ship in the package; README documents `--offline`, `offline:` and the export.
 6. Default tests green, browser tests green, ruff clean, docs, CLAUDE.md files and CHANGELOG updated.
 
+## M3 — Typed data model with pydantic
+
+Replace the `dict[str, Any]` that carry tables, relations, configuration and page data with pydantic v2 models, at four layers (D-024). The user's choices: all four layers; the page's JSON stays byte-identical; an unexpected manifest stops the run with a clear error.
+
+**Layers**
+
+1. **Manifest input** (`domain/manifest_schema.py`): models of the part of `manifest.json` that dbtscope reads (nodes, sources, tests with `test_metadata`, column and model constraints, groups, metadata). Unknown fields are ignored (the manifest schema evolves across dbt versions, v10 and later); a missing or mistyped field that dbtscope reads stops the run: `dbtscope: error: manifest: <location>: <problem>`, exit code 1. Entries of `nodes` that dbtscope does not draw are checked only for `resource_type` (and, for tests, the test name).
+2. **Domain model** (`domain/model.py`): frozen models `Table` (unique_id, name, resource type as a `Literal`, schema, database, package, path, folder, tags, description, group, meta, columns), `Column`, `Relation` (child, parent, column, parent column, origin: relationships test or foreign-key constraint), `LineageEdge`, `Group` and `Project`. What rules read from the raw manifest (`source_name`, constraints, `depends_on`) is read from the input models while parsing, so the `_raw` copy disappears. Selectors, classification and both views work on these models.
+3. **Configuration** (`domain/config.py`): a `Config` model with `Rule` (kinds, domains, layers), `UniverseSettings`, `Literal` choices (language, view, links, detail), validators for `group_by` and the `key_columns` regex, and strict booleans `offline` and `include_packages`. A number is accepted as `title` or rule `label` (its text). Merging defaults < preset < file < command line stays as it is; the hand-written checks go. Every error still raises `ConfigError` with a one-line `<key>: <problem>` message (no raw pydantic dump).
+4. **Page payload** (`domain/payload.py`): `DetailPayload` and `UniversePayload` models describe the Python → JavaScript contract (including the positional arrays: a detail column is `[name, type, is_key, description]`, a universe column `[name, type, key 0/1]`, links `[child index, parent index]`). They serialise to exactly the JSON of today: same keys, same order, same values, so `universe.js` and `detail.js` do not change.
+
+**Constraints**
+
+- pydantic is a declared pure library of `domain/` (`domain/CLAUDE.md` already allows it); the layering test still passes.
+- One responsibility, one implementation: each model replaces the code that built or checked the same thing by hand; nothing is validated twice.
+- The layout file (`dbt-erd-layout.json`) is not modelled in M3 (its content belongs to the page); `check_layout` stays.
+- Performance: validating a 1,500-table manifest adds no noticeable time (measure it on a generated manifest; target under 200 ms for parsing and validation). Measured: about 100 ms standalone (29 ms before M3); `tests/unit/test_performance.py` guards a 0.5 s bound.
+
+**Tests**
+
+- Unit tests per model: valid inputs, each kind of invalid input and its message, immutability.
+- Byte identity: before any change, generate the pages (CDN and offline) of the `shop` project for several configurations (no config, both presets, French, configured layers and domains, custom kinds); after M3 they must be identical byte for byte. Kept as a regression test: page hashes and embedded data blocks in `tests/fixtures/m3-reference-pages/`.
+- Manifest errors: missing `unique_id`, mistyped `columns`, unknown `resource_type`, a relationships test without a resolvable parent: clear error or documented skip, as today's rules decide.
+
+Done when:
+
+1. No `dict[str, Any]` is left for tables, columns, relations, lineage, groups, configuration or page payloads in `domain/`, `storage/`, `render/` and `cli.py`; `_raw` is gone.
+2. The generated pages are byte-identical to M2's on the reference configurations.
+3. An invalid manifest or configuration gives a one-line `dbtscope: error: …` naming the location, exit code 1, never a traceback.
+4. Default and browser tests green, ruff clean, no duplicate-code finding; docs, package CLAUDE.md files (module tables) and CHANGELOG updated; D-024 recorded.
+
 ## Later (not scheduled)
 
 - Print stylesheet: the current view on one page, without panels and toolbars.

@@ -9,14 +9,16 @@ How the system is built. Why it is built that way: `docs/decisions.md`. Design n
 ```
 cli.run
   dbt parse (subprocess, skipped with --no-parse / --manifest)
-  storage/project_files.load_config     dbt-erd.yml + preset  -> domain/config.merge_config
+  storage/project_files.load_config     dbt-erd.yml + preset  -> domain/config.merge_config -> Config
   storage/project_files.read_manifest   target/manifest.json  -> domain/manifest.parse_manifest -> Project
-  domain/detail.select + detail_data    ERD payload (selected tables, relations, kinds, key columns)
-  domain/universe.universe_data         universe payload (every table: domains, layers, kinds, relations, lineage)
+  domain/detail.select + detail_data    DetailPayload (selected tables, relations, kinds, key columns)
+  domain/universe.universe_data         UniversePayload (every table: domains, layers, kinds, relations, lineage)
   storage/project_files.read_layout     dbt-erd-layout.json, if present -> domain/layout.check_layout
   render/page.render_page               one HTML page: assets + JSON payload (+ vendored libraries with --offline)
   storage/files.atomic_write            erd_output/erd.html, then the browser opens it
 ```
+
+Data is typed with pydantic v2 at four layers (D-024, D-025): manifest input (`domain/manifest_schema`, only the fields read), domain model (`domain/model`: `Table`, `Column`, `Relation`, `LineageEdge`, `Group`, `Project`), configuration (`domain/config`: `Config`, `Rule`, `UniverseSettings`) and page payloads (`domain/payload`, the Python → JavaScript contract). Models are frozen; a malformed manifest or configuration stops the run with one line naming the field (`domain/errors.validation_message`). The page JSON is byte for byte what it was before the models (`tests/unit/test_reference_pages.py`).
 
 The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail (D-014). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
@@ -28,7 +30,7 @@ Design brief of the universe view, with the scoping decisions and the prototype 
 
 | Package | Role | May import (project packages) |
 |---|---|---|
-| `domain/` | Pure business logic: models, rules, validation. No I/O, no clock, no environment (D-003). | nothing |
+| `domain/` | Pure business logic: models (pydantic v2, D-025), rules, validation. No I/O, no clock, no environment (D-003). | nothing |
 | `storage/` | File system and persistence: reads the manifest, config, presets and layout; the single atomic writer. | `domain` |
 | `render/` | The HTML page: its assets (`assets/`) and `render_page`, which embeds the view data. | `domain` |
 | `cli.py` | Command-line entry point: parses arguments, runs `dbt parse`, calls the layers, writes the page, opens the browser, maps errors to exit codes (D-004). | everything |
@@ -44,15 +46,21 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Responsibility | Implementation |
 |---|---|
 | Base class of business errors | `domain/errors.DomainError` |
-| Match a node against selectors | `domain/selectors.matches`, `matches_any` |
-| Extract nodes, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
-| Merge and validate the configuration | `domain/config.merge_config` |
+| One-line message of a validation error | `domain/errors.validation_message` |
+| Match a table against selectors | `domain/selectors.matches`, `matches_any` |
+| Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
+| Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
+| Shape of the manifest fields dbtscope reads | `domain/manifest_schema` |
+| Tables, columns, relations, lineage, groups, project | `domain/model` |
+| Merge and validate the configuration | `domain/config.merge_config`, `Config` |
+| Python → JavaScript page data contract | `domain/payload` |
 | Read `dbt-erd.yml` and built-in presets | `storage/project_files.load_config`, `read_preset` |
-| Decide whether a node is in a view's scope | `domain/classify.in_scope` |
-| Group of a node (`group_by`) | `domain/classify.group_of` |
+| Read a project file as UTF-8 text, JSON or a YAML mapping, with one-line errors | `storage/project_files._read_text`, `_read_json`, `_read_yaml` |
+| Decide whether a table is in a view's scope | `domain/classify.in_scope` |
+| Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |
 | Which columns are keys | `domain/classify.key_columns` |
-| Domain of a node (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
+| Domain of a table (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
 | Validate an exported layout | `domain/layout.check_layout` |
 | Assemble the HTML page | `render/page.render_page` |
 | JavaScript libraries of the page (CDN URL, vendored file, licence, hash) | `render/page.LIBRARIES` |

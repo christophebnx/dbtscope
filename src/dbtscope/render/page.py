@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import Any
 
+from dbtscope.domain.config import Config
+from dbtscope.domain.payload import DetailPayload, PagePayload, UniversePayload
+
 ASSETS = resources.files("dbtscope") / "render" / "assets"
 VENDOR = resources.files("dbtscope") / "render" / "vendor"
 PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
@@ -164,9 +167,9 @@ def _scripts(offline: bool = False) -> str:
 
 
 def render_page(
-    detail: dict[str, Any],
-    universe: dict[str, Any],
-    config: dict[str, Any],
+    detail: DetailPayload,
+    universe: UniversePayload,
+    config: Config,
     layout: dict[str, Any] | None = None,
     offline: bool = False,
 ) -> str:
@@ -174,15 +177,17 @@ def render_page(
 
     `offline` embeds the vendored libraries (and their licences) instead of loading them from the CDNs.
     """
+    page = PagePayload(
+        title=config.title,
+        lang=config.language,
+        view=config.view,
+        detail=detail,
+        universe=universe,
+        layout=layout or {},
+    )
+    # json.dumps, not model_dump_json: one encoder, and the D-023 escape right after it
     payload = json.dumps(
-        {
-            "title": config["title"],
-            "lang": config["language"],
-            "view": config["view"],
-            "detail": detail,
-            "universe": universe,
-            "layout": layout or {},
-        },
+        page.model_dump(mode="python", by_alias=True),
         ensure_ascii=False,
         separators=(",", ":"),
     ).replace("<", "\\u003c")  # same JSON; no "</script" nor "<!--" can end or disturb its block (D-023)
@@ -192,7 +197,7 @@ def render_page(
         "DETAIL_JS": _asset("detail.js"),
         "UNIVERSE_JS": _asset("universe.js"),
         "BOOT_JS": _asset("boot.js"),
-        "TITLE": config["title"].replace("&", "&amp;").replace("<", "&lt;"),
+        "TITLE": config.title.replace("&", "&amp;").replace("<", "&lt;"),
         "DATA": payload,
     }
     # one pass: inserted text (a library, a script, the title) is never scanned for placeholders again

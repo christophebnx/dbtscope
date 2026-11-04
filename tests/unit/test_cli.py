@@ -58,7 +58,7 @@ def test_errors_exit_1(tmp_path: Path, dbt_project: Path, capsys: pytest.Capture
 
     write_config(dbt_project, "view: map\n")
     assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
-    assert "view must be" in capsys.readouterr().err
+    assert "dbtscope: error: view: must be 'universe' or 'detail'" in capsys.readouterr().err
 
     write_config(dbt_project, "select: ['nothing_*']\nuniverse: {select: ['nothing_*']}\n")
     assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
@@ -145,7 +145,7 @@ def test_default_page_loads_the_cdns(dbt_project: Path, capsys: pytest.CaptureFi
 def test_invalid_offline_value_exits_1(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_config(dbt_project, 'offline: "yes"\n')
     assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
-    assert "dbtscope: error: offline must be true or false" in capsys.readouterr().err
+    assert "dbtscope: error: offline: must be true or false" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("value", ["yes", "True", "on"])
@@ -161,7 +161,7 @@ def test_offline_non_bool_in_the_file_exits_1(
 ) -> None:
     write_config(dbt_project, text)
     assert main(["--project-dir", str(dbt_project), *OFFLINE, "--offline"]) == 1
-    assert "offline must be true or false" in capsys.readouterr().err
+    assert "offline: must be true or false" in capsys.readouterr().err
     assert not (dbt_project / "erd_output" / "erd.html").exists()
 
 
@@ -172,3 +172,21 @@ def test_offline_page_is_larger_and_keeps_the_payload(dbt_project: Path) -> None
     offline = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
     assert len(offline.encode()) > len(cdn.encode()) + 2_000_000
     assert page_data(offline) == page_data(cdn)
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('{"nodes": {"model.shop.x": {"name": "x", "resource_type": "model"}}}',
+         "dbtscope: error: manifest: nodes['model.shop.x'].unique_id: is required\n"),
+        ('{"nodes": ', "dbtscope: error: manifest: "),
+    ],
+)  # fmt: skip
+def test_invalid_manifest_exits_1_with_one_line(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str], text: str, message: str
+) -> None:
+    (dbt_project / "target" / "manifest.json").write_text(text, encoding="utf-8")
+    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith(message) and err.count("\n") == 1 and "Traceback" not in err
+    assert not (dbt_project / "erd_output" / "erd.html").exists()

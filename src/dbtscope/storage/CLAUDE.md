@@ -11,4 +11,4 @@
 | Module | Owns |
 |---|---|
 | `files.py` | `atomic_write(path, data)`: temp file in the same folder, fsync, `os.replace`, folder fsync (POSIX) |
-| `project_files.py` | Inputs of a dbt project: `read_manifest`, `load_config` (`dbt-erd.yml` + preset), `preset_names`, `read_preset` (built-in `presets/*.yml`), `read_layout` |
+| `project_files.py` | Inputs of a dbt project: `read_manifest` (→ `Project`), `load_config` (`dbt-erd.yml` + preset → `Config`), `preset_names`, `read_preset` (built-in `presets/*.yml`, a dict), `read_layout`. `_read_text`: a file that is not UTF-8 is a one-line domain error (manifest, layout, `dbt-erd.yml`, preset); `_read_json` adds invalid JSON and too-deep nesting, `_read_yaml` invalid YAML and a non-mapping file |

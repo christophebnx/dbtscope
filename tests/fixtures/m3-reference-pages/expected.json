@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "synthetic": true,
+  "pages": {
+    "none": {
+      "sha256": "c12929d72691ab97577669c141ae7d8cd1902a931f64497a26394ab1f33c566d",
+      "size": 84843
+    },
+    "star_schema": {
+      "sha256": "51b8953dc094e8be2e33c7eabe8929d000420d592c2c5174002c696bb21e1e2c",
+      "size": 84705
+    },
+    "data_vault": {
+      "sha256": "5de2110c168d20f6ab7b432fb5b0dea3c5a679585072d0c17a0f8d843c5c0182",
+      "size": 83402
+    },
+    "fr": {
+      "sha256": "e9ad3adfb4871f651178447dcae6d294b2377026ab4474896f8c0630c883779f",
+      "size": 84841
+    },
+    "layers_domains": {
+      "sha256": "c8f34fce0e4052ce0783199e713fa563810122c1bf606584573a6cf9b144f5b4",
+      "size": 84817
+    },
+    "kinds": {
+      "sha256": "705bebbf0b3fd6fbe11f524d59b1fb2d3a3d2a364c367cdfb3768698c18521f5",
+      "size": 84952
+    },
+    "edge": {
+      "sha256": "1b5c986e93d11953fd56fa778ebab4cebf9ef93bf8d2e9536821f117ad7e03c0",
+      "size": 85068
+    },
+    "offline": {
+      "sha256": "c96f78668a278bfd111b70535ca58eabb6104bd00fdcd20ba7a27465fa4b86c8",
+      "size": 2413805
+    },
+    "offline_fr": {
+      "sha256": "782f16fe0589bc4666b375eaa929f53963c30d08ffabca7bf7674456f9af411f",
+      "size": 2413803
+    }
+  }
+}

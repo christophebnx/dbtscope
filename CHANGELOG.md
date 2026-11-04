@@ -14,6 +14,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- Typed data model (M3, D-024, D-025): manifest input, tables and relations, configuration and page data are pydantic v2 models. pydantic is now a runtime dependency. The generated page is unchanged byte for byte.
+- Stricter inputs, each failure one line with exit code 1: an invalid or unexpected manifest stops with `dbtscope: error: manifest: <location>: <problem>`; `include_packages` and `offline` accept only `true` / `false`; a `universe` that is not a mapping is refused; a manifest, layout, `dbt-erd.yml` or preset that is not UTF-8, not valid JSON / YAML or nested too deeply is reported instead of a traceback. An invalid layout file now says "is not valid JSON".
+- Config error messages reworded as `<key>: <problem>` (for example `view: must be 'universe' or 'detail'`).
+- A number is accepted as `title` or rule `label` (`title: 2024`).
 - French layout buttons now name what they act on: "Réinitialiser la disposition", "Importer une disposition".
 - The ☰ panel toggles are named "Filters" ("Filtres") for screen readers and on hover, and expose `aria-expanded`.
 - Browser tests need no network: the page's libraries are served from their vendored copies (D-022, supersedes the network part of D-019).
@@ -25,6 +29,8 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Fixed
 
+- A dbt group owner whose email is a list (manifest v12) no longer stops the run; the addresses are joined.
+- A `relationships` test without `attached_node` is now drawn (its child is taken from the test's dependencies).
 - A dbt description containing `<!--` or `<script>` could stop the page scripts from running; every `<` of the embedded data is now escaped (D-023).
 - On screens about 360 px wide, the tab bar and the layout buttons wrap instead of causing a horizontal scroll.
 

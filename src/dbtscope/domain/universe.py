@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from itertools import cycle
-from typing import Any
 
-from dbtscope.domain.classify import OTHER, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import Config
-from dbtscope.domain.manifest import Edge, Node, Project
+from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
+from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, Rule
+from dbtscope.domain.model import LineageEdge, Project, Relation, Table
+from dbtscope.domain.payload import (
+    UniverseDefaults,
+    UniverseDomain,
+    UniverseKind,
+    UniverseLayer,
+    UniverseNode,
+    UniversePayload,
+)
 
-# kinds for nodes no configured kind matches
-TYPE_KINDS: dict[str, dict[str, Any]] = {
-    "source": {"key": "source", "label": {"en": "Source", "fr": "Source"}, "color": "#94a3b8"},
-    "seed": {"key": "seed", "label": {"en": "Seed", "fr": "Seed"}, "color": "#8b5cf6"},
-    "snapshot": {"key": "snapshot", "label": {"en": "Snapshot", "fr": "Snapshot"}, "color": "#64748b"},
+# kinds for tables no configured kind matches
+TYPE_KINDS: dict[str, BuiltinKind] = {
+    "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
+    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#8b5cf6"),
+    "snapshot": BuiltinKind(key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b"),
 }
 NO_DOMAIN = {"en": "No domain", "fr": "Hors domaine"}
 NO_DOMAIN_COLOR = "#8a94a6"
@@ -33,30 +41,30 @@ FLOW_PREFIXES = [
 UNRANKED = 4.5
 
 
-def domain_of(node: Node, config: Config) -> tuple[str, dict[str, Any] | None]:
+def domain_of(table: Table, config: Config) -> tuple[str, Rule | None]:
     """dbt group > meta.domain > `domains` rules > group_by. Returns (key, matching rule or None)."""
-    if node["group"]:
-        return node["group"], None
-    if node["meta"].get("domain"):
-        return str(node["meta"]["domain"]), None
-    rule = first_rule(node, config["domains"])
+    if table.group:
+        return table.group, None
+    if table.meta.get("domain"):
+        return str(table.meta["domain"]), None
+    rule = first_rule(table, config.domains)
     if rule:
-        return rule["key"], rule
-    return group_of(node, config["group_by"]) or "", None
+        return rule.key, rule
+    return group_of(table, config.group_by) or "", None
 
 
-def _default_layer(node: Node) -> str:
-    if node["type"] in ("source", "seed", "snapshot"):
-        return node["type"] + "s"
-    return node["folder"].split("/")[0] if node["folder"] else "models"
+def _default_layer(table: Table) -> str:
+    if table.resource_type in ("source", "seed", "snapshot"):
+        return table.resource_type + "s"
+    return table.folder.split("/")[0] if table.folder else "models"
 
 
-def _layer_of(node: Node, config: Config) -> str:
+def _layer_of(table: Table, config: Config) -> str:
     """The first matching `layers` rule, "other" when none matches, or the default layer."""
-    if not config["layers"]:
-        return _default_layer(node)
-    layer = first_rule(node, config["layers"])
-    return layer["key"] if layer else OTHER["key"]
+    if not config.layers:
+        return _default_layer(table)
+    layer = first_rule(table, config.layers)
+    return layer.key if layer else OTHER.key
 
 
 def flow_rank(key: str) -> float:
@@ -65,96 +73,89 @@ def flow_rank(key: str) -> float:
     return min((rank for prefix, rank in FLOW_PREFIXES if key.startswith(prefix)), default=UNRANKED)
 
 
-def _domains(records: list[dict[str, Any]], config: Config, project: Project) -> list[dict[str, str]]:
-    sizes = Counter(r["domain"] for r in records)
-    configured = {r["key"]: r for r in config["domains"]}
-    lang, palette = config["language"], cycle(PALETTE)
+def _domains(records: list[UniverseNode], config: Config, project: Project) -> tuple[UniverseDomain, ...]:
+    sizes = Counter(r.domain for r in records)
+    configured = {r.key: r for r in config.domains}
+    lang, palette = config.language, cycle(PALETTE)
     domains = []
     for key, _ in sorted(sizes.items(), key=lambda kv: (kv[0] == "", -kv[1], kv[0])):
-        rule = configured.get(key) or {}
+        rule = configured.get(key)
         group = project.groups.get(key)
         if key == "":
             color, label = NO_DOMAIN_COLOR, NO_DOMAIN[lang]
         else:
-            color = rule.get("color") or next(palette)
-            label = rule.get("label") or key
-        domains.append({"key": key, "label": label, "color": color, "owner": group["owner"] if group else ""})
-    return domains
+            color = rule.color if rule and rule.color else next(palette)
+            label = rule.label if rule and rule.label else key
+        domains.append(UniverseDomain(key=key, label=label, color=color, owner=group.owner if group else ""))
+    return tuple(domains)
 
 
-def _layers(used: set[str], config: Config) -> list[dict[str, str]]:
-    if not config["layers"]:
-        return [{"key": k, "label": k.capitalize()} for k in sorted(used, key=lambda k: (flow_rank(k), k))]
-    layers = [
-        {"key": rule["key"], "label": rule["label"]} for rule in config["layers"] if rule["key"] in used
-    ]
-    if OTHER["key"] in used:
-        layers.append({"key": OTHER["key"], "label": OTHER["label"][config["language"]]})
-    return layers
+def _layers(used: set[str], config: Config) -> tuple[UniverseLayer, ...]:
+    if not config.layers:
+        ordered = sorted(used, key=lambda k: (flow_rank(k), k))
+        return tuple(UniverseLayer(key=k, label=k.capitalize()) for k in ordered)
+    layers = [UniverseLayer(key=rule.key, label=rule.label) for rule in config.layers if rule.key in used]
+    if OTHER.key in used:
+        layers.append(UniverseLayer(key=OTHER.key, label=OTHER.label[config.language]))
+    return tuple(layers)
 
 
-def _kinds(used: set[str], config: Config) -> list[dict[str, str]]:
+def _kinds(used: set[str], config: Config) -> tuple[UniverseKind, ...]:
     kinds = [
-        {"key": k["key"], "label": k["label"], "color": k["color"]}
-        for k in config["kinds"]
-        if k["key"] in used
+        UniverseKind(key=k.key, label=k.label, color=k.color or DEFAULT_KIND_COLOR)
+        for k in config.kinds
+        if k.key in used
     ]
     kinds += [
-        {**t, "label": t["label"][config["language"]]}
+        UniverseKind(key=t.key, label=t.label[config.language], color=t.color)
         for t in [*TYPE_KINDS.values(), OTHER]
-        if t["key"] in used
+        if t.key in used
     ]
-    return kinds
+    return tuple(kinds)
 
 
-def universe_data(project: Project, config: Config) -> dict[str, Any]:
-    """The JSON payload of the universe view."""
-    universe = config["universe"]
-    nodes = {
-        uid: n
-        for uid, n in project.nodes.items()
-        if in_scope(n, config, project.root, universe["select"], universe["exclude"])
+def universe_data(project: Project, config: Config) -> UniversePayload:
+    """The payload of the universe view."""
+    universe = config.universe
+    tables = {
+        uid: t
+        for uid, t in project.tables.items()
+        if in_scope(t, config, project.root, universe.select, universe.exclude)
     }
-    ids = sorted(nodes, key=lambda uid: (nodes[uid]["name"], uid))
+    ids = sorted(tables, key=lambda uid: (tables[uid].name, uid))
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
     records = []
     for uid in ids:
-        node = nodes[uid]
-        domain, _ = domain_of(node, config)
-        layer_key = _layer_of(node, config)
-        kind = first_rule(node, config["kinds"]) or TYPE_KINDS.get(node["type"], OTHER)
+        table = tables[uid]
+        domain, _ = domain_of(table, config)
+        layer_key = _layer_of(table, config)
+        kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
         records.append(
-            {
-                "id": uid,
-                "name": node["name"],
-                "domain": domain,
-                "layer": layer_key,
-                "kind": kind["key"],
-                "desc": node["description"][:DESCRIPTION_LIMIT],
-                "cols": [[c["name"], c["type"], int(is_key(uid, c["name"]))] for c in node["columns"]],
-            }
+            UniverseNode(
+                id=uid,
+                name=table.name,
+                domain=domain,
+                layer=layer_key,
+                kind=kind.key,
+                desc=table.description[:DESCRIPTION_LIMIT],
+                cols=tuple((c.name, c.data_type, int(is_key(uid, c.name))) for c in table.columns),
+            )
         )
 
-    def pairs(edges: list[Edge]) -> list[list[int]]:
-        found = {
-            (index[e["child"]], index[e["parent"]])
-            for e in edges
-            if e["child"] in index and e["parent"] in index
-        }
-        return [list(p) for p in sorted(found)]
+    def pairs(edges: Iterable[Relation | LineageEdge]) -> tuple[tuple[int, int], ...]:
+        found = {(index[e.child], index[e.parent]) for e in edges if e.child in index and e.parent in index}
+        return tuple(sorted(found))
 
-    return {
-        "nodes": records,
-        "relations": pairs(project.relations),
-        "lineage": pairs(project.lineage),
-        "domains": _domains(records, config, project),
-        "layers": _layers({r["layer"] for r in records}, config),
-        "kinds": _kinds({r["kind"] for r in records}, config),
-        "defaults": {
-            "links": universe["links"],
-            "detail": universe["detail"],
-            "hiddenKinds": universe["hidden_kinds"],
-        },
-    }
+    return UniversePayload(
+        nodes=tuple(records),
+        relations=pairs(project.relations),
+        lineage=pairs(project.lineage),
+        domains=_domains(records, config, project),
+        layers=_layers({r.layer for r in records}, config),
+        kinds=_kinds({r.kind for r in records}, config),
+        defaults=UniverseDefaults(
+            links=universe.links, detail=universe.detail, hidden_kinds=universe.hidden_kinds
+        ),
+    )

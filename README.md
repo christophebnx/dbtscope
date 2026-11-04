@@ -27,7 +27,7 @@ This runs `dbt parse` (no warehouse connection), writes `erd_output/erd.html` an
 | `--offline` | embed the JavaScript libraries: the page works with no network (or `offline: true` in the config) |
 | `--dbt EXE` | dbt executable (default: `dbt`) |
 
-`dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12 and PyYAML.
+`dbt` must be on `PATH` unless `--no-parse` is used. The tool itself only needs Python ≥ 3.12, PyYAML and pydantic v2 (in an environment pinned to pydantic v1, install it isolated with `uv tool install` or `pipx`).
 
 ## The page
 
@@ -126,6 +126,8 @@ universe:
   hidden_kinds: []            # types unticked at opening
 ```
 
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex. `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys are ignored. An invalid value stops the run with one line naming the key, for example `dbtscope: error: view: must be 'universe' or 'detail'`; an invalid manifest likewise names the field (`dbtscope: error: manifest: <location>: <problem>`).
+
 `kinds` colour both views. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other".
 
 ### Selectors
@@ -200,7 +202,7 @@ Layout of the code (details in `docs/architecture.md`):
 
 | Path | Role |
 |---|---|
-| `src/dbtscope/domain/` | Pure rules: selectors, manifest parsing, config validation, data of both views |
+| `src/dbtscope/domain/` | Pure rules and typed models (pydantic v2): manifest input, tables and relations, config, page data; selectors, data of both views |
 | `src/dbtscope/storage/` | Reads the manifest, `dbt-erd.yml`, presets and layout; atomic file writer |
 | `src/dbtscope/render/` | `render_page` and the page assets: `page.html`, `page.css`, `boot.js`, `universe.js` (d3-force + canvas), `detail.js` (Graphviz via Viz.js); `vendor/`: the libraries embedded by `--offline` and their licences |
 | `tools/vendor_libraries.py` | Refreshes `render/vendor/` from the CDN URLs of `render/page.LIBRARIES` (`--check` verifies the hashes) |

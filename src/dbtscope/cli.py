@@ -18,12 +18,12 @@ import sys
 import webbrowser
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 from dbtscope import __version__
 from dbtscope.domain.config import CONFIG_FILE
 from dbtscope.domain.detail import detail_data, select
 from dbtscope.domain.errors import DomainError
+from dbtscope.domain.payload import DetailPayload, UniversePayload
 from dbtscope.domain.universe import universe_data
 from dbtscope.render.page import render_page
 from dbtscope.storage.files import atomic_write
@@ -76,20 +76,18 @@ def _dbt_parse(dbt: str, project: Path) -> None:
 
 def _summary(
     output: Path,
-    detail: dict[str, Any],
-    universe: dict[str, Any],
+    detail: DetailPayload,
+    universe: UniversePayload,
     layout_note: str | None,
     page_note: str | None = None,
 ) -> str:
-    entities = detail["entities"]
-    counts = ", ".join(
-        f"{sum(e['kind'] == k['key'] for e in entities)} {k['label']}" for k in detail["kinds"]
-    )
+    entities = detail.entities
+    counts = ", ".join(f"{sum(e.kind == k.key for e in entities)} {k.label}" for k in detail.kinds)
     lines = [
         str(output),
-        f"  universe: {len(universe['nodes'])} tables in {len(universe['domains'])} domains, "
-        f"{len(universe['relations'])} relations, {len(universe['lineage'])} lineage links",
-        f"  detail:   {len(entities)} tables ({counts}), {len(detail['relations'])} relations",
+        f"  universe: {len(universe.nodes)} tables in {len(universe.domains)} domains, "
+        f"{len(universe.relations)} relations, {len(universe.lineage)} lineage links",
+        f"  detail:   {len(entities)} tables ({counts}), {len(detail.relations)} relations",
     ]
     if page_note:
         lines.append(f"  page:     {page_note}")
@@ -103,10 +101,11 @@ def run(args: argparse.Namespace) -> None:
     if not (project / "dbt_project.yml").is_file():
         raise RunError(f"No dbt_project.yml in {project}")
     config = load_config(project, Path(args.config) if args.config else None, args.preset)
-    if args.view:
-        config["view"] = args.view
+    # command line last; argparse already restricts both values (`choices`, `store_true`)
+    overrides = {"view": args.view} if args.view else {}
     if args.offline:
-        config["offline"] = True
+        overrides["offline"] = True
+    config = config.model_copy(update=overrides)
     manifest_path = Path(args.manifest) if args.manifest else project / "target" / "manifest.json"
     if not args.no_parse and not args.manifest:
         _dbt_parse(args.dbt, project)
@@ -114,22 +113,22 @@ def run(args: argparse.Namespace) -> None:
         raise RunError(f"Manifest not found: {manifest_path} (run without --no-parse)")
 
     dbt = read_manifest(manifest_path)
-    nodes, relations = select(dbt.nodes, dbt.relations, config, dbt.root)
+    nodes, relations = select(dbt.tables, dbt.relations, config, dbt.root)
     detail = detail_data(nodes, relations, config)
     universe = universe_data(dbt, config)
-    if not nodes and not universe["nodes"]:
+    if not nodes and not universe.nodes:
         raise RunError("No node matches the selection; check `select` / `exclude` in the config.")
 
-    layout_path = project / config["layout_file"]
+    layout_path = project / config.layout_file
     layout = read_layout(layout_path)
-    output = Path(args.output) if args.output else project / config["output"]
+    output = Path(args.output) if args.output else project / config.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    data = render_page(detail, universe, config, layout, offline=config["offline"]).encode("utf-8")
+    data = render_page(detail, universe, config, layout, offline=config.offline).encode("utf-8")
     atomic_write(output, data)
     note = (
         f"manual arrangement from {layout_path.name} (saved {layout.get('savedAt', '?')})" if layout else None
     )
-    page_note = f"offline, libraries embedded ({len(data) / 1_000_000:.1f} MB)" if config["offline"] else None
+    page_note = f"offline, libraries embedded ({len(data) / 1_000_000:.1f} MB)" if config.offline else None
     print(_summary(output, detail, universe, note, page_note))
     if not args.no_open:
         webbrowser.open(output.resolve().as_uri())

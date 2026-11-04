@@ -32,111 +32,151 @@
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
 Keys set in the file replace the preset's (lists are not merged); `universe` is merged key by key.
+Unknown keys are ignored (existing files keep working, invariant 9). The defaults are the field
+defaults of `Config` and `UniverseSettings`.
 Reading the files is the caller's job (`storage/project_files.load_config`).
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from dbtscope.domain.errors import DomainError
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    StrictBool,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from dbtscope.domain.errors import DomainError, validation_message
 
 CONFIG_FILE = "dbt-erd.yml"
-UNIVERSE_DEFAULTS: dict[str, Any] = {
-    "select": ["type:model", "type:source", "type:seed", "type:snapshot"],
-    "exclude": [],
-    "links": "both",
-    "detail": "names",
-    "hidden_kinds": [],
-}
-DEFAULTS: dict[str, Any] = {
-    "title": "dbt ERD",
-    "output": "erd_output/erd.html",
-    "language": "en",
-    "view": "universe",
-    "select": ["type:model"],
-    "exclude": [],
-    "group_by": "schema",
-    "key_columns": None,
-    "include_packages": False,
-    "kinds": [],
-    "domains": [],
-    "layers": [],
-    "universe": {},
-    "layout_file": "dbt-erd-layout.json",
-    "offline": False,
-}
 DEFAULT_KIND_COLOR = "#777777"
 GROUP_BY_RE = re.compile(r"^(schema|database|package|none|folder(:\d+)?|tag:.+)$")
-
-Config = dict[str, Any]
+GROUP_BY_CHOICES = "schema, database, package, folder, folder:N, tag:<glob> or none"
+Language = Literal["en", "fr"]  # page language (D-016)
+View = Literal["universe", "detail"]  # tab shown when the page opens
+Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
+DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
+# unknown keys are accepted silently, as before the typed model: existing files keep working
+SETTINGS = ConfigDict(extra="ignore", frozen=True)
 
 
 class ConfigError(DomainError):
     """The configuration (file, preset or option) is invalid."""
 
 
+def _as_list(value: Any) -> Any:
+    """A single string is a one-item list, a missing value an empty one; anything else is checked as is."""
+    if value is None:
+        return ()
+    return (value,) if isinstance(value, str) else value
+
+
+def _as_text(value: Any) -> Any:
+    """A YAML number (`title: 2024`) is its text; anything else is checked as is (lists still fail)."""
+    return str(value) if isinstance(value, int | float) and not isinstance(value, bool) else value
+
+
+StrList = Annotated[tuple[str, ...], BeforeValidator(_as_list)]
+Text = Annotated[str, BeforeValidator(_as_text)]
+
+
+class Rule(BaseModel):
+    """An ordered rule of `kinds`, `domains` or `layers`: the first whose `match` selects a table wins."""
+
+    model_config = SETTINGS
+
+    key: str
+    label: Text | None  # the key when absent; an explicit `label: null` stays null
+    color: str | None = None
+    match: StrList
+
+    @model_validator(mode="before")
+    @classmethod
+    def _label_defaults_to_key(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "label" not in data and "key" in data:
+            return {**data, "label": data["key"]}
+        return data
+
+
+RuleList = Annotated[tuple[Rule, ...], BeforeValidator(_as_list)]
+
+
+class UniverseSettings(BaseModel):
+    """The `universe` section: scope and opening state of the universe view."""
+
+    model_config = SETTINGS
+
+    select: StrList = ("type:model", "type:source", "type:seed", "type:snapshot")
+    exclude: StrList = ()
+    links: Links = "both"
+    detail: DetailLevel = "names"
+    hidden_kinds: StrList = ()
+
+
+class Config(BaseModel):
+    """The validated configuration: defaults < preset < file (< command line, through `model_copy`)."""
+
+    model_config = SETTINGS
+
+    title: Text = "dbt ERD"
+    output: str = "erd_output/erd.html"
+    language: Language = "en"
+    view: View = "universe"
+    select: StrList = ("type:model",)
+    exclude: StrList = ()
+    group_by: str = "schema"
+    key_columns: str | None = None
+    include_packages: StrictBool = False
+    kinds: RuleList = ()
+    domains: RuleList = ()
+    layers: RuleList = ()
+    universe: UniverseSettings = UniverseSettings()
+    layout_file: str = "dbt-erd-layout.json"
+    offline: StrictBool = False
+
+    @field_validator("group_by")
+    @classmethod
+    def _group_by(cls, value: str) -> str:
+        if not GROUP_BY_RE.match(value):
+            raise ValueError(f"invalid value {value!r} ({GROUP_BY_CHOICES})")
+        return value
+
+    @field_validator("key_columns")
+    @classmethod
+    def _key_columns(cls, value: str | None) -> str | None:
+        if value:
+            try:
+                re.compile(value)
+            except re.error as error:
+                raise ValueError(f"invalid regex {value!r}: {error}") from error
+        return value
+
+    @field_validator("kinds", mode="after")
+    @classmethod
+    def _kind_colors(cls, kinds: tuple[Rule, ...]) -> tuple[Rule, ...]:
+        return tuple(k if k.color else k.model_copy(update={"color": DEFAULT_KIND_COLOR}) for k in kinds)
+
+
+def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any:
+    """`universe` merged key by key; a value that is not a mapping is passed on for validation."""
+    values = [preset.get("universe"), file_config.get("universe")]
+    wrong = [v for v in values if v is not None and not isinstance(v, dict)]
+    if wrong:
+        return wrong[-1]
+    return {k: v for value in values if value for k, v in value.items()}
+
+
 def merge_config(preset: dict[str, Any], file_config: dict[str, Any]) -> Config:
-    """Defaults < preset < config file, validated. `universe` is merged key by key."""
-    config = {**DEFAULTS, **preset, **{k: v for k, v in file_config.items() if k != "preset"}}
-    config["universe"] = {
-        **UNIVERSE_DEFAULTS,
-        **(preset.get("universe") or {}),
-        **(file_config.get("universe") or {}),
-    }
-    _validate(config)
-    return config
-
-
-def _as_list(value: Any) -> list[Any]:
-    return [value] if isinstance(value, str) else list(value or [])
-
-
-def _validate_rules(config: Config, key: str, color: bool = False) -> None:
-    rules = []
-    for rule in _as_list(config[key]):
-        if not isinstance(rule, dict):
-            raise ConfigError(f"{key}: {rule!r} is not a mapping")
-        missing = {"key", "match"} - rule.keys()
-        if missing:
-            raise ConfigError(f"{key}: {rule} is missing {sorted(missing)}")
-        rule = {**rule, "match": _as_list(rule["match"])}
-        rule.setdefault("label", rule["key"])
-        if color:
-            rule.setdefault("color", None)
-        rules.append(rule)
-    config[key] = rules
-
-
-def _check_choice(value: Any, name: str, choices: tuple[str, ...]) -> None:
-    if value not in choices:
-        expected = ", ".join(repr(c) for c in choices[:-1]) + f" or {choices[-1]!r}"
-        raise ConfigError(f"{name} must be {expected}")
-
-
-def _validate(config: Config) -> None:
-    for key in ("select", "exclude"):
-        config[key] = _as_list(config[key])
-    if not GROUP_BY_RE.match(str(config["group_by"])):
-        raise ConfigError(f"Invalid group_by {config['group_by']!r}")
-    _check_choice(config["language"], "language", ("en", "fr"))
-    _check_choice(config["view"], "view", ("universe", "detail"))
-    if not isinstance(config["offline"], bool):
-        raise ConfigError("offline must be true or false")
-    _validate_rules(config, "kinds", color=True)
-    for kind in config["kinds"]:
-        kind["color"] = kind["color"] or DEFAULT_KIND_COLOR
-    _validate_rules(config, "domains", color=True)
-    _validate_rules(config, "layers")
-    if config["key_columns"]:
-        try:
-            re.compile(config["key_columns"])
-        except re.error as error:
-            raise ConfigError(f"Invalid key_columns regex {config['key_columns']!r}: {error}") from error
-
-    universe = config["universe"]
-    for key in ("select", "exclude", "hidden_kinds"):
-        universe[key] = _as_list(universe[key])
-    _check_choice(universe["links"], "universe.links", ("relations", "lineage", "both"))
-    _check_choice(universe["detail"], "universe.detail", ("names", "keys", "all"))
+    """Defaults < preset < config file, validated once. `universe` is merged key by key."""
+    merged = {**preset, **{k: v for k, v in file_config.items() if k != "preset"}}
+    merged["universe"] = _merged_universe(preset, file_config)
+    try:
+        return Config.model_validate(merged)
+    except ValidationError as error:
+        raise ConfigError(validation_message(error)) from error
