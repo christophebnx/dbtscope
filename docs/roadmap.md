@@ -174,8 +174,21 @@ Done when: the design note's criteria are met; default and browser tests are gre
 
 Done when: the design note's test plan passes (default and browser suites, including the new plural, escaper, panel and touch-target tests); the reference pages are regenerated in the same commit as the asset change, with unchanged payloads; ruff is clean with no duplicate-code finding; and D-035, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
+- **M5.3 — Flow view.** (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.3-flow-view.md`, D-036.) One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
+  - **Flow button** in the trajectory bar: opens the current trajectory (same start, direction, depth) as a left-to-right Graphviz diagram in an overlay over the whole Universe tab; upstream left, start emphasised, downstream right.
+  - **Columns:** lineage first (every edge goes left to right), configured layers as a floor (`flowRanks`), so layers form column bands where the lineage follows them.
+  - **Tables:** kind colour as in the universe, domain as a colour band with a legend, depth label (`−n` / `+n`), universe-like tooltip; the universe filters do not apply (D-018).
+  - **Navigation:** click a table to recentre; **Back** or `Esc` returns to the universe exactly as it was (filters, camera, trajectory); nothing saved (no layout, D-013).
+  - **Export:** PNG and SVG of the visible flow, `<title>-flow.<ext>`, through the detail's export helpers moved to `common.js` (with `dotStr`, the Graphviz renderer and the pan-zoom mount).
+  - **Cap:** at most `FLOW_MAX` = 150 tables; above, the depth is reduced to the largest level that fits (or level 1 is cut), with a message. Preparation under 100 ms and render under 5 s on a 1,500-table payload.
+  - **Unchanged:** payload JSON, layout format and localStorage key, the trajectory mode itself, the CLI.
+
+Done when: the design note's test plan passes (default and browser suites, including `test_flow.py` and `test_flow_perf.py` on `acme_retail` and `shop`, en / fr, 360 px, hostile names); the reference pages are regenerated in the asset commit with unchanged payloads; ruff is clean with no duplicate-code finding; and D-036, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
+- Page scripts, from the M5.3 review: one `resize` helper in flow.js (the `pz.resize()` guard is written twice) and one table-description line shared by the universe and flow tooltips (styled `m` in one, plain in the other).
+- Contrast: white table names on light kind colours fail WCAG AA (the built-in source colour gives 2.6:1), in every view (M5.3 UI design).
 - Small screens, detail tab: cap the open panel lower (about 35vh) so a filter's effect stays visible under it at 360 × 800 (M5.2 UI review).
 - French typography: a space before the colon in page strings ("Trajectoire de x : …").
 - Print stylesheet: the current view on one page, without panels and toolbars.
