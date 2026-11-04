@@ -1,6 +1,6 @@
 # Build progress
 
-Maintained by the `/build-roadmap` skill. Branch: `dev` (M0 built on `claude/confident-davinci-kf6i1o`). One row per milestone of `docs/roadmap.md`. Status: `todo`, `in progress`, `done`, `BLOCKED`.
+Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, or `dev` (CLAUDE.md) (M0 built on `claude/confident-davinci-kf6i1o`). One row per milestone of `docs/roadmap.md`. Status: `todo`, `in progress`, `done`, `BLOCKED`.
 
 | Milestone | Status | Commit | Notes |
 |---|---|---|---|
@@ -12,7 +12,7 @@ Maintained by the `/build-roadmap` skill. Branch: `dev` (M0 built on `claude/con
 | M4.1 Code review | done | | Built per `docs/architecture/2026-11-04-m4.1-code-review.md` (D-027, D-028); pages byte-identical. Default suite 397 tests / 2.75 s → 346 / 1.9 s. Browser suite 98 / 94 s → 84 / ~116 s: no time gain, bounded by the two universe image tests (kept), the rest is machine noise |
 | M4.2 CLI hardening (Typer) | done | | Built per `docs/architecture/2026-11-04-m4.2-cli-typer.md` (D-026, D-029); page untouched, reference pages byte-identical. Default suite 346 tests / 1.9 s → 433 / 2.9 s; browser suite unchanged at 84 (page untouched). `dbtscope --version` start ~0.21 s → ~0.24 s. Typer floor 0.27.2 (0.27.0/0.27.1 lack `typer.TyperException`). Sandbox with real dbt-core 1.12.6 + dbt-duckdb 1.11.1: 67 failure cases, 13 tracebacks before, 0 after; each failure one line with the expected exit code |
 | M4.2b Preset files | done | | Built per `docs/architecture/2026-11-04-m4.2b-preset-file.md` (D-030), asked by the user on 2026-11-04: `--preset-file`, a path in the `preset:` key, every preset validated with `extra="forbid"`. Pages byte-identical. Default suite 433 tests / 2.9 s → 544 / 3.3 s; browser suite unchanged at 84 |
-| M4.3 Documentation | todo | | Same brief |
+| M4.3 Documentation | done | | Built per `docs/architecture/2026-11-04-m4.3-documentation.md`, no decision, no code change. README opens with install (Windows, macOS, Linux) and four use cases (bash and PowerShell); one home per fact (`docs/architecture.md` § Where facts live); three Mermaid diagrams (run, layers, `/feature`), domain resolution as a numbered list; troubleshooting lists every error message of the code. Two tests keep the README options and the documented commands in line with `--help` |
 
 ## Open points
 
@@ -21,6 +21,7 @@ Maintained by the `/build-roadmap` skill. Branch: `dev` (M0 built on `claude/con
 - M4.2: the read-only output cases (permission denied, read-only file system) are covered only by monkeypatched tests: the sandbox ran as root, which bypasses permissions.
 - M4.2: `~` is not expanded in path options; the shell does it, so a quoted `"~/x.yml"` is read as a folder named `~`.
 - M4.2: a Ctrl-C during the imports, before `cli.main` runs, can still print a Python traceback.
+- M4.3: the GitHub Actions example of the README was not run (YAML parsed, action versions checked); the Mermaid diagrams render with mermaid-cli 11 and are to be checked on GitHub after the push.
 
 ## Blocking question
 

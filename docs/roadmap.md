@@ -1,12 +1,12 @@
 # Roadmap
 
-Run each milestone through `/feature` (or all of them with `/build-roadmap`), on the branch `dev`. A milestone is done when its acceptance criteria pass, tests are green, docs are updated and its commits follow the git workflow in CLAUDE.md. Claude Code pushes `dev` at the end of each milestone; the user reviews and merges.
+Run each milestone through `/feature` (or all of them with `/build-roadmap`), on a feature branch or `dev` (CLAUDE.md, Git workflow). A milestone is done when its acceptance criteria pass, tests are green, docs are updated and its commits follow the git workflow in CLAUDE.md. Claude Code pushes `dev` at the end of each milestone; the user reviews and merges.
 
 Milestone ids are used in the `Milestone:` footer of every commit: `B0`, `M0`, `M1`… (any id starting with a capital letter, e.g. `S2.3`, is accepted).
 
 ## B0 — Bootstrap (first run in a new repository)
 
-- Run `/init-project` (renames the package, fills the `TODO(project)` markers with the user).
+- Run `/init-project` (renames the package, fills the `TODO(project)` markers with the user) (done at bootstrap; the skill has since been removed).
 - `uv sync` to create `uv.lock` (versioned), then `uv run pre-commit install`.
 - Check that both Claude Code hooks run on this machine: a read of `.env` is blocked; an edited Python file is formatted; `git commit` on `main` is blocked. If a hook command fails (OS, shell), adapt `.claude/settings.json` and record it in `docs/decisions.md`.
 - Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q -n auto`.
@@ -46,7 +46,7 @@ From one table of the universe, show where its data comes from (upstream) and wh
 
 **Tests**
 
-- The page logic is not covered by the Python tests today. M1 adds a browser test (Playwright, Chromium already available) on the synthetic `shop` project: enter the mode from `fct_returns`, check the upstream set (`fct_orders`, `stg_orders`, `orders`, `dim_customer`, `dim_product`) and downstream set (empty), then depth 1, then a filtered domain brought back. It needs the CDN scripts, so it carries a new marker excluded by default like `live` (invariant 5); the architect records this as a decision.
+- The page logic is not covered by the Python tests today. M1 adds a browser test (Playwright, Chromium already available) on the synthetic `shop` project: enter the mode from `fct_returns`, check the upstream set (`fct_orders`, `stg_orders`, `orders`, `dim_customer`, `dim_product`) and downstream set (empty), then depth 1, then a filtered domain brought back. It needs the CDN scripts, so it carries a new marker excluded by default like `live` (invariant 5); the architect records this as a decision (since M2 no network, D-022).
 - Performance check on a synthetic payload of ~1,500 tables and ~1,600 lineage links (the Openlane size, brief § 9).
 
 Done when:
@@ -103,7 +103,7 @@ Replace the `dict[str, Any]` that carry tables, relations, configuration and pag
 
 **Layers**
 
-1. **Manifest input** (`domain/manifest_schema.py`): models of the part of `manifest.json` that dbtscope reads (nodes, sources, tests with `test_metadata`, column and model constraints, groups, metadata). Unknown fields are ignored (the manifest schema evolves across dbt versions, v10 and later); a missing or mistyped field that dbtscope reads stops the run: `dbtscope: error: manifest: <location>: <problem>`, exit code 1. Entries of `nodes` that dbtscope does not draw are checked only for `resource_type` (and, for tests, the test name).
+1. **Manifest input** (`domain/manifest_schema.py`): models of the part of `manifest.json` that dbtscope reads (nodes, sources, tests with `test_metadata`, column and model constraints, groups, metadata). Unknown fields are ignored (the manifest schema evolves across dbt versions, v10 and later); a missing or mistyped field that dbtscope reads stops the run: `dbtscope: error: manifest: <location>: <problem>`, exit code 1 (form since M4.2: `manifest <path>: …`, D-029). Entries of `nodes` that dbtscope does not draw are checked only for `resource_type` (and, for tests, the test name).
 2. **Domain model** (`domain/model.py`): frozen models `Table` (unique_id, name, resource type as a `Literal`, schema, database, package, path, folder, tags, description, group, meta, columns), `Column`, `Relation` (child, parent, column, parent column, origin: relationships test or foreign-key constraint), `LineageEdge`, `Group` and `Project`. What rules read from the raw manifest (`source_name`, constraints, `depends_on`) is read from the input models while parsing, so the `_raw` copy disappears. Selectors, classification and both views work on these models.
 3. **Configuration** (`domain/config.py`): a `Config` model with `Rule` (kinds, domains, layers), `UniverseSettings`, `Literal` choices (language, view, links, detail), validators for `group_by` and the `key_columns` regex, and strict booleans `offline` and `include_packages`. A number is accepted as `title` or rule `label` (its text). Merging defaults < preset < file < command line stays as it is; the hand-written checks go. Every error still raises `ConfigError` with a one-line `<key>: <problem>` message (no raw pydantic dump).
 4. **Page payload** (`domain/payload.py`): `DetailPayload` and `UniversePayload` models describe the Python → JavaScript contract (including the positional arrays: a detail column is `[name, type, is_key, description]`, a universe column `[name, type, key 0/1]`, links `[child index, parent index]`). They serialise to exactly the JSON of today: same keys, same order, same values, so `universe.js` and `detail.js` do not change.
@@ -135,7 +135,7 @@ Brief: `docs/briefs/2026-11-04-m4-review-cli-docs.md` (read it in full). Three s
 - **M4.1 — Code review.** (Done.) Duplicated code, needless weight, redundant or overkill tests, one practice per concern, consistent naming (glossary in `docs/architecture.md`). Page output and CLI output unchanged (M3 reference pages keep passing).
 - **M4.2 — CLI.** (Done.) Every option exercised in a sandbox with a real `dbt parse` (dbt-core + dbt-duckdb); every failure ends in a clean, explicit message and the right exit code, never a traceback; Typer interface with grouped options and examples in `--help`; option names and exit codes unchanged; `--project-dir` stays the only project option.
 - **M4.2b — Preset files.** (Done.) (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m4.2b-preset-file.md`, D-030.) New option `--preset-file <path>`, exclusive with `--preset` (exit 2); the `preset:` key of `dbt-erd.yml` also accepts a path (holding `/` or `\`, or ending in `.yml` / `.yaml`), relative to the config file's folder. Every preset, built-in or file, is validated on its own before the merge by `domain/config.Preset` (a `Config` subclass with `extra="forbid"`; no `preset`, `output` or `layout_file`): an unknown key or a wrong type is one line naming the file and the key, exit 1. `dbt-erd.yml` stays lenient. The summary names the applied preset. Pages byte-identical (built-in presets unchanged, M3 reference pages untouched).
-- **M4.3 — Documentation.** Coherence across all docs; Mermaid diagrams where they help; README opens with the main use cases (install on Windows / macOS / Linux, live analysis, batch / CI output elsewhere, project outside the current folder, without dbt).
+- **M4.3 — Documentation.** (Done.) Coherence across all docs; Mermaid diagrams where they help; README opens with the main use cases (install on Windows / macOS / Linux, live analysis, batch / CI output elsewhere, project outside the current folder, without dbt).
 
 Done when: each sub-milestone's criteria in the brief are met, tests green (default and browser), ruff clean, no duplicate-code finding, decisions recorded (D-026 Typer at least), CHANGELOG and progress updated.
 
