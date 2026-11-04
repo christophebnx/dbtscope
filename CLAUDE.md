@@ -8,11 +8,11 @@ Read this file at the start of every session. It is the source of truth for how 
 
 1. **Universe view**: every model, source, seed and snapshot, grouped into one constellation per data domain, with routes between domains, layers along the data flow, filters and semantic zoom.
 2. **Detail view**: the entity-relationship diagram (Graphviz) of the selected tables, with their key or all columns, group and kind filters, and focus on a table's neighbourhood.
-3. **Relations from dbt declarations**: `relationships` tests and `foreign_key` constraints become edges; `ref` / `source` give the lineage.
+3. **Relations from dbt declarations**: `relationships` tests and `foreign_key` constraints become relations; `ref` / `source` give the lineage.
 4. **Conventions as config**: selectors and ordered rules in `dbt-erd.yml` (kinds, domains, layers), with Data Vault and star schema presets.
 5. **Shared manual layout**: arrangements dragged in the page are exported to `dbt-erd-layout.json` and embedded in later pages.
 
-Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands).
+Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands), `docs/ui-spec.md` (the page's design), `docs/architecture/` (design notes), `docs/briefs/` (briefs).
 
 ## Commands
 
@@ -46,7 +46,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 8. **Structure only, never data.** The page holds names, types and descriptions; never rows or query results.
 9. **Project file names and formats are stable.** `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1) and the localStorage key `dbt-erd-layout:<title>` are read by existing projects and pages: change them only through a superseding decision with a migration (D-013).
 10. **One self-contained page.** Python embeds data; the browser lays it out. Every `<` of the embedded JSON is written `\u003c`, and every `</script` of an inlined library `<\/script` (D-014, D-023).
-11. **A node is identified by its dbt `unique_id`** in every payload and in the layout.
+11. **A table is identified by its dbt `unique_id`** in every payload and in the layout.
 
 ## Language convention
 

@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Delivers a feature, fix or roadmap milestone end to end by chaining the architect, ui-designer (UI changes), developer, tester, reviewer and documentation agents. Use for any change request, e.g. "/feature M1" or "/feature add a --json option to the list command".
+description: Delivers a feature, fix or roadmap milestone end to end by chaining the architect, ui-designer (UI changes), developer, tester, reviewer and documentation agents. Use for any change request, e.g. "/feature M1" or "/feature fix the French label of Fit".
 ---
 
 # Feature workflow
