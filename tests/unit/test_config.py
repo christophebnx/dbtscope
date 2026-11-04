@@ -91,3 +91,89 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
     overridden = config.model_copy(update={"view": "detail", "offline": True})
     assert (overridden.view, overridden.offline) == ("detail", True)
     assert (config.view, config.offline) == ("universe", False)
+
+
+@pytest.mark.parametrize(
+    ("bad", "message"),
+    [
+        ({"title": None}, "title: must be a string"),
+        ({"title": ["a"]}, "title: must be a string"),
+        ({"output": 5}, "output: must be a string"),
+        ({"layout_file": None}, "layout_file: must be a string"),
+        ({"language": None}, "language: must be 'en' or 'fr'"),
+        ({"language": "FR"}, "language: must be 'en' or 'fr'"),
+        ({"view": "Detail"}, "view: must be 'universe' or 'detail'"),
+        ({"group_by": 3}, "group_by: must be a string"),
+        ({"group_by": "folder:x"}, "group_by: invalid value 'folder:x' (schema, database, package, "
+         "folder, folder:N, tag:<glob> or none)"),
+        ({"group_by": "tag:"}, "group_by: invalid value 'tag:' (schema, database, package, folder, "
+         "folder:N, tag:<glob> or none)"),
+        ({"key_columns": 5}, "key_columns: must be a string"),
+        ({"exclude": ["a", {"b": 1}]}, "exclude[1]: must be a string"),
+        ({"select": {"a": 1}}, "select: must be a list"),
+        ({"include_packages": None}, "include_packages: must be true or false"),
+        ({"include_packages": 1}, "include_packages: must be true or false"),
+        ({"include_packages": "true"}, "include_packages: must be true or false"),
+        ({"kinds": {"key": "a", "match": "x"}}, "kinds: must be a list"),
+        ({"kinds": [{"match": "x"}]}, "kinds[0].key: is required (and 1 more problem)"),  # label too
+        ({"kinds": [{"key": "a", "match": "x"}, {"key": 1, "match": "x"}]},
+         "kinds[1].key: must be a string (and 1 more problem)"),
+        ({"kinds": [{"key": "a", "label": 2, "match": "x"}]}, "kinds[0].label: must be a string"),
+        ({"kinds": [{"key": "a", "match": [None]}]}, "kinds[0].match[0]: must be a string"),
+        ({"domains": [{"key": "a", "color": 0x123, "match": "x"}]}, "domains[0].color: must be a string"),
+        ({"domains": "sales"}, "domains[0]: must be a mapping"),
+        ({"universe": "x"}, "universe: must be a mapping"),
+        ({"universe": {"select": [1]}}, "universe.select[0]: must be a string"),
+        ({"universe": {"hidden_kinds": [True]}}, "universe.hidden_kinds[0]: must be a string"),
+        ({"universe": {"links": None}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
+        ({"view": "map", "language": "de"}, "language: must be 'en' or 'fr' (and 1 more problem)"),
+    ],
+)  # fmt: skip
+def test_every_invalid_key_is_named_on_one_line(bad: dict[str, Any], message: str) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, bad)
+    assert str(info.value) == message and "\n" not in str(info.value)
+
+
+def test_an_invalid_preset_value_is_reported_like_a_file_value() -> None:
+    with pytest.raises(ConfigError, match=r"^universe\.links: must be"):
+        merge_config({"universe": {"links": "x"}}, {})
+    assert merge_config({"view": "map"}, {"view": "detail"}).view == "detail"  # the file fixes it
+
+
+@pytest.mark.parametrize(
+    ("file", "expected"),
+    [
+        ({"universe": None}, "keys"),
+        ({"universe": {}}, "keys"),
+        ({"universe": {"detail": "all"}}, "all"),
+    ],
+)
+def test_universe_null_or_empty_keeps_the_preset(file: dict[str, Any], expected: str) -> None:
+    config = merge_config({"universe": {"detail": "keys", "links": "lineage"}}, file)
+    assert (config.universe.detail, config.universe.links) == (expected, "lineage")
+
+
+@pytest.mark.parametrize("key", ["select", "exclude", "kinds", "domains", "layers"])
+def test_null_lists_are_empty(key: str) -> None:
+    assert getattr(merge_config({}, {key: None}), key) == ()
+
+
+def test_unknown_and_non_string_keys_are_ignored() -> None:
+    config = merge_config({"zoom": 1}, {1: "x", "colour": "red", "universe": {2: "y"}, "preset": None})
+    assert config == Config()
+
+
+def test_rules_and_universe_settings_are_immutable() -> None:
+    config = merge_config({}, {"kinds": [{"key": "a", "match": "x"}]})
+    with pytest.raises(ValidationError):
+        config.kinds[0].key = "b"  # type: ignore[misc]
+    with pytest.raises(TypeError):
+        config.kinds[0].match[0] = "y"  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        config.select.append("x")  # type: ignore[attr-defined]
+
+
+def test_include_packages_accepts_booleans_only() -> None:
+    assert merge_config({}, {"include_packages": True}).include_packages is True
+    assert merge_config({"include_packages": True}, {}).include_packages is True

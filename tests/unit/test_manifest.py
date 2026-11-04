@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from typing import Any
 
 import pytest
-from conftest import model, relationships_test, shop_manifest, source
+from conftest import M, model, relationships_test, shop_manifest, source
 from pydantic import BaseModel
 
 from dbtscope.domain.manifest import ManifestError, parse_manifest
@@ -168,3 +168,256 @@ def test_a_malformed_top_level_is_refused(manifest: Any, message: str) -> None:
 def test_sources_helper_builds_a_valid_source() -> None:
     project = parse_manifest({"sources": {"s": source("t", "crm")}})
     assert project.tables["source.shop.crm.t"].folder == "staging"
+
+
+# --- real-world manifest shapes (synthetic, after dbt 1.5 to 1.9 artifacts) -----------------------
+
+
+def _dbt19_model(name: str, **fields: Any) -> dict[str, Any]:
+    """A model entry with the fields dbt 1.9 writes, most of which dbtscope never reads."""
+    node = model(name, columns=["id", "customer_id"])
+    for column in node["columns"].values():
+        column.update(meta={}, tags=[], quote=None, granularity=None, data_type=None, description="")
+    node.update(
+        fqn=["shop", name], alias=name, checksum={"name": "sha256", "checksum": "0"}, raw_code="select 1",
+        language="sql", refs=[{"name": "stg", "package": None, "version": None}], sources=[], metrics=[],
+        compiled_path=None, contract={"enforced": True, "alias_types": True, "checksum": None},
+        access="protected", version=None, latest_version=None, deprecation_date=None,
+        unrendered_config={}, created_at=1730000000.0, docs={"show": True, "node_color": None},
+        patch_path="shop://models/schema.yml", build_path=None, primary_key=["id"], time_spine=None,
+        description=None, schema=None, database=None, meta=None, group=None,
+    )  # fmt: skip
+    node["config"].update(
+        enabled=True, materialized="table", tags=[], contract={"enforced": True}, on_schema_change="ignore",
+        grants={}, packages=[], docs={"show": True}, persist_docs={}, group=None, event_time=None,
+    )  # fmt: skip
+    node["depends_on"] = {"macros": ["macro.dbt.x"], "nodes": node["depends_on"]["nodes"]}
+    node.update(fields)
+    return node
+
+
+def _project(*nodes: dict[str, Any], **top: Any) -> Project:
+    return parse_manifest({"nodes": {n["unique_id"]: n for n in nodes}, **top})
+
+
+def test_a_dbt_19_model_with_nulls_where_dbt_writes_them() -> None:
+    project = _project(_dbt19_model("dim_customer"))
+    customer = project.tables["model.shop.dim_customer"]
+    assert (customer.schema_name, customer.database, customer.description, customer.group) == ("", "", "", "")
+    assert [(c.name, c.data_type, c.description) for c in customer.columns] == [
+        ("id", "", ""),
+        ("customer_id", "", ""),
+    ]
+    assert customer.meta == {}
+
+
+@pytest.mark.parametrize(
+    "field", ["description", "schema", "database", "depends_on", "config", "meta", "group", "columns",
+              "constraints", "tags", "package_name"],
+)  # fmt: skip
+def test_every_optional_field_may_be_null(field: str) -> None:
+    node = model("x", columns=["a"])
+    node[field] = None
+    table = _project(node).tables["model.shop.x"]
+    assert table.name == "x"
+
+
+def test_seed_without_depends_on_nodes_and_snapshot() -> None:
+    seed = {**model("country_codes"), "resource_type": "seed", "unique_id": "seed.shop.country_codes"}
+    seed["depends_on"] = {"macros": []}  # dbt writes no `nodes` for a seed
+    snap = {**model("snap_orders"), "resource_type": "snapshot", "unique_id": "snapshot.shop.snap_orders"}
+    snap["config"] = {"strategy": "timestamp", "updated_at": "ts", "unique_key": "id", "meta": {}}
+    project = _project(seed, snap)
+    assert {t.resource_type for t in project.tables.values()} == {"seed", "snapshot"}
+    assert project.lineage == ()
+
+
+def test_a_source_with_freshness_and_external_fields() -> None:
+    src = {
+        **source("orders"),
+        "loaded_at_field": "_loaded_at", "freshness": {"warn_after": {"count": 12, "period": "hour"}},
+        "external": None, "quoting": {"database": None}, "loader": "fivetran", "identifier": "orders",
+        "source_description": "ERP", "source_meta": {"owner": "x"}, "relation_name": '"dwh"."raw"."orders"',
+        "config": {"enabled": True, "event_time": None, "meta": {"domain": "erp"}},
+        "meta": None, "fqn": ["shop", "erp", "orders"], "unrendered_config": {}, "created_at": 1.0,
+        "columns": {"id": {"name": "id", "data_type": None, "description": None, "meta": {}, "tags": [],
+                           "constraints": [], "quote": None}},
+    }  # fmt: skip
+    project = parse_manifest({"sources": {src["unique_id"]: src}})
+    orders = project.tables["source.shop.erp.orders"]
+    assert orders.meta == {"domain": "erp"} and orders.columns[0].data_type == ""
+
+
+def test_group_on_config_or_top_level_and_meta_merge() -> None:
+    on_config = model("a", meta={"domain": "from_config", "k": 1})
+    on_config["config"]["group"] = "config_group"
+    on_config["meta"] = {"domain": "top"}
+    both = model("b", group="top_group")
+    both["config"]["group"] = "config_group"
+    project = _project(on_config, both)
+    a, b = project.tables["model.shop.a"], project.tables["model.shop.b"]
+    assert (a.group, a.meta) == ("config_group", {"domain": "top", "k": 1})  # top-level meta wins
+    assert b.group == "top_group"
+
+
+def test_constraint_shapes_from_dbt_15_to_19() -> None:
+    parent = model("dim_customer", columns=["id"])
+    child = model("fct_orders", columns=["customer_id", "status"])
+    child["columns"]["customer_id"]["constraints"] = [
+        # 1.5 to 1.8: a foreign key is only an `expression`, nothing resolvable: skipped
+        {"type": "foreign_key", "name": None, "expression": "dim_customer (id)", "warn_unenforced": True,
+         "warn_unsupported": True, "to": None, "to_columns": []},
+    ]  # fmt: skip
+    child["columns"]["status"]["constraints"] = [{"type": "not_null"}, {"type": "check", "expression": "x"}]
+    child["constraints"] = [
+        {"type": "primary_key", "columns": ["id"]},
+        # 1.9: model-level foreign key with `to` / `to_columns`
+        {"type": "foreign_key", "columns": ["customer_id"], "expression": None, "name": "fk",
+         "to": "ref('dim_customer')", "to_columns": ["id"], "warn_unenforced": True},
+    ]  # fmt: skip
+    project = _project(parent, child)
+    assert [(r.child, r.parent, r.column, r.parent_column, r.origin) for r in project.relations] == [
+        ("model.shop.fct_orders", "model.shop.dim_customer", "customer_id", "id", "foreign_key")
+    ]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [None, {}, {"column_name": None, "field": None, "to": "ref('dim_customer')"}],
+    ids=["null", "empty", "null-values"],
+)
+def test_a_relationships_test_with_missing_kwargs_falls_back_to_the_test_column(
+    kwargs: dict[str, Any] | None,
+) -> None:
+    test = relationships_test("fct_orders", "customer_id", "dim_customer", "customer_id")
+    test["test_metadata"]["kwargs"] = kwargs
+    relations = [r for r in parse_manifest(_with(test)).relations if r.column == "customer_id"]
+    assert [(r.parent_column, r.origin) for r in relations] == [("", "relationships_test")]
+
+
+def test_a_relationships_test_without_kwargs_key_is_kept() -> None:
+    test = relationships_test("fct_orders", "customer_id", "dim_customer", "customer_id")
+    del test["test_metadata"]["kwargs"]
+    assert any(r.column == "customer_id" for r in parse_manifest(_with(test)).relations)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="app bug (pre-M3 too): manifest._test_relations computes `parents` before the "
+    "`attached_node` fallback `child = depends[0]`, so a test without attached_node is never drawn",
+)
+def test_relationships_where_and_a_test_without_attached_node() -> None:
+    test = relationships_test("fct_returns", "order_ref", "fct_orders", "order_id")
+    test["test_metadata"] = {"name": "relationships_where", "namespace": "dbt_utils",
+                             "kwargs": {"from": "order_ref", "to_field": "order_id"}}  # fmt: skip
+    test["attached_node"] = None
+    test["depends_on"]["nodes"] = [M + "fct_returns", M + "fct_orders"]
+    manifest = shop_manifest()
+    manifest["nodes"]["model.shop.fct_returns"]["columns"]["order_ref"]["constraints"] = []
+    manifest["nodes"][test["unique_id"]] = test
+    relations = [r for r in parse_manifest(manifest).relations if r.child.endswith("fct_returns")]
+    expected = [(M + "fct_orders", "order_ref", "order_id")]
+    assert [(r.parent, r.column, r.parent_column) for r in relations] == expected
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"unique_id": "analysis.shop.a", "resource_type": "analysis", "columns": "x", "tags": "y"},
+        {"unique_id": "operation.shop.on-run-start", "resource_type": "operation", "index": 0},
+        {"unique_id": "unit_test.shop.u", "resource_type": "unit_test", "given": [{"input": "ref('x')"}],
+         "expect": {"rows": []}, "model": "fct_orders", "versions": None},
+        {"unique_id": "exposure.shop.e", "resource_type": "exposure", "owner": {"email": ["a", "b"]}},
+        {"unique_id": "metric.shop.m", "resource_type": "metric", "type_params": {"measure": 1}},
+        {"unique_id": "semantic_model.shop.s", "resource_type": "semantic_model", "entities": None},
+        {"unique_id": "saved_query.shop.q", "resource_type": "saved_query", "query_params": 3},
+        {"unique_id": "sql_operation.shop.x", "resource_type": "sql_operation", "name": None},
+        {"unique_id": "test.shop.unique_x", "resource_type": "test",
+         "test_metadata": {"name": "unique", "kwargs": None, "namespace": None}},
+        {"unique_id": "test.shop.custom", "resource_type": "test", "test_metadata": {"name": None}},
+    ],
+)  # fmt: skip
+def test_other_resource_types_in_nodes_with_any_fields_are_skipped(
+    extra: dict[str, Any], shop: Project
+) -> None:
+    assert parse_manifest(_with(extra)) == shop
+
+
+def test_top_level_keys_of_a_real_manifest_are_ignored(shop: Project) -> None:
+    manifest = shop_manifest()
+    manifest.update(
+        exposures={"e": {"owner": {"email": ["a", "b"]}}}, metrics={"m": 1}, semantic_models={"s": []},
+        saved_queries=None, unit_tests={"u": {"given": 1}}, macros={"m": {}}, docs={}, selectors={},
+        disabled={"model.shop.old": [{"resource_type": "model"}]}, parent_map={}, child_map={},
+        group_map={}, metadata={"project_name": "shop", "dbt_schema_version": "v12", "env": {}},
+    )  # fmt: skip
+    assert parse_manifest(manifest) == shop
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda m: m["nodes"].update({"x": None}), "nodes.x: must be a mapping"),
+        (lambda m: m["nodes"].update({"x": {"name": "x"}}), "nodes.x.resource_type: is required"),
+        (lambda m: m["nodes"].update({"x": {"resource_type": 5}}), "nodes.x.resource_type: must be a string"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(depends_on={"nodes": "x"}),
+         "nodes['model.shop.dim_customer'].depends_on.nodes: must be a list"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(config=[]),
+         "nodes['model.shop.dim_customer'].config: must be a mapping"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(meta="x"),
+         "nodes['model.shop.dim_customer'].meta: must be a mapping"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"]["columns"].update(name=None),
+         "nodes['model.shop.dim_customer'].columns.name: must be a mapping"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(tags=["a", 1]),
+         "nodes['model.shop.dim_customer'].tags[1]: must be a string"),
+        (lambda m: m["sources"]["source.shop.erp.orders"].pop("name"),
+         "sources['source.shop.erp.orders'].name: is required"),
+        (lambda m: m["sources"].update({"s": []}), "sources.s: must be a mapping"),
+        (lambda m: m.update(metadata=[]), "metadata: must be a mapping"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(unique_id=None, name=None),
+         "nodes['model.shop.dim_customer'].unique_id: must be a string (and 1 more problem)"),
+    ],
+)  # fmt: skip
+def test_more_malformed_fields_name_their_location(change: Any, message: str) -> None:
+    manifest = shop_manifest()
+    change(manifest)
+    with pytest.raises(ManifestError) as info:
+        parse_manifest(manifest)
+    assert str(info.value) == f"manifest: {message}"
+
+
+def test_the_project_does_not_share_state_with_the_manifest_dict() -> None:
+    manifest = shop_manifest()
+    project = parse_manifest(manifest)
+    manifest["nodes"]["model.shop.dim_product"]["config"]["meta"]["domain"] = "changed"
+    manifest["nodes"]["model.shop.fct_orders"]["tags"].append("new")
+    assert project.tables["model.shop.dim_product"].meta == {"domain": "products"}
+    assert project.tables["model.shop.fct_orders"].tags == ("core",)
+
+
+def test_empty_manifest_gives_an_empty_project() -> None:
+    project = parse_manifest({})
+    assert (project.tables, project.relations, project.lineage, project.groups, project.root) == (
+        {}, (), (), {}, None,
+    )  # fmt: skip
+
+
+def test_relationships_where_reads_from_and_to_field() -> None:
+    test = relationships_test("fct_returns", "order_ref", "fct_orders", "order_id")
+    test["column_name"] = None
+    test["test_metadata"] = {"name": "relationships_where", "namespace": "dbt_utils",
+                             "kwargs": {"from": "order_ref", "to_field": "order_id"}}  # fmt: skip
+    manifest = shop_manifest()
+    manifest["nodes"]["model.shop.fct_returns"]["columns"]["order_ref"]["constraints"] = []
+    manifest["nodes"][test["unique_id"]] = test
+    relations = [r for r in parse_manifest(manifest).relations if r.child == M + "fct_returns"]
+    assert [(r.column, r.parent_column, r.origin) for r in relations] == [
+        ("order_ref", "order_id", "relationships_test")
+    ]
+
+
+@pytest.mark.parametrize("to", ["dim_customer", "ref()", "source('erp')", "ref('nowhere')", ""])
+def test_a_foreign_key_to_an_unresolvable_target_is_skipped(to: str) -> None:
+    child = model("fct_orders", columns=["customer_id"])
+    child["columns"]["customer_id"]["constraints"] = [{"type": "foreign_key", "to": to, "to_columns": ["id"]}]
+    assert _project(model("dim_customer", columns=["id"]), child).relations == ()
