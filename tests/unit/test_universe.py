@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.model import Project
 from dbtscope.domain.universe import UNRANKED, flow_rank, universe_data
 from dbtscope.storage.project_files import read_preset
 
 
-def test_domains_layers_and_kinds(shop: Project) -> None:
+def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
     file_config = {
         "domains": [
             {"key": "sales_team", "label": "Sales", "color": "#123456", "match": ["fct_orders"]},
@@ -51,7 +53,7 @@ def test_domains_layers_and_kinds(shop: Project) -> None:
     assert [index["fct_orders"], index["dim_customer"]] in data["relations"]
 
 
-def test_configured_layers(shop: Project) -> None:
+def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) -> None:
     layers = [
         {"key": "raw", "label": "Raw", "match": ["type:source", "stg_*"]},
         {"key": "marts", "label": "Marts", "match": ["fct_*"]},
@@ -68,6 +70,6 @@ def test_tables_without_domain_come_last(shop: Project) -> None:
     assert data["domains"][-1] == {"key": "", "label": "Hors domaine", "color": "#8a94a6", "owner": ""}
 
 
-def test_flow_rank() -> None:
+def test_default_layers_follow_the_data_flow() -> None:
     assert flow_rank("sources") < flow_rank("staging") < flow_rank("int_dwh") < flow_rank("marts")
     assert flow_rank("misc") == UNRANKED

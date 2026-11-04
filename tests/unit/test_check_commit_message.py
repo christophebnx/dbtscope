@@ -1,18 +1,16 @@
-import importlib.util
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
+from conftest import load_script
 
-TOOL = Path(__file__).resolve().parents[2] / "tools" / "check_commit_message.py"
-spec = importlib.util.spec_from_file_location("check_commit_message", TOOL)
-assert spec and spec.loader
-check = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(check)
+check = load_script(Path(__file__).resolve().parents[2] / "tools" / "check_commit_message.py")
 
 VALID = "feat(domain): add the greeting rule\n\nWhy and what.\n\nMilestone: M1\n"
 
 
-def test_valid_message() -> None:
+def test_a_valid_message_passes() -> None:
     assert check.problems(VALID) == []
 
 
@@ -31,7 +29,7 @@ def test_comments_and_trailing_blank_lines_are_ignored() -> None:
         ("", "first line"),
     ],
 )
-def test_invalid_messages(message: str, fragment: str) -> None:
+def test_malformed_messages_are_rejected(message: str, fragment: str) -> None:
     assert any(fragment in problem for problem in check.problems(message))
 
 

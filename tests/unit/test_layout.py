@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from dbtscope.domain.layout import LAYOUT_FORMAT, LayoutError, check_layout

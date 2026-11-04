@@ -50,6 +50,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 ## Language convention
 
 - English: code, identifiers, JSON keys, file and folder names, every `.md` in the repo, prompts, skills, agents, commit messages.
+- One word per concept: use the glossary in `docs/architecture.md` (D-027).
 - User language: the page is in English or French (`language` in the config, D-016); every UI string exists in both. CLI messages stay in English (D-004).
 
 ## How to work

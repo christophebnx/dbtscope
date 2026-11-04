@@ -41,6 +41,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "N", "RUF"]
 
+[tool.ruff.lint.isort]
+# D-028: every Python file starts with it (rule I002)
+required-imports = ["from __future__ import annotations"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

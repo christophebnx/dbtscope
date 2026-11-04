@@ -11,17 +11,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import empty_detail
 
 from dbtscope.domain.config import merge_config
-from dbtscope.domain.payload import DetailPayload, UniversePayload
+from dbtscope.domain.payload import UniversePayload
 from dbtscope.render.page import render_page
 
 pytestmark = pytest.mark.browser
 
 TABLES, DOMAINS, CHAIN = 1500, 30, 50
-DETAIL = DetailPayload.model_validate(
-    {"title": "perf", "lang": "en", "grouped": False, "kinds": [], "relations": [], "entities": []}
-)
+DETAIL = empty_detail("perf")
 LAYERS = ["sources", "staging", "core", "marts", "reports"]
 KINDS = [("source", "#94a3b8"), ("fact", "#2f6fb5"), ("dim", "#2e8b57")]
 HUB = 1000

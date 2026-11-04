@@ -6,16 +6,17 @@ from typing import Any
 
 import pytest
 
+from browser.conftest import NARROW, Page, close_panel, scroll_width, show_detail
+
 pytestmark = pytest.mark.browser
 
-NARROW = {"width": 360, "height": 800}
 # a CSS colour as the browser resolves it (rgb(...)), through a probe element
 RESOLVE = """c => { const e = document.createElement('span'); e.style.color = c; document.body.append(e);
   const v = getComputedStyle(e).color; e.remove(); return v; }"""
 TRANSPARENT = "rgba(0, 0, 0, 0)"
 
 
-def style(p: Any, selector: str) -> dict[str, str]:
+def style(p: Page, selector: str) -> dict[str, str]:
     return p.page.evaluate(
         """s => { const c = getComputedStyle(document.querySelector(s));
              return { color: c.color, background: c.backgroundColor, bottomColor: c.borderBottomColor,
@@ -24,18 +25,12 @@ def style(p: Any, selector: str) -> dict[str, str]:
     )
 
 
-def show_detail(p: Any) -> None:
-    p.page.click("#tabs button[data-tab=detail]")
-    p.page.wait_for_selector("#tab-detail.on")
-    p.page.wait_for_selector("#d-graph svg", timeout=30_000)
-
-
 def test_active_tab_has_the_accent_and_an_underline(build_page: Any, open_page: Any) -> None:
     p = open_page(build_page()[0])
     accent = p.page.evaluate(RESOLVE, "var(--accent)")
     for tab in ("universe", "detail"):
         if tab == "detail":
-            show_detail(p)
+            show_detail(p, exportable=False)
         on = style(p, f"#tabs button.on[data-tab={tab}]")
         assert on["color"] == accent, f"active {tab} tab: {on}"
         assert on["bottomColor"] == accent and on["bottomColor"] != TRANSPARENT, on
@@ -47,7 +42,7 @@ def test_active_tab_has_the_accent_and_an_underline(build_page: Any, open_page: 
 
 def test_detail_columns_toggle_stays_readable(build_page: Any, open_page: Any) -> None:
     p = open_page(build_page()[0])
-    show_detail(p)
+    show_detail(p, exportable=False)
     off = style(p, "#d-cols")
     assert off["color"] != off["background"], off
     p.page.click("#d-cols")
@@ -57,14 +52,16 @@ def test_detail_columns_toggle_stays_readable(build_page: Any, open_page: Any) -
     assert on["background"] == p.page.evaluate(RESOLVE, "var(--accent)")
 
 
-def scroll_width(p: Any) -> int:
-    return p.page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
-
-
-def close_panel(p: Any, view: str) -> None:
-    if not p.page.evaluate(f"document.getElementById('{view}-panel').classList.contains('closed')"):
-        p.page.click(f"#{view}-toggle")
-    assert p.page.is_hidden(f"#{view}-panel")
+def export_group_in_one_piece(p: Page, view: str) -> None:
+    """The Export image group of `view` fits the narrow screen on one line (fix 95904fb)."""
+    boxes = p.page.eval_on_selector_all(
+        f"#{view}-export-h, #{view}-export-h ~ button",
+        "es => es.map(e => (r => [r.left, r.right, r.top + r.height / 2])(e.getBoundingClientRect()))",
+    )
+    assert len(boxes) >= 2
+    assert all(left >= 0 and right <= NARROW["width"] for left, right, _ in boxes), boxes
+    middles = [m for _, _, m in boxes]
+    assert max(middles) - min(middles) < 4, f"the {view} export group splits over lines: {boxes}"
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -72,6 +69,8 @@ def test_no_horizontal_scroll_at_360_px(build_page: Any, open_page: Any, lang: s
     p = open_page(build_page(f"language: {lang}\n")[0], viewport=NARROW)
     close_panel(p, "u")
     assert scroll_width(p) <= NARROW["width"], "Universe tab"
+    assert p.page.is_visible("#u-export")
+    export_group_in_one_piece(p, "u")
     p.page.fill("#u-q", "stg_orders")
     p.page.click("#u-traj")
     assert p.page.is_visible("#u-trajbar")
@@ -82,6 +81,8 @@ def test_no_horizontal_scroll_at_360_px(build_page: Any, open_page: Any, lang: s
     show_detail(p)
     close_panel(p, "d")
     assert scroll_width(p) <= NARROW["width"], "Detail tab"
+    assert p.page.is_visible("#d-export-png") and p.page.is_visible("#d-export-svg")
+    export_group_in_one_piece(p, "d")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -90,7 +91,7 @@ def test_export_group_ends_the_detail_toolbar_when_it_wraps(
 ) -> None:
     # 1280 px with the panel open: the detail toolbar wraps, Export image stays at its right end
     p = open_page(build_page(f"language: {lang}\n")[0])
-    show_detail(p)
+    show_detail(p, exportable=False)
     assert p.page.is_visible("#d-panel")
     bar = p.page.locator("#tab-detail .toolbar").bounding_box()
     group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()

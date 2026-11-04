@@ -16,12 +16,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from conftest import shop_manifest
+from conftest import NO_PARSE_NO_OPEN, data_block, shop_manifest, write_config, write_layout, write_project
 
 from dbtscope.cli import main
 
 FOLDER = Path(__file__).parent / "fixtures" / "m3-reference-pages"
-DATA_OPEN = '<script type="application/json" id="data">'
 FR = "language: fr\nview: detail\n"
 LAYERS_DOMAINS = """\
 group_by: folder:1
@@ -78,24 +77,16 @@ def edge_manifest() -> dict[str, Any]:
 def build_page(case: str, workdir: Path) -> bytes:
     """Write the `shop` project of `case` into `workdir`, run the CLI and return the page bytes."""
     config, options, edge = CASES[case]
-    (workdir / "target").mkdir(parents=True)
-    manifest = edge_manifest() if edge else shop_manifest()
-    (workdir / "target" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    (workdir / "dbt_project.yml").write_text("name: shop\n", encoding="utf-8")
+    write_project(workdir, edge_manifest() if edge else shop_manifest())
     if config is not None:
-        (workdir / "dbt-erd.yml").write_text(config, encoding="utf-8")
+        write_config(workdir, config)
     if edge:
-        (workdir / "dbt-erd-layout.json").write_text(json.dumps(LAYOUT), encoding="utf-8")
+        write_layout(workdir, LAYOUT)
     output = workdir / "out" / "erd.html"
-    args = ["--project-dir", str(workdir), "--no-parse", "--no-open", "-o", str(output), *options]
+    args = ["--project-dir", str(workdir), *NO_PARSE_NO_OPEN, "-o", str(output), *options]
     if main(args) != 0:
         raise RuntimeError(f"case {case}: the CLI failed")
     return output.read_bytes()
-
-
-def data_block(page: bytes) -> bytes:
-    """The exact bytes of the embedded JSON data block of a page."""
-    return page.split(DATA_OPEN.encode(), 1)[1].split(b"</script>", 1)[0]
 
 
 def write_reference(folder: Path = FOLDER) -> None:

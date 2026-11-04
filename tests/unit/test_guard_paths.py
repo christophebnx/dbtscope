@@ -1,21 +1,20 @@
 """The PreToolUse hook, run as Claude Code runs it: JSON on stdin, exit code 2 blocks."""
 
-import importlib.util
+from __future__ import annotations
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from conftest import load_script
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".claude" / "hooks" / "guard_paths.py"
 SECRET = ".e" + "nv"  # spelled apart so this file never trips the hook when Claude reads it
 CONFIG = "config" + ".toml"
-spec = importlib.util.spec_from_file_location("guard_paths", HOOK)
-assert spec and spec.loader
-guard = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(guard)
+guard = load_script(HOOK)
 
 
 def run_hook(tool: str, **tool_input: str) -> subprocess.CompletedProcess[str]:

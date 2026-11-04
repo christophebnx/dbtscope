@@ -1,5 +1,7 @@
 """The installed entry points, run as a user runs them (a subprocess, not `main([...])`)."""
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from pathlib import Path

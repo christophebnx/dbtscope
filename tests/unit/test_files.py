@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -34,3 +36,19 @@ def test_missing_folder_raises_and_writes_nothing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         atomic_write(tmp_path / "missing" / "state.json", b"data")
     assert not (tmp_path / "missing").exists()
+
+
+def test_interrupted_write_keeps_the_original_and_no_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "state.json"
+    target.write_bytes(b"original")
+
+    def broken_fsync(descriptor: int) -> None:
+        raise KeyboardInterrupt  # interrupted mid-write: BaseException, not only OSError
+
+    monkeypatch.setattr(os, "fsync", broken_fsync)
+    with pytest.raises(KeyboardInterrupt):
+        atomic_write(target, b"new")
+    assert target.read_bytes() == b"original"
+    assert [path.name for path in tmp_path.iterdir()] == ["state.json"]

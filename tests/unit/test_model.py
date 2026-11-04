@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Any
@@ -20,13 +22,9 @@ INSTANCES: list[tuple[BaseModel, str, Any]] = [
 
 
 @pytest.mark.parametrize(("instance", "field", "value"), INSTANCES)
-def test_domain_models_are_immutable(instance: BaseModel, field: str, value: Any) -> None:
+def test_domain_models_are_frozen_and_closed(instance: BaseModel, field: str, value: Any) -> None:
     with pytest.raises(ValidationError):
         setattr(instance, field, value)
-
-
-@pytest.mark.parametrize(("instance", "field", "value"), INSTANCES)
-def test_domain_models_forbid_unknown_fields(instance: BaseModel, field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match="extra"):
         type(instance).model_validate({**instance.model_dump(), "colour": "red"})
 
@@ -38,7 +36,7 @@ def test_resource_type_and_origin_are_closed() -> None:
         Relation(**{**RELATION.model_dump(), "origin": "guess"})
 
 
-def test_defaults() -> None:
+def test_optional_fields_default_to_empty() -> None:
     t = Table(unique_id="model.p.x", name="x", resource_type="model")
     assert (t.schema_name, t.folder, t.tags, t.meta, t.columns) == ("", "", (), {}, ())
     assert Column(name="c").data_type == ""
@@ -75,23 +73,9 @@ def _source_lines() -> list[tuple[str, str]]:
     ]
 
 
-def test_no_untyped_dict_left_for_business_data() -> None:
-    found = {(path, line) for path, line in _source_lines() if "dict[str, Any]" in line}
-    assert found - UNTYPED_ALLOWED == set()
-
-
-def test_raw_manifest_copies_and_dict_aliases_are_gone() -> None:
-    offenders = [
-        (path, line)
-        for path, line in _source_lines()
-        if re.search(r"""["']_raw["']|\b_raw\b|^(Node|Edge|Config) = dict\b""", line)
-    ]
-    assert offenders == []
-
-
-def test_parsed_tables_have_no_raw_entry(shop: Project) -> None:
-    for t in shop.tables.values():
-        assert set(type(t).model_fields) == set(Table.model_fields)
-        assert "_raw" not in t.model_dump() and not hasattr(t, "_raw")
-        assert isinstance(t.tags, tuple) and isinstance(t.columns, tuple)
-    assert isinstance(shop.relations, tuple) and isinstance(shop.lineage, tuple)
+def test_no_untyped_business_data_in_the_source() -> None:
+    lines = _source_lines()
+    untyped = {(path, line) for path, line in lines if "dict[str, Any]" in line}
+    assert untyped - UNTYPED_ALLOWED == set()
+    raw = r"""["']_raw["']|\b_raw\b|^(Node|Edge|Config) = dict\b"""  # raw manifest copies, dict aliases
+    assert [(path, line) for path, line in lines if re.search(raw, line)] == []

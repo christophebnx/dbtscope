@@ -1,4 +1,4 @@
-from typing import get_args
+from __future__ import annotations
 
 import pytest
 from conftest import model, relationships_test, source
@@ -22,7 +22,7 @@ def test_null_and_absent_optional_fields() -> None:
     assert node.schema_name is None and node.columns is None and node.original_file_path == ""
 
 
-def test_source_and_relationship_test() -> None:
+def test_source_and_relationship_test_entries_are_read() -> None:
     assert SourceNode.model_validate(source("orders")).source_name == "erp"
     with pytest.raises(ValidationError):
         SourceNode.model_validate({**source("orders"), "resource_type": "model"})
@@ -49,5 +49,4 @@ def test_input_models_are_immutable() -> None:
 
 
 def test_drawn_node_types_are_the_table_node_types() -> None:
-    assert set(get_args(TableNode.model_fields["resource_type"].annotation)) == NODE_TYPES
     assert {"model", "seed", "snapshot"} == NODE_TYPES

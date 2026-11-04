@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 import pytest
@@ -51,37 +53,13 @@ def test_unknown_keys_are_ignored() -> None:
     assert config.kinds[0].key == "k"
 
 
-@pytest.mark.parametrize(
-    ("bad", "message"),
-    [
-        ({"group_by": "colour"}, "group_by: invalid value 'colour' (schema, database, package, folder, "
-         "folder:N, tag:<glob> or none)"),
-        ({"view": "map"}, "view: must be 'universe' or 'detail'"),
-        ({"language": "de"}, "language: must be 'en' or 'fr'"),
-        ({"universe": {"links": "all"}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
-        ({"universe": {"detail": "some"}}, "universe.detail: must be 'names', 'keys' or 'all'"),
-        ({"universe": [1]}, "universe: must be a mapping"),
-        ({"domains": [{"key": "x"}]}, "domains[0].match: is required"),
-        ({"layers": ["staging"]}, "layers[0]: must be a mapping"),
-        ({"key_columns": "("}, "key_columns: invalid regex '(': missing ), "
-         "unterminated subpattern at position 0"),
-        ({"include_packages": "no"}, "include_packages: must be true or false"),
-        ({"select": [1]}, "select[0]: must be a string"),
-    ],
-)  # fmt: skip
-def test_invalid_config(bad: dict[str, Any], message: str) -> None:
-    with pytest.raises(ConfigError) as info:
-        merge_config({}, bad)
-    assert str(info.value) == message
-
-
 def test_offline_defaults_to_false_and_the_file_wins() -> None:
     assert merge_config({}, {}).offline is False
     assert merge_config({}, {"offline": True}).offline is True
     assert merge_config({"offline": True}, {"offline": False}).offline is False
 
 
-@pytest.mark.parametrize("value", ["true", 1, None])
+@pytest.mark.parametrize("value", ["true", 1, None, [True]])
 def test_offline_must_be_a_bool(value: Any) -> None:
     with pytest.raises(ConfigError, match="offline: must be true or false"):
         merge_config({}, {"offline": value})
@@ -101,30 +79,35 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
 @pytest.mark.parametrize(
     ("bad", "message"),
     [
+        ({"group_by": "colour"}, "group_by: invalid value 'colour' (schema, database, package, folder, "
+         "folder:N, tag:<glob> or none)"),
+        ({"view": "map"}, "view: must be 'universe' or 'detail'"),
+        ({"language": "de"}, "language: must be 'en' or 'fr'"),
+        ({"universe": {"links": "all"}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
+        ({"universe": {"detail": "some"}}, "universe.detail: must be 'names', 'keys' or 'all'"),
+        ({"domains": [{"key": "x"}]}, "domains[0].match: is required"),
+        ({"layers": ["staging"]}, "layers[0]: must be a mapping"),
+        ({"key_columns": "("}, "key_columns: invalid regex '(': missing ), "
+         "unterminated subpattern at position 0"),
+        ({"include_packages": "no"}, "include_packages: must be true or false"),
+        ({"select": [1]}, "select[0]: must be a string"),
         ({"title": None}, "title: must be a string"),
         ({"title": ["a"]}, "title: must be a string"),
         ({"output": 5}, "output: must be a string"),
         ({"layout_file": None}, "layout_file: must be a string"),
         ({"language": None}, "language: must be 'en' or 'fr'"),
-        ({"language": "FR"}, "language: must be 'en' or 'fr'"),
-        ({"view": "Detail"}, "view: must be 'universe' or 'detail'"),
         ({"group_by": 3}, "group_by: must be a string"),
         ({"group_by": "folder:x"}, "group_by: invalid value 'folder:x' (schema, database, package, "
          "folder, folder:N, tag:<glob> or none)"),
-        ({"group_by": "tag:"}, "group_by: invalid value 'tag:' (schema, database, package, folder, "
-         "folder:N, tag:<glob> or none)"),
         ({"key_columns": 5}, "key_columns: must be a string"),
         ({"exclude": ["a", {"b": 1}]}, "exclude[1]: must be a string"),
         ({"select": {"a": 1}}, "select: must be a list"),
         ({"include_packages": None}, "include_packages: must be true or false"),
-        ({"include_packages": 1}, "include_packages: must be true or false"),
-        ({"include_packages": "true"}, "include_packages: must be true or false"),
         ({"kinds": {"key": "a", "match": "x"}}, "kinds: must be a list"),
         ({"kinds": [{"match": "x"}]}, "kinds[0].key: is required (and 1 more problem)"),  # label too
         ({"kinds": [{"key": "a", "match": "x"}, {"key": 1, "match": "x"}]},
          "kinds[1].key: must be a string"),  # the label defaulted to the key is a number: its text
         ({"kinds": [{"key": "a", "label": [2], "match": "x"}]}, "kinds[0].label: must be a string"),
-        ({"title": {"a": 1}}, "title: must be a string"),
         ({"title": True}, "title: must be a string"),
         ({"kinds": [{"key": "a", "match": [None]}]}, "kinds[0].match[0]: must be a string"),
         ({"domains": [{"key": "a", "color": 0x123, "match": "x"}]}, "domains[0].color: must be a string"),

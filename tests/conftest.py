@@ -9,18 +9,21 @@ dim_customer (group sales_team)   dim_product (meta.domain products)
 
 from __future__ import annotations
 
+import importlib.util
 import json
-import random
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
 
 from dbtscope.domain.model import Project, Table
-from dbtscope.domain.payload import UniverseDefaults, UniversePayload
+from dbtscope.domain.payload import DetailPayload, UniverseDefaults, UniversePayload
 from dbtscope.storage.project_files import read_manifest
 
-M = "model.shop."
+SHOP = "model.shop."  # unique_id prefix of the models of `shop`
+NO_PARSE_NO_OPEN = ("--no-parse", "--no-open")  # build from the written manifest, open nothing
+DATA_OPEN = '<script type="application/json" id="data">'
 
 
 def model(
@@ -76,9 +79,9 @@ def relationships_test(child: str, column: str, parent: str, field: str) -> dict
     return {
         "unique_id": f"test.shop.relationships_{child}_{column}",
         "resource_type": "test",
-        "attached_node": M + child,
+        "attached_node": SHOP + child,
         "column_name": column,
-        "depends_on": {"nodes": [M + parent, M + child]},
+        "depends_on": {"nodes": [SHOP + parent, SHOP + child]},
         "test_metadata": {
             "name": "relationships",
             "kwargs": {"column_name": column, "field": field, "to": f"ref('{parent}')"},
@@ -95,10 +98,10 @@ def shop_manifest() -> dict[str, Any]:
             "sales",
             tags=["core"],
             columns=["order_id", "customer_id", "product_id", "amount"],
-            depends_on=[M + "stg_orders", M + "dim_customer", M + "dim_product"],
+            depends_on=[SHOP + "stg_orders", SHOP + "dim_customer", SHOP + "dim_product"],
         ),
         model("stg_orders", "staging", columns=["order_id"], depends_on=["source.shop.erp.orders"]),
-        model("fct_returns", "sales", columns=["return_id", "order_ref"], depends_on=[M + "fct_orders"]),
+        model("fct_returns", "sales", columns=["return_id", "order_ref"], depends_on=[SHOP + "fct_orders"]),
     ]
     # fct_returns -> fct_orders declared as a model-contract foreign key instead of a test
     nodes[-1]["columns"]["order_ref"]["constraints"] = [
@@ -125,6 +128,11 @@ def table(**fields: Any) -> Table:
     )
 
 
+def empty_detail(title: str = "x") -> DetailPayload:
+    """A detail payload with no table, for page tests about the universe view or the shell."""
+    return DetailPayload(title=title, lang="en", grouped=False, kinds=(), relations=(), entities=())
+
+
 def empty_universe() -> UniversePayload:
     """A universe payload with no table, for page tests about the detail view or the shell."""
     defaults = UniverseDefaults(links="both", detail="names", hidden_kinds=())
@@ -133,77 +141,31 @@ def empty_universe() -> UniversePayload:
     )
 
 
-def big_manifest(tables: int = 1500) -> dict[str, Any]:
-    """A deterministic Openlane-sized manifest: 80 % models, then sources, seeds and snapshots.
-
-    For 1,500 tables: 1,200 models, 200 sources, 50 seeds, 50 snapshots, 20 columns each,
-    ~1,600 `depends_on` links, ~400 relationship tests, ~60 foreign keys, plus 3,000 `not_null`
-    tests and 100 analyses that the parser must skip.
-    """
-    rng = random.Random(1500)
-    n_models, n_sources, n_small = tables * 4 // 5, tables * 2 // 15, tables // 30
-    columns = [f"c{j:02d}" for j in range(20)]
-    sources = [source(f"t{i:04d}", f"src_{i % 10}") for i in range(n_sources)]
-    for src in sources:
-        src["columns"] = {c: {"name": c, "data_type": "varchar", "description": ""} for c in columns}
-    seeds = [_typed(model(f"seed{i:03d}", "seeds", columns=columns[:5]), "seed") for i in range(n_small)]
-    snaps = [_typed(model(f"snap{i:03d}", "snaps", columns=columns), "snapshot") for i in range(n_small)]
-    upstream = [n["unique_id"] for n in sources + seeds]
-    models = []
-    for i in range(n_models):
-        parents = rng.sample(upstream, min(len(upstream), 1 + (i % 3 == 0)))
-        node = model(f"m{i:04d}", f"s{i % 12}", ["core"] if i % 5 else [], columns, parents)
-        models.append(node)
-        upstream.append(node["unique_id"])
-    tests = [
-        relationships_test(f"m{i:04d}", "c01", f"m{rng.randrange(i):04d}", "c00")
-        for i in range(1, n_models, 3)
-    ]
-    for i in range(1, n_models, 20):
-        to_source = f"source('src_0', 't{i % 10 * 10:04d}')"
-        target = f"ref('m{rng.randrange(i):04d}')" if i % 40 == 1 else to_source
-        fk = {"type": "foreign_key", "to": target, "to_columns": ["c00"]}
-        models[i]["columns"]["c02"]["constraints"] = [fk]
-    tests += [_not_null(models[i % n_models], i) for i in range(tables * 2)]
-    analyses = [
-        {"unique_id": f"analysis.shop.a{i}", "name": f"a{i}", "resource_type": "analysis"}
-        for i in range(tables // 15)
-    ]
-    return {
-        "metadata": {"project_name": "shop"},
-        "nodes": {n["unique_id"]: n for n in models + seeds + snaps + tests + analyses},
-        "sources": {s["unique_id"]: s for s in sources},
-        "groups": {},
-    }
+def write_project(folder: Path, manifest: dict[str, Any] | None = None) -> Path:
+    """Write a dbt project into `folder`: dbt_project.yml and target/manifest.json (`shop` by default)."""
+    (folder / "target").mkdir(parents=True, exist_ok=True)
+    write_manifest(folder, shop_manifest() if manifest is None else manifest)
+    (folder / "dbt_project.yml").write_text("name: shop\n", encoding="utf-8")
+    return folder
 
 
-def _typed(node: dict[str, Any], resource_type: str) -> dict[str, Any]:
-    """A `model()` node turned into a seed or a snapshot."""
-    node["resource_type"] = resource_type
-    node["unique_id"] = node["unique_id"].replace("model.", f"{resource_type}.", 1)
-    return node
+def write_manifest(project: Path, data: dict[str, Any] | bytes) -> None:
+    """Write target/manifest.json: a dict as JSON, bytes as they are."""
+    path = project / "target" / "manifest.json"
+    if isinstance(data, bytes):
+        path.write_bytes(data)
+    else:
+        path.write_text(json.dumps(data), encoding="utf-8")
 
 
-def _not_null(node: dict[str, Any], i: int) -> dict[str, Any]:
-    """A `not_null` test, with the fields dbt writes that the parser never reads."""
-    return {
-        "unique_id": f"test.shop.not_null_{i}",
-        "resource_type": "test",
-        "attached_node": node["unique_id"],
-        "column_name": "c00",
-        "depends_on": {"nodes": [node["unique_id"]], "macros": ["macro.dbt.test_not_null"]},
-        "test_metadata": {"name": "not_null", "kwargs": {"column_name": "c00", "model": "{{ x }}"}},
-        "config": {"severity": "ERROR", "meta": {}},
-    }
+def write_layout(project: Path, layout: dict[str, Any]) -> None:
+    (project / "dbt-erd-layout.json").write_text(json.dumps(layout), encoding="utf-8")
 
 
 @pytest.fixture
 def dbt_project(tmp_path: Path) -> Path:
     """The `shop` project directory: dbt_project.yml and target/manifest.json."""
-    (tmp_path / "target").mkdir()
-    (tmp_path / "target" / "manifest.json").write_text(json.dumps(shop_manifest()), encoding="utf-8")
-    (tmp_path / "dbt_project.yml").write_text("name: shop\n", encoding="utf-8")
-    return tmp_path
+    return write_project(tmp_path)
 
 
 @pytest.fixture
@@ -216,6 +178,20 @@ def write_config(project: Path, text: str) -> None:
     (project / "dbt-erd.yml").write_text(text, encoding="utf-8")
 
 
+def data_block(page: bytes) -> bytes:
+    """The exact bytes of the embedded JSON data block of a page."""
+    return page.split(DATA_OPEN.encode(), 1)[1].split(b"</script>", 1)[0]
+
+
 def page_data(page: str) -> dict[str, Any]:
     """The JSON payload embedded in a generated page."""
-    return json.loads(page.split('<script type="application/json" id="data">')[1].split("</script>")[0])
+    return json.loads(data_block(page.encode("utf-8")))
+
+
+def load_script(path: Path) -> ModuleType:
+    """Import a script that is not in a package (`tools/`, `.claude/hooks/`) by its path."""
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

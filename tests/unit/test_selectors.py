@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 from conftest import table
 
@@ -15,7 +17,7 @@ NODE = table(
 @pytest.mark.parametrize(
     "selector", ["fct_*", "name:FCT_*", "tag:dai*", "path:models/sales/*,schema:sales", "type:model"]
 )
-def test_selector_matches(selector: str) -> None:
+def test_a_selector_of_each_field_matches(selector: str) -> None:
     assert matches(NODE, selector)
 
 

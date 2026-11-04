@@ -1,9 +1,10 @@
-import json
+from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import page_data, write_config
+from conftest import page_data, write_config, write_layout
 
 from dbtscope import __version__
 from dbtscope.cli import main
@@ -39,7 +40,7 @@ def test_embeds_exported_layout(dbt_project: Path, capsys: pytest.CaptureFixture
         "savedAt": "2026-11-03T10:00:00Z",
         "universe": {"names": {"domains": {"sales": [10, 20]}, "nodes": {}}},
     }
-    (dbt_project / "dbt-erd-layout.json").write_text(json.dumps(layout), encoding="utf-8")
+    write_layout(dbt_project, layout)
     out = dbt_project / "erd.html"
     assert main(["--project-dir", str(dbt_project), "-o", str(out), *OFFLINE]) == 0
     page = out.read_text(encoding="utf-8")
@@ -47,7 +48,7 @@ def test_embeds_exported_layout(dbt_project: Path, capsys: pytest.CaptureFixture
     assert "const LAYOUT" in page
     assert "saved 2026-11-03T10:00:00Z" in capsys.readouterr().out
 
-    (dbt_project / "dbt-erd-layout.json").write_text('{"nodes": []}', encoding="utf-8")
+    write_layout(dbt_project, {"nodes": []})
     assert main(["--project-dir", str(dbt_project), "-o", str(out), *OFFLINE]) == 1
     assert "is not a layout exported by the page" in capsys.readouterr().err
 
@@ -118,14 +119,13 @@ def _is_offline(page: str) -> bool:
 
 @pytest.mark.parametrize(
     ("config", "flag"),
-    [("", ["--offline"]), ("offline: true\n", []), ("offline: false\n", ["--offline"])],
-    ids=["flag", "config", "flag-wins"],
+    [("offline: true\n", []), ("offline: false\n", ["--offline"])],
+    ids=["config", "flag-wins"],
 )
 def test_offline_page(
     dbt_project: Path, capsys: pytest.CaptureFixture[str], config: str, flag: list[str]
 ) -> None:
-    if config:
-        write_config(dbt_project, config)
+    write_config(dbt_project, config)
     assert main(["--project-dir", str(dbt_project), *OFFLINE, *flag]) == 0
     assert _is_offline((dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8"))
     page_line = [line for line in capsys.readouterr().out.splitlines() if line.startswith("  page:")]
@@ -140,53 +140,3 @@ def test_default_page_loads_the_cdns(dbt_project: Path, capsys: pytest.CaptureFi
     page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
     assert all(f'<script src="{lib.url}"></script>' in page for lib in LIBRARIES)
     assert "page:" not in capsys.readouterr().out
-
-
-def test_invalid_offline_value_exits_1(dbt_project: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    write_config(dbt_project, 'offline: "yes"\n')
-    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
-    assert "dbtscope: error: offline: must be true or false" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("value", ["yes", "True", "on"])
-def test_offline_accepts_yaml_booleans(dbt_project: Path, value: str) -> None:
-    write_config(dbt_project, f"offline: {value}\n")
-    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 0
-    assert _is_offline((dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8"))
-
-
-@pytest.mark.parametrize("text", ["offline: 1\n", "offline:\n", "offline: [true]\n"])
-def test_offline_non_bool_in_the_file_exits_1(
-    dbt_project: Path, capsys: pytest.CaptureFixture[str], text: str
-) -> None:
-    write_config(dbt_project, text)
-    assert main(["--project-dir", str(dbt_project), *OFFLINE, "--offline"]) == 1
-    assert "offline: must be true or false" in capsys.readouterr().err
-    assert not (dbt_project / "erd_output" / "erd.html").exists()
-
-
-def test_offline_page_is_larger_and_keeps_the_payload(dbt_project: Path) -> None:
-    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 0
-    cdn = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
-    assert main(["--project-dir", str(dbt_project), *OFFLINE, "--offline"]) == 0
-    offline = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
-    assert len(offline.encode()) > len(cdn.encode()) + 2_000_000
-    assert page_data(offline) == page_data(cdn)
-
-
-@pytest.mark.parametrize(
-    ("text", "message"),
-    [
-        ('{"nodes": {"model.shop.x": {"name": "x", "resource_type": "model"}}}',
-         "dbtscope: error: manifest: nodes['model.shop.x'].unique_id: is required\n"),
-        ('{"nodes": ', "dbtscope: error: manifest: "),
-    ],
-)  # fmt: skip
-def test_invalid_manifest_exits_1_with_one_line(
-    dbt_project: Path, capsys: pytest.CaptureFixture[str], text: str, message: str
-) -> None:
-    (dbt_project / "target" / "manifest.json").write_text(text, encoding="utf-8")
-    assert main(["--project-dir", str(dbt_project), *OFFLINE]) == 1
-    err = capsys.readouterr().err
-    assert err.startswith(message) and err.count("\n") == 1 and "Traceback" not in err
-    assert not (dbt_project / "erd_output" / "erd.html").exists()

@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import re
 from typing import Any
 
 import pytest
-from conftest import empty_universe, page_data
+from conftest import DATA_OPEN, data_block, empty_detail, empty_universe, page_data
 
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.payload import DetailPayload
 from dbtscope.render import page as page_module
 from dbtscope.render.page import LIBRARIES, VENDOR, render_page
 
-DETAIL = DetailPayload(title="x", lang="en", grouped=False, kinds=(), relations=(), entities=())
+DETAIL = empty_detail()
 UNIVERSE = empty_universe()
 
 
@@ -28,20 +30,6 @@ def test_page_embeds_scripts_title_and_data() -> None:
     assert data["view"] == "detail" and data["layout"] == {"format": "dbt-erd-layout"}
 
 
-def test_script_close_tag_is_escaped() -> None:
-    entity = {
-        "id": "a",
-        "name": "a",
-        "group": "",
-        "kind": "other",
-        "description": "</script><b>",
-        "columns": [],
-    }
-    page = render_page(_detail(entity), UNIVERSE, merge_config({}, {}))
-    assert "</script><b>" not in page
-    assert page_data(page)["detail"]["entities"][0]["description"] == "</script><b>"
-
-
 @pytest.mark.parametrize("offline", [False, True])
 def test_comment_and_script_open_in_the_data_are_escaped(offline: bool) -> None:
     # "<!-- <script>" would put the HTML parser in script double-escaped state (D-023)
@@ -49,8 +37,7 @@ def test_comment_and_script_open_in_the_data_are_escaped(offline: bool) -> None:
     entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": text, "columns": []}
     config = merge_config({}, {"title": "<!-- <script>"})
     page = render_page(_detail(entity), UNIVERSE, config, offline=offline)
-    block = page.split('<script type="application/json" id="data">')[1].split("</script>")[0]
-    assert "<" not in block
+    assert b"<" not in data_block(page.encode("utf-8"))
     data = page_data(page)
     assert data["detail"]["entities"][0]["description"] == text and data["title"] == "<!-- <script>"
 
@@ -92,10 +79,18 @@ def _offline_page() -> str:
     return render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=True)
 
 
-def test_offline_page_embeds_every_library_in_order() -> None:
+CDN_HOSTS = ("cdnjs.cloudflare.com", "cdn.jsdelivr.net")
+
+
+def test_offline_page_embeds_every_library_in_order_and_loads_no_remote_script() -> None:
     page = _offline_page()
-    assert not re.search(r"<script[^>]*\bsrc=", page, re.IGNORECASE)
-    assert all(lib.url not in page for lib in LIBRARIES)
+    # M2: every opening <script> tag is a bare inline block (or the JSON payload): nothing to fetch
+    assert set(re.findall(r"<script\b[^>]*>", page, re.IGNORECASE)) == {
+        "<script>",
+        DATA_OPEN,
+    }
+    assert not any(host in page for host in CDN_HOSTS)
+    assert not re.search(r"""\bimport\s*\(\s*["']https?://""", page)
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
     positions = [page.index(f"/*! {lib.name} {lib.version}, {lib.spdx}. Licence:") for lib in LIBRARIES[:2]]
     positions.append(page.index("Includes Graphviz 2.40.1, EPL-1.0. Licence:"))
@@ -139,20 +134,6 @@ def test_page_has_the_export_controls() -> None:
 
 # ---------------------------------------------------------------- M2 acceptance gaps (tester)
 
-CDN_HOSTS = ("cdnjs.cloudflare.com", "cdn.jsdelivr.net")
-
-
-def test_offline_page_names_no_cdn_and_loads_no_remote_script() -> None:
-    page = _offline_page()
-    # every opening <script> tag is a bare inline block (or the JSON payload): nothing to fetch
-    assert set(re.findall(r"<script\b[^>]*>", page, re.IGNORECASE)) == {
-        "<script>",
-        '<script type="application/json" id="data">',
-    }
-    assert not re.search(r"<script[^>]*https?://", page, re.IGNORECASE)
-    assert not any(host in page for host in CDN_HOSTS)
-    assert not re.search(r"""\bimport\s*\(\s*["']https?://""", page)
-
 
 def test_offline_page_carries_the_licence_texts_of_the_compiled_in_components() -> None:
     page = _offline_page()
@@ -174,16 +155,6 @@ def test_offline_banner_says_where_the_graphviz_source_is() -> None:
     assert "\nSource: https://gitlab.com/graphviz/graphviz/-/tree/2.40.1" in section
     assert page.count("\nSource: ") == 1  # only the notices that set one
     assert "Includes Emscripten 1.37.36, MIT OR NCSA. Licence:" in page
-
-
-def test_offline_page_escapes_script_close_in_the_data_too() -> None:
-    entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": "</SCRIPT>x"}
-    entity["columns"] = []
-    config = merge_config({}, {"title": "</script> t"})
-    page = render_page(_detail(entity), UNIVERSE, config, offline=True)
-    assert "</SCRIPT>x" not in page and "</script> t" not in page
-    assert page_data(page)["detail"]["entities"][0]["description"] == "</SCRIPT>x"
-    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
 
 
 def test_offline_page_differs_from_the_cdn_page_only_in_the_scripts() -> None:

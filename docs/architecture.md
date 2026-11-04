@@ -60,10 +60,12 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |
 | Which columns are keys | `domain/classify.key_columns` |
-| Domain of a table (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
+| Domain key of a table (group > meta.domain > rules > group_by) | `domain/universe.domain_of` |
 | Validate an exported layout | `domain/layout.check_layout` |
 | Assemble the HTML page | `render/page.render_page` |
-| JavaScript libraries of the page (CDN URL, vendored file, licence, hash) | `render/page.LIBRARIES` |
+| Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
+| JavaScript libraries of the page (CDN URL, vendored file, licence, hash); markup a vendored file may not hold | `render/page.LIBRARIES`, `UNSAFE_MARKUP` |
+| Every vendored file and where it comes from (URL, label, SPDX id, script sha256) | `render/page.vendored_files`, `VendoredFile` |
 | Script tags or inline libraries of the page | `render/page._scripts` |
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Lineage traversal from one table (page) | `render/assets/universe.js trajectory` |
@@ -77,6 +79,37 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Check a commit message | `tools/check_commit_message.problems` |
 | Block secrets, protected folders, commits and pushes on `main` (Claude Code) | `.claude/hooks/guard_paths.py` |
 | Format and lint-fix an edited file (Claude Code) | `.claude/hooks/format.py` |
+| Build the `shop` test manifest and its parts (tests) | `tests/conftest.shop_manifest`, `model`, `source`, `relationships_test`; `SHOP` (id prefix) |
+| Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |
+| Write a test project and its files (tests) | `tests/conftest.write_project`, `write_manifest`, `write_config`, `write_layout`; fixtures `dbt_project`, `shop` |
+| Read the embedded data block of a page (tests) | `tests/conftest.data_block` (bytes), `page_data` (dict) |
+| Import a script by path (`tools/`, `.claude/hooks/`) (tests) | `tests/conftest.load_script` |
+| CLI arguments that build from the written manifest (tests) | `tests/conftest.NO_PARSE_NO_OPEN` |
+| Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `Page` |
+| Block every request but the page's own (browser tests) | `tests/browser/conftest.only_own_url` |
+| Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `close_panel`, `scroll_width`, `names`, `names_of`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
+
+## Glossary
+
+One word per concept (D-027). Code, tests and docs use these words; names protected by invariant 9 and the CLI options keep their spelling even where the glossary prefers another word.
+
+| Concept | Word | Not | Notes |
+|---|---|---|---|
+| A model, seed, snapshot or source of the manifest | **table** (`Table`, `tables`) | node, entity, model (except dbt's resource type `model`) | Identified by its `unique_id` (invariant 11). |
+| A table as an item of the universe payload | **node** only as the payload key `nodes` and `UniverseNode` | — | Protected key; Python variables holding `UniverseNode`s are `nodes`. "Node" also stays for dbt's manifest `nodes` and `NodeHeader`. |
+| A table as an item of the detail payload | **entity** only as the payload key `entities` and `DetailEntity` | — | Protected key; variables holding `DetailEntity`s are `entities`. |
+| Business link declared by a `relationships` test or a `foreign_key` constraint | **relation** (`Relation`, `relations`) | relationship (except dbt's test name), FK link | |
+| `ref` / `source` dependency | **lineage** (`LineageEdge`, `lineage`); one item is a **lineage edge** | dependency, parent link | |
+| What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |
+| Classification of a table by the `kinds` rules (hub, fact…) or its built-in fallback | **kind** (`kinds`, `BuiltinKind`, `TYPE_KINDS`) | type, category | The page labels kinds "Types": UI text, frozen with the page. |
+| dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
+| Data domain of the universe (dbt group > `meta.domain` > `domains` rules > `group_by`) | **domain** | constellation (allowed in UI prose only) | |
+| Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
+| `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. |
+| The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |
+| Configuration | **config** (`Config`, `dbt-erd.yml`) | settings (except `UniverseSettings`, the `universe` section) | |
+| Licence text and files of the vendored libraries | **licence** (noun, as in `Library.licence`) | license | "license" only in external names: SPDX ids, `pyproject` `license`, upstream `LICENSE*` file names. |
+| The manual arrangement | **layout** (`dbt-erd-layout.json`, `LAYOUT_FORMAT`) | arrangement (UI prose only) | |
 
 ## Configuration
 
