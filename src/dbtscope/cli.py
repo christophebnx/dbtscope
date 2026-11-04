@@ -18,12 +18,12 @@ import sys
 import webbrowser
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 from dbtscope import __version__
 from dbtscope.domain.config import CONFIG_FILE
 from dbtscope.domain.detail import detail_data, select
 from dbtscope.domain.errors import DomainError
+from dbtscope.domain.payload import DetailPayload, UniversePayload
 from dbtscope.domain.universe import universe_data
 from dbtscope.render.page import render_page
 from dbtscope.storage.files import atomic_write
@@ -76,20 +76,18 @@ def _dbt_parse(dbt: str, project: Path) -> None:
 
 def _summary(
     output: Path,
-    detail: dict[str, Any],
-    universe: dict[str, Any],
+    detail: DetailPayload,
+    universe: UniversePayload,
     layout_note: str | None,
     page_note: str | None = None,
 ) -> str:
-    entities = detail["entities"]
-    counts = ", ".join(
-        f"{sum(e['kind'] == k['key'] for e in entities)} {k['label']}" for k in detail["kinds"]
-    )
+    entities = detail.entities
+    counts = ", ".join(f"{sum(e.kind == k.key for e in entities)} {k.label}" for k in detail.kinds)
     lines = [
         str(output),
-        f"  universe: {len(universe['nodes'])} tables in {len(universe['domains'])} domains, "
-        f"{len(universe['relations'])} relations, {len(universe['lineage'])} lineage links",
-        f"  detail:   {len(entities)} tables ({counts}), {len(detail['relations'])} relations",
+        f"  universe: {len(universe.nodes)} tables in {len(universe.domains)} domains, "
+        f"{len(universe.relations)} relations, {len(universe.lineage)} lineage links",
+        f"  detail:   {len(entities)} tables ({counts}), {len(detail.relations)} relations",
     ]
     if page_note:
         lines.append(f"  page:     {page_note}")
@@ -118,7 +116,7 @@ def run(args: argparse.Namespace) -> None:
     nodes, relations = select(dbt.tables, dbt.relations, config, dbt.root)
     detail = detail_data(nodes, relations, config)
     universe = universe_data(dbt, config)
-    if not nodes and not universe["nodes"]:
+    if not nodes and not universe.nodes:
         raise RunError("No node matches the selection; check `select` / `exclude` in the config.")
 
     layout_path = project / config.layout_file

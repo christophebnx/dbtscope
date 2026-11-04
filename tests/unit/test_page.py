@@ -1,18 +1,26 @@
 import re
+from typing import Any
 
 import pytest
-from conftest import page_data
+from conftest import empty_universe, page_data
 
 from dbtscope.domain.config import merge_config
+from dbtscope.domain.payload import DetailPayload
 from dbtscope.render import page as page_module
 from dbtscope.render.page import LIBRARIES, VENDOR, render_page
 
-DETAIL = {"title": "x", "lang": "en", "grouped": False, "kinds": [], "relations": [], "entities": []}
+DETAIL = DetailPayload(title="x", lang="en", grouped=False, kinds=(), relations=(), entities=())
+UNIVERSE = empty_universe()
+
+
+def _detail(entity: dict[str, Any]) -> DetailPayload:
+    """`DETAIL` with one entity."""
+    return DetailPayload.model_validate({**DETAIL.model_dump(), "entities": [entity]})
 
 
 def test_page_embeds_scripts_title_and_data() -> None:
     config = merge_config({}, {"title": "A & <B>", "view": "detail"})
-    page = render_page(DETAIL, {"nodes": []}, config, {"format": "dbt-erd-layout"})
+    page = render_page(DETAIL, UNIVERSE, config, {"format": "dbt-erd-layout"})
     assert "<title>A &amp; &lt;B></title>" in page
     assert "function startUniverse" in page and "function startDetail" in page
     assert "{{" not in page
@@ -29,7 +37,7 @@ def test_script_close_tag_is_escaped() -> None:
         "description": "</script><b>",
         "columns": [],
     }
-    page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, merge_config({}, {}))
+    page = render_page(_detail(entity), UNIVERSE, merge_config({}, {}))
     assert "</script><b>" not in page
     assert page_data(page)["detail"]["entities"][0]["description"] == "</script><b>"
 
@@ -40,7 +48,7 @@ def test_comment_and_script_open_in_the_data_are_escaped(offline: bool) -> None:
     text = "a <!-- <script> b </script> c"
     entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": text, "columns": []}
     config = merge_config({}, {"title": "<!-- <script>"})
-    page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, config, offline=offline)
+    page = render_page(_detail(entity), UNIVERSE, config, offline=offline)
     block = page.split('<script type="application/json" id="data">')[1].split("</script>")[0]
     assert "<" not in block
     data = page_data(page)
@@ -48,7 +56,7 @@ def test_comment_and_script_open_in_the_data_are_escaped(offline: bool) -> None:
 
 
 def test_page_has_the_trajectory_mode() -> None:
-    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     for marker in (
         'id="u-trajbar"',
         'id="u-traj"',
@@ -67,7 +75,7 @@ M1_SCRIPT_TAGS = """\
 
 
 def test_cdn_page_keeps_the_m1_script_tags() -> None:
-    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     after_data = page.split('id="data">', 1)[1].split("</script>\n", 1)[1]
     assert after_data.startswith(M1_SCRIPT_TAGS + "\n<script>\n// Detail view")
     assert page.count("<script src") == 4
@@ -75,13 +83,13 @@ def test_cdn_page_keeps_the_m1_script_tags() -> None:
 
 
 def test_title_with_a_placeholder_is_not_substituted() -> None:
-    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {"title": "{{DATA}}"}))
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {"title": "{{DATA}}"}))
     assert "<title>{{DATA}}</title>" in page
     assert page_data(page)["title"] == "{{DATA}}"
 
 
 def _offline_page() -> str:
-    return render_page(DETAIL, {"nodes": []}, merge_config({}, {}), offline=True)
+    return render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=True)
 
 
 def test_offline_page_embeds_every_library_in_order() -> None:
@@ -113,7 +121,7 @@ def test_inlined_libraries_cannot_close_their_script(monkeypatch: pytest.MonkeyP
 
 
 def test_page_has_the_export_controls() -> None:
-    page = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     for marker in (
         'id="u-export"',
         'id="d-export-png"',
@@ -172,14 +180,14 @@ def test_offline_page_escapes_script_close_in_the_data_too() -> None:
     entity = {"id": "a", "name": "a", "group": "", "kind": "other", "description": "</SCRIPT>x"}
     entity["columns"] = []
     config = merge_config({}, {"title": "</script> t"})
-    page = render_page({**DETAIL, "entities": [entity]}, {"nodes": []}, config, offline=True)
+    page = render_page(_detail(entity), UNIVERSE, config, offline=True)
     assert "</SCRIPT>x" not in page and "</script> t" not in page
     assert page_data(page)["detail"]["entities"][0]["description"] == "</SCRIPT>x"
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
 
 
 def test_offline_page_differs_from_the_cdn_page_only_in_the_scripts() -> None:
-    cdn = render_page(DETAIL, {"nodes": []}, merge_config({}, {}))
+    cdn = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     offline = _offline_page()
     head, tail = cdn.split(M1_SCRIPT_TAGS)
     assert offline.startswith(head) and offline.endswith(tail)

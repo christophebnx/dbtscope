@@ -12,7 +12,9 @@ def test_domains_layers_and_kinds(shop: Project) -> None:
         ],
         "universe": {"hidden_kinds": ["source"]},
     }
-    data = universe_data(shop, merge_config(read_preset("star_schema"), file_config))
+    data = universe_data(shop, merge_config(read_preset("star_schema"), file_config)).model_dump(
+        mode="json", by_alias=True
+    )
 
     by_name = {n["name"]: n for n in data["nodes"]}
     assert set(by_name) == {
@@ -54,13 +56,15 @@ def test_configured_layers(shop: Project) -> None:
         {"key": "raw", "label": "Raw", "match": ["type:source", "stg_*"]},
         {"key": "marts", "label": "Marts", "match": ["fct_*"]},
     ]
-    data = universe_data(shop, merge_config({}, {"layers": layers}))
+    data = universe_data(shop, merge_config({}, {"layers": layers})).model_dump(mode="json", by_alias=True)
     assert [layer["key"] for layer in data["layers"]] == ["raw", "marts", "other"]
     assert {n["name"]: n["layer"] for n in data["nodes"]}["dim_customer"] == "other"
 
 
 def test_tables_without_domain_come_last(shop: Project) -> None:
-    data = universe_data(shop, merge_config({}, {"group_by": "none", "language": "fr"}))
+    data = universe_data(shop, merge_config({}, {"group_by": "none", "language": "fr"})).model_dump(
+        mode="json", by_alias=True
+    )
     assert data["domains"][-1] == {"key": "", "label": "Hors domaine", "color": "#8a94a6", "owner": ""}
 
 

@@ -15,7 +15,7 @@ def test_star_schema_preset(shop: Project) -> None:
     ]
     assert len(relations) == 3  # the edge to the unselected stg_orders is dropped
 
-    data = detail_data(nodes, relations, config)
+    data = detail_data(nodes, relations, config).model_dump(mode="json")  # as the page reads it
     kinds = {e["name"]: e["kind"] for e in data["entities"]}
     assert kinds == {"dim_customer": "dim", "dim_product": "dim", "fct_orders": "fact", "fct_returns": "fact"}
     assert {e["name"]: e["group"] for e in data["entities"]}["dim_product"] == "catalog"
@@ -34,7 +34,9 @@ def test_unmatched_tables_are_other_in_the_user_language(shop: Project) -> None:
         "kinds": [{"key": "core", "label": "Cœur", "color": "#ff0000", "match": "tag:core"}],
     }
     config = merge_config(read_preset("star_schema"), file_config)
-    data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config)
+    data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config).model_dump(
+        mode="json"
+    )
     assert sorted(e["name"] for e in data["entities"]) == ["dim_customer", "dim_product", "fct_orders"]
     assert {e["kind"] for e in data["entities"]} == {"core", "other"}
     assert [k["label"] for k in data["kinds"]] == ["Cœur", "Autre"]

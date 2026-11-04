@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from dbtscope.domain.model import Project, Table
+from dbtscope.domain.payload import UniverseDefaults, UniversePayload
 from dbtscope.storage.project_files import read_manifest
 
 M = "model.shop."
@@ -121,6 +122,14 @@ def table(**fields: Any) -> Table:
     """A `Table` for unit tests: a model `fct_orders` of `shop`, with `fields` set."""
     return Table(
         **{"unique_id": "model.shop.fct_orders", "name": "fct_orders", "resource_type": "model", **fields}
+    )
+
+
+def empty_universe() -> UniversePayload:
+    """A universe payload with no table, for page tests about the detail view or the shell."""
+    defaults = UniverseDefaults(links="both", detail="names", hidden_kinds=())
+    return UniversePayload(
+        nodes=(), relations=(), lineage=(), domains=(), layers=(), kinds=(), defaults=defaults
     )
 
 
