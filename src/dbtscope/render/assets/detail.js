@@ -150,7 +150,8 @@ function visibleIds() {
 function nodeDot(e, pos) {
   const k = KIND[e.kind];
   // trailing spaces keep bold names (under-measured by Viz.js) clear of the type column
-  const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left"><font color="#888888">${esc(type)}</font></td></tr>`;
+  // Graphviz rejects an empty <font>: a column without data_type gets an empty cell
+  const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="#888888">${esc(type)}</font>` : ''}</td></tr>`;
   const keys = e.columns.filter(c => c[2]), rest = e.columns.filter(c => !c[2]);
   let rows = keys.map(([c, t]) => row(`<b>${esc(c)}</b>`, t)).join('');
   if (state.allColumns) rows += rest.map(([c, t]) => row(esc(c), t)).join('');

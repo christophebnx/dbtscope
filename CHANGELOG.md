@@ -37,6 +37,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Fixed
 
+- Detail view (M4.4): a column without a `data_type` no longer breaks the whole diagram with "Render error: … in label of node …"; its type cell is left empty.
 - `--dbt` given as a relative path is run as its absolute path; it was looked up from the project folder, where dbt runs (M4.2).
 - A dbt group owner whose email is a list (manifest v12) no longer stops the run; the addresses are joined.
 - A `relationships` test without `attached_node` is now drawn (its child is taken from the test's dependencies).
