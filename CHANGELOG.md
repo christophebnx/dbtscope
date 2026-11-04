@@ -14,6 +14,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- Code review (M4.1, D-027, D-028), no user-visible change: one page encoder (`render/page.embedded_json`) and one list of vendored files (`render/page.vendored_files`) shared by the page, the vendoring tool and the tests; dead fallbacks and unused parameters removed in `domain/`; shared test helpers in `tests/conftest.py` and `tests/browser/conftest.py`; redundant tests removed or merged (default suite 397 → 346 tests, 2.75 s → 1.9 s; browser suite 98 → 84); a glossary of the project's words in `docs/architecture.md`; `from __future__ import annotations` enforced by ruff. The generated page is unchanged byte for byte.
 - Typed data model (M3, D-024, D-025): manifest input, tables and relations, configuration and page data are pydantic v2 models. pydantic is now a runtime dependency. The generated page is unchanged byte for byte.
 - Stricter inputs, each failure one line with exit code 1: an invalid or unexpected manifest stops with `dbtscope: error: manifest: <location>: <problem>`; `include_packages` and `offline` accept only `true` / `false`; a `universe` that is not a mapping is refused; a manifest, layout, `dbt-erd.yml` or preset that is not UTF-8, not valid JSON / YAML or nested too deeply is reported instead of a traceback. An invalid layout file now says "is not valid JSON".
 - Config error messages reworded as `<key>: <problem>` (for example `view: must be 'universe' or 'detail'`).

@@ -143,3 +143,4 @@ Done when: each sub-milestone's criteria in the brief are met, tests green (defa
 - Print stylesheet: the current view on one page, without panels and toolbars.
 - Small screens: side panel closed by default under 600 px (needs a decision: it changes the opening state); layout buttons at 44 px on touch screens.
 - Plural agreement in counts ("1 table", "1 colonne").
+- Page script tidy-up, see M4.1 design note § 6 (`docs/architecture/2026-11-04-m4.1-code-review.md`).
