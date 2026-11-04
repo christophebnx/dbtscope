@@ -1,7 +1,7 @@
 from typing import Any
 
 from dbtscope.domain.classify import background, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import merge_config
+from dbtscope.domain.config import Rule, merge_config
 
 NODE: dict[str, Any] = {
     "name": "fct_orders", "tags": ["domain_sales", "core"], "path": "models/marts/sales/fct_orders.sql",
@@ -24,9 +24,9 @@ def test_group_of() -> None:
 
 def test_first_rule() -> None:
     rules = [
-        {"key": "dim", "match": ["dim_*"]},
-        {"key": "fact", "match": ["fct_*"]},
-        {"key": "x", "match": ["*"]},
+        Rule(key="dim", label=None, match=("dim_*",)),
+        Rule(key="fact", label=None, match=("fct_*",)),
+        Rule(key="x", label=None, match=("*",)),
     ]
     assert first_rule(NODE, rules) == rules[1]
     assert first_rule(NODE, rules[:1]) is None
@@ -36,7 +36,9 @@ def test_in_scope_respects_packages_select_and_exclude() -> None:
     config = merge_config({}, {})
     assert in_scope(NODE, config, "shop", ["type:model"], [])
     assert not in_scope(NODE, config, "other_project", ["type:model"], [])
-    assert in_scope(NODE, {**config, "include_packages": True}, "other_project", ["type:model"], [])
+    assert in_scope(
+        NODE, config.model_copy(update={"include_packages": True}), "other_project", ["type:model"], []
+    )
     assert not in_scope(NODE, config, "shop", ["type:model"], ["fct_*"])
 
 

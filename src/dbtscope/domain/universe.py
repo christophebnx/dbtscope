@@ -6,15 +6,15 @@ from collections import Counter
 from itertools import cycle
 from typing import Any
 
-from dbtscope.domain.classify import OTHER, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import Config
+from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
+from dbtscope.domain.config import Config, Rule
 from dbtscope.domain.manifest import Edge, Node, Project
 
 # kinds for nodes no configured kind matches
-TYPE_KINDS: dict[str, dict[str, Any]] = {
-    "source": {"key": "source", "label": {"en": "Source", "fr": "Source"}, "color": "#94a3b8"},
-    "seed": {"key": "seed", "label": {"en": "Seed", "fr": "Seed"}, "color": "#8b5cf6"},
-    "snapshot": {"key": "snapshot", "label": {"en": "Snapshot", "fr": "Snapshot"}, "color": "#64748b"},
+TYPE_KINDS: dict[str, BuiltinKind] = {
+    "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
+    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#8b5cf6"),
+    "snapshot": BuiltinKind(key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b"),
 }
 NO_DOMAIN = {"en": "No domain", "fr": "Hors domaine"}
 NO_DOMAIN_COLOR = "#8a94a6"
@@ -33,16 +33,16 @@ FLOW_PREFIXES = [
 UNRANKED = 4.5
 
 
-def domain_of(node: Node, config: Config) -> tuple[str, dict[str, Any] | None]:
+def domain_of(node: Node, config: Config) -> tuple[str, Rule | None]:
     """dbt group > meta.domain > `domains` rules > group_by. Returns (key, matching rule or None)."""
     if node["group"]:
         return node["group"], None
     if node["meta"].get("domain"):
         return str(node["meta"]["domain"]), None
-    rule = first_rule(node, config["domains"])
+    rule = first_rule(node, config.domains)
     if rule:
-        return rule["key"], rule
-    return group_of(node, config["group_by"]) or "", None
+        return rule.key, rule
+    return group_of(node, config.group_by) or "", None
 
 
 def _default_layer(node: Node) -> str:
@@ -53,10 +53,10 @@ def _default_layer(node: Node) -> str:
 
 def _layer_of(node: Node, config: Config) -> str:
     """The first matching `layers` rule, "other" when none matches, or the default layer."""
-    if not config["layers"]:
+    if not config.layers:
         return _default_layer(node)
-    layer = first_rule(node, config["layers"])
-    return layer["key"] if layer else OTHER["key"]
+    layer = first_rule(node, config.layers)
+    return layer.key if layer else OTHER.key
 
 
 def flow_rank(key: str) -> float:
@@ -67,53 +67,47 @@ def flow_rank(key: str) -> float:
 
 def _domains(records: list[dict[str, Any]], config: Config, project: Project) -> list[dict[str, str]]:
     sizes = Counter(r["domain"] for r in records)
-    configured = {r["key"]: r for r in config["domains"]}
-    lang, palette = config["language"], cycle(PALETTE)
+    configured = {r.key: r for r in config.domains}
+    lang, palette = config.language, cycle(PALETTE)
     domains = []
     for key, _ in sorted(sizes.items(), key=lambda kv: (kv[0] == "", -kv[1], kv[0])):
-        rule = configured.get(key) or {}
+        rule = configured.get(key)
         group = project.groups.get(key)
         if key == "":
             color, label = NO_DOMAIN_COLOR, NO_DOMAIN[lang]
         else:
-            color = rule.get("color") or next(palette)
-            label = rule.get("label") or key
+            color = rule.color if rule and rule.color else next(palette)
+            label = rule.label if rule and rule.label else key
         domains.append({"key": key, "label": label, "color": color, "owner": group["owner"] if group else ""})
     return domains
 
 
 def _layers(used: set[str], config: Config) -> list[dict[str, str]]:
-    if not config["layers"]:
+    if not config.layers:
         return [{"key": k, "label": k.capitalize()} for k in sorted(used, key=lambda k: (flow_rank(k), k))]
-    layers = [
-        {"key": rule["key"], "label": rule["label"]} for rule in config["layers"] if rule["key"] in used
-    ]
-    if OTHER["key"] in used:
-        layers.append({"key": OTHER["key"], "label": OTHER["label"][config["language"]]})
+    layers = [{"key": rule.key, "label": rule.label} for rule in config.layers if rule.key in used]
+    if OTHER.key in used:
+        layers.append({"key": OTHER.key, "label": OTHER.label[config.language]})
     return layers
 
 
 def _kinds(used: set[str], config: Config) -> list[dict[str, str]]:
-    kinds = [
-        {"key": k["key"], "label": k["label"], "color": k["color"]}
-        for k in config["kinds"]
-        if k["key"] in used
-    ]
+    kinds = [{"key": k.key, "label": k.label, "color": k.color} for k in config.kinds if k.key in used]
     kinds += [
-        {**t, "label": t["label"][config["language"]]}
+        {"key": t.key, "label": t.label[config.language], "color": t.color}
         for t in [*TYPE_KINDS.values(), OTHER]
-        if t["key"] in used
+        if t.key in used
     ]
     return kinds
 
 
 def universe_data(project: Project, config: Config) -> dict[str, Any]:
     """The JSON payload of the universe view."""
-    universe = config["universe"]
+    universe = config.universe
     nodes = {
         uid: n
         for uid, n in project.nodes.items()
-        if in_scope(n, config, project.root, universe["select"], universe["exclude"])
+        if in_scope(n, config, project.root, universe.select, universe.exclude)
     }
     ids = sorted(nodes, key=lambda uid: (nodes[uid]["name"], uid))
     index = {uid: i for i, uid in enumerate(ids)}
@@ -124,14 +118,14 @@ def universe_data(project: Project, config: Config) -> dict[str, Any]:
         node = nodes[uid]
         domain, _ = domain_of(node, config)
         layer_key = _layer_of(node, config)
-        kind = first_rule(node, config["kinds"]) or TYPE_KINDS.get(node["type"], OTHER)
+        kind = first_rule(node, config.kinds) or TYPE_KINDS.get(node["type"], OTHER)
         records.append(
             {
                 "id": uid,
                 "name": node["name"],
                 "domain": domain,
                 "layer": layer_key,
-                "kind": kind["key"],
+                "kind": kind.key,
                 "desc": node["description"][:DESCRIPTION_LIMIT],
                 "cols": [[c["name"], c["type"], int(is_key(uid, c["name"]))] for c in node["columns"]],
             }
@@ -153,8 +147,8 @@ def universe_data(project: Project, config: Config) -> dict[str, Any]:
         "layers": _layers({r["layer"] for r in records}, config),
         "kinds": _kinds({r["kind"] for r in records}, config),
         "defaults": {
-            "links": universe["links"],
-            "detail": universe["detail"],
-            "hiddenKinds": universe["hidden_kinds"],
+            "links": universe.links,
+            "detail": universe.detail,
+            "hiddenKinds": list(universe.hidden_kinds),
         },
     }

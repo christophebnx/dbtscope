@@ -17,11 +17,11 @@ def test_builtin_presets() -> None:
 
 
 def test_config_file_and_preset_option(dbt_project: Path) -> None:
-    assert load_config(dbt_project)["title"] == "dbt ERD"  # no file: defaults
+    assert load_config(dbt_project).title == "dbt ERD"  # no file: defaults
     write_config(dbt_project, "preset: star_schema\nlanguage: fr\n")
     config = load_config(dbt_project)
-    assert config["title"] == "Star schema" and config["language"] == "fr"
-    assert load_config(dbt_project, preset="data_vault")["title"] == "Raw vault"  # option wins
+    assert config.title == "Star schema" and config.language == "fr"
+    assert load_config(dbt_project, preset="data_vault").title == "Raw vault"  # option wins
 
 
 def test_config_errors(dbt_project: Path) -> None:
