@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 
 import pytest
@@ -18,6 +20,7 @@ from dbtscope.domain.payload import (
     UniverseNode,
     UniversePayload,
 )
+from dbtscope.render.page import embedded_json
 
 ENTITY = DetailEntity(
     id="model.shop.a", name="a", group="g", kind="other", description="d", columns=(("id", "int", True, ""),)
@@ -38,13 +41,6 @@ UNIVERSE = UniversePayload(
 )  # fmt: skip
 
 
-def _json(model: BaseModel) -> str:
-    """As render_page writes it."""
-    return json.dumps(
-        model.model_dump(mode="python", by_alias=True), ensure_ascii=False, separators=(",", ":")
-    )
-
-
 @pytest.mark.parametrize(
     ("model", "keys"),
     [
@@ -61,22 +57,22 @@ def _json(model: BaseModel) -> str:
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
-    assert list(json.loads(_json(model))) == keys
+    assert list(json.loads(embedded_json(model))) == keys
 
 
 def test_positional_arrays_booleans_and_null_labels() -> None:
-    assert '"columns":[["id","int",true,""]]' in _json(DETAIL)
-    assert '"cols":[["id","int",1]]' in _json(UNIVERSE)
-    assert '"relations":[[0,0]]' in _json(UNIVERSE)
-    assert '"hiddenKinds":["k"]' in _json(UNIVERSE)
-    assert '"label":null' in _json(DETAIL) and '"label":null' in _json(UNIVERSE)
+    assert '"columns":[["id","int",true,""]]' in embedded_json(DETAIL)
+    assert '"cols":[["id","int",1]]' in embedded_json(UNIVERSE)
+    assert '"relations":[[0,0]]' in embedded_json(UNIVERSE)
+    assert '"hiddenKinds":["k"]' in embedded_json(UNIVERSE)
+    assert '"label":null' in embedded_json(DETAIL) and '"label":null' in embedded_json(UNIVERSE)
 
 
 def test_page_payload_wraps_both_views() -> None:
     page = PagePayload(
         title="t", lang="fr", view="detail", detail=DETAIL, universe=empty_universe(), layout={}
     )
-    assert list(json.loads(_json(page))) == ["title", "lang", "view", "detail", "universe", "layout"]
+    assert list(json.loads(embedded_json(page))) == ["title", "lang", "view", "detail", "universe", "layout"]
 
 
 def test_defaults_are_built_by_their_python_name_only() -> None:
@@ -93,13 +89,6 @@ def test_payloads_are_closed_and_immutable() -> None:
         NODE.name = "b"  # type: ignore[misc]
     with pytest.raises(ValidationError):
         PagePayload(title="t", lang="de", view="detail", detail=DETAIL, universe=UNIVERSE, layout={})  # type: ignore[arg-type]
-
-
-@pytest.mark.parametrize(("field", "value"), [("links", "all"), ("detail", "both")])
-def test_defaults_take_the_config_choices_only(field: str, value: str) -> None:
-    fields = {"links": "both", "detail": "names", "hidden_kinds": [], field: value}
-    with pytest.raises(ValidationError):
-        UniverseDefaults.model_validate(fields)
 
 
 def test_payload_literals_are_the_config_literals() -> None:

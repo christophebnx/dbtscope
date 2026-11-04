@@ -123,6 +123,29 @@ LIBRARIES: tuple[Library, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class VendoredFile:
+    """A file of render/vendor/: where it is fetched from and what it is."""
+
+    url: str  # where it is fetched from
+    label: str  # "d3 7.9.0", "Graphviz 2.40.1 (in `full.render.js`)"
+    spdx: str  # SPDX id of its licence
+    sha256: str = ""  # of a script (pinned in `LIBRARIES`); "" for a licence file
+
+
+def vendored_files() -> dict[str, VendoredFile]:
+    """Every file of render/vendor/ by name, once each, library by library: its script, then its
+    licence and the licences of the components compiled into it."""
+    files: dict[str, VendoredFile] = {}
+    for lib in LIBRARIES:
+        label = f"{lib.name} {lib.version}"
+        files.setdefault(lib.file, VendoredFile(lib.url, label, lib.spdx, lib.sha256))
+        files.setdefault(lib.licence, VendoredFile(lib.licence_url, label, lib.spdx))
+        for n in lib.notices:
+            files.setdefault(n.file, VendoredFile(n.url, f"{n.name} {n.version} (in `{lib.file}`)", n.spdx))
+    return files
+
+
 def _asset(name: str) -> str:
     return (ASSETS / name).read_text(encoding="utf-8")
 
@@ -132,6 +155,8 @@ def _vendored(name: str) -> str:
 
 
 SCRIPT_CLOSE = re.compile(r"</(script)", re.IGNORECASE)
+# a vendored file (script or licence) is inlined as is: none of these may appear in it (lower case)
+UNSAFE_MARKUP = ("<!--", "<script")
 
 
 def _inline(text: str) -> str:
@@ -166,6 +191,16 @@ def _scripts(offline: bool = False) -> str:
     )
 
 
+def embedded_json(payload: PagePayload | DetailPayload | UniversePayload) -> str:
+    """The JSON text of `payload` as embedded in the page, with every `<` escaped (D-023)."""
+    # json.dumps, not model_dump_json: one encoder, and the D-023 escape right after it
+    return json.dumps(
+        payload.model_dump(mode="python", by_alias=True),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).replace("<", "\\u003c")  # same JSON; no "</script" nor "<!--" can end or disturb its block (D-023)
+
+
 def render_page(
     detail: DetailPayload,
     universe: UniversePayload,
@@ -185,12 +220,7 @@ def render_page(
         universe=universe,
         layout=layout or {},
     )
-    # json.dumps, not model_dump_json: one encoder, and the D-023 escape right after it
-    payload = json.dumps(
-        page.model_dump(mode="python", by_alias=True),
-        ensure_ascii=False,
-        separators=(",", ":"),
-    ).replace("<", "\\u003c")  # same JSON; no "</script" nor "<!--" can end or disturb its block (D-023)
+    json_text = embedded_json(page)
     parts = {
         "STYLE": _asset("page.css"),
         "SCRIPTS": _scripts(offline),
@@ -198,7 +228,7 @@ def render_page(
         "UNIVERSE_JS": _asset("universe.js"),
         "BOOT_JS": _asset("boot.js"),
         "TITLE": config.title.replace("&", "&amp;").replace("<", "&lt;"),
-        "DATA": payload,
+        "DATA": json_text,
     }
     # one pass: inserted text (a library, a script, the title) is never scanned for placeholders again
     return PLACEHOLDER.sub(lambda m: parts[m[1]], _asset("page.html"))

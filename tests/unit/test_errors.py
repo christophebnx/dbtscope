@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import Literal
 
 import pytest
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError, field_validator
 
-from dbtscope.domain.errors import validation_message
+from dbtscope.domain.errors import in_words, validation_message
 
 
 class Inner(BaseModel):
@@ -51,7 +53,7 @@ def _message(data: object, prefix: tuple[str | int, ...] = ()) -> str:
         ({"inner": {"name": "a", "pattern": "("}}, "inner.pattern: invalid regex '('"),
         ({"inner": {"name": "a", "count": "x"}}, "inner.count: input should be a valid integer, "
          "unable to parse string as an integer"),
-        ({"inner": {"name": "a", "colour": "red"}}, "inner.colour: extra inputs are not permitted"),
+        ({"inner": {"name": "a", "colour": "red"}}, "inner.colour: unknown key"),
     ],
 )  # fmt: skip
 def test_each_problem_is_phrased(data: dict, expected: str) -> None:
@@ -84,3 +86,21 @@ def test_empty_location_gives_the_problem_alone() -> None:
     with pytest.raises(ValidationError) as info:
         Outer.model_validate([1])
     assert validation_message(info.value) == "must be a mapping"
+
+
+@pytest.mark.parametrize(
+    ("values", "words"),
+    [([], ""), (["a"], "a"), (["a", "b"], "a or b"), (["a", "b", "c"], "a, b or c")],
+)
+def test_in_words(values: list[str], words: str) -> None:
+    assert in_words(values) == words
+
+
+def test_a_chosen_error_type_is_shown_first() -> None:
+    with pytest.raises(ValidationError) as info:
+        Outer.model_validate({"inner": {"name": "a", "language": "x", "colour": "red"}})
+    assert validation_message(info.value) == "inner.language: must be 'en' or 'fr' (and 1 more problem)"
+    assert (
+        validation_message(info.value, first="extra_forbidden")
+        == "inner.colour: unknown key (and 1 more problem)"
+    )

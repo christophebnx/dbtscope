@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# dbt writes many more fields than these, and adds new ones: unknown keys are ignored
 INPUT = ConfigDict(extra="ignore", frozen=True)
 TableType = Literal["model", "seed", "snapshot"]  # the entries of `nodes` that are drawn
 

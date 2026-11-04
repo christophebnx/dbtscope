@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from conftest import table
 
 from dbtscope.domain.classify import background, first_rule, group_of, in_scope, key_columns
@@ -15,7 +17,7 @@ def test_background_is_a_light_tint() -> None:
     assert background("#ffffff") == "#ffffff"
 
 
-def test_group_of() -> None:
+def test_group_of_every_group_by_setting() -> None:
     assert group_of(NODE, "schema") == "sales"
     assert group_of(NODE, "database") == "dwh" and group_of(NODE, "package") == "shop"
     assert group_of(NODE, "tag:CO*") == "core" and group_of(NODE, "tag:nope*") == ""
@@ -26,7 +28,7 @@ def test_group_of() -> None:
     assert group_of(NODE, "none") == ""
 
 
-def test_first_rule() -> None:
+def test_first_matching_rule_wins() -> None:
     rules = [
         Rule(key="dim", label=None, match=("dim_*",)),
         Rule(key="fact", label=None, match=("fct_*",)),

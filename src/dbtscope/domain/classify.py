@@ -5,30 +5,31 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from dbtscope.domain import selectors
-from dbtscope.domain.config import Config, Language, Rule
-from dbtscope.domain.model import Relation, Table
+from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, Language, Rule
+from dbtscope.domain.model import DOMAIN, Relation, Table
 
 
 class BuiltinKind(BaseModel):
     """A kind (or layer) dbtscope names itself, labelled in every page language."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = DOMAIN
 
     key: str
     label: dict[Language, str]
     color: str
 
 
-OTHER = BuiltinKind(key="other", label={"en": "Other", "fr": "Autre"}, color="#777777")
+OTHER = BuiltinKind(key="other", label={"en": "Other", "fr": "Autre"}, color=DEFAULT_KIND_COLOR)
+TINT = 0.88  # share of white mixed into a kind colour for the table body
 
 
-def background(hex_color: str, weight: float = 0.88) -> str:
-    """A light tint of a kind colour, for the table body."""
+def background(hex_color: str) -> str:
+    """A light tint of a kind colour (`TINT`), for the table body."""
     red, green, blue = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
-    return "#" + "".join(f"{round(c + (255 - c) * weight):02x}" for c in (red, green, blue))
+    return "#" + "".join(f"{round(c + (255 - c) * TINT):02x}" for c in (red, green, blue))
 
 
 def group_of(table: Table, group_by: str) -> str:

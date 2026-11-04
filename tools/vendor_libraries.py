@@ -17,10 +17,10 @@ import argparse
 import hashlib
 import sys
 import urllib.request
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
-from dbtscope.render.page import LIBRARIES, VENDOR
+from dbtscope.render.page import LIBRARIES, UNSAFE_MARKUP, VENDOR, vendored_files
 from dbtscope.storage.files import atomic_write
 
 FOLDER = Path(str(VENDOR))
@@ -29,18 +29,6 @@ FOLDER = Path(str(VENDOR))
 def _fetch(url: str) -> bytes:
     with urllib.request.urlopen(url, timeout=120) as response:  # default context: TLS verified
         return response.read()
-
-
-def _files() -> Iterator[tuple[str, str]]:
-    """(file name, URL) of every vendored file, once each."""
-    seen: set[str] = set()
-    for lib in LIBRARIES:
-        pairs = [(lib.file, lib.url), (lib.licence, lib.licence_url)]
-        pairs += [(n.file, n.url) for n in lib.notices]
-        for name, url in pairs:
-            if name not in seen:
-                seen.add(name)
-                yield name, url
 
 
 def _readme() -> str:
@@ -55,15 +43,11 @@ def _readme() -> str:
         "| File | Library | Licence | Source | sha256 |",
         "|---|---|---|---|---|",
     ]
-    for lib in LIBRARIES:
-        lines.append(f"| `{lib.file}` | {lib.name} {lib.version} | {lib.spdx} | {lib.url} | `{lib.sha256}` |")
-    licences = {}
-    for lib in LIBRARIES:
-        licences.setdefault(lib.licence, (f"{lib.name} {lib.version}", lib.spdx, lib.licence_url))
-        for n in lib.notices:
-            licences.setdefault(n.file, (f"{n.name} {n.version} (in `{lib.file}`)", n.spdx, n.url))
-    for name, (what, spdx, url) in licences.items():
-        lines.append(f"| `{name}` | {what} | {spdx} | {url} | |")
+    files = vendored_files().items()
+    lines += [
+        f"| `{name}` | {f.label} | {f.spdx} | {f.url} | `{f.sha256}` |" for name, f in files if f.sha256
+    ]
+    lines += [f"| `{name}` | {f.label} | {f.spdx} | {f.url} | |" for name, f in files if not f.sha256]
     lines += [
         "",
         "`full.render.js` is Graphviz 2.40.1 and Expat 2.2.5 compiled with Emscripten 1.37.36 by",
@@ -85,14 +69,14 @@ def _problem(name: str, data: bytes) -> str | None:
         text = data.decode("utf-8").lower()
     except UnicodeDecodeError:
         return f"{name}: not UTF-8"
-    if "<!--" in text or "<script" in text:
-        return f"{name}: holds <!-- or <script"
+    if any(marker in text for marker in UNSAFE_MARKUP):
+        return f"{name}: holds {' or '.join(UNSAFE_MARKUP)}"
     return None
 
 
 def _fetch_all() -> dict[str, bytes]:
     """{file name: bytes} of every vendored file, all fetched and verified; raises before any write."""
-    fetched = {name: _fetch(url) for name, url in _files()}
+    fetched = {name: _fetch(f.url) for name, f in vendored_files().items()}
     problems = [p for p in (_problem(name, data) for name, data in fetched.items()) if p]
     if problems:
         raise ValueError("; ".join(problems))
@@ -103,10 +87,10 @@ def download() -> None:
     """Fetch and verify every vendored file, then write them all and the README; print the sha256
     of each file. A failed fetch or verification leaves vendor/ unchanged; a disk error while
     writing can still leave it half updated (rerun the tool)."""
-    urls = dict(_files())
+    files = vendored_files()
     for name, data in _fetch_all().items():
         atomic_write(FOLDER / name, data)
-        print(f"{hashlib.sha256(data).hexdigest()}  {name}  ({len(data):,} bytes, {urls[name]})")
+        print(f"{hashlib.sha256(data).hexdigest()}  {name}  ({len(data):,} bytes, {files[name].url})")
     atomic_write(FOLDER / "README.md", _readme().encode("utf-8"))
 
 

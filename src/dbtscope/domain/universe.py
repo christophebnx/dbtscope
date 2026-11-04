@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from itertools import cycle
 
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, Rule
+from dbtscope.domain.config import Config
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 from dbtscope.domain.payload import (
     UniverseDefaults,
@@ -41,16 +41,16 @@ FLOW_PREFIXES = [
 UNRANKED = 4.5
 
 
-def domain_of(table: Table, config: Config) -> tuple[str, Rule | None]:
-    """dbt group > meta.domain > `domains` rules > group_by. Returns (key, matching rule or None)."""
+def domain_of(table: Table, config: Config) -> str:
+    """The domain key of `table`: dbt group > meta.domain > `domains` rules > group_by ("" for none)."""
     if table.group:
-        return table.group, None
+        return table.group
     if table.meta.get("domain"):
-        return str(table.meta["domain"]), None
+        return str(table.meta["domain"])
     rule = first_rule(table, config.domains)
     if rule:
-        return rule.key, rule
-    return group_of(table, config.group_by) or "", None
+        return rule.key
+    return group_of(table, config.group_by)
 
 
 def _default_layer(table: Table) -> str:
@@ -73,8 +73,8 @@ def flow_rank(key: str) -> float:
     return min((rank for prefix, rank in FLOW_PREFIXES if key.startswith(prefix)), default=UNRANKED)
 
 
-def _domains(records: list[UniverseNode], config: Config, project: Project) -> tuple[UniverseDomain, ...]:
-    sizes = Counter(r.domain for r in records)
+def _domains(nodes: list[UniverseNode], config: Config, project: Project) -> tuple[UniverseDomain, ...]:
+    sizes = Counter(n.domain for n in nodes)
     configured = {r.key: r for r in config.domains}
     lang, palette = config.language, cycle(PALETTE)
     domains = []
@@ -101,11 +101,7 @@ def _layers(used: set[str], config: Config) -> tuple[UniverseLayer, ...]:
 
 
 def _kinds(used: set[str], config: Config) -> tuple[UniverseKind, ...]:
-    kinds = [
-        UniverseKind(key=k.key, label=k.label, color=k.color or DEFAULT_KIND_COLOR)
-        for k in config.kinds
-        if k.key in used
-    ]
+    kinds = [UniverseKind(key=k.key, label=k.label, color=k.color) for k in config.kinds if k.key in used]
     kinds += [
         UniverseKind(key=t.key, label=t.label[config.language], color=t.color)
         for t in [*TYPE_KINDS.values(), OTHER]
@@ -126,18 +122,16 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
-    records = []
+    nodes = []
     for uid in ids:
         table = tables[uid]
-        domain, _ = domain_of(table, config)
-        layer_key = _layer_of(table, config)
         kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
-        records.append(
+        nodes.append(
             UniverseNode(
                 id=uid,
                 name=table.name,
-                domain=domain,
-                layer=layer_key,
+                domain=domain_of(table, config),
+                layer=_layer_of(table, config),
                 kind=kind.key,
                 desc=table.description[:DESCRIPTION_LIMIT],
                 cols=tuple((c.name, c.data_type, int(is_key(uid, c.name))) for c in table.columns),
@@ -149,12 +143,12 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
         return tuple(sorted(found))
 
     return UniversePayload(
-        nodes=tuple(records),
+        nodes=tuple(nodes),
         relations=pairs(project.relations),
         lineage=pairs(project.lineage),
-        domains=_domains(records, config, project),
-        layers=_layers({r.layer for r in records}, config),
-        kinds=_kinds({r.kind for r in records}, config),
+        domains=_domains(nodes, config, project),
+        layers=_layers({n.layer for n in nodes}, config),
+        kinds=_kinds({n.kind for n in nodes}, config),
         defaults=UniverseDefaults(
             links=universe.links, detail=universe.detail, hidden_kinds=universe.hidden_kinds
         ),

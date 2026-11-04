@@ -1,5 +1,7 @@
 """dbtscope: interactive map of a dbt project (domain universe and ERD), from the manifest."""
 
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:

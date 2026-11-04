@@ -9,15 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from dbtscope.domain.config import DetailLevel, Language, Links, View
-
-PAYLOAD = ConfigDict(extra="forbid", frozen=True)
+from dbtscope.domain.model import DOMAIN
 
 
 class DetailKind(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     key: str
     label: str | None  # null when a rule says `label: null`
@@ -26,7 +25,7 @@ class DetailKind(BaseModel):
 
 
 class DetailEntity(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     id: str
     name: str
@@ -37,7 +36,7 @@ class DetailEntity(BaseModel):
 
 
 class DetailRelation(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     child: str
     parent: str
@@ -47,7 +46,7 @@ class DetailRelation(BaseModel):
 class DetailPayload(BaseModel):
     """The detail view: selected tables with their columns, kinds and relations."""
 
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     title: str
     lang: Language
@@ -58,7 +57,7 @@ class DetailPayload(BaseModel):
 
 
 class UniverseNode(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     id: str
     name: str
@@ -70,7 +69,7 @@ class UniverseNode(BaseModel):
 
 
 class UniverseDomain(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     key: str
     label: str | None
@@ -79,14 +78,14 @@ class UniverseDomain(BaseModel):
 
 
 class UniverseLayer(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     key: str
     label: str | None
 
 
 class UniverseKind(BaseModel):
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     key: str
     label: str | None
@@ -96,7 +95,7 @@ class UniverseKind(BaseModel):
 class UniverseDefaults(BaseModel):
     """Opening state of the universe view."""
 
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     links: Links
     detail: DetailLevel
@@ -107,7 +106,7 @@ class UniversePayload(BaseModel):
     """The universe view: every table in scope; `relations` and `lineage` are [child, parent] indexes
     into `nodes`."""
 
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     nodes: tuple[UniverseNode, ...]
     relations: tuple[tuple[int, int], ...]
@@ -121,7 +120,7 @@ class UniversePayload(BaseModel):
 class PagePayload(BaseModel):
     """Everything the page embeds: both views and the shared manual layout."""
 
-    model_config = PAYLOAD
+    model_config = DOMAIN
 
     title: str
     lang: Language

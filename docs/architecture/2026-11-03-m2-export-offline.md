@@ -1,6 +1,6 @@
 # M2 — Image export and offline page (design note)
 
-Status: APPROVED FOR AUTONOMOUS MODE. The roadmap (M2) and D-021 describe this behaviour. One new decision, D-022 below, replaces the network part of D-019. The roadmap leaves that choice to the architect ("The browser tests may switch to the vendored libraries and drop their CDN download"), and invariant 5 only gets stronger. No `NEEDS USER APPROVAL`.
+Status: DONE (2026-11-03). APPROVED FOR AUTONOMOUS MODE. The roadmap (M2) and D-021 describe this behaviour. One new decision, D-022 below, replaces the network part of D-019. The roadmap leaves that choice to the architect ("The browser tests may switch to the vendored libraries and drop their CDN download"), and invariant 5 only gets stronger. No `NEEDS USER APPROVAL`.
 
 ## Context
 

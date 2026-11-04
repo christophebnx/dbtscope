@@ -52,7 +52,7 @@ def _validate[M: BaseModel](model: type[M], data: Any, prefix: tuple[str | int, 
     try:
         return model.model_validate(data)
     except ValidationError as error:
-        raise ManifestError(f"manifest: {validation_message(error, prefix)}") from error
+        raise ManifestError(validation_message(error, prefix)) from error
 
 
 def _table(node: InputNode) -> Table:

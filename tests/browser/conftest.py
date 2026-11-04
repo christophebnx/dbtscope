@@ -11,13 +11,13 @@ tests need no network (D-022).
 
 from __future__ import annotations
 
-import json
 import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import NO_PARSE_NO_OPEN, page_data, write_config
 
 from dbtscope import cli
 from dbtscope.render.page import LIBRARIES, VENDOR
@@ -28,6 +28,9 @@ except ImportError:  # the `browser` dependency group is not installed
     sync_api = None
 
 VIEWPORT = {"width": 1280, "height": 800}
+NARROW = {"width": 360, "height": 800}
+PAGE_BG = (0xF5, 0xF6, 0xF8)  # C.bg of universe.js
+CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
 HERE = Path(__file__).parent
 
 
@@ -75,6 +78,51 @@ class Page:
         return self.page.evaluate("views.universe.trajectoryState()")
 
 
+Shop = tuple[Page, dict[str, Any]]  # the opened shop page and its embedded payload
+
+
+def only_own_url(page: Any, url: str) -> None:
+    """Abort every request of a Playwright page but `url` (its own file)."""
+    page.route("**/*", lambda r: r.continue_() if r.request.url == url else r.abort())
+
+
+def names(ids: dict[str, int]) -> dict[str, int]:
+    """{unique_id: distance} -> {table name: distance}."""
+    return {uid.rsplit(".", 1)[1]: d for uid, d in ids.items()}
+
+
+def names_of(data: dict[str, Any], ids: set[str]) -> set[str]:
+    """The table names of `ids`, through the detail payload."""
+    by_id = {e["id"]: e["name"] for e in data["detail"]["entities"]}
+    return {by_id[i] for i in ids}
+
+
+def wait_exportable(p: Page) -> None:
+    """Wait until both detail export buttons are enabled (the diagram is drawn and driven)."""
+    p.page.wait_for_function(
+        "['d-export-png', 'd-export-svg'].every(i => !document.getElementById(i).disabled)",
+        timeout=30_000,
+    )
+
+
+def show_detail(p: Page, exportable: bool = True) -> None:
+    """Open the detail tab and wait for the diagram (and, by default, for its export buttons)."""
+    p.page.click("#tabs button[data-tab=detail]")
+    p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
+    if exportable:
+        wait_exportable(p)
+
+
+def close_panel(p: Page, view: str) -> None:
+    if p.page.is_visible(f"#{view}-panel"):
+        p.page.click(f"#{view}-toggle")
+    assert p.page.is_hidden(f"#{view}-panel")
+
+
+def scroll_width(p: Page) -> int:
+    return p.page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
+
+
 @pytest.fixture
 def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Page]]:
     """open_page(html_path, viewport, scale, offline) -> Page, with the universe view started.
@@ -105,8 +153,7 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
         page.on("request", lambda r: wrapped.requests.append(r.url))
         if offline:
             context.set_offline(True)
-            own = html.as_uri()
-            page.route("**/*", lambda r: r.continue_() if r.request.url == own else r.abort())
+            only_own_url(page, html.as_uri())
         else:
             page.route("**/*", route)
         page.goto(html.as_uri())
@@ -128,11 +175,16 @@ def build_page(dbt_project: Path) -> Callable[..., tuple[Path, dict[str, Any]]]:
 
     def build(config: str = "", *args: str) -> tuple[Path, dict[str, Any]]:
         if config:
-            (dbt_project / "dbt-erd.yml").write_text(config, encoding="utf-8")
-        assert cli.main(["--project-dir", str(dbt_project), "--no-parse", "--no-open", *args]) == 0
+            write_config(dbt_project, config)
+        assert cli.main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN, *args]) == 0
         html = dbt_project / "erd_output" / "erd.html"
-        text = html.read_text(encoding="utf-8")
-        data = json.loads(text.split('<script type="application/json" id="data">')[1].split("</script>")[0])
-        return html, data
+        return html, page_data(html.read_text(encoding="utf-8"))
 
     return build
+
+
+@pytest.fixture
+def shop_page(build_page: Callable[..., tuple[Path, dict[str, Any]]], open_page: Callable[..., Page]) -> Shop:
+    """The default shop page, opened, and its payload."""
+    html, data = build_page()
+    return open_page(html), data

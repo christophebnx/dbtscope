@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.detail import detail_data, select
 from dbtscope.domain.model import Project
 from dbtscope.storage.project_files import read_preset
 
 
-def test_star_schema_preset(shop: Project) -> None:
+def test_star_schema_preset_draws_facts_and_dimensions(shop: Project) -> None:
     config = merge_config(read_preset("star_schema"), {})
     nodes, relations = select(shop.tables, shop.relations, config, shop.root)
     assert sorted(n.name for n in nodes.values()) == [

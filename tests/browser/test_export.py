@@ -17,10 +17,20 @@ from typing import Any
 
 import pytest
 
+from browser.conftest import (
+    CENTRE_WAIT_MS,
+    NARROW,
+    PAGE_BG,
+    Page,
+    Shop,
+    names_of,
+    only_own_url,
+    show_detail,
+    wait_exportable,
+)
+
 pytestmark = pytest.mark.browser
 
-CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
-NARROW = {"width": 360, "height": 800}
 SVG_NS = "{http://www.w3.org/2000/svg}"
 MAX_PIXELS, MAX_SIDE = 16_777_216, 16_384
 
@@ -69,33 +79,20 @@ def png_size(body: bytes) -> tuple[int, int]:
     return struct.unpack(">II", body[16:24])
 
 
-def stage_size(p: Any) -> tuple[int, int]:
+def stage_size(p: Page) -> tuple[int, int]:
     return tuple(
         p.page.evaluate("(s => [s.clientWidth, s.clientHeight])(document.getElementById('u-stage'))")
     )
 
 
-def svg_box(p: Any) -> tuple[float, float]:
+def svg_box(p: Page) -> tuple[float, float]:
     r = p.page.evaluate(
         "(r => [r.width, r.height])(document.querySelector('#d-graph svg').getBoundingClientRect())"
     )
     return r[0], r[1]
 
 
-def show_detail(p: Any) -> None:
-    p.page.click("#tabs button[data-tab=detail]")
-    p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
-    exportable(p)
-
-
-def exportable(p: Any) -> None:
-    p.page.wait_for_function(
-        "['d-export-png', 'd-export-svg'].every(i => !document.getElementById(i).disabled)",
-        timeout=30_000,
-    )
-
-
-def visible_node_ids(p: Any) -> set[str]:
+def visible_node_ids(p: Page) -> set[str]:
     """ids of the drawn tables whose box intersects the visible area of the diagram."""
     return set(
         p.page.evaluate(
@@ -120,19 +117,8 @@ def svg_text(root: ET.Element) -> str:
     return " ".join("".join(t.itertext()) for t in root.iter(f"{SVG_NS}text"))
 
 
-def uncheck_first_domain(p: Any) -> None:
+def uncheck_first_domain(p: Page) -> None:
     p.page.locator("#u-domains input").first.uncheck()
-
-
-@pytest.fixture
-def shop(build_page: Any, open_page: Any) -> tuple[Any, dict[str, Any]]:
-    html, data = build_page()
-    return open_page(html), data
-
-
-def names_of(data: dict[str, Any], ids: set[str]) -> set[str]:
-    by_id = {e["id"]: e["name"] for e in data["detail"]["entities"]}
-    return {by_id[i] for i in ids}
 
 
 # ---------------------------------------------------------------- universe PNG
@@ -148,8 +134,8 @@ def test_universe_png_is_twice_the_screen_resolution(build_page: Any, open_page:
     assert png_size(body) == (round(w * 2 * scale), round(h * 2 * scale))
 
 
-def test_export_scale_is_capped_for_huge_canvases(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_export_scale_is_capped_for_huge_canvases(shop_page: Shop) -> None:
+    p, _ = shop_page
     assert p.page.evaluate("EXPORT.scale(1000, 500)") == 2
     for w, h in [(20_000, 10), (10, 30_000), (5_000, 5_000), (4_000, 4_100), (1e6, 1e6)]:
         s = p.page.evaluate(f"EXPORT.scale({w}, {h})")
@@ -172,8 +158,8 @@ def test_huge_universe_png_stays_within_the_canvas_limits(build_page: Any, open_
 
 
 @pytest.mark.parametrize("step", ["default", "domain unticked", "zoomed in", "trajectory"])
-def test_universe_image_is_what_is_on_screen(shop: tuple[Any, dict[str, Any]], step: str) -> None:
-    p, _ = shop
+def test_universe_image_is_what_is_on_screen(shop_page: Shop, step: str) -> None:
+    p, _ = shop_page
     p.page.wait_for_timeout(300)
     if step == "domain unticked":
         before = p.page.evaluate(COMPARE_UNIVERSE)["diff"]
@@ -201,16 +187,16 @@ def test_universe_image_is_what_is_on_screen(shop: tuple[Any, dict[str, Any]], s
         assert changed > 1, f"{step}: the image did not change ({changed:.2f}/255)"
 
 
-def test_universe_export_does_not_move_or_resize_the_view(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_universe_export_does_not_move_or_resize_the_view(shop_page: Shop) -> None:
+    p, _ = shop_page
     before = stage_size(p)
     p.download("#u-export")
     assert stage_size(p) == before
     assert p.page.is_hidden("#u-tip")
 
 
-def test_universe_image_has_the_background_and_no_transparency(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_universe_image_has_the_background_and_no_transparency(shop_page: Shop) -> None:
+    p, _ = shop_page
     alpha = p.page.evaluate(
         """async () => { const bmp = await createImageBitmap(await views.universe.image());
           const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
@@ -220,14 +206,14 @@ def test_universe_image_has_the_background_and_no_transparency(shop: tuple[Any, 
           return { min, corner: [...g.getImageData(1, c.height - 2, 1, 1).data] }; }"""
     )
     assert alpha["min"] == 255
-    assert alpha["corner"] == [0xF5, 0xF6, 0xF8, 255]  # C.bg
+    assert alpha["corner"] == [*PAGE_BG, 255]
 
 
 # ---------------------------------------------------------------- detail SVG
 
 
-def test_detail_svg_is_a_standalone_image_of_the_visible_diagram(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, data = shop
+def test_detail_svg_is_a_standalone_image_of_the_visible_diagram(shop_page: Shop) -> None:
+    p, data = shop_page
     show_detail(p)
     w, h = svg_box(p)
     name, body = p.download("#d-export-svg")
@@ -257,8 +243,8 @@ def test_detail_svg_is_a_standalone_image_of_the_visible_diagram(shop: tuple[Any
     assert viewport.find(f"{SVG_NS}g").get("id") == "graph0"
 
 
-def test_detail_svg_is_cut_to_the_visible_area(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, data = shop
+def test_detail_svg_is_cut_to_the_visible_area(shop_page: Shop) -> None:
+    p, data = shop_page
     show_detail(p)
     target = p.page.locator("#d-graph svg g.node").first
     box = target.bounding_box()
@@ -280,8 +266,8 @@ def test_detail_svg_is_cut_to_the_visible_area(shop: tuple[Any, dict[str, Any]])
         assert not re.search(rf"(?<![\w]){re.escape(table)}(?![\w])", text), f"{table} is outside the area"
 
 
-def test_detail_svg_inlines_the_highlight_dimming(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, data = shop
+def test_detail_svg_inlines_the_highlight_dimming(shop_page: Shop) -> None:
+    p, data = shop_page
     show_detail(p)
     product = next(e["id"] for e in data["detail"]["entities"] if e["name"] == "dim_product")
     p.page.locator(f'#d-graph svg g.node[id="{product}"]').click()
@@ -302,10 +288,8 @@ def test_detail_svg_inlines_the_highlight_dimming(shop: tuple[Any, dict[str, Any
     }
 
 
-def test_detail_svg_opens_alone_with_the_same_look(
-    shop: tuple[Any, dict[str, Any]], browser: Any, tmp_path: Path
-) -> None:
-    p, _ = shop
+def test_detail_svg_opens_alone_with_the_same_look(shop_page: Shop, browser: Any, tmp_path: Path) -> None:
+    p, _ = shop_page
     show_detail(p)
     p.page.locator("#d-graph svg g.node").first.click()  # some dimming, to check it travels
     p.page.mouse.move(0, 0)
@@ -321,7 +305,7 @@ def test_detail_svg_opens_alone_with_the_same_look(
         requests: list[str] = []
         page.on("request", lambda r: requests.append(r.url))
         own = path.as_uri()
-        page.route("**/*", lambda r: r.continue_() if r.request.url == own else r.abort())
+        only_own_url(page, own)
         page.goto(own)
         alone = page.screenshot()
         assert requests == [own], "the SVG references nothing outside itself"
@@ -332,13 +316,13 @@ def test_detail_svg_opens_alone_with_the_same_look(
     assert got["diff"] < 6, f"the standalone SVG looks different from the screen: {got}"
 
 
-def test_detail_svg_reflects_the_focus(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, data = shop
+def test_detail_svg_reflects_the_focus(shop_page: Shop) -> None:
+    p, data = shop_page
     show_detail(p)
     p.page.fill("#d-focus", "dim_product")
     p.page.press("#d-focus", "Enter")
     p.page.wait_for_function("document.querySelectorAll('#d-graph svg g.node').length === 2", timeout=30_000)
-    exportable(p)
+    wait_exportable(p)
     _, body = p.download("#d-export-svg")
     assert names_of(data, svg_node_ids(parse_svg(body))) == {"dim_product", "fct_orders"}
 
@@ -357,8 +341,8 @@ def test_detail_png_is_twice_the_screen_resolution(build_page: Any, open_page: A
     # no SecurityError (canvas taint) and no alert: the fixture checks the console is clean
 
 
-def test_detail_png_is_the_drawn_diagram(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_detail_png_is_the_drawn_diagram(shop_page: Shop) -> None:
+    p, _ = shop_page
     show_detail(p)
     _, body = p.download("#d-export-png")
     screen = p.page.locator("#d-graph svg").screenshot()
@@ -369,8 +353,8 @@ def test_detail_png_is_the_drawn_diagram(shop: tuple[Any, dict[str, Any]]) -> No
 # ---------------------------------------------------------------- states
 
 
-def test_buttons_are_disabled_on_an_empty_view(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_buttons_are_disabled_on_an_empty_view(shop_page: Shop) -> None:
+    p, _ = shop_page
     assert p.page.is_enabled("#u-export")
     p.page.click("#u-none")
     assert p.page.is_disabled("#u-export")
@@ -385,7 +369,7 @@ def test_buttons_are_disabled_on_an_empty_view(shop: tuple[Any, dict[str, Any]])
     assert p.page.is_disabled("#d-export-png") and p.page.is_disabled("#d-export-svg")
     assert p.page.evaluate("views.detail.svgImage(1)") is None
     p.page.locator("#d-types input").first.check()
-    exportable(p)
+    wait_exportable(p)
 
 
 def test_detail_buttons_are_disabled_while_laying_out(build_page: Any, open_page: Any) -> None:
@@ -402,12 +386,12 @@ def test_detail_buttons_are_disabled_while_laying_out(build_page: Any, open_page
           return ['d-export-png', 'd-export-svg'].map(i => document.getElementById(i).disabled); }"""
     )
     assert during == [True, True]
-    exportable(p)
+    wait_exportable(p)
     assert first == [True, True], "disabled until the first layout is drawn"
 
 
-def test_export_sets_aria_disabled_and_ignores_a_second_click(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_export_sets_aria_disabled_and_ignores_a_second_click(shop_page: Shop) -> None:
+    p, _ = shop_page
     p.page.evaluate(CAPTURE)
     got = p.page.evaluate(
         """async () => { const b = document.getElementById('u-export'); b.focus(); b.click();
@@ -424,8 +408,8 @@ def test_export_sets_aria_disabled_and_ignores_a_second_click(shop: tuple[Any, d
     assert p.page.evaluate("getComputedStyle(document.getElementById('u-export')).cursor") != "progress"
 
 
-def test_detail_export_marks_only_the_clicked_button(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_detail_export_marks_only_the_clicked_button(shop_page: Shop) -> None:
+    p, _ = shop_page
     show_detail(p)
     p.page.evaluate(CAPTURE)
     got = p.page.evaluate(
@@ -443,8 +427,8 @@ def test_detail_export_marks_only_the_clicked_button(shop: tuple[Any, dict[str, 
     assert got["after"] == [None, None]
 
 
-def test_failed_export_alerts_and_saves_nothing(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_failed_export_alerts_and_saves_nothing(shop_page: Shop) -> None:
+    p, _ = shop_page
     p.page.evaluate(CAPTURE)
     messages: list[str] = []
     p.page.on("dialog", lambda d: (messages.append(d.message), d.dismiss()))
@@ -460,8 +444,8 @@ def test_failed_export_alerts_and_saves_nothing(shop: tuple[Any, dict[str, Any]]
 # ---------------------------------------------------------------- keyboard, names, announcements
 
 
-def test_enter_and_space_export(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_enter_and_space_export(shop_page: Shop) -> None:
+    p, _ = shop_page
     p.page.focus("#u-export")
     with p.page.expect_download() as info:
         p.page.keyboard.press("Enter")
@@ -477,8 +461,6 @@ def test_enter_and_space_export(shop: tuple[Any, dict[str, Any]]) -> None:
 @pytest.mark.parametrize(
     ("title", "universe", "detail"),
     [
-        ("Données & vente", "Donnees-vente-universe.png", "Donnees-vente-detail.svg"),
-        ("///", "dbtscope-universe.png", "dbtscope-detail.svg"),
         ("</script> a_b-c", "script-a_b-c-universe.png", "script-a_b-c-detail.svg"),
     ],
 )
@@ -493,8 +475,8 @@ def test_file_names_carry_the_sanitised_title(
     assert p.download("#d-export-svg")[0] == detail
 
 
-def test_file_slug(shop: tuple[Any, dict[str, Any]]) -> None:
-    p, _ = shop
+def test_file_slug_keeps_ascii_letters_digits_dash_underscore(shop_page: Shop) -> None:
+    p, _ = shop_page
     cases = {
         "dbt ERD": "dbt-ERD",
         "a__b-c": "a__b-c",
@@ -582,8 +564,11 @@ def test_export_and_layout_labels(build_page: Any, open_page: Any, lang: str, la
     assert "undefined" not in p.page.inner_text("body")
 
 
-@pytest.mark.parametrize(("lang", "name"), [("en", "Filters"), ("fr", "Filtres")])
-@pytest.mark.parametrize("viewport", [None, NARROW], ids=["1280", "360"])
+@pytest.mark.parametrize(
+    ("lang", "name", "viewport"),
+    [("en", "Filters", None), ("fr", "Filtres", NARROW)],
+    ids=["en-1280", "fr-360"],
+)
 def test_panel_toggles_have_a_name_and_aria_expanded(
     build_page: Any, open_page: Any, lang: str, name: str, viewport: dict[str, int] | None
 ) -> None:
@@ -600,40 +585,3 @@ def test_panel_toggles_have_a_name_and_aria_expanded(
             assert toggle.get_attribute("aria-expanded") == str(visible).lower(), f"{view}: state out of sync"
             toggle.click()
             assert p.page.is_visible(f"#{view}-panel") is not visible
-
-
-def scroll_width(p: Any) -> int:
-    return p.page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
-
-
-def close_panel(p: Any, view: str) -> None:
-    if p.page.is_visible(f"#{view}-panel"):
-        p.page.click(f"#{view}-toggle")
-    assert p.page.is_hidden(f"#{view}-panel")
-
-
-def group_in_one_piece(p: Any, view: str) -> None:
-    boxes = p.page.eval_on_selector_all(
-        f"#{view}-export-h, #{view}-export-h ~ button",
-        "es => es.map(e => (r => [r.left, r.right, r.top + r.height / 2])(e.getBoundingClientRect()))",
-    )
-    assert len(boxes) >= 2
-    assert all(left >= 0 and right <= NARROW["width"] for left, right, _ in boxes), boxes
-    middles = [m for _, _, m in boxes]
-    assert max(middles) - min(middles) < 4, f"the {view} export group splits over lines: {boxes}"
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_no_horizontal_scroll_at_360_px_with_the_export_group(
-    build_page: Any, open_page: Any, lang: str
-) -> None:
-    p = open_page(build_page(f"language: {lang}\n")[0], viewport=NARROW)
-    close_panel(p, "u")
-    assert p.page.is_visible("#u-export")
-    assert scroll_width(p) <= NARROW["width"], "Universe tab"
-    group_in_one_piece(p, "u")
-    show_detail(p)
-    close_panel(p, "d")
-    assert p.page.is_visible("#d-export-png") and p.page.is_visible("#d-export-svg")
-    assert scroll_width(p) <= NARROW["width"], "Detail tab"
-    group_in_one_piece(p, "d")

@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+# what dbtscope builds itself (domain models, payloads): a misspelt field is a bug, never data
 DOMAIN = ConfigDict(extra="forbid", frozen=True)
 
 

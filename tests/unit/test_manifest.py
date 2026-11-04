@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from typing import Any
 
 import pytest
-from conftest import M, model, relationships_test, shop_manifest, source
+from conftest import SHOP, model, relationships_test, shop_manifest, source
 from pydantic import BaseModel
 
 from dbtscope.domain.manifest import ManifestError, parse_manifest
@@ -27,7 +29,7 @@ def test_relations_from_tests_and_constraints(shop: Project) -> None:
     }
 
 
-def test_lineage_and_groups(shop: Project) -> None:
+def test_lineage_and_group_owners_are_read(shop: Project) -> None:
     lineage = _short(shop.lineage, "child", "parent")
     assert ("stg_orders", "orders") in lineage  # model -> source
     assert ("fct_returns", "fct_orders") in lineage
@@ -43,9 +45,10 @@ def test_lineage_and_groups(shop: Project) -> None:
         ({"name": "Ana", "email": ["a@x.io"]}, "Ana"),  # the name still wins
         ({"email": []}, ""),
         ({"name": None, "email": None}, ""),
+        (None, ""),  # a group without owner
     ],
 )
-def test_group_owner_email_as_a_string_or_a_list(owner: dict[str, Any], expected: str) -> None:
+def test_group_owner_email_as_a_string_or_a_list(owner: dict[str, Any] | None, expected: str) -> None:
     project = parse_manifest({"groups": {"group.p.g": {"name": "g", "owner": owner}}})
     assert project.groups["g"].owner == expected
 
@@ -145,15 +148,13 @@ def test_a_malformed_table_names_the_field(change: Any, message: str) -> None:
     manifest["nodes"]["model.shop.x"] = node
     with pytest.raises(ManifestError) as info:
         parse_manifest(manifest)
-    assert str(info.value) == f"manifest: {message}"
+    assert str(info.value) == message
 
 
 def test_a_source_with_another_type_is_refused() -> None:
     manifest = shop_manifest()
     manifest["sources"]["source.shop.erp.orders"]["resource_type"] = "model"
-    with pytest.raises(
-        ManifestError, match=r"^manifest: sources\['source.shop.erp.orders'\].resource_type: "
-    ):
+    with pytest.raises(ManifestError, match=r"^sources\['source.shop.erp.orders'\].resource_type: "):
         parse_manifest(manifest)
 
 
@@ -163,15 +164,15 @@ def test_a_mistyped_relationship_test_names_the_field() -> None:
     with pytest.raises(ManifestError) as info:
         parse_manifest(_with(test))
     location = "nodes['test.shop.relationships_fct_orders_customer_id'].test_metadata.kwargs.field"
-    assert str(info.value) == f"manifest: {location}: must be a string"
+    assert str(info.value) == f"{location}: must be a string"
 
 
 @pytest.mark.parametrize(
     ("manifest", "message"),
     [
-        ([], "manifest: must be a mapping"),
-        ({"nodes": []}, "manifest: nodes: must be a mapping"),
-        ({"groups": {"g": {"owner": None}}}, "manifest: groups.g.name: is required"),
+        ([], "must be a mapping"),
+        ({"nodes": []}, "nodes: must be a mapping"),
+        ({"groups": {"g": {"owner": None}}}, "groups.g.name: is required"),
     ],
 )
 def test_a_malformed_top_level_is_refused(manifest: Any, message: str) -> None:
@@ -321,12 +322,12 @@ def test_relationships_where_and_a_test_without_attached_node() -> None:
     test["test_metadata"] = {"name": "relationships_where", "namespace": "dbt_utils",
                              "kwargs": {"from": "order_ref", "to_field": "order_id"}}  # fmt: skip
     test["attached_node"] = None
-    test["depends_on"]["nodes"] = [M + "fct_returns", M + "fct_orders"]
+    test["depends_on"]["nodes"] = [SHOP + "fct_returns", SHOP + "fct_orders"]
     manifest = shop_manifest()
     manifest["nodes"]["model.shop.fct_returns"]["columns"]["order_ref"]["constraints"] = []
     manifest["nodes"][test["unique_id"]] = test
     relations = [r for r in parse_manifest(manifest).relations if r.child.endswith("fct_returns")]
-    expected = [(M + "fct_orders", "order_ref", "order_id")]
+    expected = [(SHOP + "fct_orders", "order_ref", "order_id")]
     assert [(r.parent, r.column, r.parent_column) for r in relations] == expected
 
 
@@ -383,7 +384,13 @@ def test_top_level_keys_of_a_real_manifest_are_ignored(shop: Project) -> None:
         (lambda m: m["sources"]["source.shop.erp.orders"].pop("name"),
          "sources['source.shop.erp.orders'].name: is required"),
         (lambda m: m["sources"].update({"s": []}), "sources.s: must be a mapping"),
+        (lambda m: m["sources"].update({"s": {"name": "t", "resource_type": "source"}}),
+         "sources.s.unique_id: is required"),  # moved from integration (M4.1)
         (lambda m: m.update(metadata=[]), "metadata: must be a mapping"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"].update(original_file_path=None),
+         "nodes['model.shop.dim_customer'].original_file_path: must be a string"),
+        (lambda m: m["nodes"]["model.shop.dim_customer"]["columns"]["name"].update(data_type=1),
+         "nodes['model.shop.dim_customer'].columns.name.data_type: must be a string"),
         (lambda m: m["nodes"]["model.shop.dim_customer"].update(unique_id=None, name=None),
          "nodes['model.shop.dim_customer'].unique_id: must be a string (and 1 more problem)"),
     ],
@@ -393,7 +400,7 @@ def test_more_malformed_fields_name_their_location(change: Any, message: str) ->
     change(manifest)
     with pytest.raises(ManifestError) as info:
         parse_manifest(manifest)
-    assert str(info.value) == f"manifest: {message}"
+    assert str(info.value) == message
 
 
 def test_the_project_does_not_share_state_with_the_manifest_dict() -> None:
@@ -420,7 +427,7 @@ def test_relationships_where_reads_from_and_to_field() -> None:
     manifest = shop_manifest()
     manifest["nodes"]["model.shop.fct_returns"]["columns"]["order_ref"]["constraints"] = []
     manifest["nodes"][test["unique_id"]] = test
-    relations = [r for r in parse_manifest(manifest).relations if r.child == M + "fct_returns"]
+    relations = [r for r in parse_manifest(manifest).relations if r.child == SHOP + "fct_returns"]
     assert [(r.column, r.parent_column, r.origin) for r in relations] == [
         ("order_ref", "order_id", "relationships_test")
     ]

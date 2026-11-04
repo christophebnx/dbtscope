@@ -6,23 +6,18 @@ dim_customer -> fct_orders, dim_product -> fct_orders.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import shop_manifest, write_manifest
+
+from browser.conftest import CENTRE_WAIT_MS, Page, Shop, names
 
 pytestmark = pytest.mark.browser
 
-CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
-
 
 # ---------------------------------------------------------------- helpers
-
-
-def names(ids: dict[str, int]) -> dict[str, int]:
-    """{unique_id: distance} -> {table name: distance}."""
-    return {uid.rsplit(".", 1)[1]: d for uid, d in ids.items()}
 
 
 def node(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -33,7 +28,7 @@ def index(data: dict[str, Any], name: str) -> int:
     return [n["name"] for n in data["universe"]["nodes"]].index(name)
 
 
-def centre(p: Any, name: str) -> tuple[float, float]:
+def centre(p: Page, name: str) -> tuple[float, float]:
     """Search a table (the view centres it at k >= 1.5); return the canvas centre in page coordinates."""
     p.page.fill("#u-q", name)
     p.page.dispatch_event("#u-q", "change")
@@ -43,30 +38,24 @@ def centre(p: Any, name: str) -> tuple[float, float]:
     return box["x"] + box["width"] / 2, box["y"] + bar + (box["height"] - bar) / 2  # below the bar
 
 
-def corner(p: Any) -> tuple[float, float]:
+def corner(p: Page) -> tuple[float, float]:
     box = p.page.locator("#u-canvas").bounding_box()
     return box["x"] + 5, box["y"] + box["height"] - 5
 
 
-def enter_by_button(p: Any, name: str) -> None:
+def enter_by_button(p: Page, name: str) -> None:
     p.page.fill("#u-q", name)
     p.page.click("#u-traj")
 
 
-def checkbox(p: Any, panel: str, label: str) -> Any:
+def checkbox(p: Page, panel: str, label: str) -> Any:
     return p.page.locator(f"#u-{panel} label", has_text=label).locator("input")
-
-
-@pytest.fixture
-def shop_page(build_page: Any, open_page: Any) -> tuple[Any, dict[str, Any]]:
-    html, data = build_page()
-    return open_page(html), data
 
 
 # ---------------------------------------------------------------- the pure traversal
 
 
-def test_trajectory_function_on_shop_lineage(shop_page: tuple[Any, dict[str, Any]]) -> None:
+def test_trajectory_function_on_shop_lineage(shop_page: Shop) -> None:
     p, data = shop_page
     lineage = data["universe"]["lineage"]
     nodes = [n["name"] for n in data["universe"]["nodes"]]
@@ -94,33 +83,31 @@ def test_trajectory_function_on_shop_lineage(shop_page: tuple[Any, dict[str, Any
     assert run("fct_orders", "down", "Infinity") == {"up": {}, "down": {"fct_returns": 1}}
 
 
-@pytest.mark.parametrize(
-    ("lineage", "start", "up", "down"),
-    [
-        ([[0, 1], [1, 0]], 0, {1: 1}, {1: 1}),  # two-table cycle: 1 is both parent and child
-        ([[0, 0]], 0, {}, {}),  # self-loop
-        ([[0, 1], [1, 2], [2, 0]], 0, {1: 1, 2: 2}, {2: 1, 1: 2}),  # three-table cycle
-        ([], 0, {}, {}),  # no lineage at all
-        ([[1, 0], [2, 0], [2, 1]], 0, {}, {1: 1, 2: 1}),  # shortest path wins (2 is at 1, not 2)
-    ],
-)
-def test_trajectory_function_terminates_on_malformed_lineage(
-    shop_page: tuple[Any, dict[str, Any]], lineage: list[list[int]], start: int, up: dict, down: dict
-) -> None:
+MALFORMED_LINEAGE: list[tuple[list[list[int]], dict[int, int], dict[int, int]]] = [
+    ([[0, 1], [1, 0]], {1: 1}, {1: 1}),  # two-table cycle: 1 is both parent and child
+    ([[0, 0]], {}, {}),  # self-loop
+    ([[0, 1], [1, 2], [2, 0]], {1: 1, 2: 2}, {2: 1, 1: 2}),  # three-table cycle
+    ([], {}, {}),  # no lineage at all
+    ([[1, 0], [2, 0], [2, 1]], {}, {1: 1, 2: 1}),  # shortest path wins (2 is at 1, not 2)
+]
+
+
+def test_trajectory_function_terminates_on_malformed_lineage(shop_page: Shop) -> None:
     p, _ = shop_page
-    got = p.page.evaluate(
-        """([l, s]) => { const r = trajectory(l, s, 'both', Infinity);
-            return { up: [...r.up], down: [...r.down] }; }""",
-        [lineage, start],
-    )
-    assert dict(map(tuple, got["up"])) == up
-    assert dict(map(tuple, got["down"])) == down
+    for lineage, up, down in MALFORMED_LINEAGE:
+        got = p.page.evaluate(
+            """([l, s]) => { const r = trajectory(l, s, 'both', Infinity);
+                return { up: [...r.up], down: [...r.down] }; }""",
+            [lineage, 0],
+        )
+        assert dict(map(tuple, got["up"])) == up, lineage
+        assert dict(map(tuple, got["down"])) == down, lineage
 
 
 # ---------------------------------------------------------------- criterion 1: click a table
 
 
-def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: tuple[Any, dict]) -> None:
+def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     before = p.state()
@@ -137,7 +124,7 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: tup
     assert p.page.inner_text("#u-tj-sum") == "1 upstream · 2 downstream"
 
 
-def test_click_on_another_table_moves_the_trajectory(shop_page: tuple[Any, dict]) -> None:
+def test_click_on_another_table_moves_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.click(x, y)
@@ -150,7 +137,7 @@ def test_click_on_another_table_moves_the_trajectory(shop_page: tuple[Any, dict]
     assert s["layoutRuns"] == runs
 
 
-def test_trajectory_button_enters_for_the_table_found(shop_page: tuple[Any, dict]) -> None:
+def test_trajectory_button_enters_for_the_table_found(shop_page: Shop) -> None:
     p, _ = shop_page
     assert p.page.is_disabled("#u-traj")
     p.page.fill("#u-q", "fct_ret")
@@ -185,11 +172,11 @@ def test_trajectory_button_enters_for_the_table_found(shop_page: tuple[Any, dict
 def test_table_without_lineage_shows_the_empty_state(
     dbt_project: Path, build_page: Any, open_page: Any
 ) -> None:
-    manifest = json.loads((dbt_project / "target" / "manifest.json").read_text())
+    manifest = shop_manifest()
     lone = dict(manifest["nodes"]["model.shop.stg_orders"])
     lone.update(unique_id="model.shop.lonely", name="lonely", depends_on={"nodes": []})
     manifest["nodes"]["model.shop.lonely"] = lone
-    (dbt_project / "target" / "manifest.json").write_text(json.dumps(manifest))
+    write_manifest(dbt_project, manifest)
     html, _ = build_page()
     p = open_page(html)
     enter_by_button(p, "lonely")
@@ -203,7 +190,7 @@ def test_table_without_lineage_shows_the_empty_state(
 # ---------------------------------------------------------------- criterion 2: direction and depth
 
 
-def test_depth_and_direction_change_the_set_at_once(shop_page: tuple[Any, dict]) -> None:
+def test_depth_and_direction_change_the_set_at_once(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_orders")
     runs = p.state()["layoutRuns"]
@@ -236,7 +223,7 @@ def test_depth_and_direction_change_the_set_at_once(shop_page: tuple[Any, dict])
     assert s["layoutRuns"] == runs, "changing direction or depth must not recompute the layout"
 
 
-def test_options_are_kept_for_the_next_trajectory(shop_page: tuple[Any, dict]) -> None:
+def test_options_are_kept_for_the_next_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_orders")
     p.page.select_option("#u-tj-depth", "d1")
@@ -251,7 +238,7 @@ def test_options_are_kept_for_the_next_trajectory(shop_page: tuple[Any, dict]) -
 # ---------------------------------------------------------------- criterion 3: filters never cut the chain
 
 
-def test_filtered_domain_and_type_are_brought_back_and_counted(shop_page: tuple[Any, dict]) -> None:
+def test_filtered_domain_and_type_are_brought_back_and_counted(shop_page: Shop) -> None:
     p, data = shop_page
     orders = node(data, "orders")
     domain = next(d["label"] for d in data["universe"]["domains"] if d["key"] == orders["domain"])
@@ -271,7 +258,7 @@ def test_filtered_domain_and_type_are_brought_back_and_counted(shop_page: tuple[
     assert checkbox(p, "kinds", kind).is_checked()
 
 
-def test_filtered_layer_is_brought_back(shop_page: tuple[Any, dict]) -> None:
+def test_filtered_layer_is_brought_back(shop_page: Shop) -> None:
     p, data = shop_page
     hidden = [node(data, n) for n in ("stg_orders", "dim_product")]
     for n in hidden:
@@ -285,7 +272,7 @@ def test_filtered_layer_is_brought_back(shop_page: tuple[Any, dict]) -> None:
         assert checkbox(p, "layers", layer).is_checked()
 
 
-def test_filter_unticked_in_the_mode_is_respected_and_said(shop_page: tuple[Any, dict]) -> None:
+def test_filter_unticked_in_the_mode_is_respected_and_said(shop_page: Shop) -> None:
     p, data = shop_page
     enter_by_button(p, "fct_returns")
     orders = node(data, "orders")
@@ -301,7 +288,7 @@ def test_filter_unticked_in_the_mode_is_respected_and_said(shop_page: tuple[Any,
 # ---------------------------------------------------------------- criterion 5: leaving, drag, double-click
 
 
-def test_esc_leaves_but_not_from_a_select(shop_page: tuple[Any, dict]) -> None:
+def test_esc_leaves_but_not_from_a_select(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_orders")
     assert p.page.evaluate("document.activeElement.id") == "u-tj-dir"
@@ -316,7 +303,7 @@ def test_esc_leaves_but_not_from_a_select(shop_page: tuple[Any, dict]) -> None:
     assert p.page.inner_text("#u-tj-live") == "Trajectory closed"
 
 
-def test_esc_from_the_page_body_leaves(shop_page: tuple[Any, dict]) -> None:
+def test_esc_from_the_page_body_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "fct_orders")
     p.page.mouse.click(x, y)
@@ -326,7 +313,7 @@ def test_esc_from_the_page_body_leaves(shop_page: tuple[Any, dict]) -> None:
     assert p.state()["active"] is False
 
 
-def test_leave_button_leaves(shop_page: tuple[Any, dict]) -> None:
+def test_leave_button_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_orders")
     runs = p.state()["layoutRuns"]
@@ -336,7 +323,7 @@ def test_leave_button_leaves(shop_page: tuple[Any, dict]) -> None:
     assert s["layoutRuns"] == runs
 
 
-def test_background_click_leaves(shop_page: tuple[Any, dict]) -> None:
+def test_background_click_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.click(x, y)
@@ -345,14 +332,14 @@ def test_background_click_leaves(shop_page: tuple[Any, dict]) -> None:
     assert p.state()["active"] is False
 
 
-def test_background_click_outside_the_mode_does_nothing(shop_page: tuple[Any, dict]) -> None:
+def test_background_click_outside_the_mode_does_nothing(shop_page: Shop) -> None:
     p, _ = shop_page
     centre(p, "stg_orders")
     p.page.mouse.click(*corner(p))
     assert p.state()["active"] is False
 
 
-def test_pan_of_the_background_does_not_leave(shop_page: tuple[Any, dict]) -> None:
+def test_pan_of_the_background_does_not_leave(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.click(x, y)
@@ -366,14 +353,14 @@ def test_pan_of_the_background_does_not_leave(shop_page: tuple[Any, dict]) -> No
     assert s["start"] == "model.shop.stg_orders"
 
 
-def drag_by(p: Any, x: float, y: float, dx: float, dy: float) -> None:
+def drag_by(p: Page, x: float, y: float, dx: float, dy: float) -> None:
     p.page.mouse.move(x, y)
     p.page.mouse.down()
     p.page.mouse.move(x + dx, y + dy, steps=6)
     p.page.mouse.up()
 
 
-def test_drag_of_a_table_does_not_enter_the_mode(shop_page: tuple[Any, dict]) -> None:
+def test_drag_of_a_table_does_not_enter_the_mode(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     drag_by(p, x, y, 30, 0)
@@ -382,7 +369,7 @@ def test_drag_of_a_table_does_not_enter_the_mode(shop_page: tuple[Any, dict]) ->
     assert "model.shop.stg_orders" in moved, "the drag moved the table (saved in the manual layout)"
 
 
-def test_drag_of_a_table_in_the_mode_keeps_the_trajectory(shop_page: tuple[Any, dict]) -> None:
+def test_drag_of_a_table_in_the_mode_keeps_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.click(x, y)
@@ -391,7 +378,7 @@ def test_drag_of_a_table_in_the_mode_keeps_the_trajectory(shop_page: tuple[Any, 
     assert p.state() == before
 
 
-def test_double_click_still_opens_detail(shop_page: tuple[Any, dict]) -> None:
+def test_double_click_still_opens_detail(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "fct_orders")
     p.page.mouse.dblclick(x, y)
@@ -399,7 +386,7 @@ def test_double_click_still_opens_detail(shop_page: tuple[Any, dict]) -> None:
     assert p.page.is_hidden("#tab-universe")
 
 
-def test_double_click_on_a_source_still_zooms_in(shop_page: tuple[Any, dict]) -> None:
+def test_double_click_on_a_source_still_zooms_in(shop_page: Shop) -> None:
     """`orders` (a source) is not in the Detail tab: double-click zooms in, as before."""
     p, _ = shop_page
     x, y = centre(p, "orders")
@@ -410,7 +397,7 @@ def test_double_click_on_a_source_still_zooms_in(shop_page: tuple[Any, dict]) ->
     assert p.state()["start"] == "source.shop.erp.orders"
 
 
-def test_search_still_centres_and_reveals_outside_the_mode(shop_page: tuple[Any, dict]) -> None:
+def test_search_still_centres_and_reveals_outside_the_mode(shop_page: Shop) -> None:
     p, data = shop_page
     stg = node(data, "stg_orders")
     layer = next(x["label"] for x in data["universe"]["layers"] if x["key"] == stg["layer"])
@@ -459,7 +446,7 @@ def test_bar_strings_in_both_languages(
         assert set(options) >= {"upstream", "downstream", "both", "all levels", "1 level"}
 
 
-def test_tooltip_tells_up_from_down(shop_page: tuple[Any, dict]) -> None:
+def test_tooltip_tells_up_from_down(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.move(x, y)
@@ -473,7 +460,7 @@ def test_tooltip_tells_up_from_down(shop_page: tuple[Any, dict]) -> None:
     assert "Downstream, level 2" in p.page.inner_text("#u-tip")
 
 
-def test_nothing_about_the_trajectory_is_saved_in_the_layout(shop_page: tuple[Any, dict]) -> None:
+def test_nothing_about_the_trajectory_is_saved_in_the_layout(shop_page: Shop) -> None:
     p, _ = shop_page
     before = p.page.evaluate("JSON.stringify(LAYOUT.dump())")
     enter_by_button(p, "fct_orders")
@@ -482,7 +469,7 @@ def test_nothing_about_the_trajectory_is_saved_in_the_layout(shop_page: tuple[An
     assert p.page.evaluate("JSON.stringify(LAYOUT.dump())") == before
 
 
-def test_no_console_error_through_a_whole_session(shop_page: tuple[Any, dict]) -> None:
+def test_no_console_error_through_a_whole_session(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.click(x, y)
@@ -504,7 +491,7 @@ def test_no_console_error_through_a_whole_session(shop_page: tuple[Any, dict]) -
 TRANSFORM = "(t => [t.x, t.y, t.k])(d3.zoomTransform(document.getElementById('u-canvas')))"
 
 
-def test_entering_changing_and_leaving_do_not_move_the_view(shop_page: tuple[Any, dict]) -> None:
+def test_entering_changing_and_leaving_do_not_move_the_view(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "fct_orders")
     view = p.page.evaluate(TRANSFORM)
@@ -517,7 +504,7 @@ def test_entering_changing_and_leaving_do_not_move_the_view(shop_page: tuple[Any
     assert p.page.evaluate(TRANSFORM) == view
 
 
-def test_fit_frames_the_trajectory_at_most_at_scale_2(shop_page: tuple[Any, dict]) -> None:
+def test_fit_frames_the_trajectory_at_most_at_scale_2(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "dim_customer")
     p.page.select_option("#u-tj-depth", "d1")
@@ -530,7 +517,7 @@ def test_fit_frames_the_trajectory_at_most_at_scale_2(shop_page: tuple[Any, dict
     assert p.page.get_attribute("#u-fit", "title") is None
 
 
-def test_esc_closes_the_open_breakdown_first(shop_page: tuple[Any, dict]) -> None:
+def test_esc_closes_the_open_breakdown_first(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_returns")
     p.page.click("#u-tj-sum")
@@ -543,7 +530,7 @@ def test_esc_closes_the_open_breakdown_first(shop_page: tuple[Any, dict]) -> Non
     assert p.state()["active"] is False
 
 
-def test_esc_in_the_search_box_does_not_leave(shop_page: tuple[Any, dict]) -> None:
+def test_esc_in_the_search_box_does_not_leave(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_returns")
     p.page.focus("#u-q")
@@ -551,7 +538,7 @@ def test_esc_in_the_search_box_does_not_leave(shop_page: tuple[Any, dict]) -> No
     assert p.state()["active"] is True
 
 
-def test_esc_on_the_detail_tab_does_not_touch_the_universe(shop_page: tuple[Any, dict]) -> None:
+def test_esc_on_the_detail_tab_does_not_touch_the_universe(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "fct_returns")
     p.page.click("#tabs button[data-tab=detail]")
@@ -562,7 +549,7 @@ def test_esc_on_the_detail_tab_does_not_touch_the_universe(shop_page: tuple[Any,
     assert p.state()["active"] is True
 
 
-def test_detail_level_change_in_the_mode_keeps_the_trajectory(shop_page: tuple[Any, dict]) -> None:
+def test_detail_level_change_in_the_mode_keeps_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "stg_orders")
     before = p.state()
@@ -602,7 +589,7 @@ SCAN = """([step]) => {
 }"""
 
 
-def scan(p: Any, step: int = 6) -> dict[str, list[tuple[float, float]]]:
+def scan(p: Page, step: int = 6) -> dict[str, list[tuple[float, float]]]:
     """{"halo": [...], "empty": [...]}: points whose four neighbours (one step away) are of the same sort."""
     got = p.page.evaluate(SCAN, [step])
     out = {}
@@ -614,7 +601,7 @@ def scan(p: Any, step: int = 6) -> dict[str, list[tuple[float, float]]]:
     return out
 
 
-def zoom_out_below_far(p: Any) -> float:
+def zoom_out_below_far(p: Page) -> float:
     box = p.page.locator("#u-canvas").bounding_box()
     p.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     for _ in range(40):
@@ -628,7 +615,7 @@ def zoom_out_below_far(p: Any) -> float:
 
 @pytest.mark.parametrize("zoom", ["far", "close"])
 def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
-    shop_page: tuple[Any, dict], zoom: str
+    shop_page: Shop, zoom: str
 ) -> None:
     p, _ = shop_page
     if zoom == "close":
@@ -653,7 +640,7 @@ def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
 
 @pytest.mark.parametrize(("select", "value"), [("#u-tj-depth", "d3"), ("#u-tj-dir", "up")])
 def test_changing_an_option_reticks_a_filter_unticked_in_the_mode(
-    shop_page: tuple[Any, dict], select: str, value: str
+    shop_page: Shop, select: str, value: str
 ) -> None:
     """Documented (design note § 2): an untick in the mode holds until the next trajectory change."""
     p, data = shop_page
@@ -672,9 +659,7 @@ def test_changing_an_option_reticks_a_filter_unticked_in_the_mode(
 
 
 @pytest.mark.parametrize("how", ["brought_by_the_trajectory", "filtered_then_found", "filtered_in_the_mode"])
-def test_double_click_on_a_table_back_from_the_filters_opens_detail(
-    shop_page: tuple[Any, dict], how: str
-) -> None:
+def test_double_click_on_a_table_back_from_the_filters_opens_detail(shop_page: Shop, how: str) -> None:
     p, data = shop_page
     assert "model.shop.stg_orders" in {e["id"] for e in data["detail"]["entities"]}
     key = node(data, "stg_orders")["domain"]

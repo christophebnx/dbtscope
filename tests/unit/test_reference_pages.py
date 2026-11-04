@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 import pytest
-from reference_pages import CASES, FOLDER, TWINS, build_page, data_block
+from conftest import data_block
+from reference_pages import CASES, FOLDER, TWINS, build_page
 
 EXPECTED = json.loads((FOLDER / "expected.json").read_text(encoding="utf-8"))
 

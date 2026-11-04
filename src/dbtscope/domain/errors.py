@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
@@ -16,6 +18,7 @@ PROBLEMS = {
     "dict_type": "must be a mapping",
     "model_type": "must be a mapping",
     "model_attributes_type": "must be a mapping",
+    "extra_forbidden": "unknown key",
 }
 
 Location = tuple[str | int, ...]
@@ -23,6 +26,19 @@ Location = tuple[str | int, ...]
 
 class DomainError(ValueError):
     """A business rule refused an input. Every domain module's error class derives from it."""
+
+
+def lower_first(text: str) -> str:
+    """`text` with its first letter in lower case: a reason or problem quoted inside a message (D-029)."""
+    return text[:1].lower() + text[1:]
+
+
+def in_words(values: Iterable[str]) -> str:
+    """`a, b or c`: a list of choices as a message or a help sentence writes it (D-029)."""
+    items = list(values)
+    if len(items) < 2:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} or {items[-1]}"
 
 
 def _location(parts: Location) -> str:
@@ -47,18 +63,19 @@ def _problem(error: ErrorDetails) -> str:
         return f"must be {error['ctx']['expected']}"
     if kind == "value_error":
         return str(error["ctx"]["error"])
-    message = str(error["msg"])
-    return message[:1].lower() + message[1:]
+    return lower_first(str(error["msg"]))
 
 
-def validation_message(error: ValidationError, prefix: Location = ()) -> str:
+def validation_message(error: ValidationError, prefix: Location = (), first: str = "") -> str:
     """One line for a pydantic error: `<location>: <problem>` of the first problem, and how many more.
 
     `prefix` is prepended to the location (e.g. `("nodes", unique_id)` for a manifest entry
-    validated on its own).
+    validated on its own). `first` is a pydantic error type shown before the others when present
+    (`extra_forbidden`: a misspelt preset key explains the rest).
     """
-    first = error.errors()[0]
-    location = _location(prefix + tuple(first["loc"]))
-    message = f"{location}: {_problem(first)}" if location else _problem(first)
+    details = error.errors()
+    shown = next((d for d in details if d["type"] == first), details[0])
+    location = _location(prefix + tuple(shown["loc"]))
+    message = f"{location}: {_problem(shown)}" if location else _problem(shown)
     more = error.error_count() - 1
     return message + (f" (and {more} more problem{'s' if more > 1 else ''})" if more else "")

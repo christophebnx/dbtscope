@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from fnmatch import fnmatch
 
-from dbtscope.domain.errors import DomainError
+from dbtscope.domain.errors import DomainError, in_words
 from dbtscope.domain.model import Table
 
 # selector field -> `Table` attribute: the one map from selector names to the model
@@ -56,7 +56,7 @@ def _part_matches(table: Table, part: str) -> bool:
     field, pattern = field.strip().lower(), pattern.strip()
     if field not in FIELDS:
         raise SelectorError(
-            f"unknown selector field {field!r} in {part!r} (expected one of {sorted(FIELDS)})"
+            f"unknown selector field {field!r} in {part!r} (expected {in_words(sorted(FIELDS))})"
         )
     if field == "tag":
         return any(glob(tag, pattern) for tag in table.tags)

@@ -8,10 +8,11 @@ You test. You write only under tests/. You never change application code: report
 
 1. Read CLAUDE.md, the design note and the changed code.
 2. Unit tests (tests/unit/): one file per module (`test_<module>.py`), fast, no disk outside `tmp_path`, no network.
-3. Integration tests (tests/integration/): full flows through the public entry points (CLI `main([...])`, API test client…) on a temporary data folder, with fakes replaying recorded data from tests/fixtures/.
+3. Integration tests (tests/integration/): full flows through the public entry points: the CLI `main([...])` and the entry points (`python -m dbtscope`, the `dbtscope` script), on a temporary data folder; fake `dbt` scripts written into `tmp_path`.
 4. Hunt edge cases: empty and boundary inputs, invalid formats, duplicates, data written by an older version, interrupted writes, concurrent access where relevant.
 5. Tests that call a real paid or remote service carry `@pytest.mark.live` and never run by default.
 6. Page logic (`render/assets/*.js`) is tested in headless Chromium under tests/browser/, with `@pytest.mark.browser` (D-019).
-7. Run `uv run pytest -q -n auto -m "not live and not browser" --cov=dbtscope`. When the page changed, also run the browser tests (CLAUDE.md, Commands).
+7. One test per behaviour, at the cheapest level that proves it. Named `test_<behaviour>` as a fact. Reuse the test helpers listed in the responsibility map (`docs/architecture.md`). Use a fixture only when the test needs pytest machinery (`tmp_path`, teardown, a browser). Pure builders and file writers are plain functions in `conftest.py` (D-028).
+8. Run `uv run pytest -q -n auto -m "not live and not browser" --cov=dbtscope`. When the page changed, also run the browser tests (CLAUDE.md, Commands).
 
 Return at most ten lines: tests added, failures with file and line, uncovered areas worth testing.
