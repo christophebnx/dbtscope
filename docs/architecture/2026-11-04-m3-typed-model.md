@@ -261,6 +261,12 @@ Deleted: `manifest.Node`, `manifest.Edge`, the `Project` dataclass, `_node`'s `_
 - **Performance**: two validations per table (header + full) and two models per column (input + domain). Fallback: `model_construct` in `_table` only.
 - **Error wording change** for config errors (format unified); only tests and nothing in docs depend on it.
 
+### Implementation notes (developer, 2026-11-04)
+
+- **Table construction**: `manifest._table` validates each table with `Table.model_validate` from one mapping, columns given as mappings, instead of one `Column(...)` constructor call per column: types are still checked, and pydantic builds the 30,000 columns of a 1,500-table project in Rust, about twice as fast (measured: 53 ms → 28 ms for 1,500 × 20 columns). `model_construct` was measured slower than the constructor and is not used.
+- **Parse time** of `big_manifest()` (1,500 tables): 29 ms before M3; after M3 about 100 ms standalone (best of 5) and 150–180 ms inside pytest (best of 3, more live objects for the garbage collector). Under the 200 ms target and the 0.5 s bound.
+- **`UniverseDefaults.hidden_kinds`** also accepts `hiddenKinds` on validation (`AliasChoices`), so a payload written as the page reads it (`tests/browser/test_trajectory_perf.py` builds one as a dict) validates unchanged; it is still dumped as `hiddenKinds`.
+
 ## Rejected options
 
 - **Domain models as dataclasses, pydantic only at the edges**: D-024 settles all four layers on pydantic.
