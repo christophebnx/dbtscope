@@ -55,6 +55,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Merge and validate the configuration | `domain/config.merge_config`, `Config` |
 | Python → JavaScript page data contract | `domain/payload` |
 | Read `dbt-erd.yml` and built-in presets | `storage/project_files.load_config`, `read_preset` |
+| Read a project file as UTF-8 text, JSON or a YAML mapping, with one-line errors | `storage/project_files._read_text`, `_read_json`, `_read_yaml` |
 | Decide whether a table is in a view's scope | `domain/classify.in_scope` |
 | Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |

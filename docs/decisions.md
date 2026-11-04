@@ -58,7 +58,7 @@ What is drawn (`select`, `exclude`), its kind, domain and layer are lists of dbt
 **D-016 — Page languages: English and French; CLI messages in English.**
 `language: en | fr` in the config picks the page language; UI strings live in tables at the top of each page script, and labels built in Python (`Other`, `No domain`) exist in both. The CLI stays in English (D-004). Supersedes, for the page only, the "from locale files" part of D-011: the page is a single file, so its strings are inline.
 
-**D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.**
+**D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.** (Dependency clause superseded by D-025.)
 Aligned with D-001. Why: one interpreter floor for the whole repository.
 
 **D-018 — Trajectory mode (M1): lineage only, whole chain by default, dim the rest, filters never cut the chain.**
