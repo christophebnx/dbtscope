@@ -63,6 +63,7 @@ CONFIG_FILE = "dbt-erd.yml"
 DEFAULT_KIND_COLOR = "#777777"
 GROUP_BY_RE = re.compile(r"^(schema|database|package|none|folder(:\d+)?|tag:.+)$")
 GROUP_BY_CHOICES = "schema, database, package, folder, folder:N, tag:<glob> or none"
+HEX_COLOR_RE = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")  # rule colours (D-041)
 Language = Literal["en", "fr"]  # page language (D-016)
 View = Literal["universe", "detail"]  # tab shown when the page opens
 Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
@@ -108,6 +109,16 @@ class Rule(BaseModel):
     label: Text | None  # the key when absent; an explicit `label: null` stays null
     color: str | None = None
     match: StrList
+
+    @field_validator("color")
+    @classmethod
+    def _hex_color(cls, value: str | None) -> str | None:
+        """A rule colour is `#rrggbb`; `#rgb` is written out; empty means none, as before (D-041)."""
+        if not value:
+            return None
+        if not HEX_COLOR_RE.match(value):
+            raise ValueError(f"invalid colour {value!r} (a hex colour such as '#2f6fb5')")
+        return "#" + "".join(c * 2 for c in value[1:]) if len(value) == 4 else value
 
     @model_validator(mode="before")
     @classmethod

@@ -181,3 +181,6 @@ Refines D-014 (d3-force now places the domains only) and the "local simulation" 
 - measured label widths (font-dependent shapes);
 - a payload flag for "no layer";
 - rescaling old saved offsets.
+
+**D-041 — A rule colour is a hex colour.**
+User request of 2026-11-05 (M5.6). In `dbt-erd.yml` and in presets, the `color` of a `kinds`, `domains` or `layers` rule is `#rrggbb` or `#rgb` (written out to `#rrggbb`, case kept); an empty or missing colour still means none (the default kind colour or the next palette colour). Anything else (`red`, `#12`, `#2f6fb5aa`) stops the run with one line naming the file and the rule: `config <path>: kinds[0].color: invalid colour 'red' (a hex colour such as '#2f6fb5'); fix the file`. Why: a non-hex kind colour crashed `domain/classify.background` with no file named, a short hex too, and the page's contrast helper (D-037) only reads hex. Every documented example and built-in colour is already `#rrggbb`, so pages built from valid configs are unchanged byte for byte. Accepted cost: a named domain colour, which used to be drawn, is now refused. Refines D-015 (the config format: values only, no new key). Rejected: accepting CSS colour names (a table of 148 names in `domain/` to tint and to check contrast), ignoring a bad colour silently.
