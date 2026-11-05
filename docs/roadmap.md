@@ -220,6 +220,13 @@ Done when: the design note's test plan passes (default and browser suites: one r
 
 Done when: the design note's test plan passes (every table keeps its domain key; default and browser suites; the `DBTSCOPE_DBT` check passed once; `dbt parse` with no warning); ruff is clean with no duplicate-code finding; and D-046, the READMEs, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
+- **M5.13 — Constellations by domain or by layer.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.13-group-by-layers.md`, D-047.) A **Constellations: Domains | Layers** switch in the universe panel, hidden below two layers.
+  - **Layer mode:** one constellation per layer along the flow, domain bands inside, tinted and marked in the domain colour.
+  - **Config and payload:** `universe.constellations` (default `domains`), embedded as `defaults.constellations`, the only payload change.
+  - **Layout:** optional `layers:*` scopes in the `universe` section (D-013 format unchanged); the viewer's choice in `dbtscope-constellations:<title>`, never exported.
+
+Done when: the design note's test plan passes (default and browser suites); the reference pages are regenerated in the asset commit, each payload differing only by the new key; ruff is clean with no duplicate-code finding; and D-047, `render/CLAUDE.md`, `domain/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
 - Default layers for medallion folders, from M5.12: `bronze*`, `silver` and `gold` have no `FLOW_PREFIXES` rank, so without `layers` rules they sort alphabetically (Gold before Silver) and each `bronze_<system>` folder is its own layer; ranks for them (and a way to merge `bronze_*` folders) would let such projects drop their layer rules.
