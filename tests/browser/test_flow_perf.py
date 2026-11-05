@@ -107,7 +107,7 @@ def test_level_one_over_the_cap_is_cut(tmp_path: Path, open_page: Any) -> None:
         ("en", f"Depth reduced to 1 level: the chosen depth has 201 tables, a flow draws at most {FLOW_MAX}"),
         (
             "fr",
-            "Profondeur réduite à 1 niveau : la profondeur choisie compte 201 tables, "
+            "Profondeur réduite à 1 niveau\u00a0: la profondeur choisie compte 201 tables, "  # D-039
             f"un flux en dessine au plus {FLOW_MAX}",
         ),
     ],

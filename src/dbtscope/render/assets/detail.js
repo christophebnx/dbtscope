@@ -11,12 +11,13 @@ function startDetail(DATA, LAYOUT, EXPORT) {
           svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
           hint: 'Wheel: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus' },
     fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
-          cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé : ', rels: ['relation', 'relations'],
-          foreign: 'pointillé : autre groupe',
+          cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
+          foreign: 'pointillé\u00a0: autre groupe',
           hGroup: 'Groupe', hDepth: 'Autour de la table ciblée', hCols: 'Colonnes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
-          hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table : la déplacer · clic : surligner ses liens · double-clic : cibler' },
+          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
+              + 'clic\u00a0: surligner ses liens · double-clic\u00a0: cibler' },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
   const byId = new Map(DATA.entities.map(e => [e.id, e]));
@@ -125,21 +126,22 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   }
 
   function nodeDot(e, pos) {
-    const k = KIND[e.kind];
+    const k = KIND[e.kind], head = esc(CONTRAST.textOn(k.color)), grey = esc(CONTRAST.ink(THEME.muted, k.bg));
+    // names on the kind colour and grey text on its tint reach AA whatever the colour (D-037)
     // trailing spaces keep bold names (under-measured by Viz.js) clear of the type column
     // Graphviz rejects an empty <font>: a column without data_type gets an empty cell
-    const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="#888888">${dotText(type)}</font>` : ''}</td></tr>`;
+    const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="${grey}">${dotText(type)}</font>` : ''}</td></tr>`;
     const keys = e.columns.filter(c => c[2]), rest = e.columns.filter(c => !c[2]);
     let rows = keys.map(([c, t]) => row(`<b>${dotText(c)}</b>`, t)).join('');
     if (state.allColumns) rows += rest.map(([c, t]) => row(dotText(c), t)).join('');
-    else if (rest.length) rows += `<tr><td colspan="2" align="left"><font color="#999999"><i>+ ${plural(rest.length, L.columns)}</i></font></td></tr>`;
+    else if (rest.length) rows += `<tr><td colspan="2" align="left"><font color="${grey}"><i>+ ${plural(rest.length, L.columns)}</i></font></td></tr>`;
     const border = e.id === state.focus ? 4 : 1;
     const style = isForeign(e) ? ' style="dashed"' : '';
     const tip = [e.group, e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : '');
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);
     return `"${id}" [id="${id}"${pin} tooltip="${dotStr(tip)}" label=<<table border="${border}" cellborder="0" cellspacing="0" cellpadding="5"${style} color="${esc(k.color)}" bgcolor="${esc(k.bg)}">` +
-      `<tr><td colspan="2" bgcolor="${esc(k.color)}"><font color="white" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
+      `<tr><td colspan="2" bgcolor="${esc(k.color)}"><font color="${head}" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
   }
 
   // positions: table id -> [x, y] in Graphviz points, every table pinned (for neato); none for dot's own layout
@@ -213,7 +215,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     canExport(false);
     const ids = visibleIds();
     const { dot, relCount } = buildDot(ids);
-    $d('meta').textContent = `${ids.size} / ${plural(scope.size, L.tables)} · ${plural(relCount, T.rels)}` +
+    $d('meta').textContent = `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(relCount, T.rels)}` +
       (state.group ? ` · ${T.foreign}` : '');
     $d('focus-info').textContent = state.focus ? T.focused + labelOf(byId.get(state.focus)) : '';
     const view = keepView && pz ? { zoom: pz.getZoom(), pan: pz.getPan() } : null;

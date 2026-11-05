@@ -24,18 +24,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
           every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
           owner: 'propriétaire',
-          openDetail: 'Double-clic : ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic : zoomer',
-          frame: 'Double-clic : cadrer ce domaine',
+          openDetail: 'Double-clic\u00a0: ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic\u00a0: zoomer',
+          frame: 'Double-clic\u00a0: cadrer ce domaine',
           trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
           brought: ['table ramenée par la trajectoire', 'tables ramenées par la trajectoire'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
           leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
           fitTraj: 'Cadrer la trajectoire', flow: 'Flux',
           flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
-          clickTraj: 'Clic : afficher sa trajectoire',
+          clickTraj: 'Clic\u00a0: afficher sa trajectoire',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
-          hint: 'Molette : zoom · glisser le fond : déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
-              + 'clic sur une table : sa trajectoire (Échap pour quitter) · '
+          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
+              + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
               + 'double-clic sur un domaine pour le cadrer, sur une table pour son détail' },
   }[PAGE.lang];
 
@@ -90,7 +90,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function refreshPanel() {
     checkboxes($u('layers'), DATA.layers, COUNT.layer, state.layers);
     checkboxes($u('kinds'), DATA.kinds, COUNT.kind, state.kinds, k => k.color);
-    checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}: ${d.owner}` : d.label);
+    checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}${L.colon}${d.owner}` : d.label);
   }
   refreshPanel();
   $u('all').onclick = () => { DATA.domains.forEach(d => state.domains.add(d.key)); refreshPanel(); relayout(); };
@@ -252,7 +252,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- drawing
-  const C = { bg: '#f5f6f8', text: '#1f2933', muted: '#6b7280', card: '#ffffff', route: 'rgba(71,85,105,.22)',
+  const C = { bg: THEME.bg, text: THEME.fg, muted: THEME.muted, card: '#ffffff', route: 'rgba(71,85,105,.22)',
               arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
               ...TRAJ_COLORS };   // trajectory: upstream (dashed marks), downstream (solid marks)
   const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of domains holding none of it
@@ -354,7 +354,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     domains.forEach(d => {
       const dd = DOM[d.k], [sx, sy] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
       ctx.globalAlpha = ctxAlpha(d);
-      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = dd.color;
+      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = CONTRAST.ink(dd.color, C.bg);   // readable on the page (D-037)
       ctx.fillText(dd.label, sx, sy - 22);
       const w = Math.max(ctx.measureText(dd.label).width, 80) + 8;
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
@@ -440,13 +440,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
     ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
     if (k > 0.6) {
-      ctx.fillStyle = '#fff'; ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
+      ctx.fillStyle = CONTRAST.textOn(col); ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
       ctx.font = `9px ${FONT}`;
       b.shown.forEach((r, j) => {
         ctx.fillStyle = r[2] ? C.text : C.muted; ctx.fillText(r[0], x + 5, y + 28 + j * 11);
-        ctx.fillStyle = '#9aa3af'; ctx.fillText(r[1], x + b.w - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
+        ctx.fillStyle = C.muted; ctx.fillText(r[1], x + b.w - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
       });
-      if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${b.more}`, x + 5, y + 28 + b.shown.length * 11); }
+      if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.more)}`, x + 5, y + 28 + b.shown.length * 11); }
     }
   }
   // the lineage edges of the trajectory, parent -> child, at every zoom and whatever the Links selector shows
@@ -549,11 +549,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!n && !d) { tip.style.display = 'none'; return; }
     if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
-      tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + (n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : '') +
+      tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
         `<div class="a">${t.k < FAR ? T.frame : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
     } else {
       const dd = DOM[d.k];
-      tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner} : ${esc(dd.owner)}` : ''}</div><div class="a">${T.frame}</div>`;
+      tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div><div class="a">${T.frame}</div>`;
     }
     const r = stage.getBoundingClientRect();
     tip.style.display = 'block';
@@ -591,7 +591,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
     const n = N[i], summary = renderBar();
-    live.textContent = `${T.trajOf} ${n.name}: ${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
+    live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
     draw();
   }
   function leaveTrajectory(restoreFocus) {
@@ -610,7 +610,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
     const ups = countByDomain(N, traj.up.keys()), downs = countByDomain(N, traj.down.keys());
     const rows = [...new Set([...ups.keys(), ...downs.keys()])].map(k => [k, ups.get(k) || 0, downs.get(k) || 0])
-      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}: ${countsText(cu, cd)}` }))
+      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}${L.colon}${countsText(cu, cd)}` }))
       .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
     $u('tj-list').replaceChildren(...rows.map(r => {
       const li = document.createElement('li'), dot = document.createElement('i');
@@ -680,7 +680,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }).observe(stage);
   layout(); resize(); fit(false);
 
+  // the screen rectangle of a drawn table, in CSS px from the canvas's top left corner; null when not drawn
+  function place(id) {
+    const n = N.find(m => m.id === id), p = n && P[n.i], b = n && B[n.i];
+    return p ? { x: (p.x - b.w / 2) * t.k + t.x, y: (p.y - b.h / 2) * t.k + t.y, w: b.w * t.k, h: b.h * t.k } : null;
+  }
+
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
-  // camera (the d3 zoom transform) is for the tests too: closing the flow leaves it as it was.
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera: () => ({ x: t.x, y: t.y, k: t.k }) };
+  // camera (the d3 zoom transform) and place are for the tests too: closing the flow leaves the camera as it was.
+  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera: () => ({ x: t.x, y: t.y, k: t.k }), place };
 }

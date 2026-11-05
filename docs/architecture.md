@@ -120,11 +120,16 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Escape untrusted text for `innerHTML` (page) | `render/assets/common.js esc` |
 | A count with plural agreement (page) | `render/assets/common.js plural` |
+| A number written for the page language (page) | `render/assets/common.js num` |
+| Label–value separator of the page language (page) | `render/assets/common.js L.colon` |
+| Contrast of text with a colour; the text colour on a fill; a colour made readable as text (page) | `render/assets/common.js CONTRAST` (`ratio`, `textOn`, `ink`, `AA`) |
+| Theme colours used by the scripts (copy of `page.css :root`) | `render/assets/common.js THEME` |
 | Side panel toggle and opening state (page) | `render/assets/common.js sidePanel` |
 | A filter checkbox row (page) | `render/assets/common.js filterRow` |
 | Page strings shared by several scripts | `render/assets/common.js STRINGS` / `L` |
 | A select's options from [value, label] pairs (page) | `render/assets/common.js fillSelect` |
 | Name and meta lines of a table tooltip (page) | `render/assets/common.js tableTip` |
+| A table's description line in a tooltip (page) | `render/assets/common.js tableDesc` |
 | Lineage traversal from one table (page) | `render/assets/common.js trajectory` |
 | The lineage edges of a trajectory (page) | `render/assets/common.js trajectoryEdges` |
 | Colours of upstream / downstream (page) | `render/assets/common.js TRAJ_COLORS` |

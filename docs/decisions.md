@@ -127,3 +127,30 @@ Asked by the user on 2026-11-04 (M5.3, design note `docs/architecture/2026-11-04
 - domain clusters (unreadable and slow at about 150 tables, and they conflict with imposed ranks);
 - `rank=same` per layer (vertical and backward edges);
 - no cap (Graphviz blocks the page on a hub).
+
+**D-037 — Text on a colour reaches WCAG AA for any colour; the page chooses the ink.**
+Asked by the user on 2026-11-05 (M5.4, design note `docs/architecture/2026-11-05-m5.4-contrast-touch-ups.md`).
+- **Names on kind colours** (universe cards, detail and flow headers) are white when white gives at least 4.5:1 on the colour, else pure black. Pure black is the only dark ink that reaches 4.5:1 on every colour; `#1f2933` falls to 3.8:1 on mid tones.
+- **Text written in a colour** (domain names on the universe) is that colour, darkened toward black just enough to reach 4.5:1 on the page background.
+- **Secondary text on a kind tint** in the detail is the theme grey, darkened in the same way.
+- One helper does all of it, `common.js CONTRAST` (`ratio`, `textOn`, `ink`, threshold `AA` = 4.5 for every text). The theme grey `--muted` becomes `#5f6774` (5.3:1 on the page background), mirrored in `common.js THEME`.
+- Built-in and preset colours, the payload and the exported file formats are unchanged; exported images show the same inks.
+
+Why: user colours can be anything, so only a choice made in the page covers them all. Rejected:
+- changing the built-in colours (payload change, and no help for configured colours);
+- darkening the header band (the kind colour would no longer match its legend);
+- the higher-contrast ink always (it turns colours that already pass to black);
+- 3:1 for large text (per-site rules for little gain).
+
+**D-038 — On narrow screens the open detail panel is capped at 35 % of the window height.**
+Asked by the user on 2026-11-05 (M5.4, same design note § 3). At 600 px or narrower, the open filter panel of the Detail tab is at most 35vh high and scrolls inside itself. The detail toolbar wraps to several rows, so at 45vh the diagram, and the effect of a filter on it, was pushed out of view at 360 × 800. The universe panel keeps 45vh. Refines D-035 (the 45 % clause, for the Detail tab only); the rest of D-035 holds. Rejected: 35vh for both panels (the universe toolbar is one row).
+
+**D-039 — Page numbers follow the page language; French strings use French spacing.**
+Asked by the user on 2026-11-05 (M5.4, same design note § 4–5).
+- **Numbers.** Every number the page writes goes through `common.js num` (`toLocaleString(PAGE.lang)`): `1,234` in English, `1 234` in French. This covers counts, filter counts, cap messages and depth labels.
+- **French spacing.** French page strings put a no-break space (U+00A0) before `:` and a narrow no-break space (U+202F) before `?`, `!` and `;`. In the source they are written as ` ` / ` ` escapes.
+- **English spacing.** English strings put no space before them.
+- **Composed strings.** A label and a value are joined with `L.colon`, so the English domain tooltip reads `owner: x`.
+- **Data untouched.** Names, descriptions and config labels stay as written.
+
+Refines D-016 (page strings in both languages). Rejected: U+202F before `:` too (the French rule is a full no-break space before the colon), `Intl.NumberFormat` options (same output as what the trajectory already used).

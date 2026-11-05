@@ -226,3 +226,25 @@ def test_scripts_come_in_order_common_detail_universe_flow_boot(offline: bool) -
 def test_no_page_script_can_close_its_block() -> None:
     for name in ("common.js", "detail.js", "universe.js", "flow.js", "boot.js"):
         assert "</script" not in (ASSETS / name).read_text(encoding="utf-8").lower(), name
+
+
+# ---------------------------------------------------------------- M5.4: contrast, touch-ups (D-037 to D-039)
+
+
+def test_flow_resizes_its_diagram_in_one_place() -> None:
+    assert (ASSETS / "flow.js").read_text(encoding="utf-8").count("pz.resize()") == 1
+
+
+def test_common_script_declares_the_m5_4_helpers() -> None:
+    common = (ASSETS / "common.js").read_text(encoding="utf-8")
+    for declaration in ("const CONTRAST = ", "const THEME = ", "const num = ", "const tableDesc = "):
+        assert common.count(declaration) == 1, declaration
+    for name in ("universe.js", "flow.js", "detail.js", "boot.js"):  # one helper each, no copy
+        script = (ASSETS / name).read_text(encoding="utf-8")
+        assert "toLocaleString" not in script and 'class="desc"' not in script, name
+
+
+@pytest.mark.parametrize("name", ["common.js", "detail.js", "universe.js", "flow.js", "boot.js", "page.css"])
+def test_no_asset_holds_an_invisible_space(name: str) -> None:
+    text = (ASSETS / name).read_text(encoding="utf-8")
+    assert "\u00a0" not in text and "\u202f" not in text, "write them as \\u00a0 / \\u202f escapes (D-039)"

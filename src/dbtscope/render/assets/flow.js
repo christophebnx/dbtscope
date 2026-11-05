@@ -51,14 +51,14 @@ function startFlow(DATA, EXPORT, close) {
   const T = {
     en: { flowOf: 'Flow of', back: 'Universe', backTitle: 'Back to the universe (Esc)', fitTitle: 'Show the whole flow',
           clickFlow: 'Click: show its flow', levelsN: ['level', 'levels'], closed: 'Flow closed',
-          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${FLOW_MAX}`,
-          capCut: (shown, total) => `Only ${shown} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${FLOW_MAX} per flow)`,
+          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Only ${num(shown)} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${num(FLOW_MAX)} per flow)`,
           pngTitle: 'Save the visible flow as a PNG image (high resolution)',
           svgTitle: 'Save the visible flow as an SVG image (vector, opens in any browser)' },
     fr: { flowOf: 'Flux de', back: 'Univers', backTitle: 'Revenir à l\'univers (Échap)', fitTitle: 'Afficher tout le flux',
-          clickFlow: 'Clic : afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
-          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)} : la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${FLOW_MAX}`,
-          capCut: (shown, total) => `Seules ${shown} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${FLOW_MAX} par flux)`,
+          clickFlow: 'Clic\u00a0: afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
+          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)}\u00a0: la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Seules ${num(shown)} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${num(FLOW_MAX)} par flux)`,
           pngTitle: 'Enregistrer le flux visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le flux visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)' },
   }[PAGE.lang];
@@ -86,7 +86,8 @@ function startFlow(DATA, EXPORT, close) {
   $f('back').onclick = () => close();
   $f('fit').onclick = () => panZoomFit(box, pz);
   // a resized window keeps the user's zoom and pan; Fit shows the whole flow again
-  window.addEventListener('resize', () => { if (isOpen && pz && box.clientWidth) pz.resize(); });
+  const resize = () => { if (isOpen && pz && box.clientWidth) pz.resize(); };
+  window.addEventListener('resize', resize);
   // the Domains list stays inside the window: shifted left when its summary is near the right edge
   domains.addEventListener('toggle', () => {
     const list = $f('dom-list');
@@ -137,17 +138,18 @@ function startFlow(DATA, EXPORT, close) {
   // "−2", "+1", "−1 / +3" (a table on both sides), or the bold word start
   function depthLabel(i) {
     if (i === st.start) return dotText(L.lgStart);
-    return [st.up.has(i) ? MINUS + st.up.get(i) : '', st.down.has(i) ? '+' + st.down.get(i) : ''].filter(Boolean).join(' / ');
+    return [st.up.has(i) ? MINUS + num(st.up.get(i)) : '', st.down.has(i) ? '+' + num(st.down.get(i)) : ''].filter(Boolean).join(' / ');
   }
-  // a table: domain band on the left edge, name on the kind colour, then its depth and layer
+  // a table: domain band on the left edge, name on the kind colour (in an ink that reaches AA, D-037),
+  // then its depth and layer
   function nodeDot(i) {
     const n = N[i], id = dotStr(n.id);
     const frame = i === st.start ? 'border="3" color="#1f2933"' : 'border="1" color="#c3c9d2"';
     return `"${id}" [id="${id}" label=<<table ${frame} cellborder="0" cellspacing="0" cellpadding="4" bgcolor="white">` +
       `<tr><td rowspan="2" width="6" bgcolor="${esc(DOM[n.domain].color)}"></td>` +
-      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"><font color="white"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
-      `<tr><td align="left"><font color="#1f2933" point-size="12"><b>${depthLabel(i)}</b></font>` +
-      `<font color="#6b7280" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
+      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
+      `<tr><td align="left"><font color="${THEME.fg}" point-size="12"><b>${depthLabel(i)}</b></font>` +
+      `<font color="${THEME.muted}" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
   }
   // columns imposed on dot: one rank=same group per column, each edge as long as its columns apart
   function buildDot() {
@@ -200,18 +202,18 @@ function startFlow(DATA, EXPORT, close) {
     const sum = $f('dom-sum'), count = document.createElement('span');
     count.textContent = plural(rows.length, L.domainsN);
     sum.replaceChildren(...rows.slice(0, 6).map(r => { const i = dot(r.d.color); i.setAttribute('aria-hidden', 'true'); return i; }), count);
-    sum.title = rows.map(r => `${r.d.label}: ${r.c}`).join('\n');
+    sum.title = rows.map(r => `${r.d.label}${L.colon}${num(r.c)}`).join('\n');
     const sep = document.createElement('li');
     sep.className = 'sep'; sep.setAttribute('role', 'separator');
     $f('dom-list').replaceChildren(row(legendMark('start'), L.lgStart), row(legendMark('up'), L.up),
-      row(legendMark('down'), L.down), sep, ...rows.map(r => row(dot(r.d.color), r.d.label, r.c)));
+      row(legendMark('down'), L.down), sep, ...rows.map(r => row(dot(r.d.color), r.d.label, num(r.c))));
   }
 
   // ---------------------------------------------------------------- drawing
   function update(keyboard) {
     prepare();
     header();
-    live.textContent = `${T.flowOf} ${N[st.start].name}: ${countsText()}.` + (st.cap ? ` ${st.cap}.` : '');
+    live.textContent = `${T.flowOf} ${N[st.start].name}${L.colon}${countsText()}.` + (st.cap ? ` ${st.cap}.` : '');
     render(keyboard);
   }
   // keyboard: the recentre came from a focused table, so the focus follows to the new start
@@ -299,7 +301,7 @@ function startFlow(DATA, EXPORT, close) {
     if (matchMedia('(hover: none)').matches) return;   // touch: no hover, the tap recentres
     const n = N[i];
     tip.innerHTML = tableTip(DATA, n) + trajectoryTip(st, i)
-      + (n.desc ? `<div class="m" style="margin-top:6px">${esc(n.desc)}</div>` : '')
+      + tableDesc(n)
       + (i === st.start ? '' : `<div class="a">${T.clickFlow}</div>`);
     tip.style.display = 'block';
     const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
@@ -348,6 +350,6 @@ function startFlow(DATA, EXPORT, close) {
   }
 
   // state and svgImage are for the browser tests; the page uses the export buttons
-  return { open, close: hide, isOpen: () => isOpen, shown: () => { if (pz && box.clientWidth) pz.resize(); },
+  return { open, close: hide, isOpen: () => isOpen, shown: resize,
     state, svgImage: scale => svgImage(box, pz, scale) };
 }
