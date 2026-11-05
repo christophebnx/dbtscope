@@ -1,16 +1,20 @@
 // Page-wide globals, inlined first so every later script can use them: the payload, the shared string
-// table, the one HTML escaper, plural agreement, the side-panel toggle, the filter checkbox row, the
-// lineage traversal of the trajectory, and the Graphviz helpers of the detail and flow views (render,
-// pan-zoom mount, image export). Declarations only: no DOM work at load but the page language.
+// table, the one HTML escaper, numbers and plural agreement, the theme colours and the contrast of text
+// on colours, the side-panel toggle, the filter checkbox row, the lineage traversal of the trajectory,
+// the columns along the data flow (flow view, universe layer bands), and the Graphviz helpers of the
+// detail and flow views (render, pan-zoom mount, image export).
+// Declarations only: no DOM work at load but the page language.
 const PAGE = JSON.parse(document.getElementById('data').textContent);
 document.documentElement.lang = PAGE.lang;
 
 // Strings used by boot.js, or shown with the same text by both views. A view's own strings live in its T.
-// A count's noun is a [singular, plural] pair, read through plural().
+// A count's noun is a [singular, plural] pair, read through plural(). French writes a no-break space
+// (\u00a0) before ':' and a narrow one (\u202f) before '?', '!' and ';', always as escapes (D-039);
+// a label and a value are joined with colon.
 const STRINGS = {
   en: { universe: 'Universe', detail: 'Detail', reset: 'Reset layout', export: 'Export layout', import: 'Import layout',
         resetAsk: 'Forget the manual arrangement of this tab?', bad: 'Not a dbt-erd layout file.',
-        imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
+        colon: ': ', imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
         exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
@@ -22,11 +26,11 @@ const STRINGS = {
         tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}` },
   fr: { universe: 'Univers', detail: 'Détail', reset: 'Réinitialiser la disposition', export: 'Exporter la disposition',
         import: 'Importer une disposition',
-        resetAsk: 'Oublier la disposition manuelle de cet onglet ?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
-        imageSaved: f => `Image créée : ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
+        resetAsk: 'Oublier la disposition manuelle de cet onglet\u202f?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
+        colon: '\u00a0: ', imageSaved: f => `Image créée\u00a0: ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
         exportImage: 'Exporter l\'image', png: 'PNG', filters: 'Filtres', empty: 'Aucune table pour ces filtres.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
-        svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu : ',
+        svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
         d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
@@ -41,8 +45,49 @@ const L = STRINGS[PAGE.lang];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+// A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039).
+const num = n => n.toLocaleString(PAGE.lang);
 // "1 table", "2 tables"; forms is [singular, plural]. English: singular for 1; French: for 0 and 1.
-const plural = (n, forms) => `${n} ${forms[n === 1 || (n === 0 && PAGE.lang === 'fr') ? 0 : 1]}`;
+const plural = (n, forms) => `${num(n)} ${forms[n === 1 || (n === 0 && PAGE.lang === 'fr') ? 0 : 1]}`;
+
+// The theme colours the scripts draw with: a copy of --bg, --fg and --muted of page.css :root.
+const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774' };
+
+// Text on colours (D-037), pure and cached by arguments (the universe asks for every card in every frame).
+// Colours are '#rgb', '#rrggbb' or '#rrggbbaa' (alpha ignored: the colour counts as opaque).
+// ratio(a, b): the WCAG 2.x contrast ratio, NaN for anything else. textOn(bg): the text colour on a fill,
+// white when it reaches AA, else black (white for an unparsable fill). ink(color, bg): `color` used as text
+// on a light `bg`, itself when it reaches AA, else mixed toward black by the smallest step j / 32 that does.
+const CONTRAST = (() => {
+  const AA = 4.5, cache = new Map();
+  function channels(c) {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(String(c).trim());
+    if (!m) return null;
+    const h = m[1].length === 3 ? m[1].replace(/./g, x => x + x) : m[1];
+    return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+  }
+  const linear = v => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const luminance = ([r, g, b]) => 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  const hex = rgb => '#' + rgb.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  const memo = (key, compute) => { if (!cache.has(key)) cache.set(key, compute()); return cache.get(key); };
+  function ratio(a, b) {
+    const x = channels(a), y = channels(b);
+    if (!x || !y) return NaN;
+    const [hi, lo] = [luminance(x), luminance(y)].sort((p, q) => q - p);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  const textOn = bg => memo('on|' + bg, () => (!channels(bg) || ratio('#ffffff', bg) >= AA ? '#ffffff' : '#000000'));
+  function darken(color, bg) {
+    const rgb = channels(color);
+    if (!rgb || ratio(color, bg) >= AA) return color;
+    for (let j = 1; j <= 32; j++) {
+      const mixed = hex(rgb.map(v => v * (1 - j / 32)));
+      if (ratio(mixed, bg) >= AA) return mixed;
+    }
+    return '#000000';
+  }
+  return { AA, ratio, textOn, ink: (color, bg) => memo('ink|' + color + '|' + bg, () => darken(color, bg)) };
+})();
 
 // Wires the ☰ button #<view>-toggle to the panel #<view>-panel. A view started in a window 600 px wide
 // or narrower (the page.css breakpoint) starts with its panel closed (D-035); after that only the button
@@ -65,7 +110,7 @@ function filterRow({ label, color, count, checked, title }, onChange) {
   row.append(box);
   if (color) { const dot = document.createElement('i'); dot.style.background = color; row.append(dot); }
   const name = document.createElement('span'), n = document.createElement('small');
-  name.textContent = label; n.textContent = count;
+  name.textContent = label; n.textContent = num(count);
   row.append(name, n);
   if (title) row.title = title;
   return row;
@@ -87,6 +132,8 @@ function tableTip(DATA, n) {
   return `<b>${esc(n.name)}</b><div class="m">${esc(label(DATA.domains, n.domain))} · ${esc(label(DATA.layers, n.layer))} · `
     + `${esc(label(DATA.kinds, n.kind))} · ${plural(n.cols.length, L.columns)}</div>`;
 }
+// The description line of a table's tooltip (universe payload), escaped; '' without a description.
+const tableDesc = n => (n.desc ? `<div class="desc">${esc(n.desc)}</div>` : '');
 
 // ---------------------------------------------------------------- trajectory (lineage from one table)
 // Colours of the trajectory: upstream (dashed marks), downstream (solid marks); the universe and the flow.
@@ -129,7 +176,6 @@ function trajectoryEdges(lineage, start, up, down) {
 
 // "5 upstream · 1 downstream", restricted to the direction shown (u, d: table counts of each side)
 function trajectoryCounts(direction, u, d) {
-  const num = v => v.toLocaleString(PAGE.lang);
   return direction === 'up' ? L.countUp(num(u)) : direction === 'down' ? L.countDown(num(d))
     : `${L.countUp(num(u))} · ${L.countDown(num(d))}`;
 }
@@ -140,7 +186,7 @@ const noTrajectory = direction => ({ both: L.noLineage, up: L.noUp, down: L.noDo
 // (a table can be both, on a cycle) as [['up' | 'down', text]]; [] for a table outside it.
 function trajectoryLevels({ start, up, down }, i) {
   if (i === start) return [['start', L.tipStart]];
-  return [up.has(i) && ['up', L.tipUp(up.get(i))], down.has(i) && ['down', L.tipDown(down.get(i))]].filter(Boolean);
+  return [up.has(i) && ['up', L.tipUp(num(up.get(i)))], down.has(i) && ['down', L.tipDown(num(down.get(i)))]].filter(Boolean);
 }
 // The trajectory lines of a table's tooltip
 const trajectoryTip = (t, i) => trajectoryLevels(t, i).map(([side, text]) => `<div class="tj ${side}">${text}</div>`).join('');
@@ -150,6 +196,52 @@ function countByDomain(nodes, indices) {
   const per = new Map();
   for (const i of indices) per.set(nodes[i].domain, (per.get(nodes[i].domain) || 0) + 1);
   return per;
+}
+
+// ---------------------------------------------------------------- columns along the data flow
+// Columns along the data flow: lineage first, layers as a floor. A pure page global, tested directly;
+// the flow's columns and the order of the universe's layer bands (D-036, D-040).
+// members: table indices; edges: [[parent, child]] among members (data flows left to right);
+// layerOf: index -> position of its layer in DATA.layers, or null for a table without a layer.
+// -> { rank: Map(index -> column), back: Set of "parent,child" edges left out of the ranking (cycles) }
+// span[L] = 1 + the longest chain of edges inside layer L (0 when L has no table); floor[L] = the sum of
+// the spans of the layers before L; rank(n) = max(floor[layer(n)], rank(p) + 1 over its parents p).
+// A table without a layer has no floor (0) and counts in no layer's span.
+// Every edge not in `back` goes left to right. O(V + E); never loops nor throws on a cycle.
+function flowRanks(members, edges, layerOf) {
+  const at = new Map(members.map((m, j) => [m, j]));
+  const links = edges.filter(([p, c]) => p !== c && at.has(p) && at.has(c));
+  const layer = members.map(m => layerOf(m) ?? null);
+  // longest-path ranks over `list` (Kahn), each table at least at base(j); a table left over by a cycle is
+  // ranked over its ranked parents only, its other in-edges go to `back`
+  function longest(list, base) {
+    const parents = members.map(() => []), children = members.map(() => []), indeg = members.map(() => 0);
+    list.forEach(([p, c]) => { const a = at.get(p), b = at.get(c); parents[b].push(a); children[a].push(b); indeg[b]++; });
+    const rank = members.map(() => -1), back = new Set(), queue = [];
+    members.forEach((_, j) => { if (!indeg[j]) queue.push(j); });
+    function place(j) {
+      let r = base(j);
+      parents[j].forEach(a => { if (rank[a] >= 0) r = Math.max(r, rank[a] + 1); else back.add(members[a] + ',' + members[j]); });
+      rank[j] = r;
+      children[j].forEach(b => { if (rank[b] < 0 && --indeg[b] === 0) queue.push(b); });
+    }
+    let head = 0, next = 0;
+    for (;;) {
+      while (head < queue.length) { const j = queue[head++]; if (rank[j] < 0) place(j); }
+      while (next < members.length && rank[next] >= 0) next++;
+      if (next === members.length) break;
+      place(next);
+    }
+    return { rank, back };
+  }
+  const inLayer = ([p, c]) => layer[at.get(p)] !== null && layer[at.get(p)] === layer[at.get(c)];
+  const inner = longest(links.filter(inLayer), () => 0).rank;
+  const span = [];
+  inner.forEach((r, j) => { if (layer[j] !== null) span[layer[j]] = Math.max(span[layer[j]] || 0, r + 1); });
+  const floor = [];
+  for (let l = 0, sum = 0; l < span.length; l++) { floor[l] = sum; sum += span[l] || 0; }
+  const { rank, back } = longest(links, j => (layer[j] === null ? 0 : floor[layer[j]]));
+  return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
 }
 
 // ---------------------------------------------------------------- Graphviz views (detail, flow)

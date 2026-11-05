@@ -492,7 +492,10 @@ def test_file_slug_keeps_ascii_letters_digits_dash_underscore(shop_page: Shop) -
 
 @pytest.mark.parametrize(
     ("lang", "message"),
-    [("en", "Image created: dbt-ERD-universe.png"), ("fr", "Image créée : dbt-ERD-universe.png")],
+    [
+        ("en", "Image created: dbt-ERD-universe.png"),
+        ("fr", "Image créée\u00a0: dbt-ERD-universe.png"),  # French spacing (D-039)
+    ],
 )
 def test_export_is_announced(build_page: Any, open_page: Any, lang: str, message: str) -> None:
     p = open_page(build_page(f"language: {lang}\n")[0])

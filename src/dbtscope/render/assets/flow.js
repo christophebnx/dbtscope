@@ -2,48 +2,6 @@
 // left, the start, downstream on the right. An overlay of the Universe tab, started by boot.js on first
 // use; it reads the universe payload, never changes the universe and saves nothing (no layout, D-013).
 
-// Columns of a flow: lineage first, layers as a floor. A pure page global, tested directly.
-// members: table indices; edges: [[parent, child]] among members (data flows left to right);
-// layerOf: index -> position of its layer in DATA.layers.
-// -> { rank: Map(index -> column), back: Set of "parent,child" edges left out of the ranking (cycles) }
-// span[L] = 1 + the longest chain of edges inside layer L (0 when L has no table); floor[L] = the sum of
-// the spans of the layers before L; rank(n) = max(floor[layer(n)], rank(p) + 1 over its parents p).
-// Every edge not in `back` goes left to right. O(V + E); never loops nor throws on a cycle.
-function flowRanks(members, edges, layerOf) {
-  const at = new Map(members.map((m, j) => [m, j]));
-  const links = edges.filter(([p, c]) => p !== c && at.has(p) && at.has(c));
-  const layer = members.map(m => layerOf(m) || 0);
-  // longest-path ranks over `list` (Kahn), each table at least at base(j); a table left over by a cycle is
-  // ranked over its ranked parents only, its other in-edges go to `back`
-  function longest(list, base) {
-    const parents = members.map(() => []), children = members.map(() => []), indeg = members.map(() => 0);
-    list.forEach(([p, c]) => { const a = at.get(p), b = at.get(c); parents[b].push(a); children[a].push(b); indeg[b]++; });
-    const rank = members.map(() => -1), back = new Set(), queue = [];
-    members.forEach((_, j) => { if (!indeg[j]) queue.push(j); });
-    function place(j) {
-      let r = base(j);
-      parents[j].forEach(a => { if (rank[a] >= 0) r = Math.max(r, rank[a] + 1); else back.add(members[a] + ',' + members[j]); });
-      rank[j] = r;
-      children[j].forEach(b => { if (rank[b] < 0 && --indeg[b] === 0) queue.push(b); });
-    }
-    let head = 0, next = 0;
-    for (;;) {
-      while (head < queue.length) { const j = queue[head++]; if (rank[j] < 0) place(j); }
-      while (next < members.length && rank[next] >= 0) next++;
-      if (next === members.length) break;
-      place(next);
-    }
-    return { rank, back };
-  }
-  const inner = longest(links.filter(([p, c]) => layer[at.get(p)] === layer[at.get(c)]), () => 0).rank;
-  const span = [];
-  inner.forEach((r, j) => { span[layer[j]] = Math.max(span[layer[j]] || 0, r + 1); });
-  const floor = [];
-  for (let l = 0, sum = 0; l < span.length; l++) { floor[l] = sum; sum += span[l] || 0; }
-  const { rank, back } = longest(links, j => floor[layer[j]]);
-  return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
-}
-
 function startFlow(DATA, EXPORT, close) {
   const FLOW_MAX = 150;          // tables drawn at most, start included: the one knob of the render time
   const FLOW_MIN_SCALE = 0.75;   // a smaller initial scale makes names unreadable: zoom to it on the start
@@ -51,14 +9,14 @@ function startFlow(DATA, EXPORT, close) {
   const T = {
     en: { flowOf: 'Flow of', back: 'Universe', backTitle: 'Back to the universe (Esc)', fitTitle: 'Show the whole flow',
           clickFlow: 'Click: show its flow', levelsN: ['level', 'levels'], closed: 'Flow closed',
-          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${FLOW_MAX}`,
-          capCut: (shown, total) => `Only ${shown} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${FLOW_MAX} per flow)`,
+          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Only ${num(shown)} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${num(FLOW_MAX)} per flow)`,
           pngTitle: 'Save the visible flow as a PNG image (high resolution)',
           svgTitle: 'Save the visible flow as an SVG image (vector, opens in any browser)' },
     fr: { flowOf: 'Flux de', back: 'Univers', backTitle: 'Revenir à l\'univers (Échap)', fitTitle: 'Afficher tout le flux',
-          clickFlow: 'Clic : afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
-          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)} : la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${FLOW_MAX}`,
-          capCut: (shown, total) => `Seules ${shown} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${FLOW_MAX} par flux)`,
+          clickFlow: 'Clic\u00a0: afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
+          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)}\u00a0: la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Seules ${num(shown)} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${num(FLOW_MAX)} par flux)`,
           pngTitle: 'Enregistrer le flux visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le flux visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)' },
   }[PAGE.lang];
@@ -86,7 +44,8 @@ function startFlow(DATA, EXPORT, close) {
   $f('back').onclick = () => close();
   $f('fit').onclick = () => panZoomFit(box, pz);
   // a resized window keeps the user's zoom and pan; Fit shows the whole flow again
-  window.addEventListener('resize', () => { if (isOpen && pz && box.clientWidth) pz.resize(); });
+  const resize = () => { if (isOpen && pz && box.clientWidth) pz.resize(); };
+  window.addEventListener('resize', resize);
   // the Domains list stays inside the window: shifted left when its summary is near the right edge
   domains.addEventListener('toggle', () => {
     const list = $f('dom-list');
@@ -137,17 +96,18 @@ function startFlow(DATA, EXPORT, close) {
   // "−2", "+1", "−1 / +3" (a table on both sides), or the bold word start
   function depthLabel(i) {
     if (i === st.start) return dotText(L.lgStart);
-    return [st.up.has(i) ? MINUS + st.up.get(i) : '', st.down.has(i) ? '+' + st.down.get(i) : ''].filter(Boolean).join(' / ');
+    return [st.up.has(i) ? MINUS + num(st.up.get(i)) : '', st.down.has(i) ? '+' + num(st.down.get(i)) : ''].filter(Boolean).join(' / ');
   }
-  // a table: domain band on the left edge, name on the kind colour, then its depth and layer
+  // a table: domain band on the left edge, name on the kind colour (in an ink that reaches AA, D-037),
+  // then its depth and layer
   function nodeDot(i) {
     const n = N[i], id = dotStr(n.id);
     const frame = i === st.start ? 'border="3" color="#1f2933"' : 'border="1" color="#c3c9d2"';
     return `"${id}" [id="${id}" label=<<table ${frame} cellborder="0" cellspacing="0" cellpadding="4" bgcolor="white">` +
       `<tr><td rowspan="2" width="6" bgcolor="${esc(DOM[n.domain].color)}"></td>` +
-      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"><font color="white"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
-      `<tr><td align="left"><font color="#1f2933" point-size="12"><b>${depthLabel(i)}</b></font>` +
-      `<font color="#6b7280" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
+      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
+      `<tr><td align="left"><font color="${THEME.fg}" point-size="12"><b>${depthLabel(i)}</b></font>` +
+      `<font color="${THEME.muted}" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
   }
   // columns imposed on dot: one rank=same group per column, each edge as long as its columns apart
   function buildDot() {
@@ -200,18 +160,18 @@ function startFlow(DATA, EXPORT, close) {
     const sum = $f('dom-sum'), count = document.createElement('span');
     count.textContent = plural(rows.length, L.domainsN);
     sum.replaceChildren(...rows.slice(0, 6).map(r => { const i = dot(r.d.color); i.setAttribute('aria-hidden', 'true'); return i; }), count);
-    sum.title = rows.map(r => `${r.d.label}: ${r.c}`).join('\n');
+    sum.title = rows.map(r => `${r.d.label}${L.colon}${num(r.c)}`).join('\n');
     const sep = document.createElement('li');
     sep.className = 'sep'; sep.setAttribute('role', 'separator');
     $f('dom-list').replaceChildren(row(legendMark('start'), L.lgStart), row(legendMark('up'), L.up),
-      row(legendMark('down'), L.down), sep, ...rows.map(r => row(dot(r.d.color), r.d.label, r.c)));
+      row(legendMark('down'), L.down), sep, ...rows.map(r => row(dot(r.d.color), r.d.label, num(r.c))));
   }
 
   // ---------------------------------------------------------------- drawing
   function update(keyboard) {
     prepare();
     header();
-    live.textContent = `${T.flowOf} ${N[st.start].name}: ${countsText()}.` + (st.cap ? ` ${st.cap}.` : '');
+    live.textContent = `${T.flowOf} ${N[st.start].name}${L.colon}${countsText()}.` + (st.cap ? ` ${st.cap}.` : '');
     render(keyboard);
   }
   // keyboard: the recentre came from a focused table, so the focus follows to the new start
@@ -299,7 +259,7 @@ function startFlow(DATA, EXPORT, close) {
     if (matchMedia('(hover: none)').matches) return;   // touch: no hover, the tap recentres
     const n = N[i];
     tip.innerHTML = tableTip(DATA, n) + trajectoryTip(st, i)
-      + (n.desc ? `<div class="m" style="margin-top:6px">${esc(n.desc)}</div>` : '')
+      + tableDesc(n)
       + (i === st.start ? '' : `<div class="a">${T.clickFlow}</div>`);
     tip.style.display = 'block';
     const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
@@ -348,6 +308,6 @@ function startFlow(DATA, EXPORT, close) {
   }
 
   // state and svgImage are for the browser tests; the page uses the export buttons
-  return { open, close: hide, isOpen: () => isOpen, shown: () => { if (pz && box.clientWidth) pz.resize(); },
+  return { open, close: hide, isOpen: () => isOpen, shown: resize,
     state, svgImage: scale => svgImage(box, pz, scale) };
 }

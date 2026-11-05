@@ -1,5 +1,7 @@
 """Page polish (M5.2, D-035): plural agreement, the shared escaper, the side panel on narrow screens,
-and 44 px targets on touch screens. Design note: docs/architecture/2026-11-04-m5.2-page-polish.md."""
+and 44 px targets on touch screens. Design note: docs/architecture/2026-11-04-m5.2-page-polish.md.
+M5.4 (D-038, D-039): French spacing, numbers in the page language, the detail panel cap, the shared
+description line of the tooltips."""
 
 from __future__ import annotations
 
@@ -11,7 +13,19 @@ from typing import Any
 import pytest
 from conftest import SHOP, page_of, shop_manifest, write_config, write_example, write_manifest
 
-from browser.conftest import CENTRE_WAIT_MS, NARROW, Page, scroll_width, show_detail
+from browser.conftest import (
+    CENTRE_WAIT_MS,
+    NARROW,
+    Page,
+    scroll_width,
+    show_detail,
+    universe_page,
+    wait_exportable,
+    wait_flow,
+)
+from browser.test_flow_perf import fan_payload
+from browser.test_trajectory_perf import universe_payload as big_universe
+from dbtscope.domain.payload import UniversePayload
 
 pytestmark = pytest.mark.browser
 
@@ -467,3 +481,252 @@ def test_a_file_of_another_format_is_refused(shop_page: Any, tmp_path: Path) -> 
     p.page.wait_for_timeout(200)
     assert messages == ["Not a dbt-erd layout file."]
     assert p.page.evaluate("LAYOUT.get('universe', 'names')") is None
+
+
+# ---------------------------------------------------------------- M5.4: French spacing (D-039)
+# Design note: docs/architecture/2026-11-05-m5.4-contrast-touch-ups.md.
+
+NBSP, NNBSP = "\u00a0", "\u202f"
+# the page's own texts: text nodes (not in a script, style, datalist, or a Graphviz drawing, whose &#160; pad
+# its labels), titles, aria-labels, placeholders
+COLLECT = """() => {
+  const out = [], walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = walk.nextNode());) {
+    const own = !n.parentElement.closest('script, style, datalist, svg');
+    if (own && n.textContent.trim()) out.push(n.textContent);
+  }
+  document.querySelectorAll('[title], [aria-label], [placeholder]').forEach(e =>
+    ['title', 'aria-label', 'placeholder'].forEach(a => {
+      const v = e.getAttribute(a);
+      if (v) out.push(v);
+    }));
+  return out;
+}"""
+# every value of STRINGS[lang]: strings, pairs, and what the functions return
+STRING_VALUES = """lang => Object.values(STRINGS[lang]).flatMap(v =>
+  typeof v === 'function' ? [v('7')] : Array.isArray(v) ? v : [v])"""
+# Move the pointer over the canvas until the tooltip of a domain with an owner shows; -> its texts
+DOMAIN_TIP = """() => {
+  const c = document.getElementById('u-canvas'), tip = document.getElementById('u-tip');
+  const r = c.getBoundingClientRect();
+  const owned = new Set(PAGE.universe.domains.filter(d => d.owner).map(d => d.label));
+  for (let y = r.top + 8; y < r.bottom; y += 8) for (let x = r.left + 8; x < r.right; x += 8) {
+    c.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+    const b = tip.querySelector('b'), m = tip.querySelector('.m');
+    const shown = tip.style.display === 'block' && b && m;
+    const domain = shown && owned.has(b.textContent) && m.textContent.split(' · ').length === 2;
+    if (domain) return [b.textContent, m.textContent];
+  }
+  return null;
+}"""
+# hover the star of a table (universe), by its unique_id
+HOVER_TABLE = """id => {
+  const c = document.getElementById('u-canvas'), r = c.getBoundingClientRect(), p = views.universe.place(id);
+  const at = { clientX: r.left + p.x + p.w / 2, clientY: r.top + p.y + p.h / 2, bubbles: true };
+  c.dispatchEvent(new MouseEvent('mousemove', at));
+  return document.getElementById('u-tip').innerHTML;
+}"""
+START = "dim_customer"  # an acme table with a description, upstream and downstream lineage
+
+
+def data_strings(data: dict[str, Any]) -> list[str]:
+    """Every string of the payload that is data (names, ids, descriptions, labels, owners), longest first."""
+    u, d = data["universe"], data["detail"]
+    out = {data["title"]}
+    out |= {v for n in u["nodes"] for v in (n["id"], n["name"], n["desc"], *(c[0] for c in n["cols"]))}
+    out |= {v for n in u["nodes"] for c in n["cols"] for v in c[:2]}
+    out |= {v for k in ("domains", "layers", "kinds") for x in u[k] for v in (x["label"], x.get("owner", ""))}
+    out |= {v for e in d["entities"] for v in (e["id"], e["name"], e["description"], e["group"])}
+    out |= {v for e in d["entities"] for c in e["columns"] for v in c[:2]}
+    return sorted((s for s in out if isinstance(s, str) and s.strip()), key=len, reverse=True)
+
+
+def page_texts(p: Page, data: dict[str, Any]) -> list[str]:
+    """The texts of the acme page after showing every composed string, the data taken out."""
+    texts = list(p.page.evaluate(COLLECT))
+    assert p.page.evaluate(DOMAIN_TIP), "no domain tooltip with an owner"
+    texts += p.page.evaluate(COLLECT)
+    start = next(n for n in data["universe"]["nodes"] if n["name"] == START)
+    p.page.evaluate(HOVER_TABLE, start["id"])
+    texts += p.page.evaluate(COLLECT)
+    p.page.fill("#u-q", START)
+    p.page.click("#u-traj")
+    p.page.click("#u-tj-sum")
+    texts += p.page.evaluate(COLLECT)
+    p.page.click("#u-tj-flow")
+    wait_flow(p)
+    p.page.click("#f-dom-sum")
+    p.page.locator("#f-graph g.node:not([aria-current])").first.hover()
+    texts += p.page.evaluate(COLLECT)
+    p.page.click("#f-back")
+    texts += p.page.evaluate(COLLECT)
+    show_detail(p)
+    p.page.fill("#d-focus", START)
+    p.page.press("#d-focus", "Enter")
+    wait_exportable(p)
+    p.download("#d-export-svg")
+    p.page.wait_for_function("document.getElementById('export-live').textContent !== ''")
+    texts += p.page.evaluate(COLLECT)
+    texts += p.page.evaluate(STRING_VALUES, data["lang"])
+    for value in data_strings(data):
+        texts = [t.replace(value, "⁣") for t in texts]
+    return texts
+
+
+def misplaced(text: str) -> list[str]:
+    """French: the marks of `text` not preceded by their no-break space."""
+    return [
+        text[max(0, i - 12) : i + 1]
+        for i, ch in enumerate(text)
+        if (ch == ":" and text[i - 1 : i] != NBSP) or (ch in "?!;" and text[i - 1 : i] != NNBSP)
+    ]
+
+
+def acme_in(tmp_path: Path, open_page: Any, lang: str) -> tuple[Page, dict[str, Any]]:
+    project = write_example(tmp_path / "acme_retail")
+    config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
+    write_config(project, config.replace("language: en\n", f"language: {lang}\n"))
+    html, data = page_of(project)
+    return open_page(html), {**data, "lang": lang}
+
+
+def test_french_page_text_uses_french_spacing(tmp_path: Path, open_page: Any) -> None:
+    p, data = acme_in(tmp_path, open_page, "fr")
+    texts = page_texts(p, data)
+    assert any(":" in t for t in texts) and any("?" in t for t in texts)
+    assert [m for t in texts for m in misplaced(t)] == []
+    assert p.page.evaluate("STRINGS.fr.colon") == NBSP + ": "
+
+
+def test_english_page_text_has_no_space_before_marks(tmp_path: Path, open_page: Any) -> None:
+    p, data = acme_in(tmp_path, open_page, "en")
+    name, line = p.page.evaluate(DOMAIN_TIP)
+    owner = next(d["owner"] for d in data["universe"]["domains"] if d["label"] == name)
+    assert line.endswith(f" · owner: {owner}"), line
+    texts = page_texts(p, data)
+    bad = [t for t in texts if NBSP in t or NNBSP in t or re.search(r" [:?!;]", t)]
+    assert bad == []
+    assert p.page.evaluate("Object.keys(STRINGS.en)") == p.page.evaluate("Object.keys(STRINGS.fr)")
+    assert "colon" in p.page.evaluate("Object.keys(STRINGS.en)")
+
+
+# ---------------------------------------------------------------- M5.4: numbers (D-039)
+
+
+@pytest.mark.parametrize(
+    ("lang", "expected"),
+    [
+        ("en", ["1,234", "1,234 tables", "0 tables", "1 table"]),
+        ("fr", [f"1{NNBSP}234", f"1{NNBSP}234 tables", "0 table", "1 table"]),
+    ],
+)
+def test_numbers_follow_the_page_language(
+    build_page: Any, open_page: Any, lang: str, expected: list[str]
+) -> None:
+    p = page_in(build_page, open_page, lang)
+    assert (
+        p.page.evaluate("[num(1234), plural(1234, L.tables), plural(0, L.tables), plural(1, L.tables)]")
+        == expected
+    )
+
+
+def one_layer_payload() -> UniversePayload:
+    """The 1,500-table universe of the trajectory performance test, every table in one layer."""
+    data = big_universe().model_dump()
+    data["nodes"] = [{**n, "layer": data["layers"][0]["key"]} for n in data["nodes"]]
+    return UniversePayload.model_validate(data)
+
+
+@pytest.mark.parametrize(("lang", "count"), [("en", "1,500"), ("fr", f"1{NNBSP}500")])
+def test_large_counts_are_grouped(tmp_path: Path, open_page: Any, lang: str, count: str) -> None:
+    p = open_page(universe_page(tmp_path, one_layer_payload(), language=lang))
+    assert meta(p).startswith(f"{count} tables · "), meta(p)
+    assert count in p.page.locator("#u-layers small").all_inner_texts()
+
+
+@pytest.mark.parametrize(
+    ("lang", "message"),
+    [
+        ("en", "Only 149 of the 1,499 tables at level 1 are drawn (at most 150 per flow)"),
+        ("fr", f"Seules 149 des 1{NNBSP}499 tables du niveau 1 sont dessinées (au plus 150 par flux)"),
+    ],
+)
+def test_flow_cap_message_groups_its_numbers(tmp_path: Path, open_page: Any, lang: str, message: str) -> None:
+    p = open_page(universe_page(tmp_path, fan_payload(1499, 0), language=lang))
+    p.page.fill("#u-q", "root")
+    p.page.click("#u-traj")
+    p.page.click("#u-tj-flow")
+    wait_flow(p)
+    assert p.page.inner_text("#f-cap") == message
+
+
+# ---------------------------------------------------------------- M5.4: detail panel, narrow screens (D-038)
+
+# the height of #d-graph with the detail panel open at 360 x 800, fine pointer (recorded for M5.4)
+GRAPH_HEIGHT = {"en": 299, "fr": 268}
+
+
+@pytest.mark.parametrize("touch", [False, True])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_open_detail_panel_takes_at_most_35_percent(
+    build_page: Any, open_page: Any, lang: str, touch: bool
+) -> None:
+    p = page_in(build_page, open_page, lang, viewport=NARROW, touch=touch)
+    p.page.click("#u-toggle")
+    assert p.page.locator("#u-panel").bounding_box()["height"] <= 0.45 * NARROW["height"] + 1
+    show_detail(p, exportable=False)
+    p.page.click("#d-toggle")
+    panel = p.page.evaluate(
+        "() => { const e = document.getElementById('d-panel'); e.scrollTop = 40;"
+        " return [e.getBoundingClientRect().height, e.scrollHeight > e.clientHeight, e.scrollTop]; }"
+    )
+    assert panel[0] <= 0.35 * NARROW["height"] + 1 and panel[1] and panel[2] > 0, panel
+    graph = p.page.locator("#d-graph").bounding_box()["height"]
+    assert graph > 0
+    if not touch:
+        assert abs(graph - GRAPH_HEIGHT[lang]) <= 10, graph
+    assert scroll_width(p) <= NARROW["width"]
+
+
+def test_detail_panel_is_beside_the_stage_at_601_px(build_page: Any, open_page: Any) -> None:
+    p = open_page(build_page()[0], viewport={"width": 601, "height": 800})
+    show_detail(p, exportable=False)
+    panel = p.page.locator("#d-panel").bounding_box()
+    stage = p.page.locator("#tab-detail .stage").bounding_box()
+    assert panel["x"] + panel["width"] <= stage["x"] + 1 and panel["height"] > 0.35 * 800
+
+
+# ---------------------------------------------------------------- M5.4: the M5.3 leftovers
+
+DESC = """sel => {
+  const d = document.querySelectorAll(sel + ' .desc'), e = d[0], s = e && getComputedStyle(e);
+  return [d.length, e && e.textContent, s && s.color, s && s.marginTop, e && e.hasAttribute('style')];
+}"""
+
+
+def test_both_tooltips_share_one_description_line(tmp_path: Path, open_page: Any) -> None:
+    p, data = acme_in(tmp_path, open_page, "en")
+    start = next(n for n in data["universe"]["nodes"] if n["name"] == START)
+    assert start["desc"]
+    p.page.evaluate(HOVER_TABLE, start["id"])
+    universe = p.page.evaluate(DESC, "#u-tip")
+    p.page.fill("#u-q", START)
+    p.page.click("#u-traj")
+    p.page.click("#u-tj-flow")
+    wait_flow(p)
+    p.page.locator("#f-graph g.node[aria-current]").hover()
+    flow_tip = p.page.evaluate(DESC, "#f-tip")
+    fg = p.page.evaluate("getComputedStyle(document.body).color")
+    assert universe == flow_tip == [1, start["desc"], fg, "6px", False]
+
+
+def test_flow_shown_while_closed_does_nothing(shop_page: Any) -> None:
+    p, _ = shop_page
+    p.page.fill("#u-q", "stg_orders")
+    p.page.click("#u-traj")
+    p.page.click("#u-tj-flow")
+    wait_flow(p)
+    p.page.click("#f-back")
+    p.page.evaluate("flow.shown()")
+    p.page.set_viewport_size({"width": 900, "height": 700})
+    assert p.page.evaluate("flow.isOpen()") is False

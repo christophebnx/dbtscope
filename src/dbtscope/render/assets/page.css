@@ -1,6 +1,6 @@
 /* One light theme and one layout for both tabs: filters in a side panel, a toolbar above the drawing. */
-:root {
-  --bg:#f5f6f8; --surface:#ffffff; --border:#dde1e7; --fg:#1f2933; --muted:#6b7280;
+:root {   /* --bg, --fg and --muted are mirrored in common.js THEME (D-037) */
+  --bg:#f5f6f8; --surface:#ffffff; --border:#dde1e7; --fg:#1f2933; --muted:#5f6774;
   --accent:#2f6fb5; --accent-soft:#e8f0fa; --radius:6px;
   --font:"Segoe UI",Helvetica,Arial,sans-serif;
   --traj-up:#6d28d9; --traj-down:#c2410c;   /* fallback; set on #tab-universe from TRAJ_COLORS in universe.js */
@@ -71,6 +71,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }
 .tip .m { color:var(--muted); }
+.tip .desc { margin-top:6px; color:var(--fg); }
 .tip .a { color:var(--accent); margin-top:6px; }
 .tip .tj { margin-top:6px; padding-left:7px; border-left:3px solid var(--traj-down); color:var(--fg); }
 .tip .tj.up { border-left-style:dashed; border-left-color:var(--traj-up); }
@@ -135,6 +136,8 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   /* an open side panel stacks above the toolbar, full width, scrolling inside itself (D-035) */
   .tab.on { flex-direction:column; }
   .panel { width:auto; max-height:45vh; box-sizing:border-box; border-right:none; border-bottom:1px solid var(--border); }
+  /* the detail toolbar wraps to several rows: a lower cap keeps the diagram, and a filter's effect, in view (D-038) */
+  #tab-detail .panel { max-height:35vh; }
   #u-q { flex:1 1 140px; width:auto; min-width:0; }
   .tj-start { flex:1 1 100%; }
   .tj-start b { max-width:none; }

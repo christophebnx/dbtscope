@@ -151,7 +151,7 @@ Done when: each sub-milestone's criteria in the brief are met, tests green (defa
 
 Done when: the design note's criteria are met; default and browser tests are green; the `DBTSCOPE_DBT` check passed once; ruff is clean with no duplicate-code finding; and D-033, CLAUDE.md, the README, CHANGELOG and progress are updated.
 
-- **M5.2 — Page polish: plurals, script tidy-up, small screens.** (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.2-page-polish.md`, D-035.) One page milestone, so the M3 reference pages are regenerated once.
+- **M5.2 — Page polish: plurals, script tidy-up, small screens.** (Done.) (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.2-page-polish.md`, D-035.) One page milestone, so the M3 reference pages are regenerated once.
   - **Plurals:**
     - every count the page shows agrees in number, in English and French ("1 table", "0 table", "1 colonne", "+ 1 column", "1 relation"…);
     - French rule: 0 and 1 are singular;
@@ -174,7 +174,7 @@ Done when: the design note's criteria are met; default and browser tests are gre
 
 Done when: the design note's test plan passes (default and browser suites, including the new plural, escaper, panel and touch-target tests); the reference pages are regenerated in the same commit as the asset change, with unchanged payloads; ruff is clean with no duplicate-code finding; and D-035, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
-- **M5.3 — Flow view.** (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.3-flow-view.md`, D-036.) One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
+- **M5.3 — Flow view.** (Done.) (Asked by the user on 2026-11-04; design note `docs/architecture/2026-11-04-m5.3-flow-view.md`, D-036.) One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
   - **Flow button** in the trajectory bar: opens the current trajectory (same start, direction, depth) as a left-to-right Graphviz diagram in an overlay over the whole Universe tab; upstream left, start emphasised, downstream right.
   - **Columns:** lineage first (every edge goes left to right), configured layers as a floor (`flowRanks`), so layers form column bands where the lineage follows them.
   - **Tables:** kind colour as in the universe, domain as a colour band with a legend, depth label (`−n` / `+n`), universe-like tooltip; the universe filters do not apply (D-018).
@@ -185,14 +185,14 @@ Done when: the design note's test plan passes (default and browser suites, inclu
 
 Done when: the design note's test plan passes (default and browser suites, including `test_flow.py` and `test_flow_perf.py` on `acme_retail` and `shop`, en / fr, 360 px, hostile names); the reference pages are regenerated in the asset commit with unchanged payloads; ruff is clean with no duplicate-code finding; and D-036, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
 
+- **M5.4 — Contrast and page touch-ups.** (Done.) (Asked by the user on 2026-11-05.) Table names readable on every kind colour (WCAG AA, 4.5:1) in the universe, detail and flow views; the open panel of the detail tab capped lower on small screens; French spacing before colons; the English domain tooltip without French spacing; counts formatted for the page language everywhere; the M5.3 review leftovers (one `resize` helper in flow.js, one shared table-description line in tooltips). One page milestone: the M3 reference pages are regenerated once.
+- **M5.5 — Universe layout.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.5-universe-layout.md`, D-040.) Inside each domain, tables placed along the data flow (layers from left to right); domain circles sized to their content; cards that never overlap in the keys and all-columns levels (the rectangular pass of the brief § 9). Same domains, filters, trajectory and flow view; the shared layout file stays readable (invariant 9).
+
 ## Later (not scheduled)
 
-- Page scripts, from the M5.3 review: one `resize` helper in flow.js (the `pz.resize()` guard is written twice) and one table-description line shared by the universe and flow tooltips (styled `m` in one, plain in the other).
-- Contrast: white table names on light kind colours fail WCAG AA (the built-in source colour gives 2.6:1), in every view (M5.3 UI design).
-- Small screens, detail tab: cap the open panel lower (about 35vh) so a filter's effect stays visible under it at 360 × 800 (M5.2 UI review).
-- French typography: a space before the colon in page strings ("Trajectoire de x : …").
-- Print stylesheet: the current view on one page, without panels and toolbars.
-- Page text consistency, left out of M5.2 because it changes visible desktop text (M5.2 note § 3):
-  - "owner : x" with French spacing in the English domain tooltip;
-  - counts not locale-formatted outside the trajectory;
-  - "Recadrer" / "Recentrer" for **Fit** in French.
+- Universe overview, from the M5.5 reviews: with compact domains, names that would cover another star are hidden, so far fewer names show at Fit than before M5.5; consider labels for the main tables only (hubs, facts, dimensions) at overview, or a slightly smaller overview font.
+- Colours, from the M5.4 reviews: a non-hex kind colour in `dbt-erd.yml` (`red`) fails in `domain/classify.background` instead of a one-line config error: validate colours as hex in `Config`; a 3:1 outline so a near-white kind or domain colour still marks its card, dot and legend; the built-in seed violet (#8b5cf6) next to the dimension violet (#8e5bb5) gets opposite text colours, nudge one of them.
+- Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
+- Universe interaction: curved routes between domains that avoid the circles, with the relations and lineage links they carry shown on hover; neighbours lit on hover; a shareable link to a table (`erd.html#table=…`).
+- Flow view: the paths between two chosen tables.
+- Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).
