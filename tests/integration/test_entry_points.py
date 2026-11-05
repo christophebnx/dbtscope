@@ -1,10 +1,12 @@
 """The installed entry points, run as a user runs them (a subprocess, not `main([...])`).
 
-Fake dbt executables are shell scripts written to `tmp_path` (POSIX); dbt itself is not needed.
+Fake dbt executables are Python programs with a shim for each OS (`conftest.fake_dbt_executable`),
+written to `tmp_path`; dbt itself is not needed.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -13,19 +15,11 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import NO_PARSE_NO_OPEN
+from conftest import NO_PARSE_NO_OPEN, fake_dbt_executable
 
 from dbtscope import __version__
 
 DBTSCOPE = [sys.executable, "-m", "dbtscope"]
-posix = pytest.mark.skipif(os.name == "nt", reason="fake dbt is a POSIX shell script")
-
-
-def _fake_dbt(folder: Path, body: str) -> Path:
-    script = folder / "fake-dbt"
-    script.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
-    script.chmod(0o755)
-    return script
 
 
 def test_python_dash_m_builds_the_page(dbt_project: Path) -> None:
@@ -54,9 +48,8 @@ def test_the_installed_script_exits_2_on_a_wrong_option() -> None:
     assert result.stderr == "dbtscope: error: no such option: --frobnicate; see dbtscope --help\n"
 
 
-@posix
 def test_dbt_output_goes_to_stderr_above_the_error(dbt_project: Path) -> None:
-    dbt = _fake_dbt(dbt_project, "echo boom\nexit 2")
+    dbt = fake_dbt_executable(dbt_project / "bin", 'import sys\nprint("boom", flush=True)\nsys.exit(2)')
     result = subprocess.run(
         [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)],
         capture_output=True,
@@ -71,26 +64,48 @@ def test_dbt_output_goes_to_stderr_above_the_error(dbt_project: Path) -> None:
     assert len(lines) == 3
 
 
-@posix
+# A fake dbt that ignores Ctrl-C (as a slow dbt may): only dbtscope can end it. It writes its pid
+# (whole, through a rename) once the signal is ignored, then sleeps itself (no grandchild).
+STUBBORN_DBT = """import os, pathlib, signal, time
+signal.signal(signal.SIGINT, signal.SIG_IGN)
+started = pathlib.Path({started!r})
+started.with_suffix(".tmp").write_text(str(os.getpid()))
+os.replace(started.with_suffix(".tmp"), started)
+time.sleep(30)
+"""
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups, os.killpg and `ps` are POSIX")
 def test_ctrl_c_during_dbt_parse_exits_130_on_one_line(dbt_project: Path) -> None:
     started = dbt_project / "started"
-    dbt = _fake_dbt(dbt_project, f'echo $$ > "{started}"\nexec sleep 30')
+    dbt = fake_dbt_executable(dbt_project / "bin", STUBBORN_DBT.format(started=str(started)))
     process = subprocess.Popen(
         [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        start_new_session=True,  # its own process group, as a command in a terminal
     )
-    deadline = time.monotonic() + 20
-    while not started.exists() or not started.read_text(encoding="utf-8").strip():
-        assert time.monotonic() < deadline, "the fake dbt never started"
-        time.sleep(0.05)
-    process.send_signal(signal.SIGINT)
-    stdout, stderr = process.communicate(timeout=20)
+    try:
+        deadline = time.monotonic() + 20
+        while not started.exists():
+            assert time.monotonic() < deadline, "the fake dbt never started"
+            time.sleep(0.05)
+        os.killpg(process.pid, signal.SIGINT)  # Ctrl-C signals the whole foreground group
+        stdout, stderr = process.communicate(timeout=20)
+    finally:
+        _end_group(process)
     assert (process.returncode, stdout) == (130, "")
     assert stderr.splitlines()[-1] == "dbtscope: error: interrupted"
     assert "Traceback" not in stderr
     assert _gone(int(started.read_text(encoding="utf-8")), deadline=time.monotonic() + 5)
+
+
+def _end_group(process: subprocess.Popen[str]) -> None:
+    """Kill what is left of the group of `process`, so that a failed test leaves no process behind."""
+    with contextlib.suppress(ProcessLookupError, PermissionError):  # none left (macOS: only zombies)
+        os.killpg(process.pid, signal.SIGKILL)
+    process.communicate()
 
 
 def _gone(pid: int, deadline: float) -> bool:
@@ -103,7 +118,7 @@ def _gone(pid: int, deadline: float) -> bool:
     return False
 
 
-@posix
+@pytest.mark.skipif(os.name == "nt", reason="Windows reports a write to a closed pipe as EINVAL, not EPIPE")
 def test_a_closed_stdout_ends_without_a_traceback(dbt_project: Path) -> None:
     read_end, write_end = os.pipe()
     os.close(read_end)  # the reader went away before the summary

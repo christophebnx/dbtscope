@@ -180,6 +180,10 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
+test = [
+    { name = "pytest" },
+    { name = "pytest-xdist" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -197,6 +201,10 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "ruff", specifier = ">=0.6" },
+]
+test = [
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-xdist", specifier = ">=3.8" },
 ]
 
 [[package]]

@@ -1,15 +1,13 @@
 name: ci
 
-# D-020, D-032: paused during development, run by hand only (Actions > ci > Run workflow).
-# To turn it back on, add the triggers of D-031 (pull_request, push to main) and record it.
+# D-043: the default tests on Linux, Windows and macOS; ruff and the secret scan on Linux only.
+# Installs only the `test` dependency group. Pull requests and pushes to main; also by hand.
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      all-os:
-        description: Also run the tests on Windows and macOS
-        type: boolean
-        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -17,27 +15,35 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read  # gitleaks lists the commits of a pull request
 
 jobs:
-  check:
+  test:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ inputs.all-os && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        include:
+          - {os: ubuntu-latest, py: python3}
+          - {os: windows-latest, py: python}
+          - {os: macos-latest, py: python3}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 5
+    env:
+      UV_PYTHON: "3.12"  # the floor of requires-python
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # gitleaks scans the history
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          python-version: "3.12"  # the floor of requires-python
-      - run: uv sync --locked
+          fetch-depth: ${{ matrix.os == 'ubuntu-latest' && '0' || '1' }}  # gitleaks needs the history (a 0 would read as false)
+      # uv from PyPI: much faster on hosted runners than setup-uv's download from GitHub releases
+      - run: ${{ matrix.py }} -m pip install -q --break-system-packages uv
+      - run: ${{ matrix.py }} -m uv sync -q --locked --no-default-groups --group test
       - if: runner.os == 'Linux'
-        run: uv run ruff check . && uv run ruff format --check .
-      - run: uv run pytest -q -n auto -m "not live and not browser"
+        run: ${{ matrix.py }} -m uv tool run ruff@0.17.3 check . && ${{ matrix.py }} -m uv tool run ruff@0.17.3 format --check .
+      - run: ${{ matrix.py }} -m uv run --no-sync pytest -q -n auto -p no:cacheprovider
       - if: runner.os == 'Linux'
         uses: gitleaks/gitleaks-action@v2
         env:

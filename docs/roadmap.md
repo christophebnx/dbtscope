@@ -196,6 +196,8 @@ Done when: the design note's test plan passes (default and browser suites, inclu
 
 Done when: the design note's test plan passes (default and browser suites, hostile colours `#ffffff`, `#fefefe`, `#f8fafc`, `#ffff00` and acme); the reference `expected.json` is regenerated in the asset commit; ruff is clean with no duplicate-code finding; and D-042, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
+- **M5.8 — CI on Linux, Windows and macOS.** (Done.) (Asked by the user on 2026-11-05, D-043.) CI runs again on pull requests and pushes to `main`, one job per OS, installing only the `test` group (uv from PyPI); ruff and gitleaks on Linux. Portable tests (fake dbt as a Python program with an sh or .cmd shim, paths built with `Path`), and the same error wording on every OS.
+
 ## Later (not scheduled)
 
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
