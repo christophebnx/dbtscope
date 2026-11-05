@@ -538,7 +538,7 @@ flowchart TD
     RV -- clean --> DOC["documentation"]
 ```
 
-Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI.
+Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI (ruff and the tests; Windows and macOS run the OS-sensitive tests, D-044).
 
 ## Licence
 
