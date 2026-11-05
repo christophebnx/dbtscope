@@ -248,3 +248,16 @@ def test_common_script_declares_the_m5_4_helpers() -> None:
 def test_no_asset_holds_an_invisible_space(name: str) -> None:
     text = (ASSETS / name).read_text(encoding="utf-8")
     assert "\u00a0" not in text and "\u202f" not in text, "write them as \\u00a0 / \\u202f escapes (D-039)"
+
+
+# ---------------------------------------------------------------- M5.5: universe layout (D-040)
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_flow_ranks_is_declared_once_in_common(offline: bool) -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)
+    assert page.count("function flowRanks(") == 1
+    assert "function flowRanks(" in (ASSETS / "common.js").read_text(encoding="utf-8")
+    for name in ("flow.js", "universe.js"):
+        assert "function flowRanks(" not in (ASSETS / name).read_text(encoding="utf-8"), name
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))

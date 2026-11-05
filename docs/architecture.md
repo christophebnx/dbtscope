@@ -49,7 +49,7 @@ Every failure ends in `cli.main`. Streams, message form and exit codes: D-029.
 
 Data is typed with pydantic v2 at four layers (D-024, D-025): manifest input (`domain/manifest_schema`, only the fields read), domain model (`domain/model`: `Table`, `Column`, `Relation`, `LineageEdge`, `Group`, `Project`), configuration (`domain/config`: `Config`, `Rule`, `UniverseSettings`) and page payloads (`domain/payload`, the Python → JavaScript contract). Models are frozen; a malformed manifest or configuration stops the run with one line naming the field (`domain/errors.validation_message`). The page JSON is byte for byte what it was before the models (`tests/unit/test_reference_pages.py`).
 
-The page does the layout itself, in the browser, on every filter change: d3-force + canvas for the universe, Graphviz (Viz.js) for the detail and for the flow view of a trajectory (D-014, D-036). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
+The page does the layout itself, in the browser, on every filter change: layer bands packed into discs, d3-force for the domains, and a canvas for the universe (D-040), Graphviz (Viz.js) for the detail and for the flow view of a trajectory (D-014, D-036). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
 
 Page tests: `tests/browser/` (D-019, D-022; commands in `CLAUDE.md`).
 
@@ -139,9 +139,13 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Escape text inside a Graphviz HTML-like label (page) | `render/assets/common.js dotText` |
 | Render DOT with Graphviz, recovering from a failed render (page) | `render/assets/common.js GRAPHVIZ` |
 | Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js panZoom`, `panZoomFit`, `panZoomDestroy` |
-| Columns of a flow: lineage first, layers as a floor (page) | `render/assets/flow.js flowRanks` |
+| Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |
 | Flow view (page) | `render/assets/flow.js startFlow` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
+| Placement of a domain's tables: layer bands in one row, in the smallest circle (page) | `render/assets/universe.js layoutDomain`, `layerBands`, `columns`, `packRow` |
+| A table name on one or two lines (universe, page) | `render/assets/universe.js nameLines` |
+| The domain radius that holds a box (page) | `render/assets/universe.js holds`, `margin` (used by `layoutDomain` and `reach`) |
+| Rectangular de-overlap around dragged tables (page) | `render/assets/universe.js separate` (pinned), `placeAroundDragged` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
@@ -189,6 +193,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
 | Data domain of the universe (resolution: D-015) | **domain** | constellation (allowed in UI prose only) | |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
+| The strip of a domain where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view, lineage graph | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |

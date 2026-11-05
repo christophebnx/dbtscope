@@ -2,48 +2,6 @@
 // left, the start, downstream on the right. An overlay of the Universe tab, started by boot.js on first
 // use; it reads the universe payload, never changes the universe and saves nothing (no layout, D-013).
 
-// Columns of a flow: lineage first, layers as a floor. A pure page global, tested directly.
-// members: table indices; edges: [[parent, child]] among members (data flows left to right);
-// layerOf: index -> position of its layer in DATA.layers.
-// -> { rank: Map(index -> column), back: Set of "parent,child" edges left out of the ranking (cycles) }
-// span[L] = 1 + the longest chain of edges inside layer L (0 when L has no table); floor[L] = the sum of
-// the spans of the layers before L; rank(n) = max(floor[layer(n)], rank(p) + 1 over its parents p).
-// Every edge not in `back` goes left to right. O(V + E); never loops nor throws on a cycle.
-function flowRanks(members, edges, layerOf) {
-  const at = new Map(members.map((m, j) => [m, j]));
-  const links = edges.filter(([p, c]) => p !== c && at.has(p) && at.has(c));
-  const layer = members.map(m => layerOf(m) || 0);
-  // longest-path ranks over `list` (Kahn), each table at least at base(j); a table left over by a cycle is
-  // ranked over its ranked parents only, its other in-edges go to `back`
-  function longest(list, base) {
-    const parents = members.map(() => []), children = members.map(() => []), indeg = members.map(() => 0);
-    list.forEach(([p, c]) => { const a = at.get(p), b = at.get(c); parents[b].push(a); children[a].push(b); indeg[b]++; });
-    const rank = members.map(() => -1), back = new Set(), queue = [];
-    members.forEach((_, j) => { if (!indeg[j]) queue.push(j); });
-    function place(j) {
-      let r = base(j);
-      parents[j].forEach(a => { if (rank[a] >= 0) r = Math.max(r, rank[a] + 1); else back.add(members[a] + ',' + members[j]); });
-      rank[j] = r;
-      children[j].forEach(b => { if (rank[b] < 0 && --indeg[b] === 0) queue.push(b); });
-    }
-    let head = 0, next = 0;
-    for (;;) {
-      while (head < queue.length) { const j = queue[head++]; if (rank[j] < 0) place(j); }
-      while (next < members.length && rank[next] >= 0) next++;
-      if (next === members.length) break;
-      place(next);
-    }
-    return { rank, back };
-  }
-  const inner = longest(links.filter(([p, c]) => layer[at.get(p)] === layer[at.get(c)]), () => 0).rank;
-  const span = [];
-  inner.forEach((r, j) => { span[layer[j]] = Math.max(span[layer[j]] || 0, r + 1); });
-  const floor = [];
-  for (let l = 0, sum = 0; l < span.length; l++) { floor[l] = sum; sum += span[l] || 0; }
-  const { rank, back } = longest(links, j => floor[layer[j]]);
-  return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
-}
-
 function startFlow(DATA, EXPORT, close) {
   const FLOW_MAX = 150;          // tables drawn at most, start included: the one knob of the render time
   const FLOW_MIN_SCALE = 0.75;   // a smaller initial scale makes names unreadable: zoom to it on the start

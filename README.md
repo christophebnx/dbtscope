@@ -270,7 +270,7 @@ A table's domain is the first of:
 
 A table with none of these is in "No domain". Declaring dbt groups is the cleanest way to get business domains without any config.
 
-Layers follow the data flow from left to right inside each domain. Without `layers` in the config, they are the first folder under `models/` (plus sources, seeds and snapshots), ordered by usual prefixes: `raw`/`stg`/`staging` → `int`/`vault` → `mart`/`dp`.
+Layers follow the data flow from left to right inside each domain: each layer is a band of the domain's circle, the circle is as small as its bands allow, and names or cards never overlap. The same project gives the same picture at every generation; hover a domain to list its layers. Without `layers` in the config, they are the first folder under `models/` (plus sources, seeds and snapshots), ordered by usual prefixes: `raw`/`stg`/`staging` → `int`/`vault` → `mart`/`dp`.
 
 #### Trajectory
 

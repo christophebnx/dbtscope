@@ -1,5 +1,6 @@
 // Universe view: every table of the project as a star, grouped into one constellation per data
-// domain. d3-force lays out the tables inside each domain, then the domains; a canvas draws it.
+// domain. A domain's tables are packed in layer bands into the smallest disc (D-040), then d3-force
+// places the domains; a canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
 function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
@@ -124,29 +125,59 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   };
 
   // ---------------------------------------------------------------- geometry
-  // Each table reserves the room of what it shows: its name, or a card with keys / all fields.
+  // Each table reserves the room of what it shows: its star and name, or a card with keys / all fields.
+  // oy: offset of the reserved box's centre from the table's point (the star centre). At names level the
+  // box runs from the star top to the bottom of the label drawn below it (one or two lines, nameLines); the
+  // label width is estimated (11 px, bold), never measured, so the placement does not depend on the fonts
+  // installed (D-040).
   function box(n) {
-    if (state.detail === 'names') return { w: Math.max(14 + n.name.length * 5.6, 2 * starR(n) + 4), h: 2 * starR(n) + 16 };
+    if (state.detail === 'names') {
+      const r = starR(n), lines = nameLines(n.name), longest = d3.max(lines, s => s.length);
+      return { w: Math.max(6 + longest * 6.2, 2 * r + 4), h: 2 * r + 4 + LINE_H * lines.length, oy: LINE_H / 2 * lines.length };
+    }
     const rows = state.detail === 'keys' ? n.cols.filter(c => c[2]) : n.cols, shown = rows.slice(0, 30);
     const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8), 10);
-    return { w: 16 + chars * 5.6, h: 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0), shown, more: rows.length - shown.length };
+    return { w: 16 + chars * 5.6, h: 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0), oy: 0,
+             shown, more: rows.length - shown.length };
   }
 
-  // d3-force collides circles; tables are rectangles, so finish with a sweep that pushes overlapping ones apart
-  function separate(ns, pad = 4) {
-    for (let it = 0; it < 40; it++) {
+  // A table's name as drawn below its star: one line up to 14 characters, else two, split after the `__`
+  // nearest the middle, else after the `_` nearest the middle (a name without `_` stays on one line)
+  const LINE_H = 14;
+  function nameLines(name) {
+    if (name.length <= 14) return [name];
+    const cut = sep => {
+      let best = -1;
+      for (let j = name.indexOf(sep); j > 0; j = name.indexOf(sep, j + 1)) {
+        if (best < 0 || Math.abs(j + sep.length - name.length / 2) < Math.abs(best + sep.length - name.length / 2)) best = j;
+      }
+      return best < 0 || best + sep.length >= name.length ? -1 : best + sep.length;
+    };
+    const at = cut('__') > 0 ? cut('__') : cut('_');
+    return at > 0 ? [name.slice(0, at), name.slice(at)] : [name];
+  }
+
+  // Pushes overlapping rectangles ({i, x, y, w, h, pinned}, centred on x, y) apart, in place. A pinned
+  // (dragged) one never moves: the other takes the whole push; two free ones share it. Deterministic.
+  function separate(rects, pad = 4) {
+    const left = r => r.x - r.w / 2;
+    for (let it = 0; it < 200; it++) {
       let moved = false;
-      ns.sort((a, b) => (a.x - a.w / 2) - (b.x - b.w / 2));
-      for (let a = 0; a < ns.length; a++) {
-        const A = ns[a], right = A.x + A.w / 2 + pad;
-        for (let b = a + 1; b < ns.length; b++) {
-          const Bn = ns[b];
-          if (Bn.x - Bn.w / 2 > right) break;
+      rects.sort((a, b) => left(a) - left(b) || a.i - b.i);
+      for (let a = 0; a < rects.length; a++) {
+        const A = rects[a], right = A.x + A.w / 2 + pad;
+        for (let b = a + 1; b < rects.length; b++) {
+          const Bn = rects[b];
+          if (left(Bn) > right) break;
+          if (A.pinned && Bn.pinned) continue;
           const ox = (A.w + Bn.w) / 2 + pad - Math.abs(A.x - Bn.x), oy = (A.h + Bn.h) / 2 + pad - Math.abs(A.y - Bn.y);
           if (ox <= 0 || oy <= 0) continue;
           moved = true;
-          if (ox < oy) { const s = (A.x < Bn.x ? -1 : 1) * ox / 2; A.x += s; Bn.x -= s; }
-          else { const s = (A.y < Bn.y ? -1 : 1) * oy / 2; A.y += s; Bn.y -= s; }
+          const axis = ox < oy ? 'x' : 'y', d = ox < oy ? ox : oy;
+          const s = (A[axis] < Bn[axis] || (A[axis] === Bn[axis] && A.i < Bn.i) ? -1 : 1) * d;
+          if (A.pinned) Bn[axis] -= s;
+          else if (Bn.pinned) A[axis] += s;
+          else { A[axis] += s / 2; Bn[axis] -= s / 2; }
         }
       }
       if (!moved) break;
@@ -192,8 +223,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // manual arrangement: a moved table keeps its offset from its domain's centre, a moved domain is pinned
     const saved = savedLayout();
     REL = new Map();
-    for (const [, dl] of local) dl.ns.forEach(s => REL.set(s.i, saved.nodes[N[s.i].id] || [s.x - dl.cx, s.y - dl.cy]));
-    domains = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length,
+    for (const [, dl] of local) placeAroundDragged(dl.ns, saved.nodes);
+    domains = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length, bands: v.bands,
       r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
       mix: [...d3.rollup(v.ns, g => g.length, s => N[s.i].kind)].sort((a, b) => b[1] - a[1]) }));
     domains.forEach(d => { const p = saved.domains[d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
@@ -223,32 +254,136 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   const savedLayout = () => LAYOUT.get('universe', state.detail) || { domains: {}, nodes: {} };
+  // Room kept between a domain's farthest reserved box and its circle (world px), by detail level
+  const margin = () => (state.detail === 'names' ? 16 : 24);
+  // the domain radius that holds a table's reserved box b at offset (dx, dy) of its point from the centre
+  const holds = (dx, dy, b) => Math.hypot(Math.abs(dx) + b.w / 2, Math.abs(dy + b.oy) + b.h / 2) + margin();
   // how far a table reaches from its domain's centre, so the halo still surrounds a table dragged outwards
-  function reach(i) { const [dx, dy] = REL.get(i), b = B[i]; return Math.hypot(Math.abs(dx) + b.w / 2, Math.abs(dy) + b.h / 2) + 30; }
+  function reach(i) { const [dx, dy] = REL.get(i); return holds(dx, dy, B[i]); }
+  // REL of a domain's tables: the computed offsets, a dragged table's saved one; computed tables under a
+  // dragged one are pushed off it (the only rectangular pass: the packing never overlaps, D-040)
+  function placeAroundDragged(ns, nodes) {
+    const rects = ns.map(s => {
+      const off = nodes[N[s.i].id], b = B[s.i], [x, y] = off || [s.x, s.y];
+      return { i: s.i, x, y: y + b.oy, w: b.w, h: b.h, pinned: !!off };
+    });
+    if (rects.some(r => r.pinned)) separate(rects);
+    rects.forEach(r => REL.set(r.i, r.pinned ? nodes[N[r.i].id] : [r.x, r.y - B[r.i].oy]));
+  }
 
+  // The catch-all layer of configured layers ('other', always last, domain/classify.OTHER): its tables have
+  // no layer and are placed by lineage. Without configured layers no layer is the catch-all.
+  const NO_LAYER = DATA.layers.length && DATA.layers[DATA.layers.length - 1].key === 'other' ? 'other' : null;
+  const layerPos = n => (n.layer === NO_LAYER ? null : LAYER[n.layer].rank);
+  const PACK = { PAD: 6, STRIP_GAP: 8, BAND_GAP: 20, TRIES: 24, REFINE: 6 };
+
+  // A domain's tables in layer bands, left to right along the data flow, in the smallest circle (D-040).
+  // A band is one column, split into balanced columns when taller than a height H; H is scanned to give the
+  // smallest circle around the reserved boxes. No simulation and no randomness: the same tables give the
+  // same offsets on every machine.
+  // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{layer, x0, x1}] }
   function layoutDomain(members) {
-    const ranks = [...new Set(members.map(n => LAYER[n.layer].rank))].sort((a, b) => a - b);
-    const ns = members.map(n => { const b = box(n); return { i: n.i, w: b.w, h: b.h, r: Math.sqrt(b.w * b.h) * 0.6 + 2 }; });
-    const avgR = d3.mean(ns, d => d.r);
-    // layers side by side along the flow, left to right
-    const spacing = avgR * 2.2 * Math.sqrt(ns.length / ranks.length) + 40;
-    ns.forEach((d, j) => d.tx = (ranks.indexOf(LAYER[members[j].layer].rank) - (ranks.length - 1) / 2) * spacing);
-    const at = new Map(ns.map((d, j) => [d.i, j]));
-    const intra = edges.filter(([a, b]) => at.has(a) && at.has(b)).map(([a, b]) => ({ source: at.get(a), target: at.get(b) }));
-    const sim = d3.forceSimulation(ns).randomSource(d3.randomLcg(42))
-      .force('collide', d3.forceCollide(d => d.r))
-      .force('x', d3.forceX(d => d.tx).strength(0.12))
-      .force('y', d3.forceY(0).strength(0.08))
-      .force('link', d3.forceLink(intra).distance(l => l.source.r + l.target.r + 8).strength(0.2))
-      .force('charge', d3.forceManyBody().strength(-6).distanceMax(avgR * 8))
-      .stop();
-    for (let k = 0, n = Math.min(120, 40 + ns.length / 3); k < n; k++) sim.tick();
-    separate(ns);
-    const x0 = d3.min(ns, d => d.x - d.w / 2), x1 = d3.max(ns, d => d.x + d.w / 2);
-    const y0 = d3.min(ns, d => d.y - d.h / 2), y1 = d3.max(ns, d => d.y + d.h / 2);
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    const R = d3.max(ns, d => Math.hypot(Math.abs(d.x - cx) + d.w / 2, Math.abs(d.y - cy) + d.h / 2)) + 30;
-    return { ns: ns.map(d => ({ i: d.i, x: d.x, y: d.y })), cx, cy, R, rank: d3.mean(members, n => LAYER[n.layer].rank) };
+    const bands = layerBands(members);
+    const PAD = PACK.PAD;
+    const items = bands.map(band => band.tables.map(n => { const b = box(n); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
+    const all = items.flat(), stack = list => d3.sum(list, b => b.h) + PAD * (list.length - 1);
+    const lo = d3.max(all, b => b.h), hi = Math.max(lo, d3.max(items, stack));
+    let best = null;
+    for (let k = 0; k <= PACK.TRIES; k++) {
+      const row = packRow(items, items.map(() => lo * Math.pow(hi / lo, k / PACK.TRIES)), PAD);
+      if (!best || row.r < best.r) best = row;
+    }
+    // then the bands near the edge are cut to the circle's chord there, which may shrink the circle again
+    for (let k = 0; k < PACK.REFINE; k++) {
+      const caps = best.bands.map(([x0, x1], j) =>
+        Math.max(lo, Math.min(best.H[j], 2 * Math.sqrt(Math.max(0, best.r ** 2 - Math.max(x0 * x0, x1 * x1))))));
+      const row = packRow(items, caps, PAD);
+      if (row.r >= best.r) break;
+      best = row;
+    }
+    const R = d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
+    return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R,
+             rank: d3.mean(members, n => LAYER[n.layer].rank),
+             bands: bands.map((band, j) => ({ layer: band.layer, x0: best.bands[j][0], x1: best.bands[j][1] })) };
+  }
+  // The layer bands of a domain, ordered tables included: [{layer, tables}] (see the design note § 2)
+  function layerBands(members) {
+    const ids = members.map(n => n.i), inDom = new Set(ids);
+    // lineage that keeps layers apart: both ends in one layer, or a child without a layer
+    const flowEdges = DATA.lineage.filter(([c, p]) => inDom.has(c) && inDom.has(p))
+      .filter(([c, p]) => layerPos(N[c]) === null || layerPos(N[c]) === layerPos(N[p])).map(([c, p]) => [p, c]);
+    const { rank } = flowRanks(ids, flowEdges, i => layerPos(N[i]));
+    const byLayer = d3.group(members.filter(n => layerPos(n) !== null), layerPos);
+    const ranges = [...byLayer.keys()].sort((a, b) => a - b)
+      .map(pos => ({ layer: DATA.layers[pos].key, lo: d3.min(byLayer.get(pos), n => rank.get(n.i)),
+                     hi: d3.max(byLayer.get(pos), n => rank.get(n.i)), tables: [...byLayer.get(pos)] }));
+    if (!ranges.length) ranges.push({ layer: NO_LAYER || members[0].layer, lo: 0, hi: Infinity, tables: [] });
+    members.filter(n => layerPos(n) === null).forEach(n => {
+      const r = rank.get(n.i);
+      (ranges.find(b => r >= b.lo && r <= b.hi) || ranges[ranges.length - 1]).tables.push(n);
+    });
+    // order inside a band: lineage depth, then barycentre of the neighbours in earlier bands, name, id;
+    // neighbours over lineage and the drawn links, each pair counted once
+    const nb = new Map(ids.map(i => [i, new Set()]));
+    [...DATA.lineage, ...edges].forEach(([a, b]) => { if (a !== b && inDom.has(a) && inDom.has(b)) { nb.get(a).add(b); nb.get(b).add(a); } });
+    const order = new Map();
+    ranges.forEach(band => {
+      const bary = new Map(band.tables.map(n => {
+        const pos = [...nb.get(n.i)].filter(j => order.has(j)).map(j => order.get(j));
+        return [n.i, pos.length ? d3.mean(pos) : 0.5];
+      }));
+      band.tables.sort((a, b) => rank.get(a.i) - rank.get(b.i) || bary.get(a.i) - bary.get(b.i)
+        || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      band.tables.forEach((n, j) => order.set(n.i, band.tables.length > 1 ? j / (band.tables.length - 1) : 0.5));
+    });
+    return ranges.map(b => ({ layer: b.layer, tables: b.tables }));
+  }
+  // Splits a band's boxes ([{h}], in order) into the fewest columns of stacked height <= H, balanced: the
+  // smallest cap that keeps that number of columns, so no short column is left over. -> [[box]]
+  function columns(items, H, PAD) {
+    const fill = cap => {
+      const cols = [];
+      let h = Infinity;
+      items.forEach(b => {
+        if (h + PAD + b.h > cap) { cols.push([]); h = -PAD; }
+        cols[cols.length - 1].push(b); h += PAD + b.h;
+      });
+      return cols;
+    };
+    const target = fill(H).length;
+    let lo = d3.max(items, b => b.h), hi = Math.max(lo, H);
+    for (let k = 0; k < 16 && hi - lo > 0.5; k++) { const mid = (lo + hi) / 2; if (fill(mid).length <= target) hi = mid; else lo = mid; }
+    return fill(hi);
+  }
+  // Lays the bands' boxes ([[{w, h}]], in order) out in one row: bands left to right, band j in columns of
+  // height <= H[j] centred on y = 0, then moves the whole so the smallest circle around the box corners is
+  // centred on (0, 0). -> { at: [{x, y}] box centres in the order of bands.flat(), bands: [[x0, x1]], r, H }
+  function packRow(bands, H, PAD) {
+    const cols = bands.map((items, j) => columns(items, H[j], PAD));
+    const width = list => d3.max(list, b => b.w);
+    const W = d3.sum(cols, band => d3.sum(band, width) + PACK.STRIP_GAP * (band.length - 1)) + PACK.BAND_GAP * (bands.length - 1);
+    const at = [], ranges = [], corners = [];
+    let x = -W / 2;
+    cols.forEach((band, j) => {
+      if (j) x += PACK.BAND_GAP;
+      const start = x;
+      band.forEach((col, m) => {
+        if (m) x += PACK.STRIP_GAP;
+        const w = width(col);
+        let y = -(d3.sum(col, b => b.h) + PAD * (col.length - 1)) / 2;
+        col.forEach(b => {
+          at.push({ x: x + w / 2, y: y + b.h / 2 });
+          const x0 = x + w / 2 - b.w / 2, x1 = x0 + b.w;
+          corners.push({ x: x0, y, r: 0 }, { x: x1, y, r: 0 }, { x: x0, y: y + b.h, r: 0 }, { x: x1, y: y + b.h, r: 0 });
+          y += b.h + PAD;
+        });
+        x += w;
+      });
+      ranges.push([start, x]);
+    });
+    const c = d3.packEnclose(corners);   // the smallest circle around them; d3 shuffles with a fixed seed: deterministic
+    at.forEach(p => { p.x -= c.x; p.y -= c.y; });
+    return { at, bands: ranges.map(([x0, x1]) => [x0 - c.x, x1 - c.x]), r: c.r, H };
   }
 
   // ---------------------------------------------------------------- drawing
@@ -307,6 +442,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
       ctx.strokeStyle = c + '66'; ctx.lineWidth = 1.5 / k; ctx.stroke();
     });
+    if (k >= 0.6) domains.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandMarkers(d, k); });
     ctx.globalAlpha = traj ? DIM : 1;
 
     if (k < 0.6) {  // from afar: one route per pair of domains, arrowed along the data flow
@@ -332,7 +468,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const cards = state.detail !== 'names' && k > 0.35;
     const labels = [];
     const drawTable = n => {
-      const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y, b.w, b.h)) return;
+      const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
       const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, role = roleOf(n.i);
       ctx.globalAlpha = traj ? (role ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1;
       if (cards) drawCard(n, p, b, col, mark, role, k);
@@ -384,6 +520,17 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return EXPORT.png(c);
   }
 
+  // the layer markers of a domain: a faint line in the middle of each gap between two bands, clipped to the disc
+  function drawBandMarkers(d, k) {
+    ctx.strokeStyle = C.cross; ctx.lineWidth = 1 / k;
+    d.bands.slice(1).forEach((band, j) => {
+      const mx = (d.bands[j].x1 + band.x0) / 2, half = Math.sqrt(Math.max(0, d.r * d.r - mx * mx));
+      ctx.beginPath(); ctx.moveTo(d.x + mx, d.y - half); ctx.lineTo(d.x + mx, d.y + half); ctx.stroke();
+    });
+  }
+  // the labels of a domain's layer bands, in flow order (its tooltip)
+  const bandLabels = d => d.bands.map(b => LAYER[b.layer].label).join(' → ');
+
   // names by priority: in the trajectory mode its tables first (start, then by distance), then the hovered one, then by score
   function orderLabels(labels) {
     labels.sort((a, b) => labelScore(b) - labelScore(a));
@@ -392,21 +539,46 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const inT = labels.filter(n => roleOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
     return [...inT, ...hov, ...labels.filter(n => !roleOf(n.i))];
   }
+  // Table names below their stars, in one or two lines (nameLines), each over a light backdrop, skipping any
+  // that would overlap a name already drawn or a domain name. An ordinary name is also skipped when it would
+  // cover another star or leave its domain's circle (semantic zoom: names are 11 px whatever the zoom, so
+  // from afar only the room around a star decides); trajectory and hovered names always compete.
   function drawNames(labels, screen, free, taken, k) {
+    const at = new Map(labels.map(n => [n.i, screen(P[n.i].x, P[n.i].y)]));
+    const rad = n => Math.max(starR(n) * k, 2.5), rMax = Math.max(14 * k, 2.5);
+    const stars = d3.quadtree(labels, n => at.get(n.i)[0], n => at.get(n.i)[1]);
+    const disc = new Map(domains.map(d => [d.k, [...screen(d.x, d.y), d.r * k]]));
+    const coversStar = (x, y, w, h) => {
+      let hit = false;
+      stars.visit((q, x0, y0, x1, y1) => {
+        if (hit || x0 > x + w + rMax || x1 < x - rMax || y0 > y + h + rMax || y1 < y - rMax) return true;
+        for (let leaf = q.length ? null : q; leaf; leaf = leaf.next) {
+          const [cx, cy] = at.get(leaf.data.i), r = rad(leaf.data);
+          if (cx + r > x && cx - r < x + w && cy + r > y && cy - r < y + h) hit = true;
+        }
+        return hit;
+      });
+      return hit;
+    };
+    const inDisc = (n, x, y, w, h) => {
+      const [cx, cy, r] = disc.get(n.domain);
+      return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].every(([px, py]) => Math.hypot(px - cx, py - cy) <= r);
+    };
     let shown = 0;
     for (const n of labels) {
       if (shown >= 400) break;
       const role = roleOf(n.i);
       const strong = role ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover;
       ctx.font = `${strong ? 600 : 400} 11px ${FONT}`;
-      const [sx, sy] = screen(P[n.i].x, P[n.i].y), r = Math.max(starR(n) * k, 2.5);
-      const w = ctx.measureText(n.name).width + 6, y = sy + r + 2;
-      if (!free(sx - w / 2, y, w, 14)) continue;
-      taken.push([sx - w / 2, y, w, 14]); shown++;
+      const [sx, sy] = at.get(n.i), lines = nameLines(n.name);
+      const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + rad(n) + 2;
+      if (!free(x, y, w, h)) continue;
+      if (!role && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
+      taken.push([x, y, w, h]); shown++;
       ctx.globalAlpha = traj && !role ? DIM : 1;
-      ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(sx - w / 2, y, w, 14);
+      ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(x, y, w, h);
       ctx.fillStyle = strong || role ? C.text : C.muted;
-      ctx.fillText(n.name, sx, y + 11);
+      lines.forEach((s, j) => ctx.fillText(s, sx, y + 11 + LINE_H * j));
     }
     ctx.globalAlpha = 1;
   }
@@ -512,8 +684,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function fit(animate) {
     const tj = trajMembers().filter(i => P[i]);
     if (tj.length) {
-      return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y - B[i].h / 2),
-        d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].h / 2), animate, 2);
+      return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2),
+        d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2), animate, 2);
     }
     if (!domains.length) return draw();
     frame(d3.min(domains, d => d.x - d.r), d3.min(domains, d => d.y - d.r),
@@ -553,7 +725,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         `<div class="a">${t.k < FAR ? T.frame : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
     } else {
       const dd = DOM[d.k];
-      tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div><div class="a">${T.frame}</div>`;
+      tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
+        + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div><div class="a">${T.frame}</div>`;
     }
     const r = stage.getBoundingClientRect();
     tip.style.display = 'block';
@@ -680,13 +853,29 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }).observe(stage);
   layout(); resize(); fit(false);
 
-  // the screen rectangle of a drawn table, in CSS px from the canvas's top left corner; null when not drawn
+  // the screen rectangle reserved by a drawn table (its card, or its star and name), in CSS px from the
+  // canvas's top left corner; null when not drawn
   function place(id) {
     const n = N.find(m => m.id === id), p = n && P[n.i], b = n && B[n.i];
-    return p ? { x: (p.x - b.w / 2) * t.k + t.x, y: (p.y - b.h / 2) * t.k + t.y, w: b.w * t.k, h: b.h * t.k } : null;
+    return p ? { x: (p.x - b.w / 2) * t.k + t.x, y: (p.y + b.oy - b.h / 2) * t.k + t.y, w: b.w * t.k, h: b.h * t.k } : null;
+  }
+  // the placement in world coordinates (tables at their point P, with their reserved box; domains with
+  // their layer bands) and the time of the last layout: read-only, for the browser tests
+  function geometry() {
+    return { layoutMs: perf.layout,
+      tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
+                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy })),
+      domains: domains.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
+                                   bands: d.bands.map(b => ({ layer: b.layer, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
+  }
+
+  // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
+  function camera(to) {
+    if (to) sel.call(zoom.transform, d3.zoomIdentity.translate(to.x, to.y).scale(to.k));
+    return { x: t.x, y: t.y, k: t.k };
   }
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
-  // camera (the d3 zoom transform) and place are for the tests too: closing the flow leaves the camera as it was.
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera: () => ({ x: t.x, y: t.y, k: t.k }), place };
+  // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
+  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry };
 }

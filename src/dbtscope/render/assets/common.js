@@ -1,7 +1,8 @@
 // Page-wide globals, inlined first so every later script can use them: the payload, the shared string
 // table, the one HTML escaper, numbers and plural agreement, the theme colours and the contrast of text
 // on colours, the side-panel toggle, the filter checkbox row, the lineage traversal of the trajectory,
-// and the Graphviz helpers of the detail and flow views (render, pan-zoom mount, image export).
+// the columns along the data flow (flow view, universe layer bands), and the Graphviz helpers of the
+// detail and flow views (render, pan-zoom mount, image export).
 // Declarations only: no DOM work at load but the page language.
 const PAGE = JSON.parse(document.getElementById('data').textContent);
 document.documentElement.lang = PAGE.lang;
@@ -195,6 +196,52 @@ function countByDomain(nodes, indices) {
   const per = new Map();
   for (const i of indices) per.set(nodes[i].domain, (per.get(nodes[i].domain) || 0) + 1);
   return per;
+}
+
+// ---------------------------------------------------------------- columns along the data flow
+// Columns along the data flow: lineage first, layers as a floor. A pure page global, tested directly;
+// the flow's columns and the order of the universe's layer bands (D-036, D-040).
+// members: table indices; edges: [[parent, child]] among members (data flows left to right);
+// layerOf: index -> position of its layer in DATA.layers, or null for a table without a layer.
+// -> { rank: Map(index -> column), back: Set of "parent,child" edges left out of the ranking (cycles) }
+// span[L] = 1 + the longest chain of edges inside layer L (0 when L has no table); floor[L] = the sum of
+// the spans of the layers before L; rank(n) = max(floor[layer(n)], rank(p) + 1 over its parents p).
+// A table without a layer has no floor (0) and counts in no layer's span.
+// Every edge not in `back` goes left to right. O(V + E); never loops nor throws on a cycle.
+function flowRanks(members, edges, layerOf) {
+  const at = new Map(members.map((m, j) => [m, j]));
+  const links = edges.filter(([p, c]) => p !== c && at.has(p) && at.has(c));
+  const layer = members.map(m => layerOf(m) ?? null);
+  // longest-path ranks over `list` (Kahn), each table at least at base(j); a table left over by a cycle is
+  // ranked over its ranked parents only, its other in-edges go to `back`
+  function longest(list, base) {
+    const parents = members.map(() => []), children = members.map(() => []), indeg = members.map(() => 0);
+    list.forEach(([p, c]) => { const a = at.get(p), b = at.get(c); parents[b].push(a); children[a].push(b); indeg[b]++; });
+    const rank = members.map(() => -1), back = new Set(), queue = [];
+    members.forEach((_, j) => { if (!indeg[j]) queue.push(j); });
+    function place(j) {
+      let r = base(j);
+      parents[j].forEach(a => { if (rank[a] >= 0) r = Math.max(r, rank[a] + 1); else back.add(members[a] + ',' + members[j]); });
+      rank[j] = r;
+      children[j].forEach(b => { if (rank[b] < 0 && --indeg[b] === 0) queue.push(b); });
+    }
+    let head = 0, next = 0;
+    for (;;) {
+      while (head < queue.length) { const j = queue[head++]; if (rank[j] < 0) place(j); }
+      while (next < members.length && rank[next] >= 0) next++;
+      if (next === members.length) break;
+      place(next);
+    }
+    return { rank, back };
+  }
+  const inLayer = ([p, c]) => layer[at.get(p)] !== null && layer[at.get(p)] === layer[at.get(c)];
+  const inner = longest(links.filter(inLayer), () => 0).rank;
+  const span = [];
+  inner.forEach((r, j) => { if (layer[j] !== null) span[layer[j]] = Math.max(span[layer[j]] || 0, r + 1); });
+  const floor = [];
+  for (let l = 0, sum = 0; l < span.length; l++) { floor[l] = sum; sum += span[l] || 0; }
+  const { rank, back } = longest(links, j => (layer[j] === null ? 0 : floor[layer[j]]));
+  return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
 }
 
 // ---------------------------------------------------------------- Graphviz views (detail, flow)

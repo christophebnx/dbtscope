@@ -154,3 +154,30 @@ Asked by the user on 2026-11-05 (M5.4, same design note § 4–5).
 - **Data untouched.** Names, descriptions and config labels stay as written.
 
 Refines D-016 (page strings in both languages). Rejected: U+202F before `:` too (the French rule is a full no-break space before the colon), `Intl.NumberFormat` options (same output as what the trajectory already used).
+
+**D-040 — Inside a domain, tables are placed in layer bands in the smallest circle, with no simulation.**
+Asked by the user on 2026-11-05 (M5.5, design note `docs/architecture/2026-11-05-m5.5-universe-layout.md`).
+- **Bands.** A domain's tables are placed in layer bands, left to right in the order of `DATA.layers`.
+  - Inside a band, tables are ordered by in-layer lineage depth (`flowRanks`, moved to `common.js`), then by the barycentre of their neighbours in earlier bands, then by name and `unique_id`.
+  - A table of the catch-all layer `other` has no layer: `flowRanks` ranks it after its parents, and it goes to the band whose rank range holds its rank (the last band when its rank is beyond every range).
+- **Packing.** Each band is one column, split into balanced columns when taller than a height H; the bands are laid out in one row, and H is scanned (then the edge bands cut to the circle's chord) to give the smallest enclosing circle of the boxes' corners (`d3.packEnclose`, deterministic: fixed-seed shuffle). The radius is that circle plus 16 px at names level, 24 px at the card levels.
+  - Each table reserves the room of what it shows. At names level that is the star and its label below, on two lines when the name is longer than 14 characters (split after `__`, else after the `_` nearest the middle); label widths are estimated, never measured, so the shape does not depend on fonts.
+  - So reserved boxes never overlap. A circle cannot be narrower than its bands side by side: a domain with a few wide bands of few tables is flat, and its circle stays partly empty.
+- **Names at a distance.** Names are drawn at 11 px whatever the zoom. At overview fewer names are drawn than before M5.5: an ordinary name that would cover another star or leave its domain's circle is hidden, and zooming in shows it. Trajectory and hovered names always compete.
+- **Markers.** Faint separators between bands are drawn at constellation zoom, and the domain tooltip lists its layers.
+- **De-overlap and reproducibility.** The rectangular de-overlap pass runs only around dragged tables, which never move. The placement is deterministic. The domains are still placed by d3-force with seed 42.
+- **Saved arrangements are unchanged** (D-013): domain pins stay absolute, and a dragged table keeps its offset from its domain's centre, now the circle centre. Old files load, and dragged positions win. The payload is unchanged.
+- **Acceptance** (revised after the first review). Every domain of 10 tables or more reaches a fill Σ w·h / π r² of at least 0.25 at names level and 0.30 at keys and all on acme_retail (0.35 on the 1,500-table payload), **or** has a radius within 15 % of the lower bound `max(W / 2, √(Σ w·h / π)) + margin`, where `W` is the bands side by side (each band's widest box plus the gaps). Measured at names / keys / all:
+  - acme_retail at names: Marketing 0.351, Logistics 0.355, Sales 0.295, Finance 0.295 pass by fill; Product (0.237) passes only by the 15 % rule (1.01 of its bound).
+  - acme_retail at keys and all: no domain reaches 0.30, so all pass only by the 15 % rule. At keys every domain is at 1.00 to 1.03 of its bound (Marketing 0.200, Logistics 0.244, Sales 0.215, Finance 0.189, Product 0.134); at all, Marketing (0.251), Logistics (0.291), Sales (0.257) and Finance (0.222) are at 1.05 to 1.09, Product (0.170) at about 1.0.
+  - The 1,500-table payload passes by fill: 0.278 / 0.361 / 0.358.
+  - Compared with before M5.5 (world radius), every acme domain is smaller at names level; at keys, Product (261 → 294), Finance (290 → 303), Customer (270 → 276) and Marketing (359 → 361) grow slightly, and Product at all (311 → 317): the old layout let their cards overlap.
+
+Refines D-014 (d3-force now places the domains only) and the "local simulation" option of brief § 7. Rejected:
+- stronger layer forces (order and overlaps depend on tuning);
+- lineage-first bands as in the flow (a backward edge breaks the layer order);
+- one strip per lineage depth (long chains give empty discs);
+- strips filled from the circle's left edge at a bisected radius (first version: flat rows, circles larger than before);
+- measured label widths (font-dependent shapes);
+- a payload flag for "no layer";
+- rescaling old saved offsets.

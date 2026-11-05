@@ -16,6 +16,20 @@ User-visible behaviour of the generated page, kept true by the ui-designer and t
 - The ☰ button of each toolbar opens and closes the side panel; it is named "Filters" ("Filtres") and exposes `aria-expanded`. Focus stays on it.
 - **Narrow screens (D-035)**: a view that starts in a window 600 px wide or narrower opens with its panel closed (`aria-expanded="false"`), so the drawing fills the screen; the ☰ button, first in the toolbar, reopens it. At that width an open panel sits above the toolbar, full width, scrolling inside itself: at most 45 % of the screen height in the universe, 35 % in the detail (D-038; its toolbar wraps to several rows, so the diagram and a filter's effect stay in view). Nothing is saved and later resizing does not change the state. Wider windows open with the panel beside the drawing, as before.
 
+## Universe view — placement (M5.5, D-040)
+
+Design: `docs/architecture/2026-11-05-m5.5-universe-layout.md`.
+
+- **Layer bands.** Inside each domain, tables sit in layer bands, left to right in the order of the panel's Layers list (sources, staging, …, marts). Every table of a layer is strictly left of every table of the next layer. Inside a band, a table comes after the tables of its layer it reads, then near its neighbours of the earlier bands, then by name.
+- **Tables without a layer.** With configured `layers`, a table that matches no rule ("Other") is placed by lineage, in the band after its latest parent (the first band when it has none). Without configured layers, a folder literally named `other` that sorts last is placed the same way.
+- **Room.** Each table reserves what it shows: at names level its star and the name below it, on two lines when the name is longer than 14 characters (split after `__`, else after the `_` nearest the middle; label width estimated, so the shape is the same on every machine), at keys and all-fields levels its card. Reserved boxes never overlap. A band is one column, split into balanced columns when tall; the bands sit side by side and the circle is the smallest around them, with 16 px of room at names level and 24 px around cards.
+- **Flat domains.** A circle cannot be narrower than its bands side by side: a domain with a few bands of few wide tables (acme_retail's Customer, or Product at the card levels) forms a wide row and its circle stays partly empty above and below.
+- **Names at a distance.** Names keep their 11 px size at every zoom; from afar, an ordinary name that would cover another star or leave its domain's circle is not drawn (it comes back when zooming in). Trajectory and hovered names are always offered.
+- **Layer markers.** At constellation zoom (scale 0.6 or more), a faint 1 px line (`rgba(100,116,139,.10)`) separates consecutive bands of a domain, clipped to its circle; not drawn from afar, where routes speak. No layer names on the canvas.
+- **Domain tooltip.** A line lists the domain's bands in order: "Layers: Sources → Staging → Raw vault → Marts" ("Couches : …"); the catch-all band reads "Other" ("Autre").
+- **Reproducible.** The same project gives the same shapes at every generation and on every machine; unticking and ticking back a domain puts it back in place.
+- **Saved arrangements (D-013).** Files and stored arrangements from before M5.5 load unchanged. A pinned domain stays where it was saved; a dragged table keeps its offset from its domain's centre (now the disc centre), so an old offset may sit outside the compact content: the halo grows to include it and computed tables under it are pushed off it. Tables never dragged take the new placement. Where a disc grew, two pinned domains may overlap: the pins win, and **Reset layout** gives the computed placement.
+
 ## Universe view — trajectory mode (M1, D-018)
 
 Design: `docs/architecture/2026-11-03-m1-trajectory-mode.md` § UI design.
