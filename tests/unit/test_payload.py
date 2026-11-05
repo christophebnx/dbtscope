@@ -53,7 +53,7 @@ UNIVERSE = UniversePayload(
         (UNIVERSE.domains[0], ["key", "label", "color", "owner"]),
         (UNIVERSE.layers[0], ["key", "label"]),
         (UNIVERSE.kinds[0], ["key", "label", "color"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds"]),
+        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations"]),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -80,6 +80,12 @@ def test_defaults_are_built_by_their_python_name_only() -> None:
     assert defaults.hidden_kinds == ("x",)
     with pytest.raises(ValidationError):
         UniverseDefaults.model_validate({"links": "both", "detail": "all", "hiddenKinds": ["x"]})
+
+
+def test_constellations_default_to_domains_and_refuse_other_values() -> None:
+    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).constellations == "domains"
+    with pytest.raises(ValidationError):
+        UniverseDefaults(links="both", detail="names", hidden_kinds=(), constellations="rows")  # type: ignore[arg-type]
 
 
 def test_payloads_are_closed_and_immutable() -> None:

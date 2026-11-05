@@ -253,13 +253,14 @@ The page has two tabs.
 
 ### Universe
 
-Every model, source, seed and snapshot of the project as a star, grouped into one **constellation per data domain**.
+Every model, source, seed and snapshot of the project as a star, grouped into one **constellation per data domain** (or, with the **Constellations** switch, one per layer).
 
 - From afar: the domains, their size, and the routes between them — one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes.
 - Closer: each table, coloured by kind, with its name — or as a card with its key columns or all its fields (**Tables**: names / keys / all fields).
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly.
+- **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser, and keeps a separate manual arrangement for each grouping.
 - Side panel: tick **layers**, **Types** (the kinds) and **domains** on and off. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening. On a phone or a window 600 px wide or narrower, the panels start closed: the ☰ button opens them.
-- Double-click a domain to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the Detail view doesn't include it). Search finds a table even when filters hide it.
+- Double-click a constellation to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the Detail view doesn't include it). Search finds a table even when filters hide it.
 
 A table's domain is the first of:
 
@@ -318,7 +319,7 @@ Each tab's toolbar ends with **Export image**:
 
 Both tabs let you drag things where you want them:
 
-- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole domain by its name. Once anything is moved, every domain stays where it is, even when filters change.
+- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. Domains and Layers each keep their own arrangement.
 - **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types.
 
 Every move is saved in the browser at once. To share an arrangement with the team, click **Export layout** (top right), save the file as `dbt-erd-layout.json` next to `dbt_project.yml` and commit it: `dbtscope` embeds it in every page it generates (`layout_file` in the config to use another path). Whichever copy was saved last wins, the browser's or the file's. **Import layout** loads such a file into the page; **Reset layout** forgets the arrangement of the current tab.
@@ -366,6 +367,7 @@ universe:
   links: both                 # relations | lineage | both: initial choice, switchable in the page
   detail: names               # names | keys | all
   hidden_kinds: []            # kinds unticked at opening (the page's Types boxes)
+  constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
 ```
 
 Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).

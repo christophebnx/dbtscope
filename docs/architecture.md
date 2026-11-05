@@ -19,6 +19,7 @@ Each fact has one home; other files link to it instead of copying it.
 | Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | README § Offline page, roadmap M2 |
 | Page behaviour for users / for the designer | README § The page / `docs/ui-spec.md` (strings, colours, states) | — |
 | Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
+| Universe grouping (domains or layers), its layout scopes and viewer memory | D-047 (contract); README § Universe and § Configuration (users); `docs/ui-spec.md` § constellations by layer (design) | `render/CLAUDE.md`, `domain/CLAUDE.md` |
 | Example project and its manifest | D-033, D-046, `tests/fixtures/acme_retail/notes.md` | README § Try it on the example project, `examples/acme_retail/README.md` |
 | The `/feature` workflow | `.claude/skills/feature/SKILL.md`; diagram in README § Working with Claude Code | D-007 |
 
@@ -49,7 +50,7 @@ Every failure ends in `cli.main`. Streams, message form and exit codes: D-029.
 
 Data is typed with pydantic v2 at four layers (D-024, D-025): manifest input (`domain/manifest_schema`, only the fields read), domain model (`domain/model`: `Table`, `Column`, `Relation`, `LineageEdge`, `Group`, `Project`), configuration (`domain/config`: `Config`, `Rule`, `UniverseSettings`) and page payloads (`domain/payload`, the Python → JavaScript contract). Models are frozen; a malformed manifest or configuration stops the run with one line naming the field (`domain/errors.validation_message`). The page JSON is byte for byte what it was before the models (`tests/unit/test_reference_pages.py`).
 
-The page does the layout itself, in the browser, on every filter change: layer bands packed into discs, d3-force for the domains, and a canvas for the universe (D-040), Graphviz (Viz.js) for the detail and for the flow view of a trajectory (D-014, D-036). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013).
+The page does the layout itself, in the browser, on every filter change: bands packed into discs, d3-force for the constellations (domains, or layers, D-047), and a canvas for the universe (D-040), Graphviz (Viz.js) for the detail and for the flow view of a trajectory (D-014, D-036). Manual arrangements are kept in the browser and can be exported to `dbt-erd-layout.json`, which the next run embeds (D-013; one arrangement per grouping, D-047).
 
 Page tests: `tests/browser/` (D-019, D-022; commands in `CLAUDE.md`).
 
@@ -147,9 +148,14 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Flow view (page) | `render/assets/flow.js startFlow` |
 | The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
-| Placement of a domain's tables: layer bands in one row, in the smallest circle (page) | `render/assets/universe.js layoutDomain`, `layerBands`, `columns`, `packRow` |
+| Display name of a payload domain, layer or kind (`label ?? key`) (page) | `render/assets/common.js labelOf` |
+| What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-047) | `render/assets/universe.js BY`, `grouping` |
+| The viewer's last grouping, kept out of the layout (page, D-047) | `render/assets/universe.js byMemory` |
+| Placement of a constellation's tables: bands (layer bands, or domain bands in layer mode) in one row, in the smallest circle (page) | `render/assets/universe.js layoutConstellation`, `bandsOf`, `columns`, `packRow` |
+| A band's span on its disc and the disc's upper rim (page, layer mode) | `render/assets/universe.js bandSpans`, `rimAngle`, `rimHalf` |
+| Domain bands of a layer constellation: tint, rim arcs, band names; its tooltip (page) | `render/assets/universe.js drawDomainBands` (`TINT`, `TINTS`), `drawBandNames`, `layerTip` (`TIP_DOMAINS`) |
 | A table name on one or two lines (universe, page) | `render/assets/universe.js nameLines` |
-| The domain radius that holds a box (page) | `render/assets/universe.js holds`, `margin` (used by `layoutDomain` and `reach`) |
+| The constellation radius that holds a box (page) | `render/assets/universe.js holds`, `margin` (used by `layoutConstellation` and `reach`) |
 | Rectangular de-overlap around dragged tables (page) | `render/assets/universe.js separate` (pinned), `placeAroundDragged` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
@@ -197,9 +203,11 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |
 | Classification of a table by the `kinds` rules (hub, fact…) or its built-in fallback | **kind** (`kinds`, `BuiltinKind`, `TYPE_KINDS`) | type, category | The page labels kinds "Types": UI text, frozen with the page. |
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
-| Data domain of the universe (resolution: D-015) | **domain** | constellation (allowed in UI prose only) | |
+| Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
+| The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-047) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
-| The strip of a domain where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
+| The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
+| The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-047) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view, lineage graph | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |

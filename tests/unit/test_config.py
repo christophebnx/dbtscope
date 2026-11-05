@@ -24,6 +24,14 @@ def test_defaults_alone_are_valid() -> None:
     assert config == Config()
 
 
+def test_constellations_default_to_domains_and_accept_layers() -> None:
+    assert merge_config({}, {}).universe.constellations == "domains"
+    assert merge_config({}, {"universe": {"constellations": "layers"}}).universe.constellations == "layers"
+    preset = {"universe": {"constellations": "layers"}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.constellations == "layers"
+
+
 def test_file_overrides_preset_and_universe_is_merged() -> None:
     preset = {"title": "Preset", "group_by": "folder", "universe": {"detail": "keys"}}
     config = merge_config(preset, {"preset": "x", "title": "Mine", "universe": {"links": "lineage"}})
@@ -125,6 +133,7 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
         ({"universe": {"select": [1]}}, "universe.select[0]: must be a string"),
         ({"universe": {"hidden_kinds": [True]}}, "universe.hidden_kinds[0]: must be a string"),
         ({"universe": {"links": None}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
+        ({"universe": {"constellations": "rows"}}, "universe.constellations: must be 'domains' or 'layers'"),
         ({"view": "map", "language": "de"}, "language: must be 'en' or 'fr' (and 1 more problem)"),
     ],
 )  # fmt: skip
@@ -276,6 +285,7 @@ def test_the_config_file_stays_lenient() -> None:
         ({"universe": {"links": "all"}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
         ({"universe": {"hidden_kinds": [1]}}, "universe.hidden_kinds[0]: must be a string"),
         ({"universe": {"hiden_kinds": ["hub"]}}, "universe.hiden_kinds: unknown key"),
+        ({"universe": {"constellations": "x"}}, "universe.constellations: must be 'domains' or 'layers'"),
     ],
     ids=[
         "rule-key",
@@ -285,6 +295,7 @@ def test_the_config_file_stays_lenient() -> None:
         "links",
         "hidden-kinds",
         "universe-typo",
+        "constellations",
     ],
 )
 def test_a_wrong_value_inside_a_preset_section_is_refused(preset: dict[str, Any], expected: str) -> None:

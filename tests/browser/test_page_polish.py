@@ -254,8 +254,8 @@ def test_open_panel_stacks_above_the_toolbar_at_360_px(
 # ---------------------------------------------------------------- 44 px targets on touch screens
 
 TARGETS = """() => {
-  const sel = 'button, select, input:not([type=checkbox]):not([type=file]), #u-tj-counts summary, '
-    + '.panel label, .panel h3 a';
+  const sel = 'button, select, input:not([type=checkbox]):not([type=radio]):not([type=file]), '
+    + '#u-tj-counts summary, .panel label, .panel h3 a';
   const out = [];
   document.querySelectorAll(sel).forEach(el => {
     const r = el.getBoundingClientRect();
@@ -281,6 +281,9 @@ def test_every_control_is_a_44_px_target_on_touch_screens(build_page: Any, open_
     p.page.click("#u-toggle")
     assert p.page.locator("#u-panel label").count() > 0
     assert_targets(p, "universe, panel open")
+    rows = p.page.locator("#u-by label")
+    assert rows.count() == 2 and p.page.is_visible("#u-by")  # the radio rows are among the targets
+    assert all(rows.nth(j).bounding_box()["height"] >= 43.5 for j in range(2))
     p.page.click("#u-toggle")
     p.page.fill("#u-q", "stg_orders")
     p.page.click("#u-traj")

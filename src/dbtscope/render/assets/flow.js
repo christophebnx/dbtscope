@@ -110,7 +110,7 @@ function startFlow(DATA, EXPORT, close) {
       `<tr><td rowspan="2" width="6" bgcolor="${esc(CONTRAST.edge(DOM[n.domain].color, THEME.bg))}"></td>` +
       `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"${dotEdge(KIND[n.kind].color)}><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
       `<tr><td align="left"><font color="${THEME.fg}" point-size="12"><b>${depthLabel(i)}</b></font>` +
-      `<font color="${THEME.muted}" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
+      `<font color="${THEME.muted}" point-size="12">&#160;&#160;·&#160;&#160;${dotText(labelOf(LAYER[n.layer]))}</font></td></tr></table>>];`;
   }
   // columns imposed on dot: one rank=same group per column, each edge as long as its columns apart
   function buildDot() {

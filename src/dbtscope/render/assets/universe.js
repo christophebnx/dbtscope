@@ -1,6 +1,7 @@
 // Universe view: every table of the project as a star, grouped into one constellation per data
-// domain. A domain's tables are packed in layer bands into the smallest disc (D-040), then d3-force
-// places the domains; a canvas draws it.
+// domain, or per layer (D-047). A constellation's tables are packed in bands (layer bands, or domain
+// bands in layer mode) into the smallest disc (D-040), then d3-force places the constellations; a
+// canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
 function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
@@ -10,7 +11,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           names: 'names', keys: 'keys', all: 'all fields', layers: 'Layers', domains: 'Domains',
           every: 'all', nothing: 'none', search: 'Find a table…', linksN: ['link', 'links'], owner: 'owner',
           openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
-          frame: 'Double-click: zoom on this domain',
+          frame: 'Double-click: zoom on this domain', frameC: 'Double-click: zoom on this constellation',
+          by: 'Constellations', layersN: ['layer', 'layers'], domainOne: 'Domain',
           trajectory: 'Trajectory', trajFound: 'Trajectory of the table found', trajOf: 'Trajectory of',
           brought: ['table brought back by the trajectory', 'tables brought back by the trajectory'],
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
@@ -18,15 +20,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
           clickTraj: 'Click: show its trajectory',
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
-          hint: 'Wheel: zoom · drag the background to pan · drag a table, or a domain by its name, to arrange them · '
+          hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
               + 'click a table to see its trajectory (Esc to leave) · '
-              + 'double-click a domain to zoom in, a table to open its detail' },
+              + 'double-click a constellation to zoom in, a table to open its detail' },
     fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
           names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
           every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
           owner: 'propriétaire',
           openDetail: 'Double-clic\u00a0: ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic\u00a0: zoomer',
-          frame: 'Double-clic\u00a0: cadrer ce domaine',
+          frame: 'Double-clic\u00a0: cadrer ce domaine', frameC: 'Double-clic\u00a0: cadrer cette constellation',
+          by: 'Constellations', layersN: ['couche', 'couches'], domainOne: 'Domaine',
           trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
           brought: ['table ramenée par la trajectoire', 'tables ramenées par la trajectoire'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
@@ -35,9 +38,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
           clickTraj: 'Clic\u00a0: afficher sa trajectoire',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
-          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou un domaine par son nom, pour les ranger · '
+          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
               + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
-              + 'double-clic sur un domaine pour le cadrer, sur une table pour son détail' },
+              + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail' },
   }[PAGE.lang];
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
@@ -53,16 +56,31 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
+  // the viewer's last grouping, kept apart from the shared layout and never exported (D-047): stored only
+  // when it differs from the page default; without storage the choice lasts for the session
+  const byMemory = (() => {
+    const key = 'dbtscope-constellations:' + PAGE.title;
+    return {
+      get() { try { const v = localStorage.getItem(key); return v === 'domains' || v === 'layers' ? v : null; } catch (e) { return null; } },
+      set(value, fallback) {
+        try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* session only */ }
+      },
+    };
+  })();
+  // the switch exists from two rows of the Layers list; below, the page stays in domains
+  const CAN_BY = DATA.layers.length >= 2;
+  const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
   const state = {
     domains: new Set(DATA.domains.map(d => d.key)),
     layers: new Set(DATA.layers.map(l => l.key)),
     kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
     links: DATA.defaults.links, detail: DATA.defaults.detail,
+    by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
   };
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
   let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
   const layoutCache = new Map();
-  let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], domains = [], routes = [], tree = null;
+  let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
   let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0 };
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
   const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
@@ -78,20 +96,27 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
   $u('detail').onchange = ev => { state.detail = ev.target.value; relayout(); };
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;
+  $u('h-by').textContent = T.by; $u('by-domains').textContent = T.domains; $u('by-layers').textContent = T.layers;
+  $u('by-domains-n').textContent = num(DATA.domains.length); $u('by-layers-n').textContent = num(DATA.layers.length);
+  $u('by').hidden = !CAN_BY;
+  $u('by').querySelectorAll('input').forEach(radio => {
+    radio.checked = radio.value === state.by;
+    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); relayout(); };
+  });
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
   $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
 
   function checkboxes(el, items, countOf, set, color, title) {
     el.replaceChildren(...items.map(it => filterRow(
-      { label: it.label, color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
+      { label: labelOf(it), color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
         title: title && title(it) },
       on => { on ? set.add(it.key) : set.delete(it.key); relayout(); })));
   }
   function refreshPanel() {
     checkboxes($u('layers'), DATA.layers, COUNT.layer, state.layers);
     checkboxes($u('kinds'), DATA.kinds, COUNT.kind, state.kinds, k => k.color);
-    checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}${L.colon}${d.owner}` : d.label);
+    checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}${L.colon}${d.owner}` : labelOf(d));
   }
   refreshPanel();
   $u('all').onclick = () => { DATA.domains.forEach(d => state.domains.add(d.key)); refreshPanel(); relayout(); };
@@ -199,46 +224,47 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (state.links !== 'lineage') add(DATA.relations);
     if (state.links !== 'relations') add(DATA.lineage);
 
-    const local = new Map();
-    for (const [dom, members] of d3.group(visible, n => n.domain)) {
-      // a domain's inner layout only depends on its own tables, links and detail level
-      const key = [dom, state.detail, state.links, members.map(n => n.i).join(',')].join('|');
-      if (!layoutCache.has(key)) layoutCache.set(key, layoutDomain(members));
-      local.set(dom, layoutCache.get(key));
+    const G = grouping(), local = new Map();
+    for (const [key, members] of d3.group(visible, G.of)) {
+      // a constellation's inner layout only depends on the grouping, its own tables, links and detail level
+      const cached = [state.by, key, state.detail, state.links, members.map(n => n.i).join(',')].join('|');
+      if (!layoutCache.has(cached)) layoutCache.set(cached, layoutConstellation(key, members));
+      local.set(key, layoutCache.get(cached));
     }
 
-    // domains: linked ones attract, ordered left to right along the flow, never overlapping
+    // constellations: linked ones attract, ordered left to right along the flow, never overlapping
     const agg = new Map(), flow = new Map();
     edges.forEach(([a, b]) => {
-      const da = N[a].domain, db = N[b].domain;
+      const da = G.of(N[a]), db = G.of(N[b]);
       if (da !== db) { const k = da < db ? da + '|' + db : db + '|' + da; agg.set(k, (agg.get(k) || 0) + 1); }
     });
     DATA.lineage.forEach(([child, parent]) => {  // data flows from parent to child
       if (!vis.has(child) || !vis.has(parent)) return;
-      const from = N[parent].domain, to = N[child].domain;
+      const from = G.of(N[parent]), to = G.of(N[child]);
       if (from === to) return;
       const k = from < to ? from + '|' + to : to + '|' + from;
       flow.set(k, (flow.get(k) || 0) + (from < to ? 1 : -1));
     });
-    // manual arrangement: a moved table keeps its offset from its domain's centre, a moved domain is pinned
+    // manual arrangement: a moved table keeps its offset from its constellation's centre, a moved
+    // constellation is pinned
     const saved = savedLayout();
     REL = new Map();
     for (const [, dl] of local) placeAroundDragged(dl.ns, saved.nodes);
-    domains = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length, bands: v.bands,
+    constellations = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length, bands: v.bands,
       r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
       mix: [...d3.rollup(v.ns, g => g.length, s => N[s.i].kind)].sort((a, b) => b[1] - a[1]) }));
-    domains.forEach(d => { const p = saved.domains[d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
+    constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
       return { source: a, target: b, c, dir: Math.abs(f) > c * 0.2 ? Math.sign(f) : 0 };
     });
-    const rand = d3.randomLcg(42), W = (d3.mean(domains, d => d.r) || 1) * 2.4;
-    const sim = d3.forceSimulation(domains).randomSource(rand)
+    const rand = d3.randomLcg(42), W = (d3.mean(constellations, d => d.r) || 1) * 2.4;
+    const sim = d3.forceSimulation(constellations).randomSource(rand)
       // the padding leaves room for the domain name drawn above each constellation
       .force('collide', d3.forceCollide(d => d.r + 30 + d.r * 0.15).iterations(3))
       .force('link', d3.forceLink(routes).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
         .strength(l => Math.min(0.4, 0.03 + Math.log1p(l.c) * 0.04)))
-      .force('x', d3.forceX(d => d.rank * W).strength(0.06))
+      .force('x', d3.forceX(d => d.rank * W).strength(G.flowX))
       .force('y', d3.forceY(0).strength(0.06))
       .force('charge', d3.forceManyBody().strength(-20))
       .stop();
@@ -248,12 +274,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     for (let k = 0; k < 100; k++) sim.tick();
 
     P = [];
-    domains.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
+    constellations.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
     tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
     perf.layout = performance.now() - t0;
   }
 
-  const savedLayout = () => LAYOUT.get('universe', state.detail) || { domains: {}, nodes: {} };
+  // the saved arrangement of the current grouping and detail level: { <pins>: {key: [x, y]}, nodes: {id: [dx, dy]} }
+  function savedLayout() {
+    const G = grouping(), s = LAYOUT.get('universe', G.scope()) || {};
+    return { ...s, [G.pins]: s[G.pins] || {}, nodes: s.nodes || {} };
+  }
   // Room kept between a domain's farthest reserved box and its circle (world px), by detail level
   const margin = () => (state.detail === 'names' ? 16 : 24);
   // the domain radius that holds a table's reserved box b at offset (dx, dy) of its point from the centre
@@ -275,15 +305,28 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // no layer and are placed by lineage. Without configured layers no layer is the catch-all.
   const NO_LAYER = DATA.layers.length && DATA.layers[DATA.layers.length - 1].key === 'other' ? 'other' : null;
   const layerPos = n => (n.layer === NO_LAYER ? null : LAYER[n.layer].rank);
+  const DOM_POS = Object.fromEntries(DATA.domains.map((d, i) => [d.key, i]));
+  // What a constellation stands for (D-047): of, its key for a table; band, a table's band position (null:
+  // no band, placed by lineage); bandKey, a band position's key; rank, the constellation's x target along
+  // the flow; flowX, the strength of that target; pins, the key of saved centres; scope, the layout scope
+  const BY = {
+    domains: { of: n => n.domain, band: layerPos, bandKey: pos => DATA.layers[pos].key,
+               rank: (key, members) => d3.mean(members, n => LAYER[n.layer].rank), flowX: 0.06,
+               pins: 'domains', scope: () => state.detail },
+    layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DATA.domains[pos].key,
+              rank: key => LAYER[key].rank, flowX: 0.3, pins: 'layers', scope: () => 'layers:' + state.detail },
+  };
+  const grouping = () => BY[state.by];
   const PACK = { PAD: 6, STRIP_GAP: 8, BAND_GAP: 20, TRIES: 24, REFINE: 6 };
 
-  // A domain's tables in layer bands, left to right along the data flow, in the smallest circle (D-040).
+  // A constellation's tables in bands, left to right (layer bands along the data flow, or domain bands in
+  // the order of the Domains panel), in the smallest circle (D-040).
   // A band is one column, split into balanced columns when taller than a height H; H is scanned to give the
   // smallest circle around the reserved boxes. No simulation and no randomness: the same tables give the
   // same offsets on every machine.
-  // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{layer, x0, x1}] }
-  function layoutDomain(members) {
-    const bands = layerBands(members);
+  // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{key, n, x0, x1}] }
+  function layoutConstellation(key, members) {
+    const bands = bandsOf(members);
     const PAD = PACK.PAD;
     const items = bands.map(band => band.tables.map(n => { const b = box(n); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
     const all = items.flat(), stack = list => d3.sum(list, b => b.h) + PAD * (list.length - 1);
@@ -303,22 +346,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
     const R = d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
     return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R,
-             rank: d3.mean(members, n => LAYER[n.layer].rank),
-             bands: bands.map((band, j) => ({ layer: band.layer, x0: best.bands[j][0], x1: best.bands[j][1] })) };
+             rank: grouping().rank(key, members),
+             bands: bands.map((band, j) => ({ key: band.key, n: band.tables.length, x0: best.bands[j][0], x1: best.bands[j][1] })) };
   }
-  // The layer bands of a domain, ordered tables included: [{layer, tables}] (see the design note § 2)
-  function layerBands(members) {
+  // The bands of a constellation, ordered tables included: [{key, tables}] (see the M5.5 design note § 2).
+  // In layer mode every table has a band (its domain), so the catch-all placement never applies.
+  function bandsOf(members) {
+    const { band, bandKey } = grouping();
     const ids = members.map(n => n.i), inDom = new Set(ids);
-    // lineage that keeps layers apart: both ends in one layer, or a child without a layer
+    // lineage that keeps bands apart: both ends in one band, or a child without a band
     const flowEdges = DATA.lineage.filter(([c, p]) => inDom.has(c) && inDom.has(p))
-      .filter(([c, p]) => layerPos(N[c]) === null || layerPos(N[c]) === layerPos(N[p])).map(([c, p]) => [p, c]);
-    const { rank } = flowRanks(ids, flowEdges, i => layerPos(N[i]));
-    const byLayer = d3.group(members.filter(n => layerPos(n) !== null), layerPos);
-    const ranges = [...byLayer.keys()].sort((a, b) => a - b)
-      .map(pos => ({ layer: DATA.layers[pos].key, lo: d3.min(byLayer.get(pos), n => rank.get(n.i)),
-                     hi: d3.max(byLayer.get(pos), n => rank.get(n.i)), tables: [...byLayer.get(pos)] }));
-    if (!ranges.length) ranges.push({ layer: NO_LAYER || members[0].layer, lo: 0, hi: Infinity, tables: [] });
-    members.filter(n => layerPos(n) === null).forEach(n => {
+      .filter(([c, p]) => band(N[c]) === null || band(N[c]) === band(N[p])).map(([c, p]) => [p, c]);
+    const { rank } = flowRanks(ids, flowEdges, i => band(N[i]));
+    const byBand = d3.group(members.filter(n => band(n) !== null), band);
+    const ranges = [...byBand.keys()].sort((a, b) => a - b)
+      .map(pos => ({ key: bandKey(pos), lo: d3.min(byBand.get(pos), n => rank.get(n.i)),
+                     hi: d3.max(byBand.get(pos), n => rank.get(n.i)), tables: [...byBand.get(pos)] }));
+    if (!ranges.length) ranges.push({ key: NO_LAYER || members[0].layer, lo: 0, hi: Infinity, tables: [] });
+    members.filter(n => band(n) === null).forEach(n => {
       const r = rank.get(n.i);
       (ranges.find(b => r >= b.lo && r <= b.hi) || ranges[ranges.length - 1]).tables.push(n);
     });
@@ -336,7 +381,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       band.tables.forEach((n, j) => order.set(n.i, band.tables.length > 1 ? j / (band.tables.length - 1) : 0.5));
     });
-    return ranges.map(b => ({ layer: b.layer, tables: b.tables }));
+    return ranges.map(b => ({ key: b.key, tables: b.tables }));
   }
   // Splits a band's boxes ([{h}], in order) into the fewest columns of stacked height <= H, balanced: the
   // smallest cap that keeps that number of columns, so no short column is left over. -> [[box]]
@@ -390,7 +435,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const C = { bg: THEME.bg, text: THEME.fg, muted: THEME.muted, card: '#ffffff', route: 'rgba(71,85,105,.22)',
               arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
               ...TRAJ_COLORS };   // trajectory: upstream (dashed marks), downstream (solid marks)
-  const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of domains holding none of it
+  const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of constellations holding none of it
+  // layer mode (D-047): a domain band's opaque tint (the page mixed with the domain's mark colour at 6 %), the
+  // screen width of its arc on the rim, the screen gap between two arcs
+  const TINTS = new Map();   // cached per colour, like CONTRAST: asked for every band in every frame
+  function TINT(color) {
+    if (!TINTS.has(color)) TINTS.set(color, d3.rgb(d3.interpolateRgb(C.bg, CONTRAST.edge(color, C.bg))(0.06)).formatHex());
+    return TINTS.get(color);
+  }
+  const ARC_W = 4, ARC_GAP = 1;
+  // layer mode: the constellation name, count and composition bar are raised by this many screen pixels, so
+  // the bar ends 4 px above the outer edge of the rim arcs
+  const NAME_LIFT = 8;
+  const TIP_DOMAINS = 12;   // layer mode tooltip: the domains listed before "+ N"
+
   // on the tab, so the trajectory bar and the flow view (an overlay of the tab) both inherit them
   const tab = document.getElementById('tab-universe');
   tab.style.setProperty('--traj-up', C.up); tab.style.setProperty('--traj-down', C.down);
@@ -421,7 +479,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     if (onScreen) {
       $u('export').disabled = !visible.length;
-      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${plural(domains.length, L.domainsN)}`;
+      const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
+      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${groups}`;
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -430,22 +489,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const [x0, y0] = t.invert([0, 0]), [x1, y1] = t.invert([W, H]);
     const inView = (x, y, w, h) => x + w / 2 > x0 && x - w / 2 < x1 && y + h / 2 > y0 && y - h / 2 < y1;
     const screen = (x, y) => [x * k + t.x, y * k + t.y];
-    // in the trajectory mode, domains holding none of its drawn tables are context only
-    const tdom = traj ? new Set(trajMembers().filter(i => P[i]).map(i => N[i].domain)) : null;
+    // in the trajectory mode, constellations holding none of its drawn tables are context only
+    const G = grouping(), byLayers = state.by === 'layers';
+    const tdom = traj ? new Set(trajMembers().filter(i => P[i]).map(i => G.of(N[i]))) : null;
     const ctxAlpha = d => tdom && !tdom.has(d.k) ? DIM_CTX : 1;
 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
-    domains.forEach(d => {
+    constellations.forEach(d => {
+      ctx.globalAlpha = ctxAlpha(d);
+      if (byLayers) { drawDomainBands(d, k); return; }
       const c = CONTRAST.edge(DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
       g.addColorStop(0, c + '26'); g.addColorStop(1, c + '0a');
-      ctx.globalAlpha = ctxAlpha(d);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
       ctx.strokeStyle = c + '66'; ctx.lineWidth = 1.5 / k; ctx.stroke();
     });
-    if (k >= 0.6) domains.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandMarkers(d, k); });
+    if (k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandMarkers(d, k); });
     ctx.globalAlpha = traj ? DIM : 1;
 
-    if (k < 0.6) {  // from afar: one route per pair of domains, arrowed along the data flow
+    if (k < 0.6) {  // from afar: one route per pair of constellations, arrowed along the data flow
       routes.forEach(r => {
         const a = r.dir < 0 ? r.target : r.source, b = r.dir < 0 ? r.source : r.target;
         ctx.strokeStyle = C.route; ctx.fillStyle = C.arrow;
@@ -459,7 +520,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
     ctx.lineWidth = 1 / k;
     edges.forEach(([a, b]) => {
-      const hl = near && (a === hover || b === hover), cross = N[a].domain !== N[b].domain;
+      const hl = near && (a === hover || b === hover), cross = G.of(N[a]) !== G.of(N[b]);
       if (!hl && (k < 0.35 || (k < 0.6 && cross))) return;
       ctx.strokeStyle = hl ? C.hl : cross ? C.cross : C.edge;
       ctx.beginPath(); ctx.moveTo(P[a].x, P[a].y); ctx.lineTo(P[b].x, P[b].y); ctx.stroke();
@@ -483,16 +544,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // screen-space text: domain names first, then table names by importance, skipping any that would overlap
+    // screen-space text: constellation names first, then band names (layer mode), then table names by
+    // importance, skipping any that would overlap
     const taken = [], hits = [];
     const free = (x, y, w, h) => !taken.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
     ctx.textAlign = 'center';
-    domains.forEach(d => {
-      const dd = DOM[d.k], [sx, sy] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
+    constellations.forEach(d => {
+      const [sx, rim] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
+      const sy = rim - (byLayers ? NAME_LIFT : 0);
+      const name = constellationLabel(d.k);
       ctx.globalAlpha = ctxAlpha(d);
-      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = CONTRAST.ink(dd.color, C.bg);   // readable on the page (D-037)
-      ctx.fillText(dd.label, sx, sy - 22);
-      const w = Math.max(ctx.measureText(dd.label).width, 80) + 8;
+      // a domain name in its colour, readable on the page (D-037); a layer name in the text colour
+      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
+      ctx.fillText(name, sx, sy - 22);
+      const w = Math.max(ctx.measureText(name).width, 80) + 8;
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
       ctx.fillText(plural(d.n, L.tables), sx, sy - 8);
       // composition by type, readable before any single star is
@@ -501,6 +566,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
       hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
     });
+    if (byLayers && k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
     if (!cards) drawNames(orderLabels(labels), screen, free, taken, k);
     ctx.textAlign = 'left';
@@ -523,13 +589,56 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the layer markers of a domain: a faint line in the middle of each gap between two bands, clipped to the disc
   function drawBandMarkers(d, k) {
     ctx.strokeStyle = C.cross; ctx.lineWidth = 1 / k;
-    d.bands.slice(1).forEach((band, j) => {
-      const mx = (d.bands[j].x1 + band.x0) / 2, half = Math.sqrt(Math.max(0, d.r * d.r - mx * mx));
-      ctx.beginPath(); ctx.moveTo(d.x + mx, d.y - half); ctx.lineTo(d.x + mx, d.y + half); ctx.stroke();
+    bandSpans(d).slice(1).forEach(({ s0 }) => {
+      const half = rimHalf(d, s0);
+      ctx.beginPath(); ctx.moveTo(d.x + s0, d.y - half); ctx.lineTo(d.x + s0, d.y + half); ctx.stroke();
     });
   }
   // the labels of a domain's layer bands, in flow order (its tooltip)
-  const bandLabels = d => d.bands.map(b => LAYER[b.layer].label).join(' → ');
+  const bandLabels = d => d.bands.map(b => labelOf(LAYER[b.key])).join(' → ');
+  // a constellation's name: its domain's, or its layer's
+  const constellationLabel = key => labelOf(state.by === 'layers' ? LAYER[key] : DOM[key]);
+  // the horizontal span of each band of d, relative to its centre: from the midpoint with the previous band
+  // (the disc's left edge for the first) to the midpoint with the next (the right edge for the last)
+  const bandSpans = d => d.bands.map((b, j) => ({ ...b,
+    s0: j ? (d.bands[j - 1].x1 + b.x0) / 2 : -d.r, s1: j < d.bands.length - 1 ? (b.x1 + d.bands[j + 1].x0) / 2 : d.r }));
+  // the angle of the disc's upper rim above x (relative to the centre), from -π (left) to 0 (right)
+  const rimAngle = (d, x) => -Math.acos(Math.max(-1, Math.min(1, x / d.r)));
+  // the half-height of the disc above x (relative to the centre): the rim is at d.y ± rimHalf(d, x)
+  const rimHalf = (d, x) => Math.sqrt(Math.max(0, d.r * d.r - x * x));
+  // Layer mode (D-047): each domain band tinted in its domain colour, clipped to the disc, and marked by an
+  // arc of the upper rim in the domain's mark colour (3:1, D-042), at every zoom; then the neutral outline
+  function drawDomainBands(d, k) {
+    const spans = bandSpans(d);
+    ctx.save(); ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.clip();
+    spans.forEach(b => { ctx.fillStyle = TINT(DOM[b.key].color); ctx.fillRect(d.x + b.s0, d.y - d.r, b.s1 - b.s0, 2 * d.r); });
+    ctx.restore();
+    ctx.strokeStyle = C.muted + '66'; ctx.lineWidth = 1.5 / k;
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.stroke();
+    const gap = ARC_GAP / 2 / k / d.r;
+    ctx.lineWidth = ARC_W / k; ctx.lineCap = 'butt';
+    spans.forEach((b, j) => {
+      const a0 = rimAngle(d, b.s0) + (j ? gap : 0), a1 = rimAngle(d, b.s1) - (j < spans.length - 1 ? gap : 0);
+      if (a1 <= a0) return;
+      ctx.strokeStyle = CONTRAST.edge(DOM[b.key].color, C.bg);
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, a0, a1); ctx.stroke();
+    });
+  }
+  // Layer mode at constellation zoom: each band's domain name, 14 px below its arc, in its colour readable on
+  // its tint (D-037); skipped when wider than the band or overlapping a name already drawn
+  function drawBandNames(d, screen, free, taken, k) {
+    ctx.font = `600 11px ${FONT}`;
+    bandSpans(d).forEach(b => {
+      const dom = DOM[b.key], name = labelOf(dom), cx = (b.s0 + b.s1) / 2, w = ctx.measureText(name).width + 6, h = LINE_H;
+      if (w > (b.s1 - b.s0) * k) return;
+      const [sx, sy] = screen(d.x + cx, d.y - rimHalf(d, cx));
+      const x = sx - w / 2, y = sy + 14;
+      if (!free(x, y, w, h)) return;
+      taken.push([x, y, w, h]);
+      ctx.fillStyle = CONTRAST.ink(dom.color, TINT(dom.color));
+      ctx.fillText(name, sx, y + 11);
+    });
+  }
 
   // names by priority: in the trajectory mode its tables first (start, then by distance), then the hovered one, then by score
   function orderLabels(labels) {
@@ -547,7 +656,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const at = new Map(labels.map(n => [n.i, screen(P[n.i].x, P[n.i].y)]));
     const rad = n => Math.max(starR(n) * k, 2.5), rMax = Math.max(14 * k, 2.5);
     const stars = d3.quadtree(labels, n => at.get(n.i)[0], n => at.get(n.i)[1]);
-    const disc = new Map(domains.map(d => [d.k, [...screen(d.x, d.y), d.r * k]]));
+    const disc = new Map(constellations.map(d => [d.k, [...screen(d.x, d.y), d.r * k]]));
     const coversStar = (x, y, w, h) => {
       let hit = false;
       stars.visit((q, x0, y0, x1, y1) => {
@@ -561,7 +670,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       return hit;
     };
     const inDisc = (n, x, y, w, h) => {
-      const [cx, cy, r] = disc.get(n.domain);
+      const [cx, cy, r] = disc.get(grouping().of(n));
       return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].every(([px, py]) => Math.hypot(px - cx, py - cy) <= r);
     };
     let shown = 0;
@@ -653,23 +762,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const dx = ev.dx / t.k, dy = ev.dy / t.k, s = ev.subject;
       s.moved = true;
       if (s.n) { P[s.n.i].x += dx; P[s.n.i].y += dy; }
-      else { s.d.x += dx; s.d.y += dy; visible.forEach(n => { if (n.domain === s.d.k) { P[n.i].x += dx; P[n.i].y += dy; } }); }
+      else { s.d.x += dx; s.d.y += dy; visible.forEach(n => { if (grouping().of(n) === s.d.k) { P[n.i].x += dx; P[n.i].y += dy; } }); }
       draw();
     })
     .on('end', ev => {
       const s = ev.subject;
       canvas.style.cursor = '';
       if (!s.moved) return;
-      const saved = savedLayout();
+      const G = grouping(), saved = savedLayout();
       if (s.n) {
-        const d = domains.find(d => d.k === s.n.domain);
+        const d = constellations.find(d => d.k === G.of(s.n));
         REL.set(s.n.i, [P[s.n.i].x - d.x, P[s.n.i].y - d.y]);
         saved.nodes[s.n.id] = REL.get(s.n.i);
         d.r = Math.max(d.r, reach(s.n.i));
       }
-      // pin every domain where it stands, so recomputing the layout later doesn't move the others
-      domains.forEach(d => saved.domains[d.k] = [d.x, d.y]);
-      LAYOUT.set('universe', state.detail, saved);
+      // pin every constellation where it stands, so recomputing the layout later doesn't move the others
+      constellations.forEach(d => saved[G.pins][d.k] = [d.x, d.y]);
+      LAYOUT.set('universe', G.scope(), saved);
       tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
       draw();
     });
@@ -678,7 +787,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const top = () => traj ? bar.offsetHeight : 0;
   // frame a world-space box, at most at scale kMax
   function frame(bx0, by0, bx1, by1, animate, kMax = Infinity) {
-    // domain names sit above the halos at a fixed screen size: keep that strip free at the top
+    // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
     const NAME = 46, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
     const k = Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0)));
     const tr = d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
@@ -691,9 +800,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2),
         d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2), animate, 2);
     }
-    if (!domains.length) return draw();
-    frame(d3.min(domains, d => d.x - d.r), d3.min(domains, d => d.y - d.r),
-      d3.max(domains, d => d.x + d.r), d3.max(domains, d => d.y + d.r), animate);
+    if (!constellations.length) return draw();
+    frame(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
+      d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r), animate);
   }
   function zoomTo(x, y, k) {
     const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
@@ -710,11 +819,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       : Math.hypot(wx - p.x, wy - p.y) <= Math.max(8, 8 / t.k);
     return hit ? n : null;
   }
-  // the domain name under a screen point, if any
+  // the constellation name under a screen point, if any
   const labelAt = (x, y) => labelHits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
+  // the constellation under the pointer, if any
   function domainAt(ev) {
     const [wx, wy] = t.invert(d3.pointer(ev, canvas));
-    return domains.find(d => Math.hypot(wx - d.x, wy - d.y) < d.r);
+    return constellations.find(d => Math.hypot(wx - d.x, wy - d.y) < d.r);
+  }
+  // Layer mode tooltip of a constellation (D-047): its domains in band order (first TIP_DOMAINS, then "+ N"), and the
+  // band under the world x `wx`, if any
+  function layerTip(d, wx) {
+    const names = d.bands.slice(0, TIP_DOMAINS).map(b => esc(labelOf(DOM[b.key]))).join(' · ');
+    const more = d.bands.length > TIP_DOMAINS ? ` · + ${num(d.bands.length - TIP_DOMAINS)}` : '';
+    const band = bandSpans(d).find(b => wx - d.x >= b.s0 && wx - d.x <= b.s1);
+    return `<b>${esc(constellationLabel(d.k))}</b><div class="m">${plural(d.n, L.tables)}</div>`
+      + `<div class="m">${T.domains}${L.colon}${names}${more}</div>`
+      + (band ? `<div class="m">${T.domainOne}${L.colon}${esc(labelOf(DOM[band.key]))} · ${plural(band.n, L.tables)}</div>` : '')
+      + `<div class="a">${T.frameC}</div>`;
   }
   canvas.addEventListener('mousemove', ev => {
     const n = pick(ev), h = n ? n.i : null;
@@ -726,10 +847,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
       tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
-        `<div class="a">${t.k < FAR ? T.frame : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
+        `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
+    } else if (state.by === 'layers') {
+      tip.innerHTML = layerTip(d, t.invert(d3.pointer(ev, canvas))[0]);
     } else {
       const dd = DOM[d.k];
-      tip.innerHTML = `<b>${esc(dd.label)}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
+      tip.innerHTML = `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
         + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div><div class="a">${T.frame}</div>`;
     }
     const r = stage.getBoundingClientRect();
@@ -738,8 +861,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     tip.style.top = (ev.clientY - r.top + 14) + 'px';
   });
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; if (hover != null) { hover = null; draw(); } });
-  // from afar stars are packed too tightly to aim at: double-click frames the domain until zoomed in
+  // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
   const FAR = 0.5;
+  const frameText = () => (state.by === 'layers' ? T.frameC : T.frame);
   canvas.addEventListener('dblclick', ev => {
     const n = t.k >= FAR ? pick(ev) : null;
     if (n) {
@@ -863,14 +987,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const n = N.find(m => m.id === id), p = n && P[n.i], b = n && B[n.i];
     return p ? { x: (p.x - b.w / 2) * t.k + t.x, y: (p.y + b.oy - b.h / 2) * t.k + t.y, w: b.w * t.k, h: b.h * t.k } : null;
   }
-  // the placement in world coordinates (tables at their point P, with their reserved box; domains with
-  // their layer bands) and the time of the last layout: read-only, for the browser tests
+  // the placement in world coordinates (the grouping; tables at their point P, with their reserved box;
+  // constellations with their bands) and the time of the last layout: read-only, for the browser tests
   function geometry() {
-    return { layoutMs: perf.layout,
+    return { by: state.by, layoutMs: perf.layout,
       tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
                                   w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy })),
-      domains: domains.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
-                                   bands: d.bands.map(b => ({ layer: b.layer, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
+      constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
+                                   bands: d.bands.map(b => ({ key: b.key, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)

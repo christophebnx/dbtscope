@@ -203,3 +203,30 @@ Asked by the user on 2026-11-05 (M5.10, design note `docs/architecture/2026-11-0
 
 **D-046 — The example project is a medallion whose domains and layers come from its folders and schemas, not from dbt groups.** (Accepted by the user on 2026-11-05.)
 Asked by the user on 2026-11-05 (M5.12, design note `docs/architecture/2026-11-05-m5.12-medallion-example.md`). `examples/acme_retail/` is laid out as `models/bronze_<system>/` (staging per source system), `models/silver/<domain>/` (the Data Vault) and `models/gold/<domain>/` (the star-schema marts). Each silver and gold domain folder gets `+schema: <domain>` in `dbt_project.yml`, the same name in both tiers, and a `generate_schema_name` macro keeps the custom schema as is (no `main_` prefix), so `group_by: schema` makes one constellation per domain with the same keys as before. The example has no dbt groups, owners, `access` or `meta.domain` any more. `dbt-erd.yml` keeps its domain rules for what is not organised by domain (sources, bronze models, seeds, snapshots), which also label and colour the domains, and has four layer rules: Sources, Bronze (with seeds and snapshots), Silver, Gold. Table names and `unique_id`s are unchanged. Supersedes the example-content clauses of D-033 (marts in dbt groups; `group`, `access` and `meta` under `config:`); the rest of D-033 stands. dbtscope's code is unchanged; the owner tooltip stays covered by the `shop` fixture. Why: the example should show the convention of a real project, where the folder is the layer and the schema the domain, and show the medallion in the layer bands. Rejected: keeping groups on gold (overrides the schema for one tier), the default `main_<schema>` names (changes every domain key), `group_by: folder:2` (two constellations per domain), `+database` per tier (a second signal for the tier, and `attach:` entries in `profiles.yml` for a `dbt build`), new `FLOW_PREFIXES` entries (a code change; noted under Later in the roadmap).
+
+**D-047 — The universe's constellations are domains or layers, switched in the page.** (Accepted by the user on 2026-11-05; the user chose the per-viewer memory.)
+Asked by the user on 2026-11-05 (M5.13, design note `docs/architecture/2026-11-05-m5.13-group-by-layers.md`).
+- **Switch.** The universe panel gets **Constellations: Domains | Layers** ("Constellations : Domaines | Couches").
+  - **Domains** is today's map.
+  - **Layers** makes one constellation per layer, placed along the flow. Inside each one, the tables sit in domain bands, in the order of the Domains panel, and are packed as in D-040. Each band is tinted and marked in its domain colour, and the constellation itself is drawn in a neutral ink.
+  - The switch is hidden, and the page stays in Domains, when the Layers list has fewer than two rows.
+  - The browser regroups from the nodes' `domain` and `layer`.
+  - Filters, search, the trajectory (D-018), the flow (D-036) and opening the detail are unchanged.
+- **Config.** `universe.constellations: domains | layers`, default `domains`, also allowed in presets (D-030). The page gets it as `defaults.constellations`, the last key of the universe defaults. This is the only payload change.
+- **Layout.** The layout format is extended, not changed. Layer mode saves its arrangement in new optional scopes of the `universe` section: `layers:names`, `layers:keys` and `layers:all`, each `{layers: {<layer key>: [x, y]}, nodes: {<unique_id>: [dx, dy]}}`. Format `dbt-erd-layout`, version 1, the file name and the localStorage key `dbt-erd-layout:<title>` are unchanged.
+  - Old files load unchanged.
+  - Older pages ignore the new scopes and keep them on export.
+  - **Reset layout** clears both groupings.
+- **Viewer memory.** The viewer's last choice is kept in a new localStorage key, `dbtscope-constellations:<title>`. It is written only when it differs from the page default and is never exported.
+
+Refines D-040 (bands are layer bands, or domain bands in layer mode) and D-015 (one more config key). Extends D-013's layout content without superseding it, as D-030 extended `dbt-erd.yml`.
+
+Rejected:
+- layer colours from `layers` rules (a payload field for every page);
+- domain rows in place of bands (a second packing);
+- Python deciding the effective grouping (the rule would exist twice);
+- omitting the key when it is the default (logic in `payload.py`);
+- a new top-level layout section;
+- layer pins under the `domains` key;
+- the viewer's choice inside the exported layout;
+- the key name `group` (glossary, D-027).

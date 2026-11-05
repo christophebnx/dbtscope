@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from dbtscope.domain.universe import (
     flow_rank,
     universe_data,
 )
+from dbtscope.render.page import embedded_json
 from dbtscope.storage.project_files import preset_names, read_preset
 
 SEED = "#c62a36"
@@ -63,7 +65,12 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
     assert [layer["key"] for layer in data["layers"]] == ["sources", "staging", "catalog", "sales"]
     assert by_name["orders"]["layer"] == "sources" and by_name["orders"]["kind"] == "source"
     assert by_name["stg_orders"]["kind"] == "other"
-    assert data["defaults"] == {"links": "both", "detail": "names", "hiddenKinds": ["source"]}
+    assert data["defaults"] == {
+        "links": "both",
+        "detail": "names",
+        "hiddenKinds": ["source"],
+        "constellations": "domains",
+    }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
     assert [index["stg_orders"], index["orders"]] in data["lineage"]
@@ -78,6 +85,14 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
     data = universe_data(shop, merge_config({}, {"layers": layers})).model_dump(mode="json", by_alias=True)
     assert [layer["key"] for layer in data["layers"]] == ["raw", "marts", "other"]
     assert {n["name"]: n["layer"] for n in data["nodes"]}["dim_customer"] == "other"
+
+
+def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
+    config = merge_config({}, {"universe": {"constellations": "layers"}})
+    data = json.loads(embedded_json(universe_data(shop, config)))
+    assert list(data["defaults"])[-1] == "constellations"
+    assert data["defaults"]["constellations"] == "layers"
+    assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
 
 
 def test_tables_without_domain_come_last(shop: Project) -> None:
