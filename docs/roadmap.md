@@ -204,6 +204,14 @@ Done when: the design note's test plan passes (default and browser suites, hosti
 
 Done when: the design note's test plan passes (default and browser suites: wheel over empty space and over a table, wheel with an svg that receives no events, two-point touch pinch and Safari gesture events in the universe, detail and flow, pan, node drag and save, Fit, flow initial view, exports, offline page); `tools/vendor_libraries.py --check` passes; ruff is clean with no duplicate-code finding; and D-045, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
 
+- **M5.11 — The flow's start stands out.** (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.11-flow-start.md`, refines the start emphasis of D-036.) In a large flow the start table was hard to find: its frame shrank with the zoom. One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
+  - **Start ring:** a dark ring and a soft glow around the start table, in the SVG, resized on every zoom so they keep the same screen size (3 px ring 6 px out, 10 px glow); under every table and arrow; exported as shown.
+  - **Locate start:** the header's start name becomes a button that centres the start at the current scale or 0.75 if smaller; second in the Tab order.
+  - **Legend:** the flow's "start" mark becomes a double dark frame, like the universe's.
+  - **Unchanged:** the start's frame and "start" label, the payload, the layout format and localStorage key, the CLI.
+
+Done when: the design note's test plan passes (default and browser suites: one ring under everything, constant screen size at Fit / 0.75 / 3× and at 360 px, follows a recentre, contrast, locate by click and keyboard, en / fr title, 44 px on touch, export equal to the screen); the reference `expected.json` is regenerated in the asset commit; ruff is clean with no duplicate-code finding; and `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
