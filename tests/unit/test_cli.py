@@ -96,6 +96,13 @@ def test_a_positional_project_points_at_project_dir(capsys: Capsys) -> None:
     assert message.endswith("(../shop); pass the project folder with --project-dir")
 
 
+def panel(title: str, text: str) -> int:
+    """Where the help panel `title` starts: its top border, drawn with box or ASCII characters by OS."""
+    found = re.search(rf"^\S{{1,2}} {title} \S", text, re.MULTILINE)
+    assert found, f"no panel {title!r} in the help"
+    return found.start()
+
+
 @pytest.fixture
 def plain_help(monkeypatch: pytest.MonkeyPatch) -> None:
     """`--help` as written to an 80-column pipe, whatever the environment (GitHub Actions forces colour)."""
@@ -115,7 +122,7 @@ def test_help_groups_the_options_and_shows_the_examples(capsys: Capsys) -> None:
     assert captured.err == "" and max(map(len, lines)) <= 80
     text = "\n".join(lines)
     for title in ("Project", "dbt", "Output", "Page"):
-        assert f"╭─ {title} ─" in text
+        assert panel(title, text) >= 0
     options = ["--project-dir", "--config", "--preset", "--output", "-o", "--view", "--manifest"]
     options += ["--no-parse", "--no-open", "--dbt", "--offline", "--version", "--help", "-h"]
     assert all(f" {option} " in text for option in options)
@@ -770,8 +777,8 @@ def test_help_lists_preset_file_in_the_project_panel(capsys: Capsys) -> None:
     lines = [line.rstrip() for line in capsys.readouterr().out.splitlines()]
     assert max(map(len, lines)) <= 80
     text = "\n".join(lines)
-    preset, preset_file, dbt_panel = (text.index(s) for s in (" --preset ", " --preset-file ", "╭─ dbt ─"))
-    assert text.index("╭─ Project ─") < preset < preset_file < dbt_panel
+    preset, preset_file = (text.index(s) for s in (" --preset ", " --preset-file "))
+    assert panel("Project", text) < preset < preset_file < panel("dbt", text)
     examples = [line.strip() for line in EPILOG.split("\n\n")[0].splitlines()]
     assert all(any(line.strip() == example for line in lines) for example in examples)
 

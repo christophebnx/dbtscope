@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: ${{ matrix.os == 'ubuntu-latest' && 0 || 1 }}  # gitleaks needs the history
+          fetch-depth: ${{ matrix.os == 'ubuntu-latest' && '0' || '1' }}  # gitleaks needs the history (a 0 would read as false)
       # uv from PyPI: much faster on hosted runners than setup-uv's download from GitHub releases
       - run: ${{ matrix.py }} -m pip install -q --break-system-packages uv
       - run: ${{ matrix.py }} -m uv sync -q --locked --no-default-groups --group test
