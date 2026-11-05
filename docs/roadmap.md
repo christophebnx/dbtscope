@@ -190,13 +190,8 @@ Done when: the design note's test plan passes (default and browser suites, inclu
 
 ## Later (not scheduled)
 
+- Colours, from the M5.4 reviews: a non-hex kind colour in `dbt-erd.yml` (`red`) fails in `domain/classify.background` instead of a one-line config error: validate colours as hex in `Config`; a 3:1 outline so a near-white kind or domain colour still marks its card, dot and legend; the built-in seed violet (#8b5cf6) next to the dimension violet (#8e5bb5) gets opposite text colours, nudge one of them.
+- Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
 - Universe interaction: curved routes between domains that avoid the circles, with the relations and lineage links they carry shown on hover; neighbours lit on hover; a shareable link to a table (`erd.html#table=…`).
 - Flow view: the paths between two chosen tables.
-- Page scripts, from the M5.3 review: one `resize` helper in flow.js (the `pz.resize()` guard is written twice) and one table-description line shared by the universe and flow tooltips (styled `m` in one, plain in the other).
-- Contrast: white table names on light kind colours fail WCAG AA (the built-in source colour gives 2.6:1), in every view (M5.3 UI design).
-- Small screens, detail tab: cap the open panel lower (about 35vh) so a filter's effect stays visible under it at 360 × 800 (M5.2 UI review).
-- French typography: a space before the colon in page strings ("Trajectoire de x : …").
-- Print stylesheet: the current view on one page, without panels and toolbars.
-- Page text consistency, left out of M5.2 because it changes visible desktop text (M5.2 note § 3):
-  - "owner : x" with French spacing in the English domain tooltip;
-  - counts not locale-formatted outside the trajectory;
+- Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).
