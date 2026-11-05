@@ -1,5 +1,11 @@
 """The user documents stay true: links and anchors, Mermaid diagrams, config keys, the example (M6.1).
 
+M6.2 adds: every summary the guide shows is a real `--no-parse` run on the example (page sizes
+included), the detail group counts match `expected.json`, the default layer order of how-it-works
+names every `FLOW_PREFIXES` prefix in rank order, and `docs/images/README.md` lists its images.
+Page sizes are compared as printed: a milestone that changes the page assets updates the guide's
+summaries in the same commit.
+
 The options table and the documented commands are checked in `test_cli.py`, next to the command.
 External links are never fetched (invariant 5). `DBTSCOPE_MMDC` (a mermaid-cli command line, for
 example `mmdc -p puppeteer.json`) turns on rendering every diagram, as `DBTSCOPE_DBT` does for D-033.
@@ -15,9 +21,10 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import ROOT, USER_GUIDE, Block, blocks, page_of, prose
+from conftest import EXAMPLE_EXPECTED, ROOT, USER_GUIDE, Block, blocks, page_of, prose, write_example
 
 from dbtscope.domain.config import Config, UniverseSettings, merge_config
+from dbtscope.domain.universe import FLOW_PREFIXES, UNRANKED
 
 HOW_IT_WORKS = ROOT / "docs" / "how-it-works.md"
 IMAGES = ROOT / "docs" / "images"
@@ -29,11 +36,26 @@ DOCS = [
     ROOT / "docs" / "architecture.md",
     ROOT / "docs" / "ui-spec.md",
     ROOT / "examples" / "acme_retail" / "README.md",
+    ROOT / "docs" / "images" / "README.md",
 ]
 DIAGRAM_STARTS = ("flowchart TD", "flowchart LR", "sequenceDiagram")
 EXCERPT = re.compile(r"<!-- excerpt: (\S+) -->")
 LINK = re.compile(r"(!?)\[([^\]]*)\]\(([^)\s]+)\)")
 IMAGE_MAX_BYTES, IMAGES_MAX_BYTES = 200_000, 1_200_000
+SUMMARY_KEYS = ("universe:", "detail:", "page:", "config:")
+GUIDE_PROJECT = re.compile(r"/home/ana/\S*?(?:acme_retail|shop-map)")  # the guide's sample project paths
+# (heading of the guide, example with its dbt-erd.yml, extra arguments of each run shown in the block)
+SUMMARIES = [
+    ("### Live, in the project folder", True, [()]),
+    ("### Try it on the example project", True, [()]),
+    ("### Without dbt, from a copied manifest", False, [()]),
+    ("### An offline page to share", True, [("--offline",)]),
+    (
+        "### Conventions: presets and preset files",
+        False,
+        [("--preset", "data_vault"), ("--preset", "star_schema")],
+    ),
+]
 
 
 def slug(heading: str) -> str:
@@ -130,17 +152,55 @@ def test_config_reference_lists_every_key() -> None:
     merge_config({}, {key: value for key, value in reference.items() if key != "preset"})
 
 
-def test_guide_shows_the_real_example_summary(
-    example_project: Path, capsys: pytest.CaptureFixture[str]
+def summary_key(line: str) -> str | None:
+    """What a line of a summary shows: `path` (the page, first line), a `SUMMARY_KEYS` entry, or None."""
+    if line.startswith("<project>"):
+        return "path"
+    return next((key for key in SUMMARY_KEYS if line.startswith(f"  {key}")), None)
+
+
+def run_summary(project: Path, args: tuple[str, ...], capsys: pytest.CaptureFixture[str]) -> list[str]:
+    """The summary lines the CLI prints for `project`, its path written `<project>`."""
+    capsys.readouterr()
+    page_of(project, *args)
+    lines = capsys.readouterr().out.replace(str(project), "<project>").splitlines()
+    return [line for line in lines if summary_key(line)]
+
+
+@pytest.mark.parametrize(("heading", "configured", "runs"), SUMMARIES, ids=[s[0][4:] for s in SUMMARIES])
+def test_guide_summaries_are_a_real_run_on_the_example(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    heading: str,
+    configured: bool,
+    runs: list[tuple[str, ...]],
 ) -> None:
-    page_of(example_project)
-    shown = section_block(USER_GUIDE, "### Try it on the example project", "text").lines
-    summary = [
-        line
-        for line in capsys.readouterr().out.splitlines()
-        if line.lstrip().startswith(("universe:", "detail:"))
-    ]
-    assert len(summary) == 2 and all(line in shown for line in summary), summary
+    project = write_example(tmp_path / ("acme_retail" if configured else "shop-map"))
+    if not configured:
+        (project / "dbt-erd.yml").unlink()
+    block = section_block(USER_GUIDE, heading, "text").lines
+    shown = [line for line in (GUIDE_PROJECT.sub("<project>", line) for line in block) if summary_key(line)]
+    keys = {summary_key(line) for line in shown}
+    real = [line for args in runs for line in run_summary(project, args, capsys) if summary_key(line) in keys]
+    assert shown, f"no summary line found under {heading!r}"
+    assert shown == real
+
+
+def test_guide_quotes_the_example_detail_groups() -> None:
+    text = prose(USER_GUIDE.read_text(encoding="utf-8"))
+    paragraph = next(p for p in text.split("\n\n") if "one group per domain schema" in p)
+    quoted = {name: int(count) for name, count in re.findall(r"`(\w+)` \((\d+)", paragraph)}
+    assert quoted == EXAMPLE_EXPECTED["detail"]["groups"]
+
+
+def test_how_it_works_names_the_default_layer_order() -> None:
+    text = prose(HOW_IT_WORKS.read_text(encoding="utf-8"))
+    start = text.index("Layers are ordered along the usual data flow")
+    sentence = text[start : text.index(";", start)]  # up to "layers of the same rank…"
+    words = re.findall(r"`(\w+)`|(any other name)", sentence)
+    order = [UNRANKED if other else dict(FLOW_PREFIXES)[prefix] for prefix, other in words]
+    assert {prefix for prefix, _ in words if prefix} == {prefix for prefix, _ in FLOW_PREFIXES}
+    assert UNRANKED in order and order == sorted(order), sentence
 
 
 def test_excerpts_are_copied_from_their_file() -> None:
@@ -169,5 +229,7 @@ def test_images_are_described_referenced_and_small() -> None:
                 used.add(path)
     files = [path for path in IMAGES.glob("*") if path.name != "README.md"] if IMAGES.is_dir() else []
     assert all(path.resolve() in used for path in files), "an image of docs/images is not referenced"
+    listed = set(re.findall(r"`([\w-]+\.png)`", (IMAGES / "README.md").read_text(encoding="utf-8")))
+    assert listed == {path.name for path in files}, "docs/images/README.md must list exactly its images"
     assert all(path.stat().st_size <= IMAGE_MAX_BYTES for path in files if path.suffix == ".png")
     assert sum(path.stat().st_size for path in files) <= IMAGES_MAX_BYTES

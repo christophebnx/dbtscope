@@ -98,13 +98,13 @@ flowchart TD
     DR --> LY
     GB --> LY
     LY -- yes --> L["layer: the first layers rule that matches, else Other"]
-    LY -- no --> LF["layer: the first folder under models, or sources, seeds, snapshots"]
+    LY -- no --> LF["layer: the first folder under models (models when none), or sources, seeds, snapshots"]
 ```
 
 - **Scope.** The detail view draws the tables matched by `select` and not by `exclude` (by default every model). The universe draws `universe.select` minus `universe.exclude` (by default every model, source, seed and snapshot). Both leave out the tables of installed dbt packages unless `include_packages` is `true`.
 - **Kind.** The first `kinds` rule that matches gives the kind and its colour. In the universe, a table no rule matches is typed by its resource type (Source, Seed, Snapshot), else "Other"; in the detail view it is "Other". The page calls kinds "Types".
 - **Domain** (universe view). A table's domain is the first of: its dbt **group**; its **`meta.domain`**; the first matching **`domains`** rule of the config; its **`group_by`** value (the schema by default). A table with none of these is in "No domain". Declaring dbt groups is the cleanest way to get business domains without any config. This order is decision D-015.
-- **Layer** (universe view). With `layers` in the config, the first matching rule gives the layer, and a table no rule matches is in "Other". Without `layers`, a table's layer is the first folder under `models/` (sources, seeds and snapshots each form their own), ordered along the usual data flow by its name: `source`, then `raw` / `stg` / `staging` / `base`, then `seed` / `ref`, then `int` / `intermediate` / `vault` / `snapshot`, then `dp` / `mart` / `marts` / `product`, then `report` / `expo`.
+- **Layer** (universe view). With `layers` in the config, the first matching rule gives the layer, and a table no rule matches is in "Other". Without `layers`, a table's layer is the first folder under `models/` (sources, seeds and snapshots each form their own), and a model directly under `models/` is in the layer `models`. Layers are ordered along the usual data flow by the start of their name: `source`, then `raw` / `stg` / `staging` / `base`, then `seed` / `ref`, then `int` / `intermediate` / `vault` / `snapshot`, then `dp` / `mart` / `marts` / `product`, then any other name, then `report` / `expo`; layers of the same rank are sorted alphabetically. So the example project without its `layers` rules would show Sources, Seeds, Snapshots, its five `bronze_*` folders, then `gold` before `silver`: name layers that do not follow this order with `layers` rules.
 - **Group** (detail view only). The detail view shows one group at a time: the table's schema by default, or its database, package, folder, a tag, or nothing, as `group_by` says.
 
 ## What the page contains

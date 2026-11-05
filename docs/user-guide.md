@@ -58,7 +58,7 @@ dbtscope never connects to your warehouse and the page holds no data: only names
 - **Kind**: the class of a table (hub, fact, dimension…), from your naming rules; the page lists kinds under **Types**.
 - **Domain**: the business area a table belongs to (Sales, Customer…); one circle in the universe.
 - **Layer**: the position of a table along the data flow (sources, staging, vault, marts…).
-- **Group**: the set of tables the detail view shows at once, picked with its **Group** filter (a schema by default, set by `group_by`).
+- **Group**: the set of tables the detail view shows at once, picked with its **Group** filter (a schema by default, set by `group_by`; **All groups** shows every table).
 - **dbt group**: a `group` declared in your dbt project, with an owner. It is not the detail view's Group: it gives a table its **domain** in the universe.
 - **Trajectory**: the tables upstream and downstream of one table, highlighted in the universe.
 - **Flow**: a trajectory drawn as a left-to-right diagram.
@@ -259,7 +259,7 @@ uv tool uninstall dbtscope      # A and B2
 uv cache clean dbtscope         # optional: what uvx and uv keep in their cache
 ```
 
-For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and the arrangements saved in your browser (cleared with **Reset layout** in the page, or with the browser's site data).
+For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page) and the last **Constellations** choice (`dbtscope-constellations:<title>`, which **Reset layout** keeps); the browser's site data clears both.
 
 ## Usage modes
 
@@ -304,7 +304,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (179 kB)
+  page:     opens on universe, en, libraries from CDNs (188 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -410,9 +410,9 @@ With the example's manifest and no config, the summary of such a folder reads:
 
 ```text
 /home/ana/shop-map/erd_output/erd.html
-  universe: 95 tables in 14 domains, 58 relations, 110 lineage links
+  universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (182 kB)
+  page:     opens on universe, en, libraries from CDNs (191 kB)
   config:   none (built-in defaults)
 ```
 
@@ -473,7 +473,7 @@ view: detail          # the tab shown at opening: universe (default) or detail
 language: fr          # the page in French; en (default) or fr
 ```
 
-`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and the browser storage of your arrangements (`dbt-erd-layout:<title>`): changing the title starts from a fresh arrangement in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
+`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and what the browser keeps for the page: your arrangements (`dbt-erd-layout:<title>`) and your last **Constellations** choice (`dbtscope-constellations:<title>`). Changing the title starts from a fresh arrangement and from the configured grouping in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
 
 ### Try it on the example project
 
@@ -494,7 +494,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (179 kB)
+  page:     opens on universe, en, libraries from CDNs (188 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -580,7 +580,7 @@ universe:
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
 ```
 
-`kinds` colour both views. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
+`kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
 
 ### Checks and errors
 
@@ -649,8 +649,8 @@ The result is the summary of [Try it on the example project](#try-it-on-the-exam
 
 | Selector | Matches on |
 |---|---|
-| `fct_*` or `name:fct_*` | model name |
-| `tag:finance` | a tag of the model |
+| `fct_*` or `name:fct_*` | table name (any table: model, source, seed or snapshot) |
+| `tag:finance`, `tag:domain_*` | a tag of the table |
 | `path:models/marts/*` | file path, with forward slashes |
 | `schema:sales`, `database:dwh`, `package:my_pkg` | target schema, database, dbt package |
 | `type:model` | resource type: `model`, `seed`, `snapshot`, `source` |
@@ -711,7 +711,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 ### Filters and links
 
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly. The opening choice is `universe.links` in the config.
-- **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser, and keeps a separate manual arrangement for each grouping.
+- **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser (`dbtscope-constellations:<title>`, kept by **Reset layout**, never exported), and keeps a separate manual arrangement for each grouping.
 - **Side panel**: tick **Layers**, **Types** (the kinds) and **Domains** on and off, with "all" and "none" for domains. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
 - The count line above the map says how many tables, links and domains are shown.
 
@@ -756,7 +756,7 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 The entity-relationship diagram of one group of tables, drawn by Graphviz.
 
 - **Layout**: referenced tables on the left, referencing tables on the right (hubs → links → satellites, dimensions → facts). When more than 12 tables are referenced by nothing else (links, satellites, facts), they are spread over three columns instead of one endless one.
-- **Group filter**: one schema, folder or tag at a time (`group_by`). It opens on the largest group. The tables of other groups that the selected group points to stay visible with a dashed border, so cross-group links are not lost.
+- **Group filter**: one schema, folder or tag at a time (`group_by`), or **All groups**. It opens on the largest group. It is hidden when there is only one group, or with `group_by: none`. The tables of other groups that the selected group points to stay visible with a dashed border, so cross-group links are not lost.
 - **Kind filters**: tick hubs, links, facts, dimensions… on and off. The layout is recomputed.
 - **Focus**: type a table name or double-click a table to show only its neighbourhood, 1 to 3 levels deep; **Show all** returns to the whole group.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
@@ -782,7 +782,7 @@ The three drawings (universe, detail, flow) zoom and pan the same way.
 
 Both tabs let you drag things where you want them:
 
-- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. Domains and Layers each keep their own arrangement.
+- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. An arrangement is kept per grouping (Domains, Layers) and per **Tables** level (names, keys, all fields): a move at names does not carry over to keys.
 - **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types.
 
 Every move is saved in the browser at once. To share an arrangement with the team:

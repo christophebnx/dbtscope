@@ -204,7 +204,7 @@ Done when: the design note's test plan passes (default and browser suites, hosti
 
 Done when: the design note's test plan passes (default and browser suites: wheel over empty space and over a table, wheel with an svg that receives no events, two-point touch pinch and Safari gesture events in the universe, detail and flow, pan, node drag and save, Fit, flow initial view, exports, offline page); `tools/vendor_libraries.py --check` passes; ruff is clean with no duplicate-code finding; and D-045, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
 
-- **M5.11 — The flow's start stands out.** (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.11-flow-start.md`, refines the start emphasis of D-036.) In a large flow the start table was hard to find: its frame shrank with the zoom. One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
+- **M5.11 — The flow's start stands out.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.11-flow-start.md`, refines the start emphasis of D-036.) In a large flow the start table was hard to find: its frame shrank with the zoom. One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
   - **Start ring:** a dark ring and a soft glow around the start table, in the SVG, resized on every zoom so they keep the same screen size (3 px ring 6 px out, 10 px glow); under every table and arrow; exported as shown.
   - **Locate start:** the header's start name becomes a button that centres the start at the current scale or 0.75 if smaller; second in the Tab order.
   - **Legend:** the flow's "start" mark becomes a double dark frame, like the universe's.
@@ -239,6 +239,10 @@ The version after M5.11 is the one shown at work (user, 2026-11-05). M6 makes it
   - **Screenshots** of the example page under `docs/images/` (at most 7 PNGs, 1.2 MB): approved by the user on 2026-11-05.
 
 Done when: the design note's test plan passes (each new test proved to fail once), the default suite is green, ruff is clean with no duplicate-code finding, `git diff --stat src/` is empty, and `docs/architecture.md`, `CLAUDE.md`, CHANGELOG and progress are updated.
+
+- **M6.2 — Documentation audit.** (Done.) (Asked by the user on 2026-11-05.) Documentation only, no change under `src/`. Every user, tracking and contributor doc checked against the code and corrected: summaries and page sizes of the example, CI platforms, licence history, browser storage keys, layout scopes, Group filter, selectors, rule defaults, default layer order; roadmap, progress, brief and design-note statuses; back-references between refined decisions; missing names in the responsibility map and the package module tables. A developer then extends `tests/unit/test_docs.py` and makes the example-manifest path owned by `tools/example_manifest.py` (`TARGET`).
+
+Done when: every finding of the audit is fixed, the default suite is green, ruff is clean with no duplicate-code finding, and CHANGELOG and progress are updated.
 
 ## Later (not scheduled)
 
