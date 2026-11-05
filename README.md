@@ -542,4 +542,4 @@ Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks)
 
 ## Licence
 
-Apache License 2.0, see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The JavaScript libraries embedded in offline pages keep their own licences, listed in [`src/dbtscope/render/vendor/README.md`](src/dbtscope/render/vendor/README.md).
+Not yet licensed: the licence is being discussed with the owner of the work (D-046). Until then no licence is granted. The JavaScript libraries embedded in offline pages keep their own licences, listed in [`src/dbtscope/render/vendor/README.md`](src/dbtscope/render/vendor/README.md).
