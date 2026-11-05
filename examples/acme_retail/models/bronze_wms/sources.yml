@@ -1,0 +1,31 @@
+version: 2
+sources:
+  - name: wms
+    description: Raw tables of the WMS system
+    schema: raw_wms
+    tables:
+      - name: warehouses
+        columns:
+          - name: warehouse_id
+          - name: name
+          - name: city
+          - name: country_code
+      - name: shipments
+        columns:
+          - name: shipment_id
+          - name: order_id
+          - name: warehouse_id
+          - name: carrier_id
+          - name: shipped_at
+          - name: delivered_at
+      - name: carriers
+        columns:
+          - name: carrier_id
+          - name: name
+          - name: service_level
+      - name: stock_levels
+        columns:
+          - name: warehouse_id
+          - name: product_id
+          - name: measured_at
+          - name: quantity

@@ -208,7 +208,7 @@ The file must be `dbt_project.yml`: a `dbt_project.yaml` is refused with a renam
 
 ## Try it on the example project
 
-The repository holds a fake but complete dbt project, [`examples/acme_retail/`](examples/acme_retail/): a retailer with 5 source systems, a staging layer, a Data Vault and star-schema marts. Its universe shows domains taken from dbt groups and `meta.domain`; its detail view shows relations from `relationships` tests and `foreign_key` constraints. Clone the repository (the same access as [above](#private-repository)), install dbt with the duckdb adapter, and run from the repository root:
+The repository holds a fake but complete dbt project, [`examples/acme_retail/`](examples/acme_retail/): a retailer with 5 source systems laid out as a medallion: `models/bronze_<system>/` (one folder per source system), a Data Vault in `models/silver/<domain>/` and star-schema marts in `models/gold/<domain>/`. Its universe takes the domains from the schemas by convention (each silver and gold domain folder has `+schema: <domain>`, no dbt groups) and shows the layers Sources → Bronze → Silver → Gold; its detail view shows relations from `relationships` tests and `foreign_key` constraints. Clone the repository (the same access as [above](#private-repository)), install dbt with the duckdb adapter, and run from the repository root:
 
 ```bash
 git clone https://github.com/christophebnx/dbtscope   # with SSH: git clone git@github.com:christophebnx/dbtscope.git

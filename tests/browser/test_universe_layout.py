@@ -109,10 +109,10 @@ def test_layers_run_left_to_right_in_every_domain(project: tuple[Path, Opener]) 
         assert_layers_left_to_right(geometry(p, level), layers)
 
 
-# acme with layers that leave staging, the raw vault, seeds and snapshots to the catch-all
+# acme with layers that leave bronze, silver, seeds and snapshots to the catch-all
 PARTIAL_LAYERS = """layers:
   - {key: source, label: Sources, match: ["type:source"]}
-  - {key: marts, label: Marts, match: ["path:models/marts/*"]}
+  - {key: gold, label: Gold, match: ["path:models/gold/*"]}
 """
 
 
@@ -458,6 +458,6 @@ def test_domain_tooltip_lists_its_layers(tmp_path: Path, open_page: Any, lang: s
     frame(p, d["x"], d["y"], 1)
     text = p.page.evaluate(HOVER, [d["x"], d["y"] + d["r"] - 4])
     line = prefix + " → ".join(label[b["layer"]] for b in d["bands"])
-    assert line == "Layers: Sources → Staging → Raw vault → Marts".replace("Layers: ", prefix)
+    assert line == "Layers: Sources → Bronze → Silver → Gold".replace("Layers: ", prefix)
     assert line in text, text
     assert re.search(r"\d", text)  # the count line is kept

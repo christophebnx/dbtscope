@@ -3,7 +3,7 @@ Universe tab. Design note: docs/architecture/2026-11-04-m5.3-flow-view.md (test 
 cap and performance are in test_flow_perf.py).
 
 acme_retail: fct_orders has 22 upstream tables and 1 downstream table; its lineage follows the layers
-source -> staging -> vault -> marts. shop: orders -> stg_orders -> fct_orders -> fct_returns,
+source -> bronze -> silver -> gold. shop: orders -> stg_orders -> fct_orders -> fct_returns,
 dim_customer -> fct_orders, dim_product -> fct_orders.
 """
 
@@ -131,7 +131,7 @@ def test_layers_are_column_bands_on_the_example(example_page: Example) -> None:
     ranks: dict[str, list[int]] = {}
     for uid, r in s["ranks"].items():
         ranks.setdefault(layer[uid], []).append(r)
-    order = ["source", "staging", "vault", "marts"]
+    order = ["source", "bronze", "silver", "gold"]
     assert set(ranks) == set(order)
     for before, after in pairwise(order):
         assert max(ranks[before]) < min(ranks[after]), (before, after, ranks)
@@ -477,7 +477,7 @@ def depth_tokens(text: str) -> set[str]:
 def test_every_option_draws_left_to_right_with_the_trajectory_depths(
     example_page: Example, name: str
 ) -> None:
-    """A source, a vault hub, a staging fan-out, fct_orders and a leaf mart; every direction and depth."""
+    """A source, a silver hub, a bronze fan-out, fct_orders and a gold leaf; every direction and depth."""
     p, data = example_page
     open_flow(p, name)
     uid = ids_of(data, name)

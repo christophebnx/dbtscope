@@ -2,9 +2,6 @@ version: 2
 models:
   - name: dim_date
     description: Calendar dimension
-    config:
-      group: sales
-      access: public
     columns:
       - name: date_key
         data_type: date
@@ -17,9 +14,6 @@ models:
         data_type: varchar
   - name: dim_customer
     description: One row per customer, with its marketing consent
-    config:
-      group: customer
-      access: public
     columns:
       - name: customer_key
         data_type: varchar
@@ -35,9 +29,6 @@ models:
         data_type: boolean
   - name: dim_country
     description: Countries and regions
-    config:
-      group: customer
-      access: public
     columns:
       - name: country_code
         data_type: varchar
@@ -48,9 +39,6 @@ models:
         data_type: varchar
   - name: dim_product
     description: One row per product, with its supplier
-    config:
-      group: product
-      access: public
     columns:
       - name: product_key
         data_type: varchar
@@ -65,9 +53,6 @@ models:
         data_type: decimal(12,2)
   - name: dim_store
     description: Physical stores
-    config:
-      group: sales
-      access: public
     columns:
       - name: store_key
         data_type: varchar
@@ -81,9 +66,6 @@ models:
         data_tests: [{relationships: {arguments: {to: ref('dim_country'), field: country_code}}}]
   - name: dim_campaign
     description: Marketing campaigns
-    config:
-      group: marketing
-      access: public
     columns:
       - name: campaign_key
         data_type: varchar
@@ -95,9 +77,6 @@ models:
         data_type: decimal(12,2)
   - name: dim_warehouse
     description: Warehouses
-    config:
-      group: logistics
-      access: public
     columns:
       - name: warehouse_key
         data_type: varchar
@@ -108,9 +87,6 @@ models:
         data_type: varchar
   - name: dim_carrier
     description: Carriers and their service level
-    config:
-      group: logistics
-      access: public
     columns:
       - name: carrier_key
         data_type: varchar
@@ -121,8 +97,6 @@ models:
   - name: fct_orders
     description: One row per order
     config:
-      group: sales
-      access: public
       contract:
         enforced: true
     columns:
@@ -152,8 +126,6 @@ models:
   - name: fct_order_lines
     description: One row per order line
     config:
-      group: sales
-      access: public
       contract:
         enforced: true
     columns:
@@ -178,9 +150,6 @@ models:
         data_type: decimal(12,2)
   - name: fct_campaign_responses
     description: Who answered which campaign
-    config:
-      group: marketing
-      access: public
     columns:
       - name: campaign_key
         data_type: varchar
@@ -192,9 +161,6 @@ models:
         data_type: timestamp
   - name: fct_web_sessions
     description: Web sessions with their page views
-    config:
-      group: marketing
-      access: public
     columns:
       - name: session_key
         data_type: varchar
@@ -208,9 +174,6 @@ models:
       - name: page_views
   - name: fct_invoices
     description: Invoices
-    config:
-      group: finance
-      access: public
     columns:
       - name: invoice_key
         data_type: varchar
@@ -227,9 +190,6 @@ models:
         data_type: varchar
   - name: fct_payments
     description: Payments and refunds, in euros
-    config:
-      group: finance
-      access: public
     columns:
       - name: payment_key
         data_type: varchar
@@ -246,9 +206,6 @@ models:
         data_type: decimal(12,2)
   - name: fct_shipments
     description: Shipments and delivery lead time
-    config:
-      group: logistics
-      access: public
     columns:
       - name: shipment_key
         data_type: varchar
@@ -266,9 +223,6 @@ models:
         data_type: integer
   - name: fct_stock_levels
     description: Daily stock per warehouse and product
-    config:
-      group: logistics
-      access: public
     columns:
       - name: warehouse_key
         data_type: varchar

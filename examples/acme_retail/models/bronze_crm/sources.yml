@@ -1,0 +1,26 @@
+version: 2
+sources:
+  - name: crm
+    description: Raw tables of the CRM system
+    schema: raw_crm
+    tables:
+      - name: contacts
+        columns:
+          - name: contact_id
+          - name: customer_id
+          - name: channel
+          - name: consent
+          - name: updated_at
+      - name: campaigns
+        columns:
+          - name: campaign_id
+          - name: name
+          - name: channel
+          - name: starts_at
+          - name: ends_at
+          - name: budget
+      - name: campaign_members
+        columns:
+          - name: campaign_id
+          - name: contact_id
+          - name: responded_at

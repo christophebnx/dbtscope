@@ -19,7 +19,7 @@ Each fact has one home; other files link to it instead of copying it.
 | Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | README § Offline page, roadmap M2 |
 | Page behaviour for users / for the designer | README § The page / `docs/ui-spec.md` (strings, colours, states) | — |
 | Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
-| Example project and its manifest | D-033, `tests/fixtures/acme_retail/notes.md` | README § Try it on the example project, `examples/acme_retail/README.md` |
+| Example project and its manifest | D-033, D-046, `tests/fixtures/acme_retail/notes.md` | README § Try it on the example project, `examples/acme_retail/README.md` |
 | The `/feature` workflow | `.claude/skills/feature/SKILL.md`; diagram in README § Working with Claude Code | D-007 |
 
 ## Overview

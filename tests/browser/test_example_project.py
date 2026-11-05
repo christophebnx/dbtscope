@@ -24,8 +24,18 @@ def test_example_page_draws_both_views(example_page: tuple[Page, dict[str, Any]]
     p, data = example_page
     assert len(data["universe"]["nodes"]) == EXAMPLE_EXPECTED["universe"]["tables"]
     show_detail(p)
-    sizes = Counter(e["group"] for e in data["detail"]["entities"])
-    sizes[""] = len(data["detail"]["entities"])  # the "all groups" option
+    entities = data["detail"]["entities"]
+    sizes = Counter(e["group"] for e in entities)
+    group_of = {e["id"]: e["group"] for e in entities}
+    for group in list(sizes):  # a group also draws the other-group parents its tables point to
+        sizes[group] += len(
+            {
+                r["parent"]
+                for r in data["detail"]["relations"]
+                if group_of[r["child"]] == group and group_of[r["parent"]] != group
+            }
+        )
+    sizes[""] = len(entities)  # the "all groups" option
     groups = p.page.eval_on_selector_all("#d-group option", "options => options.map(o => o.value)")
     assert sorted(groups) == sorted(sizes)
     for group in groups:
