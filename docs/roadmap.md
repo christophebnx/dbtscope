@@ -190,10 +190,16 @@ Done when: the design note's test plan passes (default and browser suites, inclu
 
 - **M5.6 — Fix: rule colours are hex.** (Done.) (Asked by the user on 2026-11-05, D-041.) A `color` of a kinds, domains or layers rule must be `#rrggbb` or `#rgb` (written out); anything else is a one-line config error naming the file and the rule, instead of a crash in `domain/classify.background`. Pages of valid configs unchanged byte for byte.
 
+- **M5.7 — Colour marks and the seed colour.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.7-colour-marks.md`, D-042.) From the M5.4 reviews. One page milestone: the M3 reference pages are regenerated once, payloads byte-identical (no seed in the shop fixture).
+  - **Marks at 3:1:** every kind or domain colour drawn as a mark (universe stars, card border and header, domain circle and halo, composition bar, filter and legend dots; detail node border and header; flow domain band, kind header, title dot and domains legend) reaches 3:1 against the page through `common.js CONTRAST.edge`: fills keep their colour with an outline, thin marks take the darkened colour. Colours that already reach 3:1 look exactly as before; exports match the screen.
+  - **Seed colour:** the built-in seed `#8b5cf6` becomes `#c62a36`, white text, clearly apart from `#8e5bb5` and every built-in, preset, palette and example colour.
+
+Done when: the design note's test plan passes (default and browser suites, hostile colours `#ffffff`, `#fefefe`, `#f8fafc`, `#ffff00` and acme); the reference `expected.json` is regenerated in the asset commit; ruff is clean with no duplicate-code finding; and D-042, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
+- Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
 - Universe overview, from the M5.5 reviews: with compact domains, names that would cover another star are hidden, so far fewer names show at Fit than before M5.5; consider labels for the main tables only (hubs, facts, dimensions) at overview, or a slightly smaller overview font.
-- Colours, from the M5.4 reviews: a 3:1 outline so a near-white kind or domain colour still marks its card, dot and legend; the built-in seed violet (#8b5cf6) next to the dimension violet (#8e5bb5) gets opposite text colours, nudge one of them.
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
 - Universe interaction: curved routes between domains that avoid the circles, with the relations and lineage links they carry shown on hover; neighbours lit on hover; a shareable link to a table (`erd.html#table=…`).
 - Flow view: the paths between two chosen tables.

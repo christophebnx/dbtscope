@@ -127,7 +127,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   function nodeDot(e, pos) {
     const k = KIND[e.kind], head = esc(CONTRAST.textOn(k.color)), grey = esc(CONTRAST.ink(THEME.muted, k.bg));
-    // names on the kind colour and grey text on its tint reach AA whatever the colour (D-037)
+    // names on the kind colour and grey text on its tint reach AA whatever the colour (D-037);
+    // the table border and the header's outline reach 3:1 on the page (D-042)
     // trailing spaces keep bold names (under-measured by Viz.js) clear of the type column
     // Graphviz rejects an empty <font>: a column without data_type gets an empty cell
     const row = (name, type) => `<tr><td align="left">${name}&#160;&#160;&#160;</td><td align="left">${type ? `<font color="${grey}">${dotText(type)}</font>` : ''}</td></tr>`;
@@ -140,8 +141,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const tip = [e.group, e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : '');
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);
-    return `"${id}" [id="${id}"${pin} tooltip="${dotStr(tip)}" label=<<table border="${border}" cellborder="0" cellspacing="0" cellpadding="5"${style} color="${esc(k.color)}" bgcolor="${esc(k.bg)}">` +
-      `<tr><td colspan="2" bgcolor="${esc(k.color)}"><font color="${head}" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
+    return `"${id}" [id="${id}"${pin} tooltip="${dotStr(tip)}" label=<<table border="${border}" cellborder="0" cellspacing="0" cellpadding="5"${style} color="${esc(CONTRAST.edge(k.color, THEME.bg))}" bgcolor="${esc(k.bg)}">` +
+      `<tr><td colspan="2" bgcolor="${esc(k.color)}"${dotEdge(k.color)}><font color="${head}" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
   }
 
   // positions: table id -> [x, y] in Graphviz points, every table pinned (for neato); none for dot's own layout

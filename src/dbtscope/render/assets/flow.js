@@ -104,8 +104,8 @@ function startFlow(DATA, EXPORT, close) {
     const n = N[i], id = dotStr(n.id);
     const frame = i === st.start ? 'border="3" color="#1f2933"' : 'border="1" color="#c3c9d2"';
     return `"${id}" [id="${id}" label=<<table ${frame} cellborder="0" cellspacing="0" cellpadding="4" bgcolor="white">` +
-      `<tr><td rowspan="2" width="6" bgcolor="${esc(DOM[n.domain].color)}"></td>` +
-      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
+      `<tr><td rowspan="2" width="6" bgcolor="${esc(CONTRAST.edge(DOM[n.domain].color, THEME.bg))}"></td>` +
+      `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"${dotEdge(KIND[n.kind].color)}><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
       `<tr><td align="left"><font color="${THEME.fg}" point-size="12"><b>${depthLabel(i)}</b></font>` +
       `<font color="${THEME.muted}" point-size="12">&#160;&#160;·&#160;&#160;${dotText(LAYER[n.layer].label)}</font></td></tr></table>>];`;
   }
@@ -135,7 +135,7 @@ function startFlow(DATA, EXPORT, close) {
     : noTrajectory(st.direction));
   function header() {
     const n = N[st.start];
-    $f('dot').style.background = KIND[n.kind].color;
+    paintDot($f('dot'), KIND[n.kind].color);
     $f('name').textContent = n.name; $f('name').title = n.name;
     dirSel.value = st.direction;
     const value = !st.capped && st.depth === Infinity ? 'dall' : 'd' + (st.capped ? st.effective : st.depth);
@@ -146,7 +146,7 @@ function startFlow(DATA, EXPORT, close) {
     $f('cap').textContent = st.cap; $f('cap').hidden = !st.cap;
     domainList();
   }
-  const dot = color => { const i = document.createElement('i'); i.style.background = color; return i; };
+  const dot = color => paintDot(document.createElement('i'), color);
   function row(mark, label, count) {
     const li = document.createElement('li'), text = document.createElement('span');
     text.textContent = label; li.append(mark, text);
