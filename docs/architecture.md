@@ -15,7 +15,7 @@ Each fact has one home; other files link to it instead of copying it.
 | Run flow and the module of each step | this file § Overview (diagram) | README § Development |
 | Layers and allowed imports | this file § Layers (diagram and table); enforced by `tests/unit/test_layering.py` | `CLAUDE.md` invariant 1, README |
 | Developer commands, browser-test setup | `CLAUDE.md` § Commands | README § Development, agents, skills |
-| CI content | D-020, D-031, D-032 and `.github/workflows/ci.yml` | README |
+| CI content | D-020, D-031, D-043 and `.github/workflows/ci.yml` | README |
 | Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | README § Offline page, roadmap M2 |
 | Page behaviour for users / for the designer | README § The page / `docs/ui-spec.md` (strings, colours, states) | — |
 | Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
