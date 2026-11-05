@@ -22,21 +22,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - {os: ubuntu-latest, py: python3}
+          - {os: windows-latest, py: python}
+          - {os: macos-latest, py: python3}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    env:
+      UV_PYTHON: "3.12"  # the floor of requires-python
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: ${{ matrix.os == 'ubuntu-latest' && 0 || 1 }}  # gitleaks needs the history
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          python-version: "3.12"  # the floor of requires-python
-      - run: uv sync --locked --no-default-groups --group test
+      # uv from PyPI: much faster on hosted runners than setup-uv's download from GitHub releases
+      - run: ${{ matrix.py }} -m pip install -q --break-system-packages uv
+      - run: ${{ matrix.py }} -m uv sync -q --locked --no-default-groups --group test
       - if: runner.os == 'Linux'
-        run: uvx ruff@0.17.3 check . && uvx ruff@0.17.3 format --check .
-      - run: uv run --no-sync pytest -q -n auto -p no:cacheprovider
+        run: ${{ matrix.py }} -m uv tool run ruff@0.17.3 check . && ${{ matrix.py }} -m uv tool run ruff@0.17.3 format --check .
+      - run: ${{ matrix.py }} -m uv run --no-sync pytest -q -n auto -p no:cacheprovider
       - if: runner.os == 'Linux'
         uses: gitleaks/gitleaks-action@v2
         env:
