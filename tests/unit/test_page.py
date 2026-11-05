@@ -58,15 +58,16 @@ def test_page_has_the_trajectory_mode() -> None:
 M1_SCRIPT_TAGS = """\
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>"""
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>"""
 
 
-def test_cdn_page_keeps_the_m1_script_tags() -> None:
+def test_cdn_page_keeps_the_m1_script_tags_but_svg_pan_zoom() -> None:
     page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     after_data = page.split('id="data">', 1)[1].split("</script>\n", 1)[1]
     assert after_data.startswith(M1_SCRIPT_TAGS + "\n<script>\n// Page-wide")
-    assert page.count("<script src") == 4
+    # M5.10 (D-045): d3 and Viz.js only, svg-pan-zoom left the page
+    assert page.count("<script src") == 3
+    assert "svg-pan-zoom" not in page and "svgPanZoom" not in page
     assert "/*! d3" not in page
 
 
@@ -95,9 +96,9 @@ def test_offline_page_embeds_every_library_in_order_and_loads_no_remote_script()
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
     positions = [page.index(f"/*! {lib.name} {lib.version}, {lib.spdx}. Licence:") for lib in LIBRARIES[:2]]
     positions.append(page.index("Includes Graphviz 2.40.1, EPL-1.0. Licence:"))
-    positions.append(page.index("/*! svg-pan-zoom 3.6.1, BSD-2-Clause. Licence:"))
     positions.append(page.index("// Page-wide"))
     assert positions == sorted(positions)
+    assert "svg-pan-zoom" not in page and "svgPanZoom" not in page  # M5.10 (D-045)
     for lib in LIBRARIES:
         first = (VENDOR / lib.licence).read_text(encoding="utf-8").strip().splitlines()[0]
         assert first in page
@@ -231,8 +232,24 @@ def test_no_page_script_can_close_its_block() -> None:
 # ---------------------------------------------------------------- M5.4: contrast, touch-ups (D-037 to D-039)
 
 
-def test_flow_resizes_its_diagram_in_one_place() -> None:
-    assert (ASSETS / "flow.js").read_text(encoding="utf-8").count("pz.resize()") == 1
+def test_flow_keeps_its_zoom_on_resize_without_a_listener() -> None:
+    # M5.10 (D-045): the d3 zoom is relative to the box's top-left corner, so a resized window keeps
+    # the user's zoom and pan with no resize handler (D-036 rule unchanged)
+    flow = (ASSETS / "flow.js").read_text(encoding="utf-8")
+    assert "'resize'" not in flow and "graphZoom(" in flow
+
+
+def test_one_zoom_helper_serves_the_three_views() -> None:
+    common = (ASSETS / "common.js").read_text(encoding="utf-8")
+    for declaration in ("const ZOOM_EXTENT = ", "function zoomOn(", "function graphZoom("):
+        assert common.count(declaration) == 1, declaration
+    for event in ("gesturestart", "gesturechange", "gestureend"):  # Safari's trackpad pinch
+        assert common.count(f"'{event}.gesture'") == 1, event
+    for name in ("universe.js", "flow.js", "detail.js", "boot.js"):
+        script = (ASSETS / name).read_text(encoding="utf-8")
+        assert "d3.zoom()" not in script or name == "universe.js", name
+        assert "gesture" not in script and "scaleExtent([" not in script, name
+    assert "zoomOn(" in (ASSETS / "universe.js").read_text(encoding="utf-8")
 
 
 def test_common_script_declares_the_m5_4_helpers() -> None:

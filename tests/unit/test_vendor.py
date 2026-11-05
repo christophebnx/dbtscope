@@ -12,7 +12,6 @@ from dbtscope.render.page import LIBRARIES, UNSAFE_MARKUP, VENDOR, vendored_file
 LICENCE_WORDS = {
     "ISC": "Permission to use, copy, modify, and/or distribute",
     "MIT": "Permission is hereby granted, free of charge",
-    "BSD-2-Clause": "Redistribution and use",
     "EPL-1.0": "Eclipse Public License - v 1.0",
     "MIT OR NCSA": "University of Illinois/NCSA Open Source License",
 }
@@ -52,3 +51,9 @@ def test_compiled_in_notices_ride_with_full_render() -> None:
     assert "Graphviz 2.40.1, Expat 2.2.5, Emscripten 1.37.36" in header
     (emscripten,) = [n for n in full.notices if n.name == "Emscripten"]
     assert "/1.37.36/" in emscripten.url
+
+
+def test_vendor_folder_holds_only_vendored_files() -> None:
+    # M5.10: a library removed from LIBRARIES leaves no file behind (the tool never deletes)
+    on_disk = {p.name for p in VENDOR.iterdir() if p.is_file()}
+    assert on_disk == set(vendored_files()) | {"README.md"}

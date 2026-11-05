@@ -9,15 +9,17 @@ function startDetail(DATA, LAYOUT, EXPORT) {
           hGroup: 'Group', hDepth: 'Around the focused table', hCols: 'Columns',
           pngTitle: 'Save the visible diagram as a PNG image (high resolution)',
           svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
-          hint: 'Wheel: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus' },
+          hint: 'Wheel or pinch: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus',
+          touchHint: 'Pinch: zoom · drag: pan · tap a table: highlight its links' },
     fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
           cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
           foreign: 'pointillé\u00a0: autre groupe',
           hGroup: 'Groupe', hDepth: 'Autour de la table ciblée', hCols: 'Colonnes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
-          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
-              + 'clic\u00a0: surligner ses liens · double-clic\u00a0: cibler' },
+          hint: 'Molette ou pincement\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
+              + 'clic\u00a0: surligner ses liens · double-clic\u00a0: cibler',
+          touchHint: 'Pincement\u00a0: zoom · glisser\u00a0: déplacer la vue · toucher une table\u00a0: surligner ses liens' },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
   const byId = new Map(DATA.entities.map(e => [e.id, e]));
@@ -27,7 +29,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   const state = { group: '', kinds: new Set(DATA.kinds.map(k => k.key)), allColumns: false, focus: null, depth: 1 };
   const box = $d('graph');
-  let pz = null, renderSeq = 0;
+  let zv = null, renderSeq = 0;
 
   // --- group scope ----------------------------------------------------------
   // A group shows its own tables plus the other-group parents its tables point to.
@@ -46,7 +48,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('cols').textContent = T.cols;
   $d('fit').textContent = L.fit;
   $d('q').placeholder = T.q;
-  $d('hint').textContent = T.hint;
+  // on touch a drag on a table pans (tables move with the mouse only): a hint of its own
+  $d('hint').textContent = matchMedia('(pointer: coarse)').matches ? T.touchHint : T.hint;
   $d('h-group').textContent = T.hGroup; $d('h-depth').textContent = T.hDepth;
   $d('h-cols').textContent = T.hCols; $d('h-kinds').textContent = L.kinds;
 
@@ -80,7 +83,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('clear').onclick = () => setFocus(null);
   $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
-  const refit = () => panZoomFit(box, pz);
+  const refit = () => zv && zv.fit();
   $d('fit').onclick = refit;
   window.addEventListener('resize', refit);
   sidePanel('d', refit);
@@ -88,10 +91,10 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('export-h').textContent = L.exportImage;
   pngBtn.textContent = L.png; pngBtn.title = T.pngTitle;
   svgBtn.textContent = L.svg; svgBtn.title = T.svgTitle;
-  // enabled only while a diagram is drawn and svg-pan-zoom drives it
+  // enabled only while a diagram is drawn and zoomed
   function canExport(on) { pngBtn.disabled = svgBtn.disabled = !on; }
-  pngBtn.onclick = () => EXPORT.save('detail', 'png', () => pngImage(box, pz, EXPORT), pngBtn);
-  svgBtn.onclick = () => EXPORT.save('detail', 'svg', () => svgFile(box, pz), svgBtn);
+  pngBtn.onclick = () => EXPORT.save('detail', 'png', () => pngImage(box, zv, EXPORT), pngBtn);
+  svgBtn.onclick = () => EXPORT.save('detail', 'svg', () => svgFile(box, zv), svgBtn);
 
   // type checkboxes and the focus autocomplete follow the selected group
   function refreshControls() {
@@ -193,7 +196,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   let justDragged = false;
   function startDrag(ev, g, svg) {
     if (ev.button) return;
-    ev.stopPropagation(); ev.preventDefault();  // keep svg-pan-zoom from panning
+    ev.stopPropagation(); ev.preventDefault();  // keep the zoom of the box from panning
     const ctm = g.parentNode.getScreenCTM(), x0 = ev.clientX, y0 = ev.clientY;
     let dx = 0, dy = 0;
     g.style.cursor = 'grabbing';
@@ -219,8 +222,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     $d('meta').textContent = `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(relCount, T.rels)}` +
       (state.group ? ` · ${T.foreign}` : '');
     $d('focus-info').textContent = state.focus ? T.focused + labelOf(byId.get(state.focus)) : '';
-    const view = keepView && pz ? { zoom: pz.getZoom(), pan: pz.getPan() } : null;
-    pz = panZoomDestroy(pz);
+    const view = keepView && zv ? zv.get() : null;
+    if (zv) { zv.destroy(); zv = null; }
     if (!ids.size) { box.innerHTML = `<div class="msg">${L.empty}</div>`; return; }
     if (!view) box.innerHTML = `<div class="msg">${L.computing}</div>`;
     const seq = ++renderSeq, pinned = LAYOUT.get('detail', viewKey()) || {}, current = () => seq === renderSeq;
@@ -233,11 +236,11 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     }).then(drawn => {
       if (!current()) return null; // a newer render was requested while this one was laying out
       svg = drawn;
-      return panZoom(box, svg, current);
+      return graphZoom(box, svg, current);
     }).then(mounted => {
       if (!mounted) return;
-      pz = mounted;
-      if (view) { pz.zoom(view.zoom); pz.pan(view.pan); }
+      zv = mounted;
+      if (view) zv.set(view);
       wire(svg);
       canExport(true);
     }).catch(err => { if (current()) box.innerHTML = `<div class="msg">${L.error}${esc(err)}</div>`; });
@@ -281,6 +284,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       refreshControls();
       render();
     },
-    svgImage: scale => svgImage(box, pz, scale),
+    svgImage: scale => svgImage(box, zv, scale),
   };
 }

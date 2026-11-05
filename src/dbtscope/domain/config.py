@@ -6,7 +6,7 @@
     output: erd_output/erd.html   # relative to the dbt project directory
     language: fr                  # en | fr
     view: universe                # tab shown when the page opens: universe | detail
-    offline: true                 # embed d3, Viz.js and svg-pan-zoom: the page works with no network
+    offline: true                 # embed d3 and Viz.js: the page works with no network
                                   # (~2.5 MB more); default false: the libraries load from CDNs
 
     # detail view (entity-relationship diagram with columns)

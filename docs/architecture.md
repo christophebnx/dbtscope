@@ -140,7 +140,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Escape a DOT string (page) | `render/assets/common.js dotStr` |
 | Escape text inside a Graphviz HTML-like label (page) | `render/assets/common.js dotText` |
 | Render DOT with Graphviz, recovering from a failed render (page) | `render/assets/common.js GRAPHVIZ` |
-| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js panZoom`, `panZoomFit`, `panZoomDestroy` |
+| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom` (handle `fit`, `get`, `set`, `centre`, `destroy`) |
+| Attach a d3 zoom to a view's drawing area, Safari trackpad pinch (`gesture*` events) included (page, all three views) | `render/assets/common.js zoomOn` |
+| Scale range of every zoom of the page | `render/assets/common.js ZOOM_EXTENT` |
 | Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |
 | Flow view (page) | `render/assets/flow.js startFlow` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
@@ -151,7 +153,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
-| Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
+| Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG (zoom layer transform removed) | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Words of an `OSError` (`permission denied`), the same on every OS | `storage/files.os_reason` (`REASONS`) |
 | Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` |

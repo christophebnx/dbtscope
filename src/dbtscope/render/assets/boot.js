@@ -81,7 +81,6 @@ function showTab(name) {
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT)
     : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
-  if (name === 'universe' && flow && flow.isOpen()) flow.shown();
 }
 function openInDetail(id) {
   showTab('detail');

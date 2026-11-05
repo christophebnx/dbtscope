@@ -727,6 +727,7 @@ def test_flow_shown_while_closed_does_nothing(shop_page: Any) -> None:
     p.page.click("#u-tj-flow")
     wait_flow(p)
     p.page.click("#f-back")
-    p.page.evaluate("flow.shown()")
+    # M5.10 (D-045): the d3 zoom needs no resize hook, so the flow handle has no `shown` any more
+    assert p.page.evaluate("typeof flow.shown") == "undefined"
     p.page.set_viewport_size({"width": 900, "height": 700})
     assert p.page.evaluate("flow.isOpen()") is False

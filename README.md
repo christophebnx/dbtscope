@@ -301,7 +301,7 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 - **Focus**: type a table name or double-click it to show only its neighbourhood, 1–3 levels deep.
 - Key columns only by default (columns matching `key_columns`, plus every column used by a relation), with a toggle for all columns. Hover a table for its dbt description.
 - Opens on the largest group. When more than 12 tables are referenced by nothing else (links, satellites, facts), they are spread over three columns instead of one endless one.
-- Zoom with the wheel, drag the background to pan, click a table to highlight its links, search to highlight by name.
+- Zoom with the wheel or a pinch (touch screen or trackpad, Safari included) anywhere in the drawing, drag the background to pan, click a table to highlight its links, search to highlight by name. The universe and the flow zoom the same way.
 
 ### Export image
 
@@ -325,7 +325,7 @@ Every move is saved in the browser at once. To share an arrangement with the tea
 
 ### Offline page
 
-The page holds the structure only (table and column names, descriptions), no data. By default it loads d3, Viz.js (Graphviz) and svg-pan-zoom from public CDNs, so it needs internet access to render.
+The page holds the structure only (table and column names, descriptions), no data. By default it loads d3 and Viz.js (Graphviz) from public CDNs, so it needs internet access to render.
 
 With `--offline` (or `offline: true` in `dbt-erd.yml`; the option wins), the three libraries are embedded in the page, which then opens and works with no network at all (about 2.5 MB more). They are vendored in the package (`src/dbtscope/render/vendor/`, the exact files of the CDN URLs), so generating the page needs no network either. The offline page carries their licence notices; the list of libraries, versions and licences is in [`src/dbtscope/render/vendor/README.md`](src/dbtscope/render/vendor/README.md).
 

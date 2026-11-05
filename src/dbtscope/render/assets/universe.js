@@ -638,8 +638,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- navigation
-  const zoom = d3.zoom().scaleExtent([0.01, 12]).on('zoom', ev => { t = ev.transform; draw(); });
-  const drag = d3.drag().container(canvas).filter(ev => !ev.button)
+  const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT).on('zoom', ev => { t = ev.transform; draw(); });
+  // mouse only: on touch every finger goes to the zoom, so a pinch starting on a table or a domain name
+  // zooms and a one-finger drag pans, as in the detail (a touch drag cannot hand a finger over to a pinch)
+  const drag = d3.drag().container(canvas).touchable(false).filter(ev => !ev.button)
     .subject(ev => {
       const n = t.k >= FAR ? pickAt(...t.invert([ev.x, ev.y])) : null;
       if (n) return { n, x: ev.x, y: ev.y };
@@ -671,7 +673,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
       draw();
     });
-  const sel = d3.select(canvas).call(drag).call(zoom).on('dblclick.zoom', null);
+  const sel = zoomOn(d3.select(canvas).call(drag), zoom);
   // room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
   const top = () => traj ? bar.offsetHeight : 0;
   // frame a world-space box, at most at scale kMax
