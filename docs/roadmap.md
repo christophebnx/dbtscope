@@ -212,7 +212,22 @@ Done when: the design note's test plan passes (default and browser suites: wheel
 
 Done when: the design note's test plan passes (default and browser suites: one ring under everything, constant screen size at Fit / 0.75 / 3× and at 360 px, follows a recentre, contrast, locate by click and keyboard, en / fr title, 44 px on touch, export equal to the screen); the reference `expected.json` is regenerated in the asset commit; ruff is clean with no duplicate-code finding; and `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
+## M6 — Demo readiness
+
+The version after M5.11 is the one shown at work (user, 2026-11-05). M6 makes it presentable without changing the tool.
+
+- **M6.1 — User guide and how it works.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m6.1-documentation.md`.) Documentation only, no change under `src/`.
+  - **User guide** `docs/user-guide.md`: install with uv from GitHub (HTTPS, SSH, token) or from a git clone (`uv run`, `uv tool install .`), `uvx`, checking, upgrading and uninstalling on Windows, macOS and Linux; the usage modes on a dbt project with concrete commands (live, project elsewhere, batch and CI, copied manifest, offline page, presets and preset files, title / view / language, the `acme_retail` example, preparing a demo); options; configuration with a walkthrough of the example's `dbt-erd.yml`; every page feature; troubleshooting; FAQ.
+  - **How it works** `docs/how-it-works.md`: the run, what is read from the manifest, how a table is classified, what the page contains, how each view is laid out, the layout file's life, what never happens; seven Mermaid diagrams.
+  - **README** becomes a landing page (pitch, quick start, links, a short Configuration section kept for the CLI hint, development, licence). Text moves, it is not copied (`docs/architecture.md` § Where facts live updated).
+  - **Tests:** the options-table test reads the user guide; documented commands checked in every user doc; new `tests/unit/test_docs.py` (links and anchors, Mermaid rules plus an opt-in `mmdc` render, config keys against `Config`, the example's summary and `dbt-erd.yml` excerpts, image budget).
+  - **Screenshots** of the example page under `docs/images/` (at most 7 PNGs, 1.2 MB): approved by the user on 2026-11-05.
+
+Done when: the design note's test plan passes (each new test proved to fail once), the default suite is green, ruff is clean with no duplicate-code finding, `git diff --stat src/` is empty, and `docs/architecture.md`, `CLAUDE.md`, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
+
+- CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
 
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
 - Universe overview, from the M5.5 reviews: with compact domains, names that would cover another star are hidden, so far fewer names show at Fit than before M5.5; consider labels for the main tables only (hubs, facts, dimensions) at overview, or a slightly smaller overview font.

@@ -7,22 +7,15 @@ groups with owners. Relations come from `relationships` tests and from `foreign_
 purpose (the satellites' `hd_*` hash diffs and three mart columns), as in most real projects.
 There is no data: `dbt parse` only needs the duckdb profile in this folder.
 
-From the root of the dbtscope repository:
-
-```bash
-uv tool install dbt-core --with dbt-duckdb
-dbtscope --project-dir examples/acme_retail       # runs dbt parse, writes erd_output/erd.html, opens it
-dbtscope --project-dir examples/acme_retail --no-open -o acme-map.html
-```
-
-In PowerShell, write the folder `examples\acme_retail`.
+To run dbtscope on it (clone, dbt with dbt-duckdb, the commands and the summary to expect): [Try it on the example project](../../docs/user-guide.md#try-it-on-the-example-project) in the user guide.
 
 - **No secret.** `profiles.yml` names a local duckdb file, `acme_retail.duckdb`, that `dbt parse`
   never opens. dbt finds it because it sits next to `dbt_project.yml` (no `DBT_PROFILES_DIR`).
 - **dbt-core and dbt Fusion.** `group`, `access` and `meta` stay under `config:`, in block style:
   dbt Fusion rejects them as top-level keys of a model.
 - **Conventions.** `dbt-erd.yml` uses the `data_vault` preset, names the kinds of the detail view
-  and places staging tables, sources and seeds into domains by rules.
+  and places staging tables, sources and seeds into domains by rules. Step by step, with what each
+  part changes in the page: [the user guide's walkthrough](../../docs/user-guide.md#walkthrough-the-examples-dbt-erdyml).
 
 ## Test input (D-033)
 

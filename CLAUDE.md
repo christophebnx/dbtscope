@@ -12,7 +12,7 @@ Read this file at the start of every session. It is the source of truth for how 
 4. **Conventions as config**: selectors and ordered rules in `dbt-erd.yml` (kinds, domains, layers), with Data Vault and star schema presets.
 5. **Shared manual layout**: arrangements dragged in the page are exported to `dbt-erd-layout.json` and embedded in later pages.
 
-Read next: `docs/architecture.md` (how), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands), `docs/ui-spec.md` (the page's design), `docs/architecture/` (design notes), `docs/briefs/` (briefs), `examples/acme_retail/` (the example dbt project, a test input, D-033).
+Read next: `docs/user-guide.md` (for users: install, usage, every feature), `docs/how-it-works.md` (how it works, in user terms), `docs/architecture.md` (how it is built), `docs/brief-universe-view.md` (the universe view's brief), `docs/decisions.md` (why), `docs/roadmap.md` (what to build, in order), `docs/progress.md` (where the build stands), `docs/ui-spec.md` (the page's design), `docs/architecture/` (design notes), `docs/briefs/` (briefs), `examples/acme_retail/` (the example dbt project, a test input, D-033).
 
 ## Commands
 

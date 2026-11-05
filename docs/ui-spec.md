@@ -1,6 +1,6 @@
 # UI specification
 
-User-visible behaviour of the generated page, kept true by the ui-designer and the documentation agent. Detailed designs (wireframes, exact styles) live in the design notes under `docs/architecture/`; this file states what the user sees and can do.
+User-visible behaviour of the generated page, kept true by the ui-designer and the documentation agent. Detailed designs (wireframes, exact styles) live in the design notes under `docs/architecture/`; this file states what the user sees and can do. User-facing wording: `docs/user-guide.md`.
 
 ## General
 

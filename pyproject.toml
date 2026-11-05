@@ -3,7 +3,6 @@ name = "dbtscope"
 version = "0.2.0"
 description = "Interactive map of a dbt project: domain universe and ERD, from the manifest."
 readme = "README.md"
-license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.7",

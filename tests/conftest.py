@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -30,6 +30,7 @@ SHOP = "model.shop."  # unique_id prefix of the models of `shop`
 NO_PARSE_NO_OPEN = ("--no-parse", "--no-open")  # build from the written manifest, open nothing
 DATA_OPEN = '<script type="application/json" id="data">'
 ROOT = Path(__file__).resolve().parent.parent
+USER_GUIDE = ROOT / "docs" / "user-guide.md"  # checked by test_cli.py (options) and test_docs.py
 EXAMPLE_MANIFEST = ROOT / "tests" / "fixtures" / "acme_retail" / "manifest.json.gz"  # its dbt parse
 EXAMPLE_EXPECTED: dict[str, Any] = json.loads(EXAMPLE_MANIFEST.with_name("expected.json").read_text("utf-8"))
 
@@ -259,3 +260,39 @@ def load_script(path: Path) -> ModuleType:
 
 EXAMPLE_TOOL = load_script(ROOT / "tools" / "example_manifest.py")  # owns the example's paths (D-033)
 EXAMPLE = EXAMPLE_TOOL.EXAMPLE  # the example dbt project
+
+
+class Block(NamedTuple):
+    """A fenced block of Markdown: its language, its lines, and the line just before its opening fence."""
+
+    lang: str
+    lines: list[str]
+    before: str
+
+
+def blocks(text: str) -> list[Block]:
+    """The fenced blocks of a Markdown text, in order; fences may be indented, as in list items."""
+    found: list[Block] = []
+    current: Block | None = None
+    previous = ""
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            if current is None:
+                current = Block(line.strip()[3:].strip(), [], previous)
+            else:
+                found.append(current)
+                current = None
+        elif current is not None:
+            current.lines.append(line)
+        previous = line
+    return found
+
+
+def prose(text: str) -> str:
+    """The text of a Markdown document outside fenced blocks (fenced lines left empty)."""
+    lines, inside = [], False
+    for line in text.splitlines():
+        fence = line.lstrip().startswith("```")
+        lines.append("" if inside or fence else line)
+        inside = inside != fence
+    return "\n".join(lines)
