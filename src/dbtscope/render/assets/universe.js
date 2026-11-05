@@ -436,7 +436,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
     domains.forEach(d => {
-      const c = DOM[d.k].color, g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);
+      const c = CONTRAST.edge(DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
       g.addColorStop(0, c + '26'); g.addColorStop(1, c + '0a');
       ctx.globalAlpha = ctxAlpha(d);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
@@ -497,7 +497,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ctx.fillText(plural(d.n, L.tables), sx, sy - 8);
       // composition by type, readable before any single star is
       let bx = sx - 40;
-      d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = KIND[kind].color; ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
+      d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
       taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
       hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
     });
@@ -591,17 +591,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   function drawStar(n, p, col, mark, role, k) {
     const far = k < 0.6, r = Math.max(starR(n), (role ? 3 : 2.5) / k);
+    const edge = CONTRAST.edge(col, C.bg);   // a star too light for the page is outlined (D-042)
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 / k; ctx.stroke();
+    ctx.strokeStyle = edge === col ? '#ffffff' : edge; ctx.lineWidth = 1 / k; ctx.stroke();
     if (role === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); return; }
     let out = 4 / k;
     if (role) { out = (far ? 3 : 4) / k; ring(p, r + out, C[role], (far ? 1.5 : 2) / k, role === 'up', k); out += 3 / k; }
     if (mark) ring(p, r + out, C.text, 2 / k, false, k);
   }
   function drawCard(n, p, b, col, mark, role, k) {
-    const x = p.x - b.w / 2, y = p.y - b.h / 2, mk = Math.min(k, 1);
+    const x = p.x - b.w / 2, y = p.y - b.h / 2, mk = Math.min(k, 1), edge = CONTRAST.edge(col, C.bg);   // D-042
     ctx.fillStyle = C.card; ctx.fillRect(x, y, b.w, b.h);
-    ctx.strokeStyle = role === 'start' ? C.text : role ? C[role] : mark ? C.text : col;
+    ctx.strokeStyle = role === 'start' ? C.text : role ? C[role] : mark ? C.text : edge;
     ctx.lineWidth = (role === 'start' ? 3 : role ? 2.5 : mark ? 2.5 : 1) / mk;
     ctx.setLineDash(role === 'up' ? [6 / mk, 3 / mk] : []);
     ctx.strokeRect(x, y, b.w, b.h);
@@ -611,6 +612,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ctx.strokeStyle = C.text; ctx.lineWidth = 1.5 / mk; ctx.strokeRect(x - o, y - o, b.w + 2 * o, b.h + 2 * o);
     }
     ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
+    if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / mk; ctx.strokeRect(x, y, b.w, 16); }
     if (k > 0.6) {
       ctx.fillStyle = CONTRAST.textOn(col); ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
       ctx.font = `9px ${FONT}`;
@@ -779,15 +781,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // fills the bar from the current trajectory; returns the counts (or empty-state) text
   function renderBar() {
     const n = N[traj.start], u = traj.up.size, d = traj.down.size, empty = u + d === 0;
-    $u('tj-dot').style.background = KIND[n.kind].color;
+    paintDot($u('tj-dot'), KIND[n.kind].color);
     $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
     const ups = countByDomain(N, traj.up.keys()), downs = countByDomain(N, traj.down.keys());
     const rows = [...new Set([...ups.keys(), ...downs.keys()])].map(k => [k, ups.get(k) || 0, downs.get(k) || 0])
       .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}${L.colon}${countsText(cu, cd)}` }))
       .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
     $u('tj-list').replaceChildren(...rows.map(r => {
-      const li = document.createElement('li'), dot = document.createElement('i');
-      dot.style.background = DOM[r.k].color; li.append(dot, r.text);
+      const li = document.createElement('li');
+      li.append(paintDot(document.createElement('i'), DOM[r.k].color), r.text);
       return li;
     }));
     const sum = $u('tj-sum'), emptyText = noTrajectory(trajOpts.direction);

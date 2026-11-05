@@ -23,5 +23,5 @@
 | `payload.py` | The Python → JavaScript contract: `DetailPayload`, `UniversePayload`, `PagePayload` and their parts, in page key order. No logic |
 | `classify.py` | Rules shared by both views: `in_scope`, `group_of`, `first_rule`, `key_columns`, `background` (a kind colour tinted by `TINT`), `BuiltinKind`, `OTHER` |
 | `detail.py` | Detail view: `select(tables, relations, config, root)` (tables and relations drawn), `detail_data` → `DetailPayload` |
-| `universe.py` | Universe view: `domain_of` (the domain key of a table, `""` for none), `flow_rank`, `universe_data` → `UniversePayload`, `TYPE_KINDS`, `PALETTE`, `FLOW_PREFIXES` |
+| `universe.py` | Universe view: `domain_of` (the domain key of a table, `""` for none), `flow_rank`, `universe_data` → `UniversePayload`, `TYPE_KINDS` (built-in source, seed and snapshot kinds; seed `#c62a36`, D-042), `PALETTE`, `FLOW_PREFIXES` |
 | `layout.py` | `LAYOUT_FORMAT`, `LAYOUT_VERSION` (1; a layout without `version` is accepted), `LAYOUT_SECTIONS` (`universe`, `detail`: mappings when present), `LAYOUT_HINT`, `check_layout` (a file exported by the page that the page can read), `LayoutError` |

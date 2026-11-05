@@ -58,8 +58,9 @@ const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774' };
 // ratio(a, b): the WCAG 2.x contrast ratio, NaN for anything else. textOn(bg): the text colour on a fill,
 // white when it reaches AA, else black (white for an unparsable fill). ink(color, bg): `color` used as text
 // on a light `bg`, itself when it reaches AA, else mixed toward black by the smallest step j / 32 that does.
+// edge(color, bg): the same darkening to MARK (3:1, WCAG 1.4.11), for a colour drawn as a mark (D-042).
 const CONTRAST = (() => {
-  const AA = 4.5, cache = new Map();
+  const AA = 4.5, MARK = 3, cache = new Map();
   function channels(c) {
     const m = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(String(c).trim());
     if (!m) return null;
@@ -77,17 +78,35 @@ const CONTRAST = (() => {
     return (hi + 0.05) / (lo + 0.05);
   }
   const textOn = bg => memo('on|' + bg, () => (!channels(bg) || ratio('#ffffff', bg) >= AA ? '#ffffff' : '#000000'));
-  function darken(color, bg) {
+  function darken(color, bg, min) {
     const rgb = channels(color);
-    if (!rgb || ratio(color, bg) >= AA) return color;
+    if (!rgb || ratio(color, bg) >= min) return color;
     for (let j = 1; j <= 32; j++) {
       const mixed = hex(rgb.map(v => v * (1 - j / 32)));
-      if (ratio(mixed, bg) >= AA) return mixed;
+      if (ratio(mixed, bg) >= min) return mixed;
     }
     return '#000000';
   }
-  return { AA, ratio, textOn, ink: (color, bg) => memo('ink|' + color + '|' + bg, () => darken(color, bg)) };
+  return { AA, MARK, ratio, textOn,
+    ink: (color, bg) => memo('ink|' + color + '|' + bg, () => darken(color, bg, AA)),
+    edge: (color, bg) => memo('edge|' + color + '|' + bg, () => darken(color, bg, MARK)) };
 })();
+
+// The one colour dot of the page (legends, filters, title dots): filled with `color`, outlined in its
+// CONTRAST.edge when the colour alone does not reach 3:1 on the page (D-042), else with no outline.
+// Returns `el` (a dot reused from table to table is cleared of a previous outline).
+function paintDot(el, color) {
+  const edge = CONTRAST.edge(color, THEME.bg);
+  el.style.background = color;
+  el.style.boxShadow = edge === color ? '' : 'inset 0 0 0 1px ' + edge;
+  return el;
+}
+// The attributes outlining a Graphviz cell filled with `color`: '' when the colour reaches 3:1 on the page,
+// else a 1 px border in its CONTRAST.edge (D-042).
+function dotEdge(color) {
+  const edge = CONTRAST.edge(color, THEME.bg);
+  return edge === color ? '' : ` border="1" color="${esc(edge)}"`;
+}
 
 // Wires the ☰ button #<view>-toggle to the panel #<view>-panel. A view started in a window 600 px wide
 // or narrower (the page.css breakpoint) starts with its panel closed (D-035); after that only the button
@@ -108,7 +127,7 @@ function filterRow({ label, color, count, checked, title }, onChange) {
   box.type = 'checkbox'; box.checked = checked;
   box.onchange = () => onChange(box.checked);
   row.append(box);
-  if (color) { const dot = document.createElement('i'); dot.style.background = color; row.append(dot); }
+  if (color) row.append(paintDot(document.createElement('i'), color));
   const name = document.createElement('span'), n = document.createElement('small');
   name.textContent = label; n.textContent = num(count);
   row.append(name, n);

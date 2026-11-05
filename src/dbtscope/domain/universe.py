@@ -21,7 +21,7 @@ from dbtscope.domain.payload import (
 # kinds for tables no configured kind matches
 TYPE_KINDS: dict[str, BuiltinKind] = {
     "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
-    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#8b5cf6"),
+    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#c62a36"),
     "snapshot": BuiltinKind(key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b"),
 }
 NO_DOMAIN = {"en": "No domain", "fr": "Hors domaine"}

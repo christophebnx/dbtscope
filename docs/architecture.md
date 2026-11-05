@@ -122,7 +122,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A count with plural agreement (page) | `render/assets/common.js plural` |
 | A number written for the page language (page) | `render/assets/common.js num` |
 | Label–value separator of the page language (page) | `render/assets/common.js L.colon` |
-| Contrast of text with a colour; the text colour on a fill; a colour made readable as text (page) | `render/assets/common.js CONTRAST` (`ratio`, `textOn`, `ink`, `AA`) |
+| Contrast of text with a colour; the text colour on a fill; a colour made readable as text; a colour made to mark against the page, 3:1 (page) | `render/assets/common.js CONTRAST` (`ratio`, `textOn`, `ink`, `AA`, `edge`, `MARK`; one darkening for `ink` and `edge`, D-042) |
+| A colour dot of the page, outlined when its colour is too light (page) | `render/assets/common.js paintDot` |
+| The outline of a Graphviz cell filled with a config colour (page) | `render/assets/common.js dotEdge` |
 | Theme colours used by the scripts (copy of `page.css :root`) | `render/assets/common.js THEME` |
 | Side panel toggle and opening state (page) | `render/assets/common.js sidePanel` |
 | A filter checkbox row (page) | `render/assets/common.js filterRow` |
