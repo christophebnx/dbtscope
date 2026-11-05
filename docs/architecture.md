@@ -145,6 +145,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Scale range of every zoom of the page | `render/assets/common.js ZOOM_EXTENT` |
 | Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |
 | Flow view (page) | `render/assets/flow.js startFlow` |
+| The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Placement of a domain's tables: layer bands in one row, in the smallest circle (page) | `render/assets/universe.js layoutDomain`, `layerBands`, `columns`, `packRow` |
 | A table name on one or two lines (universe, page) | `render/assets/universe.js nameLines` |

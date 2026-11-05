@@ -109,8 +109,9 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #f-view[hidden] { display:none; }
 #f-bar label { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; }
 .f-title { display:flex; align-items:center; gap:6px; min-width:0; margin:0; font-size:13px; font-weight:400; }
-.f-title i { width:10px; height:10px; border-radius:50%; flex:none; }
-.f-title b { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:40ch; }
+#f-start { display:inline-flex; align-items:center; gap:6px; min-width:0; padding:3px 8px; border:2px solid var(--fg); }
+#f-start i { width:10px; height:10px; border-radius:50%; flex:none; }
+#f-start b { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:40ch; }
 #f-counts { font-size:13px; font-variant-numeric:tabular-nums; }
 #f-cap { font-size:13px; color:var(--fg); }
 #f-cap[hidden] { display:none; }
@@ -122,7 +123,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #f-dom-list li span { overflow:hidden; text-overflow:ellipsis; }
 #f-dom-list li small { margin-left:auto; padding-left:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .fmk { display:inline-block; box-sizing:border-box; flex:none; }
-.fmk.start { width:14px; height:10px; border:2px solid var(--fg); }
+.fmk.start { width:16px; height:12px; border:3px double var(--fg); border-radius:2px; }
 .fmk.up { width:18px; border-top:2px dashed var(--traj-up); }
 .fmk.down { width:18px; border-top:2px solid var(--traj-down); }
 #f-graph { position:absolute; inset:0; touch-action:none; }
@@ -143,7 +144,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   .tj-start b { max-width:none; }
   .tj-pop { left:0; right:auto; min-width:0; max-width:calc(100vw - 24px); }
   .f-title { flex:1 1 calc(100% - 140px); }
-  .f-title b { max-width:none; }
+  #f-start b { max-width:none; }
   /* Direction and Depth share one row when both fit whole (English), else wrap; their selects grow, never clip */
   #f-bar label { flex:1 1 auto; }
   #f-bar label select { flex:1 1 auto; }
