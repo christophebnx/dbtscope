@@ -1,8 +1,0 @@
-dbtscope
-Copyright 2026 Christophe B.
-
-This product is licensed under the Apache License, Version 2.0 (see LICENSE).
-
-Pages generated with --offline embed third-party JavaScript libraries under
-their own licences; they are listed with their licence files in
-src/dbtscope/render/vendor/README.md.

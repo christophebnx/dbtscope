@@ -1,6 +1,6 @@
 # UI specification
 
-User-visible behaviour of the generated page, kept true by the ui-designer and the documentation agent. Detailed designs (wireframes, exact styles) live in the design notes under `docs/architecture/`; this file states what the user sees and can do.
+User-visible behaviour of the generated page, kept true by the ui-designer and the documentation agent. Detailed designs (wireframes, exact styles) live in the design notes under `docs/architecture/`; this file states what the user sees and can do. User-facing wording: `docs/user-guide.md`.
 
 ## General
 
@@ -30,7 +30,7 @@ Design: `docs/architecture/2026-11-05-m5.5-universe-layout.md`.
 - **Layer markers.** At constellation zoom (scale 0.6 or more), a faint 1 px line (`rgba(100,116,139,.10)`) separates consecutive bands of a domain, clipped to its circle; not drawn from afar, where routes speak. No layer names on the canvas.
 - **Domain tooltip.** A line lists the domain's bands in order: "Layers: Sources → Bronze → Silver → Gold" in the example project ("Couches : …"); the catch-all band reads "Other" ("Autre").
 - **Reproducible.** The same project gives the same shapes at every generation and on every machine; unticking and ticking back a domain puts it back in place.
-- **Saved arrangements (D-013).** Files and stored arrangements from before M5.5 load unchanged. A pinned domain stays where it was saved; a dragged table keeps its offset from its domain's centre (now the disc centre), so an old offset may sit outside the compact content: the halo grows to include it and computed tables under it are pushed off it. Tables never dragged take the new placement. Where a disc grew, two pinned domains may overlap: the pins win, and **Reset layout** gives the computed placement. Since M5.13 the layer grouping has its own arrangement next to these (D-047, below).
+- **Saved arrangements (D-013).** Files and stored arrangements from before M5.5 load unchanged. A pinned domain stays where it was saved; a dragged table keeps its offset from its domain's centre (now the disc centre), so an old offset may sit outside the compact content: the halo grows to include it and computed tables under it are pushed off it. Tables never dragged take the new placement. Where a disc grew, two pinned domains may overlap: the pins win, and **Reset layout** gives the computed placement. Since M5.13 the layer grouping has its own arrangement next to these (D-048, below).
 
 ## Universe view — trajectory mode (M1, D-018)
 
@@ -67,7 +67,7 @@ Design: `docs/architecture/2026-11-04-m5.3-flow-view.md` § UI design.
 - **Small screens.** No horizontal scroll at 360 px; the header wraps; 44 px controls on coarse pointers.
 - Nothing about the flow is saved (D-013).
 
-## Universe view — constellations by layer (M5.13, D-047)
+## Universe view — constellations by layer (M5.13, D-048)
 
 Design: `docs/architecture/2026-11-05-m5.13-group-by-layers.md` § UI design.
 

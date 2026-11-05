@@ -100,7 +100,7 @@ class UniverseDefaults(BaseModel):
     links: Links
     detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
-    constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-047)
+    constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-048)
 
 
 class UniversePayload(BaseModel):

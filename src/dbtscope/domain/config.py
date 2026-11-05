@@ -69,7 +69,7 @@ Language = Literal["en", "fr"]  # page language (D-016)
 View = Literal["universe", "detail"]  # tab shown when the page opens
 Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
 DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
-Constellations = Literal["domains", "layers"]  # what a universe constellation stands for (D-047)
+Constellations = Literal["domains", "layers"]  # what a universe constellation stands for (D-048)
 # unknown keys are accepted silently, as before the typed model: existing files keep working
 SETTINGS = ConfigDict(extra="ignore", frozen=True)
 # a preset is closed: a misspelt key is an error (D-030)

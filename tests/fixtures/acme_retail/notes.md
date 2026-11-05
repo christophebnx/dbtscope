@@ -6,7 +6,7 @@ Input: `manifest.json.gz`, the `target/manifest.json` that `dbt parse` wrote for
 
 What it covers, as dbt really writes it:
 
-- 95 tables in a medallion (D-046): 18 sources, 18 bronze models (`models/bronze_<system>/`, schema
+- 95 tables in a medallion (D-047): 18 sources, 18 bronze models (`models/bronze_<system>/`, schema
   = the system), a Data Vault in silver (`models/silver/<domain>/`: 13 hubs, 13 satellites, 12
   links), 16 star-schema marts in gold (`models/gold/<domain>/`), 3 seeds and 2 snapshots; no dbt
   groups and no `meta.domain`: each silver and gold domain folder has `+schema: <domain>`, and the

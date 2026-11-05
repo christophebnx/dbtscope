@@ -1,4 +1,4 @@
-"""Constellations by domain or by layer (M5.13, D-047): the switch `fieldset#u-by`, layer mode's geometry
+"""Constellations by domain or by layer (M5.13, D-048): the switch `fieldset#u-by`, layer mode's geometry
 on the example project, the config default, the per-viewer memory `dbtscope-constellations:<title>`, the
 `layers:*` layout scopes, the tooltip, and what layer mode leaves unchanged (filters, search, trajectory,
 flow, detail opening). Design note: docs/architecture/2026-11-05-m5.13-group-by-layers.md (test plan).

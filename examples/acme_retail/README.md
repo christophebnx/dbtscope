@@ -8,15 +8,7 @@ constraints (enforced contracts on `fct_orders` and `fct_order_lines`). Some col
 `data_type` on purpose (the satellites' `hd_*` hash diffs and three mart columns), as in most real
 projects. There is no data: `dbt parse` only needs the duckdb profile in this folder.
 
-From the root of the dbtscope repository:
-
-```bash
-uv tool install dbt-core --with dbt-duckdb
-dbtscope --project-dir examples/acme_retail       # runs dbt parse, writes erd_output/erd.html, opens it
-dbtscope --project-dir examples/acme_retail --no-open -o acme-map.html
-```
-
-In PowerShell, write the folder `examples\acme_retail`.
+To run dbtscope on it (clone, dbt with dbt-duckdb, the commands and the summary to expect): [Try it on the example project](../../docs/user-guide.md#try-it-on-the-example-project) in the user guide.
 
 - **No secret.** `profiles.yml` names a local duckdb file, `acme_retail.duckdb`, that `dbt parse`
   never opens. dbt finds it because it sits next to `dbt_project.yml` (no `DBT_PROFILES_DIR`).
@@ -34,6 +26,7 @@ In PowerShell, write the folder `examples\acme_retail`.
   by domain (sources, bronze models, seeds, snapshots), and they label and colour every domain. Four
   `layers` rules draw the bands Sources, Bronze (with seeds and snapshots), Silver and Gold. A
   project with one database per layer can write them as `database:bronze`, … instead of `path:`.
+  Step by step, with what each part changes in the page: [the user guide's walkthrough](../../docs/user-guide.md#walkthrough-the-examples-dbt-erdyml).
 
 ## Test input (D-033)
 

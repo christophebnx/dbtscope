@@ -1,5 +1,5 @@
 // Universe view: every table of the project as a star, grouped into one constellation per data
-// domain, or per layer (D-047). A constellation's tables are packed in bands (layer bands, or domain
+// domain, or per layer (D-048). A constellation's tables are packed in bands (layer bands, or domain
 // bands in layer mode) into the smallest disc (D-040), then d3-force places the constellations; a
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
@@ -56,7 +56,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
-  // the viewer's last grouping, kept apart from the shared layout and never exported (D-047): stored only
+  // the viewer's last grouping, kept apart from the shared layout and never exported (D-048): stored only
   // when it differs from the page default; without storage the choice lasts for the session
   const byMemory = (() => {
     const key = 'dbtscope-constellations:' + PAGE.title;
@@ -306,7 +306,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const NO_LAYER = DATA.layers.length && DATA.layers[DATA.layers.length - 1].key === 'other' ? 'other' : null;
   const layerPos = n => (n.layer === NO_LAYER ? null : LAYER[n.layer].rank);
   const DOM_POS = Object.fromEntries(DATA.domains.map((d, i) => [d.key, i]));
-  // What a constellation stands for (D-047): of, its key for a table; band, a table's band position (null:
+  // What a constellation stands for (D-048): of, its key for a table; band, a table's band position (null:
   // no band, placed by lineage); bandKey, a band position's key; rank, the constellation's x target along
   // the flow; flowX, the strength of that target; pins, the key of saved centres; scope, the layout scope
   const BY = {
@@ -436,7 +436,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
               arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
               ...TRAJ_COLORS };   // trajectory: upstream (dashed marks), downstream (solid marks)
   const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of constellations holding none of it
-  // layer mode (D-047): a domain band's opaque tint (the page mixed with the domain's mark colour at 6 %), the
+  // layer mode (D-048): a domain band's opaque tint (the page mixed with the domain's mark colour at 6 %), the
   // screen width of its arc on the rim, the screen gap between two arcs
   const TINTS = new Map();   // cached per colour, like CONTRAST: asked for every band in every frame
   function TINT(color) {
@@ -606,7 +606,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const rimAngle = (d, x) => -Math.acos(Math.max(-1, Math.min(1, x / d.r)));
   // the half-height of the disc above x (relative to the centre): the rim is at d.y ± rimHalf(d, x)
   const rimHalf = (d, x) => Math.sqrt(Math.max(0, d.r * d.r - x * x));
-  // Layer mode (D-047): each domain band tinted in its domain colour, clipped to the disc, and marked by an
+  // Layer mode (D-048): each domain band tinted in its domain colour, clipped to the disc, and marked by an
   // arc of the upper rim in the domain's mark colour (3:1, D-042), at every zoom; then the neutral outline
   function drawDomainBands(d, k) {
     const spans = bandSpans(d);
@@ -826,7 +826,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const [wx, wy] = t.invert(d3.pointer(ev, canvas));
     return constellations.find(d => Math.hypot(wx - d.x, wy - d.y) < d.r);
   }
-  // Layer mode tooltip of a constellation (D-047): its domains in band order (first TIP_DOMAINS, then "+ N"), and the
+  // Layer mode tooltip of a constellation (D-048): its domains in band order (first TIP_DOMAINS, then "+ N"), and the
   // band under the world x `wx`, if any
   function layerTip(d, wx) {
     const names = d.bands.slice(0, TIP_DOMAINS).map(b => esc(labelOf(DOM[b.key]))).join(' · ');

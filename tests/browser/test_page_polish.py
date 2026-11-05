@@ -617,7 +617,7 @@ def test_english_page_text_has_no_space_before_marks(tmp_path: Path, open_page: 
 def test_domain_owner_shows_in_the_tooltip_and_the_list_with_the_page_spacing(
     build_page: Any, open_page: Any, lang: str, owner: str
 ) -> None:
-    """acme has no dbt group (D-046): shop's sales_team group (owner Ana) carries the owner checks."""
+    """acme has no dbt group (D-047): shop's sales_team group (owner Ana) carries the owner checks."""
     p = page_in(build_page, open_page, lang)
     name, line = p.page.evaluate(DOMAIN_TIP, True)
     assert name == "sales_team" and line.endswith(owner), line
