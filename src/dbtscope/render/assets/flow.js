@@ -5,6 +5,7 @@
 function startFlow(DATA, EXPORT, close) {
   const FLOW_MAX = 150;          // tables drawn at most, start included: the one knob of the render time
   const FLOW_MIN_SCALE = 0.75;   // a smaller initial scale makes names unreadable: zoom to it on the start
+  const START_RING = { gap: 6, width: 3, glow: 10 };   // screen pixels: the start's ring and glow at every zoom
   const $f = id => document.getElementById('f-' + id);
   const T = {
     en: { flowOf: 'Flow of', back: 'Universe', backTitle: 'Back to the universe (Esc)', fitTitle: 'Show the whole flow',
@@ -12,13 +13,15 @@ function startFlow(DATA, EXPORT, close) {
           capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${num(FLOW_MAX)}`,
           capCut: (shown, total) => `Only ${num(shown)} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${num(FLOW_MAX)} per flow)`,
           pngTitle: 'Save the visible flow as a PNG image (high resolution)',
-          svgTitle: 'Save the visible flow as an SVG image (vector, opens in any browser)' },
+          svgTitle: 'Save the visible flow as an SVG image (vector, opens in any browser)',
+          startTitle: 'Centre the view on the start table' },
     fr: { flowOf: 'Flux de', back: 'Univers', backTitle: 'Revenir à l\'univers (Échap)', fitTitle: 'Afficher tout le flux',
           clickFlow: 'Clic\u00a0: afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
           capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)}\u00a0: la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${num(FLOW_MAX)}`,
           capCut: (shown, total) => `Seules ${num(shown)} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${num(FLOW_MAX)} par flux)`,
           pngTitle: 'Enregistrer le flux visible en image PNG (haute résolution)',
-          svgTitle: 'Enregistrer le flux visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)' },
+          svgTitle: 'Enregistrer le flux visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
+          startTitle: 'Centrer la vue sur la table de départ' },
   }[PAGE.lang];
   const N = DATA.nodes, INDEX = new Map(N.map((n, i) => [n.id, i]));
   const byKey = list => Object.fromEntries(list.map((x, pos) => [x.key, { ...x, pos }]));
@@ -27,12 +30,15 @@ function startFlow(DATA, EXPORT, close) {
   const view = $f('view'), box = $f('graph'), tip = $f('tip'), live = $f('live');
   const dirSel = $f('dir'), depthSel = $f('depth'), domains = $f('domains');
   const pngBtn = $f('export-png'), svgBtn = $f('export-svg');
-  // st: the drawn flow (start, direction, requested depth, then what prepare() computed)
-  let st = null, zv = null, renderSeq = 0, isOpen = false;
+  // st: the drawn flow (start, direction, requested depth, then what prepare() computed);
+  // ring: the drawn start's node, its ring group (.f-halo) and its cached bounding box
+  let st = null, zv = null, ring = null, renderSeq = 0, isOpen = false;
 
   // ---------------------------------------------------------------- controls
   $f('back-t').textContent = T.back; $f('back').title = T.backTitle;
   $f('of').textContent = T.flowOf;
+  $f('start').title = T.startTitle;
+  $f('start').onclick = () => locateStart();
   $f('h-dir').textContent = L.direction; $f('h-depth').textContent = L.depth;
   $f('fit').textContent = L.fit; $f('fit').title = T.fitTitle;
   $f('export-h').textContent = L.exportImage;
@@ -99,7 +105,7 @@ function startFlow(DATA, EXPORT, close) {
   // then its depth and layer
   function nodeDot(i) {
     const n = N[i], id = dotStr(n.id);
-    const frame = i === st.start ? 'border="3" color="#1f2933"' : 'border="1" color="#c3c9d2"';
+    const frame = i === st.start ? `border="3" color="${THEME.fg}"` : 'border="1" color="#c3c9d2"';
     return `"${id}" [id="${id}" label=<<table ${frame} cellborder="0" cellspacing="0" cellpadding="4" bgcolor="white">` +
       `<tr><td rowspan="2" width="6" bgcolor="${esc(CONTRAST.edge(DOM[n.domain].color, THEME.bg))}"></td>` +
       `<td align="left" bgcolor="${esc(KIND[n.kind].color)}"${dotEdge(KIND[n.kind].color)}><font color="${esc(CONTRAST.textOn(KIND[n.kind].color))}"><b>${dotText(n.name)}</b>&#160;&#160;&#160;</font></td></tr>` +
@@ -175,6 +181,7 @@ function startFlow(DATA, EXPORT, close) {
   function render(keyboard) {
     canExport(false); hideTip();
     if (zv) { zv.destroy(); zv = null; }
+    ring = null;
     box.innerHTML = `<div class="msg">${L.computing}</div>`;
     const seq = ++renderSeq, current = () => seq === renderSeq && isOpen, source = st.dot;
     let svg = null;
@@ -184,7 +191,7 @@ function startFlow(DATA, EXPORT, close) {
       GRAPHVIZ.render(source).then(drawn => {
         if (!current()) return null;
         svg = drawn; tidy(svg);
-        return graphZoom(box, svg, current, hideTip);
+        return graphZoom(box, svg, current, t => { hideTip(); ringStart(t.k); });
       }).then(mounted => {
         if (!mounted) return;
         zv = mounted;
@@ -206,10 +213,38 @@ function startFlow(DATA, EXPORT, close) {
       g.setAttribute('aria-label', `${N[i].name}, ${levelText(i)}`);
       if (i === st.start) g.setAttribute('aria-current', 'true'); else g.setAttribute('role', 'button');
     });
+    addRing(svg);
+  }
+  // the start ring: a glow and a ring under every table and arrow (first in Graphviz's graph group),
+  // presentation attributes only, so the exported images show it as the screen does
+  function addRing(svg) {
+    const NS = 'http://www.w3.org/2000/svg', node = startNode(svg), graph = node.parentNode;
+    const halo = document.createElementNS(NS, 'g'), glow = document.createElementNS(NS, 'rect'), line = document.createElementNS(NS, 'rect');
+    halo.setAttribute('class', 'f-halo'); halo.setAttribute('aria-hidden', 'true');
+    glow.setAttribute('fill', THEME.fg); glow.setAttribute('fill-opacity', '0.14');
+    line.setAttribute('fill', 'white'); line.setAttribute('stroke', THEME.fg);
+    halo.append(glow, line);
+    graph.insertBefore(halo, graph.querySelector(':scope > g.node, :scope > g.edge'));
+    ring = { node, halo, bb: null };
+  }
+  // sizes the ring for zoom scale k: the same screen size whatever k (the start's box read once per render)
+  function ringStart(k) {
+    if (!ring) return;
+    const bb = ring.bb || (ring.bb = ring.node.getBBox()), u = 1 / k, [glow, line] = ring.halo.children;
+    const grow = (el, pad, extra) => Object.entries({ x: bb.x - pad, y: bb.y - pad, width: bb.width + 2 * pad,
+      height: bb.height + 2 * pad, rx: pad, ...extra }).forEach(([name, v]) => el.setAttribute(name, v));
+    const { gap, width } = START_RING;
+    grow(line, (gap + width / 2) * u, { 'stroke-width': width * u });
+    grow(glow, (gap + width + START_RING.glow) * u, {});
+  }
+  // the header's start button: the start in the middle of the area, at the current scale or FLOW_MIN_SCALE
+  // if smaller; nothing while laying out or after a render error
+  function locateStart(node = ring && ring.node) {
+    if (zv && node) zv.centre(node.getBoundingClientRect(), Math.max(zv.get().k, FLOW_MIN_SCALE));
   }
   // the whole flow when readable (graphZoom fits it), else FLOW_MIN_SCALE centred on the start
   function initialView(svg) {
-    if (zv.get().k < FLOW_MIN_SCALE) zv.centre(startNode(svg).getBoundingClientRect(), FLOW_MIN_SCALE);
+    if (zv.get().k < FLOW_MIN_SCALE) locateStart(startNode(svg));
   }
   function wire(svg, keyboard) {
     svg.querySelectorAll('g.node').forEach(g => {

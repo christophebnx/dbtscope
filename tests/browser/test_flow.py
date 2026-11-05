@@ -377,6 +377,7 @@ def test_flow_controls_are_44_px_targets_on_touch(tmp_path: Path, open_page: Any
           .filter(e => e.getBoundingClientRect().height < 44).map(e => e.id || e.tagName)"""
     )
     assert small == []
+    assert p.page.locator("#f-start").bounding_box()["height"] >= 44  # M5.11: the start is a button
     assert scroll_width(p) <= NARROW["width"]
 
 
