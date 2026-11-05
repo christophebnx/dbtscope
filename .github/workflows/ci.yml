@@ -1,6 +1,7 @@
 name: ci
 
-# D-043: the default tests on Linux, Windows and macOS; ruff and the secret scan on Linux only.
+# D-043, D-044: the whole default suite and ruff on Linux; on Windows and macOS only the tests
+# that touch the operating system (files, paths, CLI, subprocesses, page bytes).
 # Installs only the `test` dependency group. Pull requests and pushes to main; also by hand.
 
 on:
@@ -15,7 +16,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read  # gitleaks lists the commits of a pull request
 
 jobs:
   test:
@@ -23,9 +23,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, py: python3}
-          - {os: windows-latest, py: python}
-          - {os: macos-latest, py: python3}
+          - {os: ubuntu-latest, py: python3, tests: ""}
+          - {os: windows-latest, py: python, tests: "tests/unit/test_cli.py tests/unit/test_files.py tests/unit/test_project_files.py tests/unit/test_reference_pages.py tests/integration"}
+          - {os: macos-latest, py: python3, tests: "tests/unit/test_cli.py tests/unit/test_files.py tests/unit/test_project_files.py tests/unit/test_reference_pages.py tests/integration"}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     env:
@@ -36,15 +36,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: ${{ matrix.os == 'ubuntu-latest' && '0' || '1' }}  # gitleaks needs the history (a 0 would read as false)
       # uv from PyPI: much faster on hosted runners than setup-uv's download from GitHub releases
       - run: ${{ matrix.py }} -m pip install -q --break-system-packages uv
       - run: ${{ matrix.py }} -m uv sync -q --locked --no-default-groups --group test
       - if: runner.os == 'Linux'
         run: ${{ matrix.py }} -m uv tool run ruff@0.17.3 check . && ${{ matrix.py }} -m uv tool run ruff@0.17.3 format --check .
-      - run: ${{ matrix.py }} -m uv run --no-sync pytest -q -n auto -p no:cacheprovider
-      - if: runner.os == 'Linux'
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: ${{ matrix.py }} -m uv run --no-sync pytest -q -n auto -p no:cacheprovider ${{ matrix.tests }}

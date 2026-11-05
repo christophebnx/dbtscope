@@ -198,6 +198,8 @@ Done when: the design note's test plan passes (default and browser suites, hosti
 
 - **M5.8 — CI on Linux, Windows and macOS.** (Done.) (Asked by the user on 2026-11-05, D-043.) CI runs again on pull requests and pushes to `main`, one job per OS, installing only the `test` group (uv from PyPI); ruff and gitleaks on Linux. Portable tests (fake dbt as a Python program with an sh or .cmd shim, paths built with `Path`), and the same error wording on every OS.
 
+- **M5.9 — Lighter CI.** (Done.) (Asked by the user on 2026-11-05, D-044.) Windows and macOS run only the OS-sensitive tests; gitleaks runs in pre-commit only.
+
 ## Later (not scheduled)
 
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
