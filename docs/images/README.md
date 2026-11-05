@@ -8,8 +8,8 @@ Screenshots of the page of the example project `examples/acme_retail`, used by t
 | `universe-domain.png` | Sales domain framed as a double-click does, keys level | user guide § The universe view |
 | `trajectory.png` | trajectory of `fct_orders`, both directions, all levels, then Fit | § Trajectory |
 | `flow.png` | the flow of that trajectory, Fit | § Flow |
-| `detail-vault.png` | detail, group `main_raw_vault`, key columns, zoomed on the first hubs and cut below the last whole row of tables (1280 × 590) | § The detail view |
-| `detail-focus.png` | detail, group `main_marts`, focus on `dim_customer`, direct links, all columns | § The detail view |
+| `detail-vault.png` | detail, group `sales`, key columns, kinds Fact and Dimension unticked (with them the dimension row and the vault block overlap, so no cut keeps every table whole), zoomed out one wheel step from Fit and cut below the last whole row of tables (1280 × 725) | § The detail view |
+| `detail-focus.png` | detail, group `customer`, focus on `dim_customer`, direct links, all columns, zoomed out three wheel steps from Fit | § The detail view |
 | `small-screen.png` | universe at 390 × 844, touch, panel closed | § Zoom, pan and touch |
 
 ## Retaking them
@@ -29,4 +29,4 @@ A page milestone that changes what an image shows retakes it. The text of the gu
 2. Open it in Chromium with a 1280 × 800 CSS px window at device scale 1 (390 × 844 with touch for `small-screen.png`) and set each state of the table above, by hand or with Playwright (`uv run --group browser python …`; the page's own hooks `views.universe.geometry()` and `views.universe.camera()` frame a domain). Take a screenshot of the whole window. The page's own **Export image** is not used: it leaves out the panels and bars a reader needs to recognise.
 3. Optimise: keep the lossless PNG when it is within 200 kB; otherwise quantise it to 256 colours with dithering (for example Pillow: a fast-octree palette, then `quantize(palette=…, dither=FLOYDSTEINBERG)`, saved with `optimize=True`, or `pngquant --quality 70-90`). Look at each image before keeping it: the kind and domain colours must stay true.
 
-The M6.1 images were taken this way by a Playwright script and a Pillow script kept outside the repository (design note § 7, As built).
+The M6.1 images were taken this way by a Playwright script and a Pillow script kept outside the repository (design note § 7, As built). All seven were retaken the same way on 2026-11-05 when the example became a medallion project (bronze, silver and gold layers, domains from schemas).

@@ -477,7 +477,7 @@ language: fr          # the page in French; en (default) or fr
 
 ### Try it on the example project
 
-The repository holds a fake but complete dbt project, [`examples/acme_retail/`](../examples/acme_retail/): a retailer with 5 source systems, a staging layer, a Data Vault and star-schema marts. Its universe shows domains taken from dbt groups and `meta.domain`; its detail view shows relations from `relationships` tests and `foreign_key` constraints. You need a clone of the repository ([Option B](#option-b-from-a-git-clone)) and dbt with the duckdb adapter. From the repository root:
+The repository holds a fake but complete dbt project, [`examples/acme_retail/`](../examples/acme_retail/): a retailer with 5 source systems laid out as a medallion: `models/bronze_<system>/` (one folder per source system), a Data Vault in `models/silver/<domain>/` and star-schema marts in `models/gold/<domain>/`. Its universe takes the domains from the schemas by convention (each silver and gold domain folder has `+schema: <domain>`, no dbt groups) and shows the layers Sources → Bronze → Silver → Gold; its detail view shows relations from `relationships` tests and `foreign_key` constraints. You need a clone of the repository ([Option B](#option-b-from-a-git-clone)) and dbt with the duckdb adapter. From the repository root:
 
 ```bash
 git clone https://github.com/christophebnx/dbtscope   # with SSH: git clone git@github.com:christophebnx/dbtscope.git
@@ -498,7 +498,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
-Things to try: double-click the Sales domain; click `fct_orders` for its trajectory, then **Flow**; in the Detail tab, pick the group `main_marts` and focus on `dim_customer`. How its `dbt-erd.yml` is built: [Walkthrough](#walkthrough-the-examples-dbt-erdyml).
+Things to try: double-click the Sales constellation; switch **Constellations** to **Layers**; click `fct_orders` for its trajectory, then **Flow**; in the Detail tab, pick the group `customer` and focus on `dim_customer`. How its `dbt-erd.yml` is built: [Walkthrough](#walkthrough-the-examples-dbt-erdyml).
 
 ### Preparing a demo
 
@@ -577,6 +577,7 @@ universe:
   links: both                 # relations | lineage | both: initial choice, switchable in the page
   detail: names               # names | keys | all
   hidden_kinds: []            # kinds unticked at opening (the page's Types boxes)
+  constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
 ```
 
 `kinds` colour both views. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
@@ -599,14 +600,14 @@ language: en
 view: universe
 ```
 
-**2. Choose what the detail view draws.** The preset selects the vault only; the example adds the star schema marts. With the default `group_by: schema`, this gives two groups in the detail view: `main_raw_vault` (38 tables) and `main_marts` (16 tables).
+**2. Choose what the detail view draws.** The preset selects the vault only; the example adds the star schema marts. With the default `group_by: schema`, this gives one group per domain schema in the detail view, the vault and the marts of a domain together: `sales` (11 tables), `customer` (4), `product` (6), `marketing` (12), `finance` (8) and `logistics` (13).
 
 <!-- excerpt: examples/acme_retail/dbt-erd.yml -->
 ```yaml
 select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
 ```
 
-**3. Name and colour the kinds.** These rules replace the preset's list. Their order matters: the first rule that matches a table gives its kind. In the universe, sources, seeds and snapshots no rule matches keep their built-in kind; the staging models are "Other".
+**3. Name and colour the kinds.** These rules replace the preset's list. Their order matters: the first rule that matches a table gives its kind. In the universe, sources, seeds and snapshots no rule matches keep their built-in kind; the bronze models are "Other".
 
 <!-- excerpt: examples/acme_retail/dbt-erd.yml -->
 ```yaml
@@ -618,7 +619,7 @@ kinds:
   - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
 ```
 
-**4. Place every table in a domain.** The marts already have a domain, their dbt group (with its owner), and the vault has `meta.domain` in its YAML. The rules only place what has neither: sources, staging models, seeds and snapshots. A source is matched by its type, schema and name together (a comma means "all of these").
+**4. Place every table in a domain.** The silver and gold tables already have a domain, their schema: each domain folder has `+schema: <domain>` in `dbt_project.yml`, and the project's `generate_schema_name` macro keeps it as written. The rules place what is organised by source system rather than by domain: sources, bronze models, seeds and snapshots. They also label and colour every domain. A source is matched by its type, schema and name together (a comma means "all of these").
 
 <!-- excerpt: examples/acme_retail/dbt-erd.yml -->
 ```yaml
@@ -629,15 +630,15 @@ domains:
 
 The file has five more rules of the same form (Product, Marketing, Finance, Logistics, Shared): 7 domains in all.
 
-**5. Order the layers.** Four layers, from left to right inside each domain: sources, then staging (seeds and snapshots with it), then the raw vault, then the marts.
+**5. Order the layers.** Four layers along the medallion, from left to right inside each domain: sources, then bronze (seeds and snapshots with it, loaded or captured as is), then silver (the vault), then gold (the marts). A project with one database per layer can write them as `database:bronze`, … instead of `path:`.
 
 <!-- excerpt: examples/acme_retail/dbt-erd.yml -->
 ```yaml
 layers:
   - {key: source, label: Sources, match: ["type:source"]}
-  - {key: staging, label: Staging, match: ["path:models/staging/*", "type:seed", "type:snapshot"]}
-  - {key: vault, label: Raw vault, match: ["path:models/raw_vault/*"]}
-  - {key: marts, label: Marts, match: ["path:models/marts/*"]}
+  - {key: bronze, label: Bronze, match: ["path:models/bronze_*", "type:seed", "type:snapshot"]}
+  - {key: silver, label: Silver, match: ["path:models/silver/*"]}
+  - {key: gold, label: Gold, match: ["path:models/gold/*"]}
 ```
 
 The result is the summary of [Try it on the example project](#try-it-on-the-example-project).
@@ -697,19 +698,20 @@ kinds:
 
 ## The universe view
 
-Every model, source, seed and snapshot of the project as a star, grouped into one **constellation per data domain**. How a table gets its domain and layer: [How a table is classified](how-it-works.md#how-a-table-is-classified).
+Every model, source, seed and snapshot of the project as a star, grouped into one **constellation per data domain** (or, with the **Constellations** switch, one per layer). How a table gets its domain and layer: [How a table is classified](how-it-works.md#how-a-table-is-classified).
 
 ### Reading the map
 
 - **From afar**: the domains, their size, and the routes between them: one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes. A bar under each domain name shows its mix of kinds.
-- **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (sources, staging, …, marts); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
+- **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
 - **The same picture every time**: the same project gives the same placement at every generation.
 
-![The Sales domain at the keys level: sources and staging on the left, then the vault, then the marts](images/universe-domain.png)
+![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)
 
 ### Filters and links
 
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly. The opening choice is `universe.links` in the config.
+- **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser, and keeps a separate manual arrangement for each grouping.
 - **Side panel**: tick **Layers**, **Types** (the kinds) and **Domains** on and off, with "all" and "none" for domains. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
 - The count line above the map says how many tables, links and domains are shown.
 
@@ -720,7 +722,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 ### Search and double-click
 
 - **Search** finds a table by name, even when filters hide it (its filters are ticked back on), and zooms on it.
-- **Double-click** a domain to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the detail view does not include it).
+- **Double-click** a constellation to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the detail view does not include it).
 - Hover a table for its kind, domain, layer and description; hover a domain for its owner and layers.
 
 ### Trajectory
@@ -740,14 +742,14 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 
 **Flow** in the trajectory bar draws the same trajectory (same start, direction and depth) as a left-to-right diagram: upstream tables on the left, the start in a thick dark frame, downstream tables on the right, every arrow pointing right (dashed violet upstream, solid orange downstream).
 
-- **Tables**: the name on the kind colour, the domain as a colour band on the left edge, then the depth (`−2` is two hops upstream, `+1` one hop downstream) and the layer. Columns follow the lineage, with your layers as a floor, so sources, staging, vault and marts form bands when the lineage follows them.
+- **Tables**: the name on the kind colour, the domain as a colour band on the left edge, then the depth (`−2` is two hops upstream, `+1` one hop downstream) and the layer. Columns follow the lineage, with your layers as a floor, so your layers (in the example: sources, bronze, silver, gold) form bands when the lineage follows them.
 - **The start** stands out at every zoom: a dark ring and a soft glow surround it and keep the same size on screen, so it is found at a glance even on a large flow. Its name in the header is a button that centres the view on it.
 - **Header**: **← Universe**, the start table, **Direction** and **Depth** (they change the flow only), the counts, **N domains** (a legend and each domain with its colour and table count), **Fit** and **Export image** (PNG, SVG).
 - **Recentre**: click a table (or Enter on a focused one) to draw its own flow. The universe trajectory does not move.
 - **Back**: **← Universe** or `Esc` returns to the universe exactly as it was (filters, zoom, trajectory). Nothing is saved.
 - **Limit**: a flow draws at most 150 tables. Above that the depth is reduced to the deepest level that fits, or only the first 149 direct tables are drawn, and the header says so.
 
-![The flow of fct_orders: sources at −4 on the left, staging, vault and dimensions, the start ringed, fct_order_lines at +1](images/flow.png)
+![The flow of fct_orders: sources at −4 on the left, then Bronze, Silver and the Gold dimensions, the start ringed, fct_order_lines at +1](images/flow.png)
 
 ## The detail view
 
@@ -760,9 +762,9 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
 
-![The detail view of the raw vault group: hubs on the left, their satellites and links on the right](images/detail-vault.png)
+![The detail view of the sales group with facts and dimensions unticked: hubs on the left (the customer and product hubs of other groups dashed), their links and satellites on the right](images/detail-vault.png)
 
-![Focus on dim_customer with all columns: dim_country on the left, the facts that refer to it on the right](images/detail-focus.png)
+![Focus on dim_customer in the customer group with all columns: dim_country, the table it refers to, on the left](images/detail-focus.png)
 
 ## Zoom, pan and touch
 
@@ -780,7 +782,7 @@ The three drawings (universe, detail, flow) zoom and pan the same way.
 
 Both tabs let you drag things where you want them:
 
-- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole domain by its name. Once anything is moved, every domain stays where it is, even when filters change.
+- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. Domains and Layers each keep their own arrangement.
 - **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types.
 
 Every move is saved in the browser at once. To share an arrangement with the team:

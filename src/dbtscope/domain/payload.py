@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from dbtscope.domain.config import DetailLevel, Language, Links, View
+from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, View
 from dbtscope.domain.model import DOMAIN
 
 
@@ -100,6 +100,7 @@ class UniverseDefaults(BaseModel):
     links: Links
     detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
+    constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-048)
 
 
 class UniversePayload(BaseModel):

@@ -150,6 +150,9 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
         layers=_layers({n.layer for n in nodes}, config),
         kinds=_kinds({n.kind for n in nodes}, config),
         defaults=UniverseDefaults(
-            links=universe.links, detail=universe.detail, hidden_kinds=universe.hidden_kinds
+            links=universe.links,
+            detail=universe.detail,
+            hidden_kinds=universe.hidden_kinds,
+            constellations=universe.constellations,
         ),
     )

@@ -131,30 +131,30 @@ flowchart TD
 - **Structure only.** The data holds table and column names, types, descriptions, relations, lineage and the classification above. Never rows, never query results.
 - **Libraries.** The page uses two JavaScript libraries: d3 (zoom, the universe's domain placement) and Viz.js (Graphviz compiled for the browser, for the detail and the flow). They come from public CDNs, or from the page itself when it is built offline: see [An offline page to share](user-guide.md#an-offline-page-to-share). Their versions, sources and licences: [src/dbtscope/render/vendor/README.md](../src/dbtscope/render/vendor/README.md).
 - **Safe embedding.** Every `<` in the embedded data is written as an escape, so a description holding HTML can never break out of the data block.
-- **Arrangements.** Tables and domains you drag are saved in the browser's local storage, under a key built from the page title. See [The layout file's life](#the-layout-files-life).
+- **Arrangements.** Tables and constellations you drag are saved in the browser's local storage, under a key built from the page title. See [The layout file's life](#the-layout-files-life).
 
 ## How each view is laid out
 
-- **Universe.** Each domain is a circle. Inside it, tables sit in **layer bands**, left to right along the data flow, and the circle is the smallest that holds them; names and cards never overlap. The domains themselves are placed by a force simulation with a fixed seed, so the same project gives the same picture at every generation (decision D-040). The whole universe is drawn on a canvas, which stays fast with about 1,500 tables.
+- **Universe.** Each domain is a circle. Inside it, tables sit in **layer bands**, left to right along the data flow, and the circle is the smallest that holds them; names and cards never overlap. The domains themselves are placed by a force simulation with a fixed seed, so the same project gives the same picture at every generation (decision D-040). With the **Constellations** switch on **Layers**, each circle is a layer instead, placed along the data flow, and its tables sit in domain bands tinted in the domain's colour (decision D-048). The whole universe is drawn on a canvas, which stays fast with about 1,500 tables.
 - **Detail.** Graphviz draws the entity-relationship diagram of the selected group: referenced tables on the left, the tables that point at them on the right (hubs, then links, then satellites; dimensions, then facts).
 - **Flow.** The flow of a trajectory is drawn by Graphviz from left to right. Its columns come from the lineage first, so every arrow points right; the layers are a floor, so sources, staging, vault and marts form bands where the lineage follows them. A flow holds at most 150 tables (decision D-036).
 
-A real trajectory of the example project, as the flow draws it: the start `customer_hub`, both directions, all levels. `dim_customer` and `fct_orders` are both marts, but `fct_orders` reads `dim_customer`, so it stands one column further right.
+A real trajectory of the example project, as the flow draws it: the start `customer_hub`, both directions, all levels. `dim_customer` and `fct_orders` are both gold marts, but `fct_orders` reads `dim_customer`, so it stands one column further right.
 
 ```mermaid
 flowchart LR
-    C["customers: Sources, -2"] --> S["stg_erp__customers: Staging, -1"]
-    S --> H["customer_hub: Raw vault, start"]
-    H --> D["dim_customer: Marts, +1"]
-    D --> F["fct_orders: Marts, +2"]
-    F --> L["fct_order_lines: Marts, +3"]
+    C["customers: Sources, -2"] --> S["stg_erp__customers: Bronze, -1"]
+    S --> H["customer_hub: Silver, start"]
+    H --> D["dim_customer: Gold, +1"]
+    D --> F["fct_orders: Gold, +2"]
+    F --> L["fct_order_lines: Gold, +3"]
 ```
 
 ## The layout file's life
 
 ```mermaid
 flowchart LR
-    DR["you drag tables or domains"] --> BS["browser storage, saved at once"]
+    DR["you drag tables or constellations"] --> BS["browser storage, saved at once"]
     BS --> EX["Export layout"]
     EX --> F["dbt-erd-layout.json next to dbt_project.yml"]
     F --> GIT["committed with the dbt project"]

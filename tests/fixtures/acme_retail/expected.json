@@ -6,7 +6,7 @@
     "tables": 54,
     "kinds": {"Hub": 13, "Link": 12, "Satellite": 13, "Fact": 8, "Dimension": 8},
     "relations": 58,
-    "groups": {"main_raw_vault": 38, "main_marts": 16}
+    "groups": {"sales": 11, "customer": 4, "product": 6, "marketing": 12, "finance": 8, "logistics": 13}
   },
   "relations_by_origin": {"relationships_test": 53, "foreign_key": 5},
   "untyped_columns": 16,

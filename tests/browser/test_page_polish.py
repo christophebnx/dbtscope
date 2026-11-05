@@ -254,8 +254,8 @@ def test_open_panel_stacks_above_the_toolbar_at_360_px(
 # ---------------------------------------------------------------- 44 px targets on touch screens
 
 TARGETS = """() => {
-  const sel = 'button, select, input:not([type=checkbox]):not([type=file]), #u-tj-counts summary, '
-    + '.panel label, .panel h3 a';
+  const sel = 'button, select, input:not([type=checkbox]):not([type=radio]):not([type=file]), '
+    + '#u-tj-counts summary, .panel label, .panel h3 a';
   const out = [];
   document.querySelectorAll(sel).forEach(el => {
     const r = el.getBoundingClientRect();
@@ -281,6 +281,9 @@ def test_every_control_is_a_44_px_target_on_touch_screens(build_page: Any, open_
     p.page.click("#u-toggle")
     assert p.page.locator("#u-panel label").count() > 0
     assert_targets(p, "universe, panel open")
+    rows = p.page.locator("#u-by label")
+    assert rows.count() == 2 and p.page.is_visible("#u-by")  # the radio rows are among the targets
+    assert all(rows.nth(j).bounding_box()["height"] >= 43.5 for j in range(2))
     p.page.click("#u-toggle")
     p.page.fill("#u-q", "stg_orders")
     p.page.click("#u-traj")
@@ -505,16 +508,19 @@ COLLECT = """() => {
 # every value of STRINGS[lang]: strings, pairs, and what the functions return
 STRING_VALUES = """lang => Object.values(STRINGS[lang]).flatMap(v =>
   typeof v === 'function' ? [v('7')] : Array.isArray(v) ? v : [v])"""
-# Move the pointer over the canvas until the tooltip of a domain with an owner shows; -> its texts
-DOMAIN_TIP = """() => {
+# Move the pointer over the canvas until the tooltip of a domain (with an owner when `owned`) shows;
+# -> its name and count line
+DOMAIN_TIP = """owned => {
   const c = document.getElementById('u-canvas'), tip = document.getElementById('u-tip');
   const r = c.getBoundingClientRect();
-  const owned = new Set(PAGE.universe.domains.filter(d => d.owner).map(d => d.label));
+  const labels = new Set(PAGE.universe.domains.filter(d => !owned || d.owner).map(d => d.label));
   for (let y = r.top + 8; y < r.bottom; y += 8) for (let x = r.left + 8; x < r.right; x += 8) {
     c.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
     const b = tip.querySelector('b'), m = tip.querySelector('.m');
     const shown = tip.style.display === 'block' && b && m;
-    const domain = shown && owned.has(b.textContent) && m.textContent.split(' · ').length === 2;
+    // a domain's count line is "N tables", plus " · owner: …" only when its dbt group has an owner
+    const parts = shown && m.textContent.split(' · ').length;
+    const domain = shown && labels.has(b.textContent) && parts === (owned ? 2 : 1);
     if (domain) return [b.textContent, m.textContent];
   }
   return null;
@@ -544,7 +550,7 @@ def data_strings(data: dict[str, Any]) -> list[str]:
 def page_texts(p: Page, data: dict[str, Any]) -> list[str]:
     """The texts of the acme page after showing every composed string, the data taken out."""
     texts = list(p.page.evaluate(COLLECT))
-    assert p.page.evaluate(DOMAIN_TIP), "no domain tooltip with an owner"
+    assert p.page.evaluate(DOMAIN_TIP, False), "no domain tooltip"
     texts += p.page.evaluate(COLLECT)
     start = next(n for n in data["universe"]["nodes"] if n["name"] == START)
     p.page.evaluate(HOVER_TABLE, start["id"])
@@ -600,14 +606,23 @@ def test_french_page_text_uses_french_spacing(tmp_path: Path, open_page: Any) ->
 
 def test_english_page_text_has_no_space_before_marks(tmp_path: Path, open_page: Any) -> None:
     p, data = acme_in(tmp_path, open_page, "en")
-    name, line = p.page.evaluate(DOMAIN_TIP)
-    owner = next(d["owner"] for d in data["universe"]["domains"] if d["label"] == name)
-    assert line.endswith(f" · owner: {owner}"), line
     texts = page_texts(p, data)
     bad = [t for t in texts if NBSP in t or NNBSP in t or re.search(r" [:?!;]", t)]
     assert bad == []
     assert p.page.evaluate("Object.keys(STRINGS.en)") == p.page.evaluate("Object.keys(STRINGS.fr)")
     assert "colon" in p.page.evaluate("Object.keys(STRINGS.en)")
+
+
+@pytest.mark.parametrize(("lang", "owner"), [("en", " · owner: Ana"), ("fr", f" · propriétaire{NBSP}: Ana")])
+def test_domain_owner_shows_in_the_tooltip_and_the_list_with_the_page_spacing(
+    build_page: Any, open_page: Any, lang: str, owner: str
+) -> None:
+    """acme has no dbt group (D-047): shop's sales_team group (owner Ana) carries the owner checks."""
+    p = page_in(build_page, open_page, lang)
+    name, line = p.page.evaluate(DOMAIN_TIP, True)
+    assert name == "sales_team" and line.endswith(owner), line
+    title = p.page.locator("#u-domains label", has_text=name).get_attribute("title")
+    assert title == owner.removeprefix(" · "), title
 
 
 # ---------------------------------------------------------------- M5.4: numbers (D-039)

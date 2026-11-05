@@ -109,10 +109,10 @@ def test_layers_run_left_to_right_in_every_domain(project: tuple[Path, Opener]) 
         assert_layers_left_to_right(geometry(p, level), layers)
 
 
-# acme with layers that leave staging, the raw vault, seeds and snapshots to the catch-all
+# acme with layers that leave bronze, silver, seeds and snapshots to the catch-all
 PARTIAL_LAYERS = """layers:
   - {key: source, label: Sources, match: ["type:source"]}
-  - {key: marts, label: Marts, match: ["path:models/marts/*"]}
+  - {key: gold, label: Gold, match: ["path:models/gold/*"]}
 """
 
 
@@ -133,7 +133,7 @@ def test_tables_without_a_layer_follow_their_parents(tmp_path: Path, open_page: 
     for level in LEVELS:
         g = geometry(p, level)
         assert_layers_left_to_right(g, layer_keys(p))
-        domains = {d["key"]: d for d in g["domains"]}
+        domains = {d["key"]: d for d in g["constellations"]}
         at = {t["id"]: t for t in g["tables"]}
         band = {n["id"]: band_of(domains[n["domain"]], at[n["id"]]["x"]) for n in nodes}
         parents: dict[int, list[int]] = defaultdict(list)
@@ -206,7 +206,7 @@ def test_every_name_in_view_is_drawn_at_scale_1(acme: tuple[Path, Opener]) -> No
     w, h = p.page.evaluate(
         "[document.getElementById('u-stage').clientWidth, document.getElementById('u-stage').clientHeight]"
     )
-    for d in g["domains"]:
+    for d in g["constellations"]:
         p.page.evaluate("window.__names = []")
         frame(p, d["x"], d["y"], 1)
         cam = p.page.evaluate("views.universe.camera()")
@@ -266,7 +266,7 @@ def test_discs_fit_their_content(name: str, request: pytest.FixtureRequest) -> N
     for level in LEVELS:
         g = geometry(p, level)
         tables = by_domain(g)
-        for d in g["domains"]:
+        for d in g["constellations"]:
             ts = tables[d["key"]]
             for t in ts:
                 x0, y0, x1, y1 = rect(t)
@@ -317,7 +317,7 @@ OLD_ACME = {  # a file exported before M5.5: a pinned domain, a table dragged ne
 
 
 def assert_saved_layout_wins(g: Geometry, saved: dict[str, Any]) -> None:
-    domains = {d["key"]: d for d in g["domains"]}
+    domains = {d["key"]: d for d in g["constellations"]}
     at = {t["id"]: t for t in g["tables"]}
     for key, (x, y) in saved["domains"].items():
         if key in domains:
@@ -360,7 +360,7 @@ def test_the_edge_reference_layout_still_applies(tmp_path: Path, open_page: Any)
     g = geometry(p, "names")
     saved = EDGE_LAYOUT["universe"]["names"]
     assert SHOP + "dim_customer" in saved["nodes"]
-    assert set(saved["domains"]) <= {d["key"] for d in g["domains"]}  # the pin is checked, not skipped
+    assert set(saved["domains"]) <= {d["key"] for d in g["constellations"]}  # the pin is checked, not skipped
     assert_saved_layout_wins(g, saved)
 
 
@@ -425,7 +425,7 @@ def markers(d: dict[str, Any]) -> list[tuple[float, float]]:
 def test_layer_markers_show_at_constellation_zoom_only(acme: tuple[Path, Opener]) -> None:
     p = acme[1]()
     g = geometry(p)
-    d = next(d for d in g["domains"] if len(d["bands"]) == 4)
+    d = next(d for d in g["constellations"] if len(d["bands"]) == 4)
     p.page.evaluate(LINES)
     for k, expected in ((1, 3), (0.6, 3), (0.5, 0)):
         p.page.evaluate("window.__lines = []")
@@ -454,10 +454,10 @@ def test_domain_tooltip_lists_its_layers(tmp_path: Path, open_page: Any, lang: s
     p = open_page(html)
     label = {layer["key"]: layer["label"] for layer in data["universe"]["layers"]}
     g = geometry(p)
-    d = next(d for d in g["domains"] if len(d["bands"]) == 4)
+    d = next(d for d in g["constellations"] if len(d["bands"]) == 4)
     frame(p, d["x"], d["y"], 1)
     text = p.page.evaluate(HOVER, [d["x"], d["y"] + d["r"] - 4])
-    line = prefix + " → ".join(label[b["layer"]] for b in d["bands"])
-    assert line == "Layers: Sources → Staging → Raw vault → Marts".replace("Layers: ", prefix)
+    line = prefix + " → ".join(label[b["key"]] for b in d["bands"])
+    assert line == "Layers: Sources → Bronze → Silver → Gold".replace("Layers: ", prefix)
     assert line in text, text
     assert re.search(r"\d", text)  # the count line is kept

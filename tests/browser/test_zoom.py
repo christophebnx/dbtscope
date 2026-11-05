@@ -185,7 +185,7 @@ def test_universe_pinch_on_a_table_zooms_as_on_empty_space(build_page: Any, open
     pinch(p, x + 20, y)  # the first finger starts on the table's star (a drag subject)
     on_table = p.page.evaluate("views.universe.camera().k")
     assert [(t["x"], t["y"]) for t in p.page.evaluate("views.universe.geometry()")["tables"]] == places
-    far = min(d["x"] - d["r"] for d in g["domains"]) - 2000
+    far = min(d["x"] - d["r"] for d in g["constellations"]) - 2000
     pinch(p, *universe_at(p, far, table["y"], 1))
     assert on_table == pytest.approx(p.page.evaluate("views.universe.camera().k"), rel=1e-3)
     assert on_table == pytest.approx(5, rel=0.02)  # fingers 40 then 200 px apart

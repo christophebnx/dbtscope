@@ -37,10 +37,14 @@
     <div class="canvas-box"><div id="f-graph"></div><div class="tip" id="f-tip"></div></div>
   </section>
   <aside class="panel" id="u-panel">
+    <fieldset id="u-by" hidden><legend id="u-h-by"></legend>
+      <label><input type="radio" name="u-by" value="domains"><span id="u-by-domains"></span><small id="u-by-domains-n"></small></label>
+      <label><input type="radio" name="u-by" value="layers"><span id="u-by-layers"></span><small id="u-by-layers-n"></small></label>
+    </fieldset>
     <h3 id="u-h-links"></h3>
-    <select id="u-links"></select>
+    <select id="u-links" aria-labelledby="u-h-links"></select>
     <h3 id="u-h-detail"></h3>
-    <select id="u-detail"></select>
+    <select id="u-detail" aria-labelledby="u-h-detail"></select>
     <h3><span id="u-h-layers"></span></h3>
     <div id="u-layers"></div>
     <h3><span id="u-h-kinds"></span></h3>
@@ -86,9 +90,9 @@
 <section class="tab" id="tab-detail">
   <aside class="panel" id="d-panel">
     <h3 id="d-h-group"></h3>
-    <select id="d-group"></select>
+    <select id="d-group" aria-labelledby="d-h-group"></select>
     <h3 id="d-h-depth"></h3>
-    <select id="d-depth"></select>
+    <select id="d-depth" aria-labelledby="d-h-depth"></select>
     <h3 id="d-h-cols"></h3>
     <button id="d-cols"></button>
     <h3 id="d-h-kinds"></h3>

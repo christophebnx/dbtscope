@@ -1,0 +1,19 @@
+version: 2
+sources:
+  - name: web
+    description: Raw tables of the WEB system
+    schema: raw_web
+    tables:
+      - name: sessions
+        columns:
+          - name: session_id
+          - name: customer_id
+          - name: campaign_id
+          - name: started_at
+          - name: device
+      - name: page_views
+        columns:
+          - name: page_view_id
+          - name: session_id
+          - name: url
+          - name: viewed_at

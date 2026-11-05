@@ -16,6 +16,12 @@ def test_exported_layout_is_accepted(layout: dict[str, Any]) -> None:
     assert check_layout(layout, "x.json") is layout
 
 
+def test_layer_scopes_of_the_universe_are_accepted() -> None:
+    scope = {"layers": {"gold": [10.0, 20.0]}, "nodes": {"model.x.a": [1.0, 2.0]}}
+    layout = {"format": LAYOUT_FORMAT, "version": 1, "universe": {"names": {}, "layers:names": scope}}
+    assert check_layout(layout, "x.json") is layout
+
+
 @pytest.mark.parametrize("bad", [{"nodes": []}, [], None])
 def test_anything_else_is_refused(bad: object) -> None:
     with pytest.raises(LayoutError) as info:

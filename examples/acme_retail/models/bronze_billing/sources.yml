@@ -1,0 +1,27 @@
+version: 2
+sources:
+  - name: billing
+    description: Raw tables of the BILLING system
+    schema: raw_billing
+    tables:
+      - name: invoices
+        columns:
+          - name: invoice_id
+          - name: order_id
+          - name: issued_at
+          - name: amount
+          - name: currency
+      - name: payments
+        columns:
+          - name: payment_id
+          - name: invoice_id
+          - name: paid_at
+          - name: amount
+          - name: method
+      - name: refunds
+        columns:
+          - name: refund_id
+          - name: payment_id
+          - name: refunded_at
+          - name: amount
+          - name: reason

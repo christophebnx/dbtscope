@@ -212,6 +212,21 @@ Done when: the design note's test plan passes (default and browser suites: wheel
 
 Done when: the design note's test plan passes (default and browser suites: one ring under everything, constant screen size at Fit / 0.75 / 3× and at 360 px, follows a recentre, contrast, locate by click and keyboard, en / fr title, 44 px on touch, export equal to the screen); the reference `expected.json` is regenerated in the asset commit; ruff is clean with no duplicate-code finding; and `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, CHANGELOG and progress are updated.
 
+- **M5.12 — The example project as a medallion.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.12-medallion-example.md`, D-047.) `examples/acme_retail/` only, no change to `src/dbtscope/`.
+  - **Folders:** `models/bronze_<system>/` (staging per source system), `models/silver/<domain>/` (the raw vault), `models/gold/<domain>/` (the marts); file contents, columns, tests and relations unchanged; every `unique_id` unchanged.
+  - **Domains by convention:** `+schema: <domain>` on each silver and gold domain folder, a `generate_schema_name` macro that keeps the custom schema as is; dbt groups, owners, `access` and `meta.domain` removed. The `domains` rules of `dbt-erd.yml` keep placing sources, bronze models, seeds and snapshots, and label every domain.
+  - **Layers:** four rules, Sources, Bronze (with seeds and snapshots), Silver, Gold.
+  - **Fixture and tests:** manifest regenerated, `expected.json` (detail groups = the six domain schemas), `notes.md`, the tests that name acme layers or owners; README, example README, `docs/ui-spec.md`.
+
+Done when: the design note's test plan passes (every table keeps its domain key; default and browser suites; the `DBTSCOPE_DBT` check passed once; `dbt parse` with no warning); ruff is clean with no duplicate-code finding; and D-047, the READMEs, `docs/ui-spec.md`, CHANGELOG and progress are updated.
+
+- **M5.13 — Constellations by domain or by layer.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.13-group-by-layers.md`, D-048.) A **Constellations: Domains | Layers** switch in the universe panel, hidden below two layers.
+  - **Layer mode:** one constellation per layer along the flow, domain bands inside, tinted and marked in the domain colour.
+  - **Config and payload:** `universe.constellations` (default `domains`), embedded as `defaults.constellations`, the only payload change.
+  - **Layout:** optional `layers:*` scopes in the `universe` section (D-013 format unchanged); the viewer's choice in `dbtscope-constellations:<title>`, never exported.
+
+Done when: the design note's test plan passes (default and browser suites); the reference pages are regenerated in the asset commit, each payload differing only by the new key; ruff is clean with no duplicate-code finding; and D-048, `render/CLAUDE.md`, `domain/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
+
 ## M6 — Demo readiness
 
 The version after M5.11 is the one shown at work (user, 2026-11-05). M6 makes it presentable without changing the tool.
@@ -228,7 +243,7 @@ Done when: the design note's test plan passes (each new test proved to fail once
 ## Later (not scheduled)
 
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
-
+- Default layers for medallion folders, from M5.12: `bronze*`, `silver` and `gold` have no `FLOW_PREFIXES` rank, so without `layers` rules they sort alphabetically (Gold before Silver) and each `bronze_<system>` folder is its own layer; ranks for them (and a way to merge `bronze_*` folders) would let such projects drop their layer rules.
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
 - Universe overview, from the M5.5 reviews: with compact domains, names that would cover another star are hidden, so far fewer names show at Fit than before M5.5; consider labels for the main tables only (hubs, facts, dimensions) at overview, or a slightly smaller overview font.
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.

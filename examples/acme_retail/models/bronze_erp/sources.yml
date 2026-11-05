@@ -1,0 +1,46 @@
+version: 2
+sources:
+  - name: erp
+    description: Raw tables of the ERP system
+    schema: raw_erp
+    tables:
+      - name: customers
+        columns:
+          - name: customer_id
+          - name: name
+          - name: email
+          - name: country_code
+          - name: created_at
+      - name: orders
+        columns:
+          - name: order_id
+          - name: customer_id
+          - name: store_id
+          - name: ordered_at
+          - name: status
+      - name: order_lines
+        columns:
+          - name: order_line_id
+          - name: order_id
+          - name: product_id
+          - name: quantity
+          - name: unit_price
+      - name: products
+        columns:
+          - name: product_id
+          - name: label
+          - name: category
+          - name: supplier_id
+          - name: list_price
+      - name: suppliers
+        columns:
+          - name: supplier_id
+          - name: name
+          - name: country_code
+      - name: stores
+        columns:
+          - name: store_id
+          - name: name
+          - name: city
+          - name: country_code
+          - name: opened_at

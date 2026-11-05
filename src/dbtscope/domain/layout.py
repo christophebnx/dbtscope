@@ -9,7 +9,9 @@ from dbtscope.domain.errors import DomainError
 # written by the page (render/assets/boot.js `dump`); kept as is so that exported files stay valid
 LAYOUT_FORMAT = "dbt-erd-layout"
 LAYOUT_VERSION = 1
-# per-view sections of an exported layout (the page's view names, boot.js `LAYOUT.set`)
+# per-view sections of an exported layout (the page's view names, boot.js `LAYOUT.set`), each a
+# mapping of scopes: `universe` holds `names`, `keys`, `all` (domain constellations) and, from M5.13,
+# `layers:names`, `layers:keys`, `layers:all` (layer constellations, D-048); any scope is accepted
 LAYOUT_SECTIONS = ("universe", "detail")
 # what to do with a layout file that cannot be used (D-029)
 LAYOUT_HINT = "export it again from the page, or delete it"

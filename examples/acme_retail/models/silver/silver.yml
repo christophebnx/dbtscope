@@ -1,16 +1,10 @@
 version: 2
 models:
   - name: customer_hub
-    config:
-      meta:
-        domain: customer
     columns:
       - {name: hk_customer, data_type: varchar, data_tests: [unique, not_null]}
       - {name: customer_id, data_type: integer}
   - name: customer_sat
-    config:
-      meta:
-        domain: customer
     columns:
       - name: hk_customer
         data_type: varchar
@@ -18,16 +12,10 @@ models:
       - name: hd_customer
         description: Hash diff of the descriptive attributes
   - name: order_hub
-    config:
-      meta:
-        domain: sales
     columns:
       - {name: hk_order, data_type: varchar, data_tests: [unique, not_null]}
       - {name: order_id, data_type: integer}
   - name: order_sat
-    config:
-      meta:
-        domain: sales
     columns:
       - name: hk_order
         data_type: varchar
@@ -35,16 +23,10 @@ models:
       - name: hd_order
         description: Hash diff of the descriptive attributes
   - name: product_hub
-    config:
-      meta:
-        domain: product
     columns:
       - {name: hk_product, data_type: varchar, data_tests: [unique, not_null]}
       - {name: product_id, data_type: integer}
   - name: product_sat
-    config:
-      meta:
-        domain: product
     columns:
       - name: hk_product
         data_type: varchar
@@ -52,16 +34,10 @@ models:
       - name: hd_product
         description: Hash diff of the descriptive attributes
   - name: supplier_hub
-    config:
-      meta:
-        domain: product
     columns:
       - {name: hk_supplier, data_type: varchar, data_tests: [unique, not_null]}
       - {name: supplier_id, data_type: integer}
   - name: supplier_sat
-    config:
-      meta:
-        domain: product
     columns:
       - name: hk_supplier
         data_type: varchar
@@ -69,16 +45,10 @@ models:
       - name: hd_supplier
         description: Hash diff of the descriptive attributes
   - name: store_hub
-    config:
-      meta:
-        domain: sales
     columns:
       - {name: hk_store, data_type: varchar, data_tests: [unique, not_null]}
       - {name: store_id, data_type: integer}
   - name: store_sat
-    config:
-      meta:
-        domain: sales
     columns:
       - name: hk_store
         data_type: varchar
@@ -86,16 +56,10 @@ models:
       - name: hd_store
         description: Hash diff of the descriptive attributes
   - name: contact_hub
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_contact, data_type: varchar, data_tests: [unique, not_null]}
       - {name: contact_id, data_type: integer}
   - name: contact_sat
-    config:
-      meta:
-        domain: marketing
     columns:
       - name: hk_contact
         data_type: varchar
@@ -103,16 +67,10 @@ models:
       - name: hd_contact
         description: Hash diff of the descriptive attributes
   - name: campaign_hub
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_campaign, data_type: varchar, data_tests: [unique, not_null]}
       - {name: campaign_id, data_type: integer}
   - name: campaign_sat
-    config:
-      meta:
-        domain: marketing
     columns:
       - name: hk_campaign
         data_type: varchar
@@ -120,16 +78,10 @@ models:
       - name: hd_campaign
         description: Hash diff of the descriptive attributes
   - name: session_hub
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_session, data_type: varchar, data_tests: [unique, not_null]}
       - {name: session_id, data_type: integer}
   - name: session_sat
-    config:
-      meta:
-        domain: marketing
     columns:
       - name: hk_session
         data_type: varchar
@@ -137,16 +89,10 @@ models:
       - name: hd_session
         description: Hash diff of the descriptive attributes
   - name: invoice_hub
-    config:
-      meta:
-        domain: finance
     columns:
       - {name: hk_invoice, data_type: varchar, data_tests: [unique, not_null]}
       - {name: invoice_id, data_type: integer}
   - name: invoice_sat
-    config:
-      meta:
-        domain: finance
     columns:
       - name: hk_invoice
         data_type: varchar
@@ -154,16 +100,10 @@ models:
       - name: hd_invoice
         description: Hash diff of the descriptive attributes
   - name: payment_hub
-    config:
-      meta:
-        domain: finance
     columns:
       - {name: hk_payment, data_type: varchar, data_tests: [unique, not_null]}
       - {name: payment_id, data_type: integer}
   - name: payment_sat
-    config:
-      meta:
-        domain: finance
     columns:
       - name: hk_payment
         data_type: varchar
@@ -171,16 +111,10 @@ models:
       - name: hd_payment
         description: Hash diff of the descriptive attributes
   - name: warehouse_hub
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_warehouse, data_type: varchar, data_tests: [unique, not_null]}
       - {name: warehouse_id, data_type: integer}
   - name: warehouse_sat
-    config:
-      meta:
-        domain: logistics
     columns:
       - name: hk_warehouse
         data_type: varchar
@@ -188,16 +122,10 @@ models:
       - name: hd_warehouse
         description: Hash diff of the descriptive attributes
   - name: shipment_hub
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_shipment, data_type: varchar, data_tests: [unique, not_null]}
       - {name: shipment_id, data_type: integer}
   - name: shipment_sat
-    config:
-      meta:
-        domain: logistics
     columns:
       - name: hk_shipment
         data_type: varchar
@@ -205,16 +133,10 @@ models:
       - name: hd_shipment
         description: Hash diff of the descriptive attributes
   - name: carrier_hub
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_carrier, data_type: varchar, data_tests: [unique, not_null]}
       - {name: carrier_id, data_type: integer}
   - name: carrier_sat
-    config:
-      meta:
-        domain: logistics
     columns:
       - name: hk_carrier
         data_type: varchar
@@ -222,9 +144,6 @@ models:
       - name: hd_carrier
         description: Hash diff of the descriptive attributes
   - name: order_customer_link
-    config:
-      meta:
-        domain: sales
     columns:
       - {name: hk_order_customer, data_type: varchar, data_tests: [unique]}
       - name: hk_order
@@ -234,9 +153,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('customer_hub'), field: hk_customer}}}]
   - name: order_store_link
-    config:
-      meta:
-        domain: sales
     columns:
       - {name: hk_order_store, data_type: varchar, data_tests: [unique]}
       - name: hk_order
@@ -246,9 +162,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('store_hub'), field: hk_store}}}]
   - name: order_product_link
-    config:
-      meta:
-        domain: sales
     columns:
       - {name: hk_order_product, data_type: varchar, data_tests: [unique]}
       - name: hk_order
@@ -258,9 +171,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('product_hub'), field: hk_product}}}]
   - name: product_supplier_link
-    config:
-      meta:
-        domain: product
     columns:
       - {name: hk_product_supplier, data_type: varchar, data_tests: [unique]}
       - name: hk_product
@@ -270,9 +180,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('supplier_hub'), field: hk_supplier}}}]
   - name: contact_customer_link
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_contact_customer, data_type: varchar, data_tests: [unique]}
       - name: hk_contact
@@ -282,9 +189,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('customer_hub'), field: hk_customer}}}]
   - name: campaign_contact_link
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_campaign_contact, data_type: varchar, data_tests: [unique]}
       - name: hk_campaign
@@ -294,9 +198,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('contact_hub'), field: hk_contact}}}]
   - name: session_campaign_link
-    config:
-      meta:
-        domain: marketing
     columns:
       - {name: hk_session_campaign, data_type: varchar, data_tests: [unique]}
       - name: hk_session
@@ -306,9 +207,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('campaign_hub'), field: hk_campaign}}}]
   - name: invoice_order_link
-    config:
-      meta:
-        domain: finance
     columns:
       - {name: hk_invoice_order, data_type: varchar, data_tests: [unique]}
       - name: hk_invoice
@@ -318,9 +216,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('order_hub'), field: hk_order}}}]
   - name: payment_invoice_link
-    config:
-      meta:
-        domain: finance
     columns:
       - {name: hk_payment_invoice, data_type: varchar, data_tests: [unique]}
       - name: hk_payment
@@ -330,9 +225,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('invoice_hub'), field: hk_invoice}}}]
   - name: shipment_order_link
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_shipment_order, data_type: varchar, data_tests: [unique]}
       - name: hk_shipment
@@ -342,9 +234,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('order_hub'), field: hk_order}}}]
   - name: shipment_warehouse_link
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_shipment_warehouse, data_type: varchar, data_tests: [unique]}
       - name: hk_shipment
@@ -354,9 +243,6 @@ models:
         data_type: varchar
         data_tests: [{relationships: {arguments: {to: ref('warehouse_hub'), field: hk_warehouse}}}]
   - name: shipment_carrier_link
-    config:
-      meta:
-        domain: logistics
     columns:
       - {name: hk_shipment_carrier, data_type: varchar, data_tests: [unique]}
       - name: hk_shipment

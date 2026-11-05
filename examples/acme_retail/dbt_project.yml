@@ -2,8 +2,28 @@ name: acme_retail
 version: "1.0.0"
 config-version: 2
 profile: acme_retail
+# medallion: the folder is the layer, the schema is the domain
+# (bronze: one schema per source system; silver and gold: one schema per domain, the same in both)
 models:
   acme_retail:
-    staging: {+materialized: view, +schema: staging}
-    raw_vault: {+materialized: table, +schema: raw_vault}
-    marts: {+materialized: table, +schema: marts}
+    bronze_erp: {+materialized: view, +schema: erp}
+    bronze_crm: {+materialized: view, +schema: crm}
+    bronze_web: {+materialized: view, +schema: web}
+    bronze_billing: {+materialized: view, +schema: billing}
+    bronze_wms: {+materialized: view, +schema: wms}
+    silver:
+      +materialized: table
+      sales: {+schema: sales}
+      customer: {+schema: customer}
+      product: {+schema: product}
+      marketing: {+schema: marketing}
+      finance: {+schema: finance}
+      logistics: {+schema: logistics}
+    gold:
+      +materialized: table
+      sales: {+schema: sales}
+      customer: {+schema: customer}
+      product: {+schema: product}
+      marketing: {+schema: marketing}
+      finance: {+schema: finance}
+      logistics: {+schema: logistics}

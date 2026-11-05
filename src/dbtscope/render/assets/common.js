@@ -144,10 +144,14 @@ function fillSelect(el, pairs, current) {
   }));
 }
 
+// The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
+// `label: null`. The one display-name rule of the panels, tooltips and canvas.
+const labelOf = item => item.label ?? item.key;
+
 // The name and meta lines of a table's tooltip (universe payload), escaped:
 // "<name>" then "domain · layer · kind · N columns". Each view appends its own lines.
 function tableTip(DATA, n) {
-  const label = (list, key) => list.find(x => x.key === key).label;
+  const label = (list, key) => labelOf(list.find(x => x.key === key));
   return `<b>${esc(n.name)}</b><div class="m">${esc(label(DATA.domains, n.domain))} · ${esc(label(DATA.layers, n.layer))} · `
     + `${esc(label(DATA.kinds, n.kind))} · ${plural(n.cols.length, L.columns)}</div>`;
 }

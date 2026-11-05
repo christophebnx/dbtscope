@@ -48,18 +48,28 @@ def test_example_builds_both_views_without_warning(
     assert groups == EXPECTED["detail"]["groups"]
 
 
-def test_example_domains_come_from_groups_meta_and_rules(example_project: Path) -> None:
+def test_example_domains_come_from_schemas_and_rules(example_project: Path) -> None:
     universe = page_of(example_project)[1]["universe"]
     domains = {domain["key"]: domain for domain in universe["domains"]}
     nodes = {node["name"]: node for node in universe["nodes"]}
+    tables = _project(example_project).tables
     assert len(domains) == EXPECTED["universe"]["domains"]
-    assert (nodes["fct_orders"]["domain"], domains["sales"]["owner"]) == ("sales", "Sales Analytics")
-    assert nodes["customer_hub"]["domain"] == nodes["customer_sat"]["domain"] == "customer"  # meta.domain
+    assert not any(domain["owner"] for domain in domains.values())  # no dbt group (D-047)
+    assert nodes["fct_orders"]["domain"] == tables[MODEL + "fct_orders"].schema_name == "sales"
+    for name in ("customer_hub", "customer_sat"):  # silver, by its schema
+        assert nodes[name]["domain"] == tables[MODEL + name].schema_name == "customer"
     assert nodes["stg_erp__orders"]["domain"] == "sales"  # a rule of dbt-erd.yml
     assert nodes["country_codes"]["domain"] == "customer"  # a seed, by a rule
     by_id = {node["id"]: node for node in universe["nodes"]}
     assert by_id["source.acme_retail.erp.orders"]["domain"] == "sales"  # a source, by a rule
     assert nodes["calendar"]["domain"] == "shared"
+
+
+def test_example_layers_are_the_medallion(example_project: Path) -> None:
+    universe = page_of(example_project)[1]["universe"]
+    layers = [(layer["key"], layer["label"]) for layer in universe["layers"]]
+    assert layers == [("source", "Sources"), ("bronze", "Bronze"), ("silver", "Silver"), ("gold", "Gold")]
+    assert {node["layer"] for node in universe["nodes"]} == {key for key, _ in layers}
 
 
 def test_example_relations_come_from_tests_and_foreign_keys(example_project: Path) -> None:

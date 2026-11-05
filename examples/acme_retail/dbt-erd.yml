@@ -3,7 +3,7 @@ preset: data_vault
 title: ACME retail
 language: en
 view: universe
-# detail view: the raw vault and the star schema marts
+# detail view: the raw vault (silver) and the star schema marts (gold)
 select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
 kinds:
   - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
@@ -11,8 +11,9 @@ kinds:
   - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
   - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}
   - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
-# universe view: marts take their domain from their dbt group, the vault from meta.domain;
-# staging tables and sources are placed by these rules
+# universe view: silver and gold tables take their domain from their schema (one per domain folder,
+# dbt_project.yml). These rules do two jobs: they place what is organised by source system, not by
+# domain (sources, bronze models, seeds, snapshots), and they label and colour every domain.
 domains:
   - {key: sales, label: Sales, color: "#d9822b", match: ["type:source,schema:raw_erp,orders", "type:source,schema:raw_erp,order_lines", "type:source,schema:raw_erp,stores", "stg_erp__orders", "stg_erp__order_lines", "stg_erp__stores"]}
   - {key: customer, label: Customer, color: "#4da3ff", match: ["type:source,schema:raw_erp,customers", "stg_erp__customers", "customers_snapshot", "country_codes"]}
@@ -21,8 +22,9 @@ domains:
   - {key: finance, label: Finance, color: "#c9a227", match: ["type:source,schema:raw_billing", "stg_billing__*", "currency_rates"]}
   - {key: logistics, label: Logistics, color: "#5b7fa6", match: ["type:source,schema:raw_wms", "stg_wms__*"]}
   - {key: shared, label: Shared, color: "#777777", match: ["calendar"]}
+# layers along the medallion; seeds and snapshots sit in Bronze (loaded or captured as is)
 layers:
   - {key: source, label: Sources, match: ["type:source"]}
-  - {key: staging, label: Staging, match: ["path:models/staging/*", "type:seed", "type:snapshot"]}
-  - {key: vault, label: Raw vault, match: ["path:models/raw_vault/*"]}
-  - {key: marts, label: Marts, match: ["path:models/marts/*"]}
+  - {key: bronze, label: Bronze, match: ["path:models/bronze_*", "type:seed", "type:snapshot"]}
+  - {key: silver, label: Silver, match: ["path:models/silver/*"]}
+  - {key: gold, label: Gold, match: ["path:models/gold/*"]}
