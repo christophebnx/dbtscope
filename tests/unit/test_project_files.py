@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -111,7 +112,7 @@ def test_layout_is_read_when_present_and_checked(tmp_path: Path) -> None:
     path.write_text(json.dumps({"format": "dbt-erd-layout", "version": 1}), encoding="utf-8")
     assert read_layout(path) == {"format": "dbt-erd-layout", "version": 1}
     path.write_text('{"format": "dbt-erd-layout", "version": 99}', encoding="utf-8")
-    with pytest.raises(LayoutError, match=rf"^layout {path}: version 99 is not supported"):
+    with pytest.raises(LayoutError, match=rf"^layout {re.escape(str(path))}: version 99 is not supported"):
         read_layout(path)
 
 

@@ -153,7 +153,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
 | Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
-| Words of an `OSError` (`permission denied`) | `storage/files.os_reason` |
+| Words of an `OSError` (`permission denied`), the same on every OS | `storage/files.os_reason` (`REASONS`) |
+| Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` |
 | Command-line options and help | `cli.app`, `cli.command`, `Options` |
 | What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind`, `refused_hint` |
 | Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |

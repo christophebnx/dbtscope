@@ -14,7 +14,16 @@ from typing import Any, get_args
 
 import pytest
 import typer
-from conftest import NO_PARSE_NO_OPEN, page_data, write_config, write_layout, write_manifest, write_preset
+import typer.rich_utils
+from conftest import (
+    NO_PARSE_NO_OPEN,
+    fake_dbt_executable,
+    page_data,
+    write_config,
+    write_layout,
+    write_manifest,
+    write_preset,
+)
 
 from dbtscope import __version__
 from dbtscope.cli import EPILOG, _count, _size, app, main
@@ -26,6 +35,16 @@ USAGE = "; see dbtscope --help"
 SELECTOR_FIELDS = "(expected database, name, package, path, schema, tag or type)"
 Capsys = pytest.CaptureFixture[str]
 ROOT = Path(__file__).resolve().parents[2]
+TERMINAL_VARIABLES = (  # read by typer.rich_utils and rich.console to force a terminal, colours or width
+    "GITHUB_ACTIONS",
+    "FORCE_COLOR",
+    "PY_COLORS",
+    "TTY_COMPATIBLE",
+    "TTY_INTERACTIVE",
+    "TERMINAL_WIDTH",
+    "JUPYTER_COLUMNS",
+    "COLORTERM",
+)
 
 
 def fails(args: list[str], capsys: Capsys, code: int = 1) -> str:
@@ -77,11 +96,19 @@ def test_a_positional_project_points_at_project_dir(capsys: Capsys) -> None:
     assert message.endswith("(../shop); pass the project folder with --project-dir")
 
 
-def test_help_groups_the_options_and_shows_the_examples(
-    monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-) -> None:
+@pytest.fixture
+def plain_help(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--help` as written to an 80-column pipe, whatever the environment (GitHub Actions forces colour)."""
+    for name in TERMINAL_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("COLUMNS", "80")
     monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setattr(typer.rich_utils, "FORCE_TERMINAL", None)  # read from the environment at import
+    monkeypatch.setattr(typer.rich_utils, "MAX_WIDTH", None)
+
+
+@pytest.mark.usefixtures("plain_help")
+def test_help_groups_the_options_and_shows_the_examples(capsys: Capsys) -> None:
     assert main(["--help"]) == 0
     captured = capsys.readouterr()
     lines = [line.rstrip() for line in captured.out.splitlines()]
@@ -182,6 +209,11 @@ def test_project_folder_problems(tmp_path: Path, capsys: Capsys) -> None:
 # --- dbt ------------------------------------------------------------------------------------
 
 
+def found_dbt() -> str:
+    """The command run for the `/usr/bin/dbt` that the fake `shutil.which` finds: absolute on this OS."""
+    return str(Path("/usr/bin/dbt").absolute())  # D:\usr\bin\dbt on Windows
+
+
 class FakeRun:
     """Stands for `subprocess.run`: records each call, then returns `code` or raises `error`."""
 
@@ -197,7 +229,7 @@ class FakeRun:
 
 @pytest.fixture
 def fake_dbt(monkeypatch: pytest.MonkeyPatch) -> Callable[..., FakeRun]:
-    """Install a `FakeRun` and a `shutil.which` that finds `/usr/bin/dbt`."""
+    """Install a `FakeRun` and a `shutil.which` that finds `/usr/bin/dbt` (`found_dbt()`)."""
 
     def install(code: int = 0, error: BaseException | None = None) -> FakeRun:
         fake = FakeRun(code, error)
@@ -215,7 +247,7 @@ def test_dbt_runs_in_the_project_with_its_output_on_stderr(
     fake = fake_dbt()
     assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
     [(command, kwargs)] = fake.calls
-    assert command == ["/usr/bin/dbt", "parse"]
+    assert command == [found_dbt(), "parse"]
     assert kwargs["cwd"] == dbt_project and kwargs["stdout"] == 2
     assert kwargs["env"]["DBT_USE_COLORS"] == "false"
     assert capsys.readouterr().err == f"Running dbt parse in {dbt_project}...\n"
@@ -227,14 +259,11 @@ def test_dbt_runs_in_the_project_with_its_output_on_stderr(
 def test_a_relative_dbt_path_runs_as_an_absolute_path(
     dbt_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    executable = dbt_project / "bin" / "dbt"
-    executable.parent.mkdir()
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = fake_dbt_executable(dbt_project / "bin")
     fake = FakeRun()
     monkeypatch.setattr("dbtscope.cli.subprocess.run", fake)
     monkeypatch.chdir(dbt_project)
-    assert main(["--no-open", "--dbt", str(Path("bin") / "dbt")]) == 0
+    assert main(["--no-open", "--dbt", str(Path("bin") / executable.name)]) == 0
     assert fake.calls[0][0][0] == str(executable)
 
 
@@ -253,7 +282,6 @@ def test_dbt_not_found(dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsy
     )
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX execute permission")
 def test_a_dbt_file_that_is_not_executable(dbt_project: Path, capsys: Capsys) -> None:
     plain = dbt_project / "dbt"
     plain.write_text("not a program\n", encoding="utf-8")
@@ -267,7 +295,7 @@ def test_a_dbt_file_that_is_not_executable(dbt_project: Path, capsys: Capsys) ->
         (
             FakeRun(error=FileNotFoundError(errno.ENOENT, "No such file or directory")),
             1,
-            "cannot run /usr/bin/dbt: no such file or directory; check --dbt",
+            "cannot run {dbt}: no such file or directory; check --dbt",
         ),
         (
             FakeRun(code=2),
@@ -289,7 +317,9 @@ def test_dbt_failures(
 ) -> None:
     monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("dbtscope.cli.subprocess.run", fake)
-    assert fails(["--project-dir", str(dbt_project), "--no-open"], capsys, code) == expected
+    assert fails(["--project-dir", str(dbt_project), "--no-open"], capsys, code) == expected.format(
+        dbt=found_dbt()
+    )
     assert not (dbt_project / "erd_output").exists()
 
 
@@ -734,9 +764,8 @@ def test_an_unknown_key_in_a_preset_file_is_one_line(dbt_project: Path, capsys: 
     )
 
 
-def test_help_lists_preset_file_in_the_project_panel(monkeypatch: pytest.MonkeyPatch, capsys: Capsys) -> None:
-    monkeypatch.setenv("COLUMNS", "80")
-    monkeypatch.setenv("NO_COLOR", "1")
+@pytest.mark.usefixtures("plain_help")
+def test_help_lists_preset_file_in_the_project_panel(capsys: Capsys) -> None:
     assert main(["--help"]) == 0
     lines = [line.rstrip() for line in capsys.readouterr().out.splitlines()]
     assert max(map(len, lines)) <= 80
@@ -750,8 +779,8 @@ def test_help_lists_preset_file_in_the_project_panel(monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize(
     ("config", "args", "expected"),
     [
-        ("preset: team.yml\n", (), "{config}, preset {project}/team.yml"),
-        ("title: x\n", ("--preset-file", "{project}/team.yml"), "{config}, preset {project}/team.yml"),
+        ("preset: team.yml\n", (), "{config}, preset {preset}"),
+        ("title: x\n", ("--preset-file", "{project}/team.yml"), "{config}, preset {preset}"),
         ("preset: data_vault\nselect: ['*']\n", (), "{config}, preset data_vault"),
     ],
     ids=["key-path", "option", "key-name"],
@@ -759,11 +788,11 @@ def test_help_lists_preset_file_in_the_project_panel(monkeypatch: pytest.MonkeyP
 def test_the_summary_names_the_applied_preset(
     dbt_project: Path, capsys: Capsys, config: str, args: tuple[str, ...], expected: str
 ) -> None:
-    write_preset(dbt_project / "team.yml")
+    preset = write_preset(dbt_project / "team.yml")
     write_config(dbt_project, config)
     assert main(build(dbt_project, *(a.format(project=dbt_project) for a in args))) == 0
     path = dbt_project / "dbt-erd.yml"
-    assert config_line(capsys) == "  config:   " + expected.format(config=path, project=dbt_project)
+    assert config_line(capsys) == "  config:   " + expected.format(config=path, preset=preset)
 
 
 def test_an_empty_selection_names_the_preset_file(dbt_project: Path, capsys: Capsys) -> None:

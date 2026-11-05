@@ -33,7 +33,14 @@ from dbtscope.domain.payload import DetailPayload, UniversePayload
 from dbtscope.domain.selectors import SelectorError
 from dbtscope.domain.universe import universe_data
 from dbtscope.render.page import render_page
-from dbtscope.storage.files import PathKind, atomic_write, os_reason, path_kind, refused_hint
+from dbtscope.storage.files import (
+    PathKind,
+    atomic_write,
+    is_name_too_long,
+    os_reason,
+    path_kind,
+    refused_hint,
+)
 from dbtscope.storage.project_files import (
     CONFIG_HINT,
     config_source,
@@ -371,6 +378,7 @@ def _dbt_parse(dbt: str, project: Path) -> None:
     if not sys.stderr.isatty() and "DBT_USE_COLORS" not in os.environ:
         env = {**os.environ, "DBT_USE_COLORS": "false"}
     try:
+        # on Ctrl-C (or any exception) `run` kills dbt before re-raising: no dbt is left behind
         result = subprocess.run([dbt, "parse"], cwd=project, stdout=2, env=env, check=False)
     except OSError as error:
         raise RunError(f"cannot run {dbt}: {_run_reason(error, dbt)}; check --dbt") from error
@@ -407,10 +415,13 @@ def _write_page(output: Path, page_bytes: bytes) -> None:
     try:
         atomic_write(output, page_bytes)
     except OSError as error:
-        hint = {
-            errno.ENOSPC: "free some space or choose another --output",
-            errno.ENAMETOOLONG: "choose a shorter --output",
-        }.get(error.errno or 0, "choose another --output")
+        hint = (
+            "choose a shorter --output"
+            if is_name_too_long(error)
+            else "free some space or choose another --output"
+            if error.errno == errno.ENOSPC
+            else "choose another --output"
+        )
         raise RunError(f"cannot write {output}: {os_reason(error)}; {hint}") from error
 
 

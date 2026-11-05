@@ -12,7 +12,9 @@ from __future__ import annotations
 import gzip
 import importlib.util
 import json
+import os
 import shutil
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -200,6 +202,25 @@ def write_config(project: Path, text: str) -> None:
 
 
 PRESET_TEXT = "title: Team\nlanguage: fr\nkinds:\n  - {key: fact, label: Fact, match: ['fct_*']}\n"
+
+
+def fake_dbt_executable(folder: Path, body: str = "") -> Path:
+    """Write a fake dbt into `folder` that runs the Python `body`, and return the path to run.
+
+    The program is `dbt.py`, run by this interpreter through a shim that every OS can execute:
+    `dbt` (a `/bin/sh` script, made executable) on POSIX, `dbt.cmd` on Windows.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    program = folder / "dbt.py"
+    program.write_text(body + "\n", encoding="utf-8")
+    if os.name == "nt":
+        shim = folder / "dbt.cmd"
+        shim.write_text(f'@"{sys.executable}" "{program}" %*\r\n@exit /b %ERRORLEVEL%\r\n', encoding="utf-8")
+        return shim
+    shim = folder / "dbt"
+    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{program}" "$@"\n', encoding="utf-8")
+    shim.chmod(0o755)
+    return shim
 
 
 def write_preset(path: Path, text: str = PRESET_TEXT) -> Path:

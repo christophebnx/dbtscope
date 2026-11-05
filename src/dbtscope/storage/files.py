@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import errno
 import os
+import re
 import secrets
 import stat
 from pathlib import Path
@@ -38,6 +39,20 @@ def atomic_write(path: Path, data: bytes) -> None:
 
 
 PathKind = Literal["missing", "folder", "file", "other"]
+MAX_NAME = 255  # the longest file or folder name on the usual file systems (ext4, APFS, NTFS)
+ERROR_FILENAME_EXCED_RANGE = 206  # Windows: "The filename or extension is too long."
+REASONS = {  # fixed words for the errors we name, the same on every OS (strerror differs)
+    errno.ENAMETOOLONG: "file name too long",
+    errno.ENOSPC: "no space left on device",
+    errno.EACCES: "permission denied",
+    errno.EPERM: "operation not permitted",
+    errno.EROFS: "read-only file system",
+    errno.ENOENT: "no such file or directory",
+    errno.ENOTDIR: "not a directory",
+    errno.EISDIR: "is a directory",
+    errno.EEXIST: "file exists",
+    errno.EINVAL: "invalid argument",
+}
 
 
 def path_kind(path: Path) -> PathKind:
@@ -49,23 +64,43 @@ def path_kind(path: Path) -> PathKind:
     """
     try:
         mode = path.stat().st_mode
-    except (FileNotFoundError, NotADirectoryError):
+    except (FileNotFoundError, NotADirectoryError) as error:
+        if is_name_too_long(error):  # Windows may report a too-long name as "not found"
+            raise
         return "missing"
     if stat.S_ISDIR(mode):
         return "folder"
     return "file" if stat.S_ISREG(mode) else "other"
 
 
+def is_name_too_long(error: OSError) -> bool:
+    """Whether the system refused a path because a name in it is too long, on every OS.
+
+    POSIX says `ENAMETOOLONG`; Windows says winerror 206, or EINVAL (winerror 123) for a name
+    over 255 characters, recognised here by the length of the names of `error.filename`.
+    """
+    if error.errno == errno.ENAMETOOLONG or getattr(error, "winerror", None) == ERROR_FILENAME_EXCED_RANGE:
+        return True
+    if os.name != "nt" or not isinstance(error.filename, str):
+        return False
+    return any(len(name) > MAX_NAME for name in re.split(r"[\\/]", error.filename))
+
+
 def refused_hint(error: OSError, setting: str) -> str:
     """What to do about a path the system refused: a shorter one, else check the `setting` that gave it."""
-    return f"choose a shorter {setting}" if error.errno == errno.ENAMETOOLONG else f"check {setting}"
+    return f"choose a shorter {setting}" if is_name_too_long(error) else f"check {setting}"
 
 
 def os_reason(error: OSError) -> str:
-    """The reason of an `OSError` in lower-case words (`permission denied`), without the path."""
+    """The reason of an `OSError` in lower-case words (`permission denied`), without the path.
+
+    The errors we name have fixed words (`REASONS`), the same on every OS; others use `strerror`.
+    """
+    if is_name_too_long(error):
+        return REASONS[errno.ENAMETOOLONG]
     if error.errno is None:
         return str(error)
-    return lower_first(os.strerror(error.errno))
+    return REASONS.get(error.errno) or lower_first(os.strerror(error.errno))
 
 
 def _fsync_folder(folder: Path) -> None:

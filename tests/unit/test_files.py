@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from dbtscope.storage.files import atomic_write, os_reason, path_kind
+from dbtscope.storage.files import atomic_write, is_name_too_long, os_reason, path_kind, refused_hint
 
 
 def test_atomic_write_creates_and_replaces(tmp_path: Path) -> None:
@@ -69,4 +69,54 @@ def test_path_kind(tmp_path: Path) -> None:
         assert path_kind(tmp_path / "pipe") == "other"
     with pytest.raises(OSError) as info:
         path_kind(tmp_path / ("a" * 300))
-    assert info.value.errno == errno.ENAMETOOLONG
+    assert is_name_too_long(info.value)  # ENAMETOOLONG on POSIX, EINVAL (winerror 123) on Windows
+    assert os_reason(info.value) == "file name too long"
+
+
+class WindowsTooLongError(FileNotFoundError):
+    """How Windows may refuse a path too long for it: winerror 206, mapped to ENOENT."""
+
+    winerror = 206
+
+
+def test_a_name_too_long_is_recognised_in_its_windows_forms(monkeypatch: pytest.MonkeyPatch) -> None:
+    long = "C:\\work\\" + "a" * 300 + "\\x.yml"
+    assert is_name_too_long(OSError(errno.ENAMETOOLONG, "File name too long", "/x"))
+    assert is_name_too_long(WindowsTooLongError(errno.ENOENT, "The filename or extension is too long"))
+    monkeypatch.setattr("dbtscope.storage.files.os.name", "posix")
+    assert not is_name_too_long(
+        OSError(errno.EINVAL, "Invalid argument", long)
+    )  # the length rule is Windows'
+    monkeypatch.setattr("dbtscope.storage.files.os.name", "nt")
+    windows = OSError(errno.EINVAL, "The filename, directory name, or volume label syntax is incorrect", long)
+    assert is_name_too_long(windows) and os_reason(windows) == "file name too long"
+    assert refused_hint(windows, "--config") == "choose a shorter --config"
+    assert not is_name_too_long(OSError(errno.EINVAL, "Invalid argument", "C:\\work\\x.yml"))
+    assert refused_hint(OSError(errno.EACCES, "Access is denied"), "--config") == "check --config"
+
+
+def test_a_too_long_path_reported_as_not_found_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(self: Path, **kwargs: object) -> object:
+        raise WindowsTooLongError(errno.ENOENT, "The filename or extension is too long", str(self))
+
+    monkeypatch.setattr(Path, "stat", refuse)
+    with pytest.raises(OSError) as info:
+        path_kind(tmp_path / "x")
+    assert os_reason(info.value) == "file name too long"
+
+
+@pytest.mark.parametrize(
+    ("code", "reason"),
+    [
+        (errno.ENAMETOOLONG, "file name too long"),
+        (errno.ENOSPC, "no space left on device"),
+        (errno.EACCES, "permission denied"),
+        (errno.EROFS, "read-only file system"),
+        (errno.ENOENT, "no such file or directory"),
+        (errno.EISDIR, "is a directory"),
+    ],
+)
+def test_os_reason_has_the_same_words_on_every_os(code: int, reason: str) -> None:
+    assert os_reason(OSError(code, "Words of this OS")) == reason
