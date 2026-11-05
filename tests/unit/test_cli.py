@@ -381,8 +381,12 @@ def test_config_option_problems(dbt_project: Path, monkeypatch: pytest.MonkeyPat
             "preset: nope\n",
             ": unknown preset 'nope'; choose data_vault or star_schema, or give the path of a preset file",
         ),
+        (
+            "kinds: [{key: fact, color: red, match: ['fct_*']}]\n",
+            f": kinds[0].color: invalid colour 'red' (a hex colour such as '#2f6fb5'); {CONFIG_HINT}",
+        ),
     ],
-    ids=["selector", "file-preset"],
+    ids=["selector", "file-preset", "kind-colour"],
 )
 def test_config_content_errors_name_the_file(
     dbt_project: Path, capsys: Capsys, text: str, problem: str

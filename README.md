@@ -368,7 +368,7 @@ universe:
   hidden_kinds: []            # kinds unticked at opening (the page's Types boxes)
 ```
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex. `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
 
 `kinds` colour both views. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other".
 
@@ -471,6 +471,7 @@ Exit code 1 unless the row says otherwise.
 | `config …` or `preset …` `is not valid YAML (line …, column …)` / `must be a mapping of settings` | fix the file at that line |
 | `config …` or `preset …` `is not UTF-8` | save the file as UTF-8 |
 | `config …: <key>: <problem>` | fix that key of the config file |
+| `config …: kinds[0].color: invalid colour …` | write the colour in hex, for example `#2f6fb5`; named colours such as `red` are not accepted |
 | `config …: preset: must be a string` | give a built-in name or the path of a preset file |
 | `unknown selector field` | use one of the fields of [Selectors](#selectors) |
 | `config …: unknown preset '…'` | the `preset:` key names `data_vault`, `star_schema` or the path of a preset file |

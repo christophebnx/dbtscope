@@ -315,3 +315,30 @@ def test_an_unknown_preset_key_is_shown_before_other_problems() -> None:
     with pytest.raises(ConfigError) as info:
         check_preset({"offline": "yes", "language": "EN", "tittle": "x"})
     assert str(info.value) == "tittle: unknown key (and 2 more problems)"
+
+
+@pytest.mark.parametrize("section", ["kinds", "domains", "layers"])
+@pytest.mark.parametrize("color", ["red", "#12", "#1234", "#12345g", "url(x)", "#2f6fb5aa"])
+def test_a_rule_colour_must_be_hex(section: str, color: str) -> None:
+    # a named or malformed kind colour used to crash classify.background with no file named (D-041)
+    rule = {"key": "k", "color": color, "match": ["*"]}
+    with pytest.raises(ConfigError, match=rf"^{section}\[0\]\.color: invalid colour .*'#2f6fb5'"):
+        merge_config({}, {section: [rule]})
+
+
+def test_a_short_hex_colour_is_written_out_and_case_is_kept() -> None:
+    config = merge_config(
+        {},
+        {
+            "kinds": [
+                {"key": "a", "color": "#F0a", "match": ["*"]},
+                {"key": "b", "color": "#2F6FB5", "match": ["*"]},
+            ]
+        },
+    )
+    assert [k.color for k in config.kinds] == ["#FF00aa", "#2F6FB5"]
+
+
+def test_an_empty_rule_colour_means_none() -> None:
+    config = merge_config({}, {"kinds": [{"key": "a", "color": "", "match": ["*"]}]})
+    assert config.kinds[0].color == DEFAULT_KIND_COLOR

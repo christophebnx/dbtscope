@@ -50,6 +50,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Fixed
 
+- Config (M5.6, D-041): a rule colour that is not hex (`red`) or a short hex (`#26b`) no longer crashes the run. A short hex is written out; anything else stops the run with one line naming the file and the rule, for example `config …/dbt-erd.yml: kinds[0].color: invalid colour 'red' (a hex colour such as '#2f6fb5'); fix the file`.
 - Detail view (M4.4): a column without a `data_type` no longer breaks the whole diagram with "Render error: … in label of node …"; its type cell is left empty.
 - `--dbt` given as a relative path is run as its absolute path; it was looked up from the project folder, where dbt runs (M4.2).
 - A dbt group owner whose email is a list (manifest v12) no longer stops the run; the addresses are joined.
