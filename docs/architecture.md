@@ -99,12 +99,16 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | One-line message of a validation error | `domain/errors.validation_message` |
 | Match a table against selectors | `domain/selectors.matches`, `matches_any` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
+| Case-insensitive wildcard match of a value (selectors, `tag:` and `group_by: tag:<glob>`) | `domain/selectors.glob` |
 | Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
 | Shape of the manifest fields dbtscope reads | `domain/manifest_schema` |
 | Tables, columns, relations, lineage, groups, project | `domain/model` |
 | Merge and validate the configuration | `domain/config.merge_config`, `Config` |
 | Python → JavaScript page data contract | `domain/payload` |
+| Read and parse the manifest file | `storage/project_files.read_manifest` |
+| Read the layout file (missing → none) | `storage/project_files.read_layout` |
 | Read `dbt-erd.yml` and presets (built-in by name, file by path) | `storage/project_files.load_config`, `read_preset`, `read_preset_file` |
+| The built-in presets: their folder and names | `storage/project_files.PRESETS`, `preset_names` |
 | Validate a preset on its own (closed keys, D-030) | `domain/config.check_preset`, `Preset` |
 | Tell a preset name from a preset path | `domain/config.is_preset_path` |
 | The config file a run reads (`--config`, else `dbt-erd.yml`), returned with the config and the preset applied | `storage/project_files.load_config` (`LoadedConfig`) |
@@ -113,13 +117,16 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Group of a table (`group_by`) | `domain/classify.group_of` |
 | First matching rule (kinds, domains, layers) | `domain/classify.first_rule` |
 | Which columns are keys | `domain/classify.key_columns` |
+| Light tint of a kind colour for a table body | `domain/classify.background` (`TINT`) |
 | Domain key of a table (order: D-015) | `domain/universe.domain_of` |
+| Order of the default layers along the data flow (no `layers` rules) | `domain/universe.flow_rank` (`FLOW_PREFIXES`, `UNRANKED`) |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
 | JavaScript libraries of the page (CDN URL, vendored file, licence, hash); markup a vendored file may not hold | `render/page.LIBRARIES`, `UNSAFE_MARKUP` |
 | Every vendored file and where it comes from (URL, label, SPDX id, script sha256) | `render/page.vendored_files`, `VendoredFile` |
 | Script tags or inline libraries of the page | `render/page._scripts` |
+| Where the page's assets and vendored libraries are read from (package resources) | `render/page.ASSETS`, `VENDOR` (also used by `tools/vendor_libraries.py`) |
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Escape untrusted text for `innerHTML` (page) | `render/assets/common.js esc` |
@@ -144,7 +151,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Escape a DOT string (page) | `render/assets/common.js dotStr` |
 | Escape text inside a Graphviz HTML-like label (page) | `render/assets/common.js dotText` |
 | Render DOT with Graphviz, recovering from a failed render (page) | `render/assets/common.js GRAPHVIZ` |
-| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom` (handle `fit`, `get`, `set`, `centre`, `destroy`) |
+| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom`, which resolves the handle `zv` built by `zoomHandle(box, layer, size, onZoom)` (`layer`, `fit`, `get`, `set`, `centre`, `destroy`) |
 | Attach a d3 zoom to a view's drawing area, Safari trackpad pinch (`gesture*` events) included (page, all three views) | `render/assets/common.js zoomOn` |
 | Scale range of every zoom of the page | `render/assets/common.js ZOOM_EXTENT` |
 | Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |
@@ -166,15 +173,20 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG (zoom layer transform removed) | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
 | Words of an `OSError` (`permission denied`), the same on every OS | `storage/files.os_reason` (`REASONS`) |
-| Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` |
+| Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` (`MAX_NAME`) |
 | Command-line options and help | `cli.app`, `cli.command`, `Options` |
-| What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind`, `refused_hint` |
+| What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind` (`PathKind`), `refused_hint` |
 | Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
 | How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
+| How messages name the config of a run (its file, the preset applied, or the defaults) | `cli._config_label` (through `config_source` for a file) |
+| One run: config, `dbt parse`, manifest, views, layout, page, summary | `cli.run` |
 | Run `dbt parse` (output on stderr, OS errors and exit code as `RunError`) | `cli._dbt_parse` |
+| The manifest exists after `dbt parse` or with `--no-parse` | `cli._check_manifest` |
+| Build both views (a selector error names the config); empty views as an error or warnings | `cli._views`, `cli._check_views` |
 | Write the page, OS errors named by the output | `cli._write_page` |
+| Open the page in the browser (a failure is a warning) | `cli._open_browser` |
 | Write one line of the CLI on stdout or stderr | `cli._say` (`_warn`; `_fail`, the one place that collapses whitespace) |
-| The success summary | `cli._summary` |
+| The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
 | Block secrets, protected folders, commits and pushes on `main` (Claude Code) | `.claude/hooks/guard_paths.py` |
@@ -182,12 +194,15 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Build the `shop` test manifest and its parts (tests) | `tests/conftest.shop_manifest`, `model`, `source`, `relationships_test`; `SHOP` (id prefix) |
 | Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |
 | Write a test project and its files (tests) | `tests/conftest.write_project`, `write_manifest`, `write_config`, `write_layout`; fixtures `dbt_project`, `shop` |
-| Copy the example project with its committed manifest (tests) | `tests/conftest.write_example`, `EXAMPLE`, `EXAMPLE_MANIFEST`, `EXAMPLE_EXPECTED`, `EXAMPLE_TOOL` (paths and `LOCAL` ignore list owned by `tools/example_manifest`); fixture `example_project` |
+| Copy the example project with its committed manifest (tests) | `tests/conftest.write_example`, `EXAMPLE`, `EXAMPLE_MANIFEST`, `EXAMPLE_EXPECTED`, `EXAMPLE_TOOL`; fixture `example_project`. The example's paths and `LOCAL` ignore list are owned by `tools/example_manifest` (the committed manifest's path is its `TARGET`); `tests/conftest` reuses them |
+| A fake dbt executable (tests) | `tests/conftest.fake_dbt_executable` |
+| Write a preset file (tests) | `tests/conftest.write_preset`, `PRESET_TEXT` |
+| Split a Markdown doc into fenced blocks and prose (tests) | `tests/conftest.Block`, `blocks`, `prose`; `USER_GUIDE` (path of the user guide) |
 | Build a project's page from its manifest and read its payload (tests) | `tests/conftest.page_of` |
-| Read the embedded data block of a page (tests) | `tests/conftest.data_block` (bytes), `page_data` (dict) |
+| Read the embedded data block of a page (tests) | `tests/conftest.data_block` (bytes), `page_data` (dict); `DATA_OPEN` (its opening tag) |
 | Import a script by path (`tools/`, `.claude/hooks/`) (tests) | `tests/conftest.load_script` |
 | CLI arguments that build from the written manifest (tests) | `tests/conftest.NO_PARSE_NO_OPEN` |
-| Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `example_page`, `Page` |
+| Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `example_page`, `Page`; session fixtures `browser` (the local Chromium) and `cdn` (the vendored libraries served for their CDN URLs); `VIEWPORT` (the default window) |
 | Block every request but the page's own (browser tests) | `tests/browser/conftest.only_own_url` |
 | Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `open_flow`, `wait_flow`, `close_panel`, `scroll_width`, `names`, `names_of`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
 | The page of a synthetic universe payload (browser tests) | `tests/browser/conftest.universe_page` |

@@ -31,8 +31,6 @@ NO_PARSE_NO_OPEN = ("--no-parse", "--no-open")  # build from the written manifes
 DATA_OPEN = '<script type="application/json" id="data">'
 ROOT = Path(__file__).resolve().parent.parent
 USER_GUIDE = ROOT / "docs" / "user-guide.md"  # checked by test_cli.py (options) and test_docs.py
-EXAMPLE_MANIFEST = ROOT / "tests" / "fixtures" / "acme_retail" / "manifest.json.gz"  # its dbt parse
-EXAMPLE_EXPECTED: dict[str, Any] = json.loads(EXAMPLE_MANIFEST.with_name("expected.json").read_text("utf-8"))
 
 
 def model(
@@ -260,6 +258,8 @@ def load_script(path: Path) -> ModuleType:
 
 EXAMPLE_TOOL = load_script(ROOT / "tools" / "example_manifest.py")  # owns the example's paths (D-033)
 EXAMPLE = EXAMPLE_TOOL.EXAMPLE  # the example dbt project
+EXAMPLE_MANIFEST: Path = EXAMPLE_TOOL.TARGET  # its committed dbt parse, written by the tool
+EXAMPLE_EXPECTED: dict[str, Any] = json.loads(EXAMPLE_MANIFEST.with_name("expected.json").read_text("utf-8"))
 
 
 class Block(NamedTuple):

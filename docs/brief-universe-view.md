@@ -1,6 +1,6 @@
 # Brief — the “universe” view of dbt-erd
 
-*Status: scope decided with Thomas (§ 8), prototype validated (§ 9), v0.2 delivered (§ 10) · 2026-11-03*
+*Status: scope decided with Thomas (§ 8), prototype validated (§ 9), v0.2 delivered (§ 10) · 2026-11-03; v0.3 delivered (M1), v0.4 delivered except printing (M2; printing under `docs/roadmap.md` "Later")*
 
 > The tool described here as `dbt-erd` is now the `dbtscope` package of this repository (CLI `dbtscope`). The throwaway prototype in `prototypes/universe/` (§ 9) was not carried over.
 
@@ -156,7 +156,7 @@ The “keys” or “all fields” detail levels enlarge stars into table cards.
 - Same CLI and same config. The generated page has **two tabs**: “Universe” (new) and “Detail” (the current ERD). It remains a single self-contained HTML file.
 - A `--view universe|detail` option to choose the view shown on opening.
 - Lineage is read from `depends_on` in the manifest, which is already loaded: no additional data source is needed.
-- Libraries loaded from a CDN, as today. An `--inline-assets` option for a 100 % offline file is worth considering.
+- Libraries loaded from a CDN, as today. An `--inline-assets` option for a 100 % offline file is worth considering. (Since M2: `--offline`, D-021.)
 
 ## 8. Scoping decisions (Thomas, 2026-11-03)
 
@@ -208,8 +208,8 @@ The criteria of § 11 (under 3 s on opening, under 1 s per filter) are met. In a
 |---|---|
 | **Prototype** | d3-force + Canvas on the full Openlane manifest: performance, readability of constellations, fit to screen |
 | **v0.2: universe** ✅ | domains (groups / meta / `domains:` / group_by), layers, stars coloured by kind, routes between domains with arrows following lineage, side panel (layers / types / domains), detail levels names/keys/fields, **on-the-fly switch between relations / lineage / both** (brought forward from v0.3), search that re-enables filters, fit to screen, Detail tab opened from the universe |
-| **v0.3: trajectories** | upstream/downstream trajectory mode across domains and layers |
-| **v0.4: finishing touches** | light theme and printing, PNG/SVG export, group owners, offline file |
+| **v0.3: trajectories** ✅ | upstream/downstream trajectory mode across domains and layers (M1) |
+| **v0.4: finishing touches** ✅ except printing | light theme and printing, PNG/SVG export, group owners, offline file (M2; printing not built, under `docs/roadmap.md` "Later") |
 | In parallel (Openlane project) | declaration of the 5 domains as dbt `groups`, via a separate PR |
 
 ## 11. Success criteria

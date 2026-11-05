@@ -49,19 +49,19 @@ Code, identifiers, docs, prompts, agents, skills and commits in English. UI stri
 **D-013 — The tool is imported as `dbtscope`; the project files keep their `dbt-erd` names.**
 The `dbt-erd-html` v0.2 tool became the `dbtscope` package (CLI `dbtscope`, version continued at 0.2.0). The files it reads or writes in a dbt project keep their names and format: `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1), the localStorage key `dbt-erd-layout:<title>`, the default output `erd_output/erd.html`. Why: existing configs and exported arrangements keep working. Renaming them needs a superseding decision and a migration (read the old names too).
 
-**D-014 — One self-contained HTML page that lays itself out in the browser.** (Opt-in offline page: D-021; JSON escaping: D-023; library list superseded by D-045.)
+**D-014 — One self-contained HTML page that lays itself out in the browser.** (Opt-in offline page: D-021; JSON escaping: D-023; library list superseded by D-045; placement inside a domain refined by D-040.)
 Python computes the data of both views and embeds it as JSON; the page computes the layout (d3-force + canvas for the universe, validated on ~1,500 nodes; Graphviz via Viz.js for the detail) and recomputes it on each filter change. The page holds structure only (names, types, descriptions), never data rows. It loads d3, Viz.js and svg-pan-zoom from public CDNs, so it needs internet access to render. Why: one file to share, no server, instant filters. Rejected: a pre-computed layout in Python (no live filters), a server app.
 
-**D-015 — Classification by selectors and ordered rules, first match wins.** (Presets refined by D-030.)
+**D-015 — Classification by selectors and ordered rules, first match wins.** (Presets refined by D-030; refined by D-041 and D-048.)
 What is drawn (`select`, `exclude`), its kind, domain and layer are lists of dbt-like selectors (`domain/selectors.py`). A table's domain is, in order: its dbt `group`, `meta.domain`, the first `domains` rule, then `group_by`. Presets (`data_vault`, `star_schema`) are plain config files. Why: any naming convention is a few lines of YAML, and dbt groups give domains with no config at all.
 
-**D-016 — Page languages: English and French; CLI messages in English.**
+**D-016 — Page languages: English and French; CLI messages in English.** (Refined by D-039.)
 `language: en | fr` in the config picks the page language; UI strings live in tables at the top of each page script, and labels built in Python (`Other`, `No domain`) exist in both. The CLI stays in English (D-004). Supersedes, for the page only, the "from locale files" part of D-011: the page is a single file, so its strings are inline.
 
 **D-017 — Python ≥ 3.12 (the original tool required ≥ 3.10), PyYAML the only runtime dependency.** (Dependency clause superseded by D-025.)
 Aligned with D-001. Why: one interpreter floor for the whole repository.
 
-**D-018 — Trajectory mode (M1): lineage only, whole chain by default, dim the rest, filters never cut the chain.**
+**D-018 — Trajectory mode (M1): lineage only, whole chain by default, dim the rest, filters never cut the chain.** (Refined by D-036.)
 Settled with the user on 2026-11-03. The trajectory of a table follows `ref` / `source` lineage only, not business relations (up / down has no meaning for them). It covers the whole upstream and downstream chain by default, with a depth (1, 2, 3, all) and a direction (up, down, both) to narrow it. The universe keeps its layout: the trajectory is highlighted and the rest dimmed, so tables stay where users know them. Tables of the chain hidden by a domain, layer or type filter are brought back, as search does, and counted. Rejected: following the **Links** selector, a fixed 1–3 depth as in the Detail focus, showing the trajectory alone with a new layout, respecting the filters (the chain would look broken).
 
 **D-019 — Browser tests carry the `browser` marker and are excluded by default; CI does not run them.** (Network part superseded by D-022.)
@@ -70,7 +70,7 @@ The page logic (universe trajectory mode first) is tested in headless Chromium w
 **D-020 — Minimal CI: one Ubuntu job with ruff, the default tests and a secret scan.** (Refined by D-031 and D-032; Ubuntu-only clause superseded by D-043; secret scan in CI superseded by D-044.)
 Asked by the user on 2026-11-03. `.github/workflows/ci.yml` runs one job on Ubuntu: `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest -n auto -m "not live and not browser"`, then gitleaks on the pushed history. Supersedes the CI part of D-002 (pylint `duplicate-code` now runs in pre-commit only) and the test run on Windows and macOS of the template; coverage and the `dbtscope --version` smoke step are dropped too. Why: fast, cheap feedback on what matters most. Kept: `uv sync --locked` (D-001). Accepted risk: an OS-specific bug (paths, line endings) is caught only on a developer's machine.
 
-**D-021 — M2 scope: image export of what is on screen, and an opt-in offline page with vendored libraries.** (Library list superseded by D-045.)
+**D-021 — M2 scope: image export of what is on screen, and an opt-in offline page with vendored libraries.** (Library list superseded by D-045; flow export refined by D-036.)
 Settled with the user on 2026-11-03. M2 holds two things. (1) **Export image**: the current view exactly as shown (zoom, filters, trajectory), PNG at 2 × the screen resolution for the universe, PNG and SVG for the detail. Rejected: exporting the whole drawing whatever the zoom (unpredictable, possibly huge images). (2) **Offline page**: `--offline` / `offline: true` embeds d3, Viz.js and svg-pan-zoom, vendored in the package at the CDN versions with their licences. The default page still loads them from the CDNs (D-014 unchanged for it). Rejected: always embedding (~2.5 MB more for every page, even small projects); downloading the libraries at generation (would need network where the offline page is meant for). Not in M2: print stylesheet, small-screen fixes, plurals (roadmap "Later"). The light theme and group owners already exist.
 
 **D-022 — Browser tests serve the page's libraries from the vendored copies; they need no network.**
@@ -117,7 +117,7 @@ Asked by the user on 2026-11-04 (M5.1, design note `docs/architecture/2026-11-04
 **D-034 — dbtscope is licensed under the Apache License 2.0.** (List of shipped library licences superseded by D-045; superseded by D-046.)
 User decision of 2026-11-04. `LICENSE` holds the Apache License 2.0 text (as published at apache.org), `NOTICE` the copyright line (Christophe B., 2026) and a pointer to the licences of the vendored libraries; `pyproject.toml` declares `license = "Apache-2.0"`. Replaces the MIT licence of the template (not recorded until now). The licences of the libraries embedded in offline pages (d3, Viz.js, svg-pan-zoom, and Graphviz, Expat, Emscripten and musl inside `full.render.js`, D-021) are unchanged and still ship with them. Why: the user's choice; Apache 2.0 adds an explicit patent grant and a NOTICE convention. The project has a single human author, so no other contributor's consent is needed.
 
-**D-035 — On narrow screens the side panels start closed.**
+**D-035 — On narrow screens the side panels start closed.** (Refined by D-038.)
 User decision of 2026-11-04 (M5.2, design note `docs/architecture/2026-11-04-m5.2-page-polish.md`). When a view of the page starts (its first showing) in a window 600 px wide or narrower (the `page.css` breakpoint), its filter panel starts closed and its ☰ button says `aria-expanded="false"`. Wider windows open as before. The state is not saved and does not follow later resizing: the ☰ button decides. At 600 px or narrower an open panel stacks above the toolbar, full width, at most 45 % of the window height and scrolling inside itself, so the page never scrolls sideways. On coarse pointers (`@media (pointer: coarse)`), every control of the page is a 44 px target; fine-pointer (desktop) rendering is unchanged. Why: at 360 px the 260 px panel left about 100 px of canvas, so the map was unusable until the user found the toggle. Rejected: closing it with CSS alone (the toggle state would be wrong), remembering the state (a new stored state, D-013), 44 px targets for fine pointers too (changes the desktop page).
 
 **D-036 — The flow view: a trajectory drawn left to right by Graphviz, in an overlay of the Universe tab.**
@@ -128,7 +128,7 @@ Asked by the user on 2026-11-04 (M5.3, design note `docs/architecture/2026-11-04
 - `rank=same` per layer (vertical and backward edges);
 - no cap (Graphviz blocks the page on a hub).
 
-**D-037 — Text on a colour reaches WCAG AA for any colour; the page chooses the ink.**
+**D-037 — Text on a colour reaches WCAG AA for any colour; the page chooses the ink.** (Refined by D-042.)
 Asked by the user on 2026-11-05 (M5.4, design note `docs/architecture/2026-11-05-m5.4-contrast-touch-ups.md`).
 - **Names on kind colours** (universe cards, detail and flow headers) are white when white gives at least 4.5:1 on the colour, else pure black. Pure black is the only dark ink that reaches 4.5:1 on every colour; `#1f2933` falls to 3.8:1 on mid tones.
 - **Text written in a colour** (domain names on the universe) is that colour, darkened toward black just enough to reach 4.5:1 on the page background.
@@ -155,7 +155,7 @@ Asked by the user on 2026-11-05 (M5.4, same design note § 4–5).
 
 Refines D-016 (page strings in both languages). Rejected: U+202F before `:` too (the French rule is a full no-break space before the colon), `Intl.NumberFormat` options (same output as what the trajectory already used).
 
-**D-040 — Inside a domain, tables are placed in layer bands in the smallest circle, with no simulation.**
+**D-040 — Inside a domain, tables are placed in layer bands in the smallest circle, with no simulation.** (Refined by D-048.)
 Asked by the user on 2026-11-05 (M5.5, design note `docs/architecture/2026-11-05-m5.5-universe-layout.md`).
 - **Bands.** A domain's tables are placed in layer bands, left to right in the order of `DATA.layers`.
   - Inside a band, tables are ordered by in-layer lineage depth (`flowRanks`, moved to `common.js`), then by the barycentre of their neighbours in earlier bands, then by name and `unique_id`.
