@@ -200,6 +200,10 @@ Done when: the design note's test plan passes (default and browser suites, hosti
 
 - **M5.9 — Lighter CI.** (Done.) (Asked by the user on 2026-11-05, D-044.) Windows and macOS run only the OS-sensitive tests; gitleaks runs in pre-commit only.
 
+- **M5.10 — One zoom: wheel and pinch anywhere.** (Done.) (Asked by the user on 2026-11-05; design note `docs/architecture/2026-11-05-m5.10-one-zoom.md`, D-045.) In the detail view the wheel zoomed only over a table (macOS); pinch did not work in the Graphviz views. The detail and flow views zoom with d3.zoom attached to the drawing box (one helper, `common.js graphZoom`, and one scale range, `ZOOM_EXTENT`, shared with the universe), so wheel, trackpad (ctrl+wheel, and Safari's `gesture*` events through `common.js zoomOn`, shared by the three views) and two-finger pinch zoom and drag pans anywhere in the area. Fit, the flow's initial view (D-036), node drag and saved positions, and exports equal to the screen are unchanged. svg-pan-zoom is removed from the page, the offline page and `vendor/`. One page milestone: the M3 reference pages are regenerated once, payloads byte-identical.
+
+Done when: the design note's test plan passes (default and browser suites: wheel over empty space and over a table, wheel with an svg that receives no events, two-point touch pinch and Safari gesture events in the universe, detail and flow, pan, node drag and save, Fit, flow initial view, exports, offline page); `tools/vendor_libraries.py --check` passes; ruff is clean with no duplicate-code finding; and D-045, `render/CLAUDE.md`, `docs/architecture.md`, `docs/ui-spec.md`, README, CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).

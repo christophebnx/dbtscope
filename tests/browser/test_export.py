@@ -236,11 +236,11 @@ def test_detail_svg_is_a_standalone_image_of_the_visible_diagram(shop_page: Shop
     assert ids == visible_node_ids(p) == {e["id"] for e in data["detail"]["entities"]}
     for table in names_of(data, ids):
         assert table in svg_text(root)
-    # svg-pan-zoom's viewport group (right after the background) lost its transform: the viewBox frames
-    viewport = root[1]
-    assert viewport.tag == f"{SVG_NS}g" and viewport.get("transform") is None
-    assert "transform" not in (viewport.get("style") or "")
-    assert viewport.find(f"{SVG_NS}g").get("id") == "graph0"
+    # M5.10: the zoom layer (right after the background) is a bare group, without its transform: the
+    # viewBox frames the visible area
+    layer = root[1]
+    assert layer.tag == f"{SVG_NS}g" and dict(layer.attrib) == {}
+    assert layer[0].get("id") == "graph0"
 
 
 def test_detail_svg_is_cut_to_the_visible_area(shop_page: Shop) -> None:
@@ -380,7 +380,7 @@ def test_detail_buttons_are_disabled_while_laying_out(build_page: Any, open_page
           return ['d-export-png', 'd-export-svg'].map(i => document.getElementById(i).disabled); }"""
     )
     show_detail(p)
-    # a new layout (all columns) disables both until svg-pan-zoom drives the new drawing
+    # a new layout (all columns) disables both until the new drawing is zoomed
     during = p.page.evaluate(
         """() => { document.getElementById('d-cols').click();
           return ['d-export-png', 'd-export-svg'].map(i => document.getElementById(i).disabled); }"""

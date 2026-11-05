@@ -28,7 +28,7 @@ function startFlow(DATA, EXPORT, close) {
   const dirSel = $f('dir'), depthSel = $f('depth'), domains = $f('domains');
   const pngBtn = $f('export-png'), svgBtn = $f('export-svg');
   // st: the drawn flow (start, direction, requested depth, then what prepare() computed)
-  let st = null, pz = null, renderSeq = 0, isOpen = false, down = null;
+  let st = null, zv = null, renderSeq = 0, isOpen = false;
 
   // ---------------------------------------------------------------- controls
   $f('back-t').textContent = T.back; $f('back').title = T.backTitle;
@@ -42,10 +42,9 @@ function startFlow(DATA, EXPORT, close) {
   dirSel.onchange = () => { st.direction = dirSel.value; update(false); };
   depthSel.onchange = () => { st.depth = depthSel.value === 'dall' ? Infinity : +depthSel.value.slice(1); update(false); };
   $f('back').onclick = () => close();
-  $f('fit').onclick = () => panZoomFit(box, pz);
-  // a resized window keeps the user's zoom and pan; Fit shows the whole flow again
-  const resize = () => { if (isOpen && pz && box.clientWidth) pz.resize(); };
-  window.addEventListener('resize', resize);
+  // a resized window keeps the user's zoom and pan (the zoom is relative to the box's top-left corner);
+  // Fit shows the whole flow again
+  $f('fit').onclick = () => zv && zv.fit();
   // the Domains list stays inside the window: shifted left when its summary is near the right edge
   domains.addEventListener('toggle', () => {
     const list = $f('dom-list');
@@ -55,10 +54,8 @@ function startFlow(DATA, EXPORT, close) {
     if (over > 0) list.style.left = -over + 'px';
   });
   const canExport = on => { pngBtn.disabled = svgBtn.disabled = !on; };
-  pngBtn.onclick = () => EXPORT.save('flow', 'png', () => pngImage(box, pz, EXPORT), pngBtn);
-  svgBtn.onclick = () => EXPORT.save('flow', 'svg', () => svgFile(box, pz), svgBtn);
-  // a pan of svg-pan-zoom that ends on a table is not a click on it
-  box.addEventListener('pointerdown', ev => { down = [ev.clientX, ev.clientY]; });
+  pngBtn.onclick = () => EXPORT.save('flow', 'png', () => pngImage(box, zv, EXPORT), pngBtn);
+  svgBtn.onclick = () => EXPORT.save('flow', 'svg', () => svgFile(box, zv), svgBtn);
 
   // ---------------------------------------------------------------- what is drawn
   // The trajectory at the requested depth, reduced to at most FLOW_MAX tables: the deepest level that
@@ -177,7 +174,7 @@ function startFlow(DATA, EXPORT, close) {
   // keyboard: the recentre came from a focused table, so the focus follows to the new start
   function render(keyboard) {
     canExport(false); hideTip();
-    pz = panZoomDestroy(pz);
+    if (zv) { zv.destroy(); zv = null; }
     box.innerHTML = `<div class="msg">${L.computing}</div>`;
     const seq = ++renderSeq, current = () => seq === renderSeq && isOpen, source = st.dot;
     let svg = null;
@@ -187,12 +184,13 @@ function startFlow(DATA, EXPORT, close) {
       GRAPHVIZ.render(source).then(drawn => {
         if (!current()) return null;
         svg = drawn; tidy(svg);
-        return panZoom(box, svg, current);
+        return graphZoom(box, svg, current, hideTip);
       }).then(mounted => {
         if (!mounted) return;
-        pz = mounted;
-        pz.setOnPan(hideTip); pz.setOnZoom(hideTip);
-        initialView(svg, current, () => { wire(svg, keyboard); canExport(true); });
+        zv = mounted;
+        initialView(svg);
+        wire(svg, keyboard);
+        canExport(true);
       }).catch(err => { if (current()) box.innerHTML = `<div class="msg">${L.error}${esc(err)}</div>`; });
     });
   }
@@ -209,29 +207,15 @@ function startFlow(DATA, EXPORT, close) {
       if (i === st.start) g.setAttribute('aria-current', 'true'); else g.setAttribute('role', 'button');
     });
   }
-  // the whole flow when readable, else FLOW_MIN_SCALE centred on the start; then done(), while current()
-  function initialView(svg, current, done) {
-    const real = pz.getSizes().realZoom;
-    if (real >= FLOW_MIN_SCALE) return done();
-    pz.zoom(pz.getZoom() * FLOW_MIN_SCALE / real);
-    // svg-pan-zoom draws a zoom or a pan on its next animation frame: read the start's place after it
-    requestAnimationFrame(() => {
-      if (!current()) return;
-      centreOn(startNode(svg));
-      requestAnimationFrame(() => { if (current()) done(); });
-    });
-  }
-  function centreOn(g) {
-    const r = g.getBoundingClientRect(), b = box.getBoundingClientRect();
-    pz.panBy({ x: b.left + b.width / 2 - (r.left + r.width / 2), y: b.top + b.height / 2 - (r.top + r.height / 2) });
+  // the whole flow when readable (graphZoom fits it), else FLOW_MIN_SCALE centred on the start
+  function initialView(svg) {
+    if (zv.get().k < FLOW_MIN_SCALE) zv.centre(startNode(svg).getBoundingClientRect(), FLOW_MIN_SCALE);
   }
   function wire(svg, keyboard) {
     svg.querySelectorAll('g.node').forEach(g => {
       const i = INDEX.get(g.id);
-      g.addEventListener('click', ev => {
-        if (down && Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 3) return;
-        recentre(i, false);
-      });
+      // a pan that ends on a table is not a click on it: graphZoom's clickDistance swallows that click
+      g.addEventListener('click', () => recentre(i, false));
       g.addEventListener('keydown', ev => {
         if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); recentre(i, true); }
       });
@@ -240,7 +224,7 @@ function startFlow(DATA, EXPORT, close) {
       g.addEventListener('focus', () => {
         if (!g.matches(':focus-visible')) return;
         const r = g.getBoundingClientRect(), b = box.getBoundingClientRect();
-        if (r.left < b.left || r.right > b.right || r.top < b.top || r.bottom > b.bottom) centreOn(g);
+        if (r.left < b.left || r.right > b.right || r.top < b.top || r.bottom > b.bottom) zv.centre(r);
         const at = g.getBoundingClientRect();
         showTip(i, at.right, at.bottom);
       });
@@ -308,6 +292,6 @@ function startFlow(DATA, EXPORT, close) {
   }
 
   // state and svgImage are for the browser tests; the page uses the export buttons
-  return { open, close: hide, isOpen: () => isOpen, shown: resize,
-    state, svgImage: scale => svgImage(box, pz, scale) };
+  return { open, close: hide, isOpen: () => isOpen,
+    state, svgImage: scale => svgImage(box, zv, scale) };
 }

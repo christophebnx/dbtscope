@@ -2,7 +2,7 @@
 
 The page is built with `--offline` (`offline: true` builds the same page, `tests/unit/test_cli.py`)
 and opened with the browser offline and every request but the page's own `file:` URL aborted:
-d3, Viz.js and svg-pan-zoom must come from the page.
+d3 and Viz.js must come from the page (svg-pan-zoom left it, D-045).
 """
 
 from __future__ import annotations
@@ -36,7 +36,8 @@ def check_offline_page(p: Page, html: Path, data: dict[str, Any]) -> None:
     p.page.wait_for_function("document.getElementById('u-meta').textContent.length > 0")
     assert p.page.text_content("#u-meta").startswith("6 tables"), p.page.text_content("#u-meta")
     assert p.page.evaluate(DRAWN) > 500, "the universe canvas holds only the background"
-    assert p.page.evaluate("[typeof d3.forceSimulation, typeof Viz, typeof svgPanZoom]") == ["function"] * 3
+    assert p.page.evaluate("[typeof d3.forceSimulation, typeof d3.zoom, typeof Viz]") == ["function"] * 3
+    assert p.page.evaluate("typeof svgPanZoom") == "undefined", "svg-pan-zoom left the page (D-045)"
     assert p.page.evaluate("typeof Viz.render") == "function", "full.render.js registered on Viz"
 
     # trajectory mode from fct_returns: its whole upstream

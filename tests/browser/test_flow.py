@@ -560,7 +560,7 @@ START_OFFSET = """() => { const b = document.getElementById('f-graph').getBoundi
   const s = [...document.querySelectorAll('#f-graph g.node')].find(g => g.id === flow.state().start)
     .getBoundingClientRect();
   return [s.left + s.width / 2 - (b.left + b.width / 2), s.top + s.height / 2 - (b.top + b.height / 2)]; }"""
-REAL_ZOOM = "document.querySelector('#f-graph g.svg-pan-zoom_viewport').getCTM().a"
+REAL_ZOOM = "d3.zoomTransform(document.getElementById('f-graph')).k"  # M5.10: one svg unit is one px
 
 
 def test_small_initial_scale_is_0_75_on_the_start_at_360_px(tmp_path: Path, open_page: Any) -> None:

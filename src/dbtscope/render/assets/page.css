@@ -60,14 +60,14 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 /* ---- detail view ---- */
 #d-focus { width:240px; }
 #d-q { width:160px; }
-#d-graph { position:absolute; inset:0; }
+#d-graph { position:absolute; inset:0; touch-action:none; }
 #d-graph .msg { padding:24px; color:var(--muted); }
 #d-graph .dim { opacity:.15; transition:opacity .15s; }
 #d-graph g.node { cursor:grab; }
 
 /* ---- universe view ---- */
 #u-q { width:220px; }
-#u-canvas { position:absolute; inset:0; display:block; }
+#u-canvas { position:absolute; inset:0; display:block; touch-action:none; }
 .tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }
 .tip .m { color:var(--muted); }
@@ -125,7 +125,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .fmk.start { width:14px; height:10px; border:2px solid var(--fg); }
 .fmk.up { width:18px; border-top:2px dashed var(--traj-up); }
 .fmk.down { width:18px; border-top:2px solid var(--traj-down); }
-#f-graph { position:absolute; inset:0; }
+#f-graph { position:absolute; inset:0; touch-action:none; }
 #f-graph .msg { padding:24px; color:var(--muted); }
 #f-graph g.node { cursor:pointer; }
 #f-graph g.node[aria-current] { cursor:default; }

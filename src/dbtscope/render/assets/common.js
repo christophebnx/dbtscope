@@ -2,7 +2,7 @@
 // table, the one HTML escaper, numbers and plural agreement, the theme colours and the contrast of text
 // on colours, the side-panel toggle, the filter checkbox row, the lineage traversal of the trajectory,
 // the columns along the data flow (flow view, universe layer bands), and the Graphviz helpers of the
-// detail and flow views (render, pan-zoom mount, image export).
+// detail and flow views (render, zoom mount, image export).
 // Declarations only: no DOM work at load but the page language.
 const PAGE = JSON.parse(document.getElementById('data').textContent);
 document.documentElement.lang = PAGE.lang;
@@ -283,31 +283,86 @@ const GRAPHVIZ = (() => {
   };
 })();
 
-// Puts a Graphviz svg in `box` at 100 % of its size and mounts svg-pan-zoom on it, fitted and centred.
-// svg-pan-zoom fits to the drawing's bbox once and stays stuck at zoom 0 if that bbox is still empty
-// (page laid out in the background), so it waits until the svg has a real size. -> Promise<pz>, or
-// null as soon as isCurrent() turns false (a newer render replaced this one).
-function panZoom(box, svg, isCurrent) {
-  box.replaceChildren(svg);
-  if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 ' + parseFloat(svg.getAttribute('width')) + ' ' + parseFloat(svg.getAttribute('height')));
+// The one scale range of every zoom of the page (universe, detail, flow; D-045).
+const ZOOM_EXTENT = [0.01, 12];
+
+// Puts the d3 `zoom` behaviour on the selection `sel` (the element that receives the gestures) and
+// returns `sel`; `sel.on('.zoom .gesture', null)` takes it off. Double-click does not zoom (it keeps its
+// meaning in the views). Safari on macOS reports a trackpad pinch as its own gesturestart / gesturechange
+// / gestureend events (event.scale, clientX / Y), not as ctrl+wheel, and would zoom the whole page: they
+// are cancelled and scale the d3 zoom around the pointer, by the ratio of the gesture scale between two
+// events, through the zoom behaviour (D-045). A touch pinch (iPad Safari fires gesture events with it)
+// is left to d3's touch handling: the gestures only stop the page zoom while fingers are down.
+function zoomOn(sel, zoom) {
+  let last = 1, touches = 0;
+  // in the capture phase: a d3.drag or d3.zoom touch handler on the same element stops the later ones
+  sel.on('touchstart.gesture touchmove.gesture touchend.gesture', ev => { touches = ev.touches.length; }, true)
+    .on('touchcancel.gesture', () => { touches = 0; }, true);
+  sel.call(zoom).on('dblclick.zoom', null);
+  sel.on('gesturestart.gesture', ev => { ev.preventDefault(); last = ev.scale || 1; })
+    .on('gesturechange.gesture', ev => {
+      ev.preventDefault();
+      const scale = ev.scale || 1;
+      if (!touches) zoom.scaleBy(sel, scale / last, d3.pointer(ev, sel.node()));
+      last = scale;
+    })
+    .on('gestureend.gesture', ev => { ev.preventDefault(); last = 1; });
+  return sel;
+}
+
+// Puts a Graphviz svg in `box` and zooms it with d3.zoom attached to `box` (an HTML block, a hit target
+// over its whole area in every engine), fitted and centred (D-045). The svg's children move into one bare
+// <g>, the zoom layer, and the svg fills the box at one CSS pixel per Graphviz point at scale 1. Waits until
+// the box and the drawing have a real size (page laid out in the background). onZoom(transform) runs on
+// every zoom or pan. -> Promise<zv>, or null as soon as isCurrent() turns false (a newer render replaced
+// this one). zv: { layer, fit(), get(), set({x, y, k}), centre(rect, k), destroy() }.
+function graphZoom(box, svg, isCurrent, onZoom) {
+  const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+  const size = vb.length === 4 ? [vb[2], vb[3]] : [parseFloat(svg.getAttribute('width')), parseFloat(svg.getAttribute('height'))];
+  svg.removeAttribute('viewBox');
   svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+  const layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  layer.append(...svg.childNodes);
+  svg.append(layer);
+  box.replaceChildren(svg);
   return new Promise(resolve => {
     const init = () => {
       if (!isCurrent()) return resolve(null);
-      const bb = svg.getBBox();
-      if (!(bb.width && bb.height && svg.clientWidth && svg.clientHeight)) return requestAnimationFrame(init);
-      resolve(svgPanZoom(svg, { zoomScaleSensitivity: 0.3, maxZoom: 40, fit: true, center: true, dblClickZoomEnabled: false }));
+      const bb = layer.getBBox();
+      if (!(bb.width && bb.height && box.clientWidth && box.clientHeight)) return requestAnimationFrame(init);
+      resolve(zoomHandle(box, layer, size, onZoom));
     };
     init();
   });
 }
-// Fits and centres a mounted diagram again (Fit, a panel toggle); a hidden tab (no size) waits until shown.
-function panZoomFit(box, pz) { if (pz && box.clientWidth) { pz.resize(); pz.fit(); pz.center(); } }
-// Unmounts svg-pan-zoom before its svg is replaced; -> null, the new pz
-function panZoomDestroy(pz) {
-  // destroy() resets the zoom first, which throws if the old svg has no usable size
-  if (pz) { try { pz.destroy(); } catch (e) { /* the svg is replaced anyway */ } }
-  return null;
+// The zoom of a mounted Graphviz diagram (see graphZoom).
+function zoomHandle(box, layer, size, onZoom) {
+  const [w, h] = size, sel = d3.select(box);
+  const fitScale = () => Math.min(box.clientWidth / w, box.clientHeight / h);
+  const zoom = d3.zoom().scaleExtent([Math.min(ZOOM_EXTENT[0], fitScale()), ZOOM_EXTENT[1]]).clickDistance(3)
+    .on('zoom', ev => { layer.setAttribute('transform', ev.transform); if (onZoom) onZoom(ev.transform); });
+  zoomOn(sel, zoom);
+  const set = ({ x, y, k }) => zoom.transform(sel, d3.zoomIdentity.translate(x, y).scale(k));
+  const zv = {
+    layer,
+    // contain and centre, no padding; nothing while the box has no size (hidden tab)
+    fit() {
+      if (!box.clientWidth || !box.clientHeight) return;
+      const k = fitScale();
+      set({ x: (box.clientWidth - w * k) / 2, y: (box.clientHeight - h * k) / 2, k });
+    },
+    get() { const t = d3.zoomTransform(box); return { x: t.x, y: t.y, k: t.k }; },
+    set,
+    // the centre of a screen rectangle at the centre of the box, at scale k (the current one when omitted)
+    centre(rect, k) {
+      const b = box.getBoundingClientRect(), t = d3.zoomTransform(box), s = k || t.k;
+      const [px, py] = t.invert([rect.left + rect.width / 2 - b.left, rect.top + rect.height / 2 - b.top]);
+      set({ x: box.clientWidth / 2 - px * s, y: box.clientHeight / 2 - py * s, k: s });
+    },
+    destroy() { sel.on('.zoom .gesture', null); },
+  };
+  zv.fit();
+  return zv;
 }
 
 // CSS of page.css that changes how a Graphviz diagram looks, inlined into the exported SVG when it differs
@@ -315,16 +370,16 @@ function panZoomDestroy(pz) {
 // rule adds its property here.
 const INLINE = { opacity: '1' };
 
-// The visible part of the Graphviz diagram of `box` (driven by svg-pan-zoom `pz`) as a standalone SVG
+// The visible part of the Graphviz diagram of `box` (zoomed by graphZoom's `zv`) as a standalone SVG
 // document, `scale` x its size on screen (the drawing stays vector); null when nothing is drawn. Only what
-// is shown: tables and links outside the visible area, tooltips and svg-pan-zoom's own markup are left
-// out; ids (dbt unique_ids) are kept.
-function svgImage(box, pz, scale) {
-  const svg = pz && box.querySelector('svg');
+// is shown: tables and links outside the visible area and tooltips are left out, the zoom layer keeps no
+// transform (the viewBox frames the visible area); ids (dbt unique_ids) are kept.
+function svgImage(box, zv, scale) {
+  const svg = zv && box.querySelector('svg');
   if (!svg) return null;
   const XLINK = 'http://www.w3.org/1999/xlink', XMLNS = 'http://www.w3.org/2000/xmlns/';
   const overlaps = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
-  const vp = svg.querySelector('g.svg-pan-zoom_viewport'), r = svg.getBoundingClientRect();
+  const vp = zv.layer, r = svg.getBoundingClientRect();
   const m = vp.getScreenCTM().inverse();
   function corner(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(m); }
   const a = corner(r.left, r.top), b = corner(r.right, r.bottom);
@@ -338,17 +393,12 @@ function svgImage(box, pz, scale) {
     if (el.matches('g.node, g.edge') && !overlaps(el.getBoundingClientRect(), r)) cut.push(copy);
   });
   cut.forEach(el => el.remove());
-  clone.querySelectorAll('title, #svg-pan-zoom-controls').forEach(el => el.remove());
+  clone.querySelectorAll('title').forEach(el => el.remove());
   [clone, ...clone.querySelectorAll('*')].forEach(el => {
     el.removeAttribute('title'); el.removeAttributeNS(XLINK, 'title');
-    if (el.classList.length) {
-      [...el.classList].filter(c => c.startsWith('svg-pan-zoom')).forEach(c => el.classList.remove(c));
-      if (!el.classList.length) el.removeAttribute('class');
-    }
     if (!el.getAttribute('style')) el.removeAttribute('style');
   });
-  cvp.removeAttribute('transform'); cvp.style.removeProperty('transform');
-  if (!cvp.getAttribute('style')) cvp.removeAttribute('style');
+  cvp.removeAttribute('transform');
   const w = b.x - a.x, h = b.y - a.y;
   clone.setAttribute('viewBox', `${a.x} ${a.y} ${w} ${h}`);
   clone.setAttribute('width', r.width * scale); clone.setAttribute('height', r.height * scale);
@@ -363,18 +413,18 @@ function svgImage(box, pz, scale) {
 }
 
 // svgImage at its screen size as a file (Blob), or null when nothing is drawn.
-async function svgFile(box, pz) {
-  const text = svgImage(box, pz, 1);
+async function svgFile(box, zv) {
+  const text = svgImage(box, zv, 1);
   return text && new Blob([text], { type: 'image/svg+xml' });
 }
 
 // The same SVG rasterised at 2 x the screen resolution (EXPORT.scale; a data: URL keeps the canvas untainted).
-async function pngImage(box, pz, EXPORT) {
-  const svg = pz && box.querySelector('svg');
+async function pngImage(box, zv, EXPORT) {
+  const svg = zv && box.querySelector('svg');
   if (!svg) return null;
   const r = svg.getBoundingClientRect(), s = EXPORT.scale(r.width, r.height);
   const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgImage(box, pz, s));
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgImage(box, zv, s));
   await img.decode();
   const c = document.createElement('canvas');
   c.width = Math.round(r.width * s); c.height = Math.round(r.height * s);

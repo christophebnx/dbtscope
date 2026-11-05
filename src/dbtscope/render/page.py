@@ -110,16 +110,6 @@ LIBRARIES: tuple[Library, ...] = (
             ),
         ),
     ),
-    Library(
-        "svg-pan-zoom",
-        "3.6.1",
-        "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js",
-        "svg-pan-zoom.min.js",
-        "BSD-2-Clause",
-        "LICENSE-svg-pan-zoom.txt",
-        "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/LICENSE",
-        "f463710320089c61d0f57cec2b886c02de04e21eb92ebd22eaa327fdf0a6b7c6",
-    ),
 )
 
 
