@@ -189,7 +189,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
-| Block secrets, protected folders, commits and pushes on `main` (Claude Code) | `.claude/hooks/guard_paths.py` |
+| Block secrets, protected folders, commits and pushes on `main` (Claude Code); the project's list in `.claude/guard.json` | `.claude/hooks/guard_paths.py` |
+| Check package module tables and this map against the code (D-052) | `tools/doc_consistency.problems` |
+| Fail while `TODO(project):` markers are left in a project (D-050) | `tests/unit/test_template_markers.py` |
 | Format and lint-fix an edited file (Claude Code) | `.claude/hooks/format.py` |
 | Build the `shop` test manifest and its parts (tests) | `tests/conftest.shop_manifest`, `model`, `source`, `relationships_test`; `SHOP` (id prefix) |
 | Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |

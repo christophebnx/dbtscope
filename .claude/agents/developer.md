@@ -1,6 +1,7 @@
 ---
 name: developer
 description: Implements a change according to an approved design note. Use after the architect (and ui-designer) in /feature, or for a well-scoped fix.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 

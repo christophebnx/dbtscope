@@ -1,0 +1,28 @@
+{
+  "template": "https://github.com/christophebnx/template_python",
+  "is_template": false,
+  "synced_commit": "657d64cfb9efe3ff39729b6fbc6877f7348683cf",
+  "owned": [
+    ".claude/agents",
+    ".claude/hooks",
+    ".claude/skills",
+    ".pre-commit-config.yaml",
+    "docs/architecture/_template.md",
+    "tests/unit/test_check_commit_message.py",
+    "tests/unit/test_docs_consistency.py",
+    "tests/unit/test_guard_paths.py",
+    "tests/unit/test_template_markers.py",
+    "tools/check_commit_message.py",
+    "tools/doc_consistency.py"
+  ],
+  "shared": [
+    ".claude/settings.json",
+    ".github/workflows/ci.yml",
+    ".gitignore",
+    "CLAUDE.md",
+    "docs/architecture.md",
+    "docs/decisions.md",
+    "pyproject.toml",
+    "tests/unit/test_layering.py"
+  ]
+}
