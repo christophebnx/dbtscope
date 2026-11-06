@@ -1,6 +1,7 @@
 ---
 name: reviewer
 description: Reviews a change against the project invariants, the documented decisions and the one-responsibility-one-implementation rule. Use after implementation and tests, before documentation.
+model: opus
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: architect
 description: Designs a change before any code is written. Use first in /feature, or whenever a request touches layering, a stored data format, a public interface or a documented decision.
+model: opus
 tools: Read, Grep, Glob, Write, Edit
 ---
 

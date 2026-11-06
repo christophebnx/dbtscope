@@ -41,6 +41,18 @@ Enforced by `permissions.deny` in `.claude/settings.json` and by the PreToolUse 
 **D-011 — English for code and repository text; the user language for what the end user sees.** (Page strings: "from locale files" superseded by D-016.)
 Code, identifiers, docs, prompts, agents, skills and commits in English. UI strings and exported content in the user language, from locale files.
 
+**D-049 — Each agent has a fixed model, set in its front matter.** (From template D-013.)
+Design and review, where a mistake is costly and the work is reasoning over the whole codebase, run on the strongest model: `architect` and `reviewer` on `opus`. Implementation, tests, UI design and documentation follow a written design note or diff and run on `sonnet`. The orchestrating session keeps the user's model. Aliases follow the latest model of each family. Why: `/build-roadmap` chains dozens of agent runs; most of them do not need the strongest model. Rejected: every agent inheriting the session model (cost), `haiku` for documentation (keeping CLAUDE.md files and decisions exact needs more care than it saves).
+
+**D-050 — `.claude/template.json` describes the link with the template; markers are enforced.** (From template D-014.)
+It holds the template URL, `is_template` (false here), `synced_commit` (the template commit last brought in; this project was created from template `ee9d191`, before the file existed, and first synced to `657d64c`) and two path lists: `owned` (the template's: its changes are taken by `/sync-template` with a three-way merge) and `shared` (template and project text mixed: reviewed change by change). Every other path belongs to the project and is never synced. `tests/unit/test_template_markers.py` fails while a `TODO(project):` marker is left. The protected paths live in `.claude/guard.json`, so the guard hook itself stays template-owned. Template-owned files keep the template's wording; their references to template decisions are renumbered to this file's numbers at each sync. Rejected: copier (a second tool to install and run), a `git merge` of the template history (unrelated histories, every project edit becomes a conflict).
+
+**D-051 — Hook commands skip uv's environment sync.** (From template D-015.)
+`uv run python` checks the project environment on every call: about 0.5 s added to each tool call Claude Code makes. The guard hook runs with `uv run --no-project` (standard library only, so it also works before `uv sync`) and the format hook with `uv run --no-sync` (it needs ruff from the project environment): about 60 ms each. Rejected: `python3` (missing on Windows), the `.venv` path (differs between Windows and POSIX).
+
+**D-052 — Package module tables and the responsibility map are checked against the code.** (From template D-016.)
+`tools/doc_consistency.py`, run by `tests/unit/test_docs_consistency.py`, fails when a package module is missing from its `CLAUDE.md` table (or listed but absent), or when the responsibility map names an implementation that does not exist; a bare name in a map cell is looked up in the modules that cell names. Agents rely on these tables to find existing code before writing new code (D-006); a stale table leads to duplicates. The judgement checks are the `/audit` skill's. It complements `tests/unit/test_docs.py`, which checks the user documents.
+
 ## Project
 
 **D-012 — Everything comes from the dbt manifest; no warehouse connection.**

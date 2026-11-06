@@ -64,4 +64,27 @@ def test_ordinary_commands_pass(command: str) -> None:
     ],
 )
 def test_push_to_a_protected_branch(args: str, branch: str, blocked: bool) -> None:
-    assert guard.pushes_protected(args, branch) is blocked
+    assert guard.pushes_protected(args, branch, frozenset({"main", "master"})) is blocked
+
+
+def test_config_adds_protected_paths(tmp_path: Path) -> None:
+    config = tmp_path / "guard.json"
+    config.write_text(json.dumps({"secret_files": ["secrets.yaml"], "protected_dirs": ["data/real"]}))
+    loaded = guard.load_guard(config)
+    assert loaded.secret_files == ("secrets.yaml",)
+    assert loaded.protected_branches == frozenset({"main", "master"})  # default kept
+    assert loaded.secret_in_command.search("cat secrets.yaml")
+    assert loaded.secret_in_command.search("ls data\\real")
+    assert not loaded.secret_in_command.search("cat secrets.yaml.example")
+
+
+@pytest.mark.parametrize("content", ["not json", "[1, 2", "[1, 2]", '{"secret_files": "x"}'])
+def test_unreadable_config_falls_back_to_defaults(tmp_path: Path, content: str) -> None:
+    config = tmp_path / "guard.json"
+    config.write_text(content)
+    assert guard.load_guard(config) == guard.load_guard(tmp_path / "missing.json")
+    assert guard.load_guard(config).secret_files == tuple(guard.DEFAULTS["secret_files"])
+
+
+def test_shipped_config_matches_the_defaults() -> None:
+    assert guard.load_guard() == guard.load_guard(REPO / "missing.json")

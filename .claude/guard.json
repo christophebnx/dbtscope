@@ -1,0 +1,5 @@
+{
+  "secret_files": [".env", "config.toml"],
+  "protected_dirs": [".local/credentials"],
+  "protected_branches": ["main", "master"]
+}

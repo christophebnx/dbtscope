@@ -252,6 +252,7 @@ def load_script(path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(path.stem, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses look their module up there
     spec.loader.exec_module(module)
     return module
 
