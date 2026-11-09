@@ -66,7 +66,7 @@ flowchart TD
     RV -- clean --> DOC["documentation"]
 ```
 
-Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and CI (ruff and the tests; Windows and macOS run the OS-sensitive tests, D-044).
+Quality gates: the commit-msg check, pre-commit (ruff, duplicate code, gitleaks) and the CI, `tools/ci.py` (`ruff check` and the default tests), run locally before every push; the GitHub workflow runs it only when started by hand (D-053).
 
 ## Licence
 

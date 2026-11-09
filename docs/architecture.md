@@ -17,7 +17,7 @@ Each fact has one home; other files link to it instead of copying it.
 | What is read from the manifest, what the page contains, how views are laid out (concepts) | `docs/how-it-works.md` | this file § Overview, user guide |
 | Layers and allowed imports | this file § Layers (diagram and table); enforced by `tests/unit/test_layering.py` | `CLAUDE.md` invariant 1, README |
 | Developer commands, browser-test setup | `CLAUDE.md` § Commands | README § Development, agents, skills |
-| CI content | D-020, D-031, D-043, D-044 and `.github/workflows/ci.yml` | README |
+| CI content | D-053 (after D-020, D-031, D-043, D-044), `tools/ci.py` and `.github/workflows/ci.yml` | README |
 | Vendored libraries, versions, licences | `render/page.LIBRARIES` and `src/dbtscope/render/vendor/README.md` | `how-it-works.md` § What the page contains, roadmap M2 |
 | Page behaviour for users / for the designer | user guide (§ The universe view to § Exporting images) / `docs/ui-spec.md` (strings, colours, states) | — |
 | Milestone status, open points | `docs/progress.md` | roadmap ("Done." marks only) |
@@ -189,7 +189,10 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
-| Block secrets, protected folders, commits and pushes on `main` (Claude Code) | `.claude/hooks/guard_paths.py` |
+| The CI checks, locally and in the manual workflow (D-053) | `tools/ci.STEPS`, `tools/ci.main` |
+| Block secrets, protected folders, commits and pushes on `main` (Claude Code); the project's list in `.claude/guard.json` | `.claude/hooks/guard_paths.py` |
+| Check package module tables and this map against the code (D-052) | `tools/doc_consistency.problems` |
+| Fail while `TODO(project):` markers are left in a project (D-050) | `tests/unit/test_template_markers.py` |
 | Format and lint-fix an edited file (Claude Code) | `.claude/hooks/format.py` |
 | Build the `shop` test manifest and its parts (tests) | `tests/conftest.shop_manifest`, `model`, `source`, `relationships_test`; `SHOP` (id prefix) |
 | Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |

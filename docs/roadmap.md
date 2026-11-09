@@ -10,9 +10,9 @@ Milestone ids are used in the `Milestone:` footer of every commit: `B0`, `M0`, `
 - `uv sync` to create `uv.lock` (versioned), then `uv run pre-commit install`.
 - Check that both Claude Code hooks run on this machine: a read of `.env` is blocked; an edited Python file is formatted; `git commit` on `main` is blocked. If a hook command fails (OS, shell), adapt `.claude/settings.json` and record it in `docs/decisions.md`.
 - Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q -n auto`.
-- Commit on `dev` in clean commits with the footer `Milestone: B0`, push `dev`, then stop and ask the user to check CI is green.
+- Commit on `dev` in clean commits with the footer `Milestone: B0`, push `dev` (the pre-push hook runs the local CI, D-053), then stop and report.
 
-Done when: the B0 commits exist on `dev`, tests and lint pass locally, the hooks are confirmed working, and `dev` is pushed with CI green.
+Done when: the B0 commits exist on `dev`, tests and lint pass locally, the hooks are confirmed working, and `dev` is pushed with the local CI green.
 
 ## M0 — Import of dbt-erd-html v0.2
 

@@ -1,6 +1,7 @@
 ---
 name: ui-designer
 description: User-interface specialist. Designs every user-visible change before the developer writes it, and reviews the result after the tester. Use in /feature whenever a change touches the UI (web pages, CLI output meant for end users) or docs/ui-spec.md.
+model: sonnet
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 

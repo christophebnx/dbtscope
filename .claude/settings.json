@@ -21,6 +21,11 @@
       "Bash(git checkout -b:*)",
       "Bash(git branch:*)",
       "Bash(git rev-parse:*)",
+      "Bash(uv run pre-commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote -v:*)",
+      "Bash(git remote add template:*)",
+      "Bash(git apply:*)",
       "Bash(mkdir:*)",
       "Bash(ls:*)"
     ],
@@ -44,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_paths.py\""
+            "command": "uv run --no-project python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_paths.py\""
           }
         ]
       }
@@ -55,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.py\""
+            "command": "uv run --no-sync python \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.py\""
           }
         ]
       }

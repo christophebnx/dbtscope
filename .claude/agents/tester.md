@@ -1,6 +1,7 @@
 ---
 name: tester
 description: Writes and runs unit and integration tests. Use after the developer in /feature, or to cover an untested module.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 

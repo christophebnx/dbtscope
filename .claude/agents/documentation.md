@@ -1,6 +1,7 @@
 ---
 name: documentation
 description: Keeps the documentation and the Claude Code files true after every change. Use last in /feature, and whenever a decision is taken in conversation.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write
 ---
 

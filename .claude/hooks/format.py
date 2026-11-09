@@ -1,6 +1,6 @@
 """PostToolUse hook: format and lint-fix the Python file that was just edited.
 
-Never blocks: formatting problems are reported by the reviewer and CI.
+Never blocks: formatting problems are reported by the reviewer and the pre-commit hook.
 """
 
 from __future__ import annotations

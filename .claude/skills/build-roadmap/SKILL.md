@@ -12,7 +12,7 @@ You orchestrate. Delegate each milestone to `/feature` in autonomous mode. Keep 
 1. Read CLAUDE.md, docs/roadmap.md and docs/progress.md.
 2. If docs/progress.md says `BLOCKED`, show the blocking question to the user and stop until it is answered.
 3. Work on the branch `dev` (create it from `main` if missing). Never commit on `main`, never push to `main`, never force-push.
-4. If `B0 Bootstrap` is not `done`, run it first, directly (no `/feature`), following docs/roadmap.md. It ends with a stop: push `dev`, then the user confirms CI is green and reruns `/build-roadmap`.
+4. If `B0 Bootstrap` is not `done`, run it first, directly (no `/feature`), following docs/roadmap.md. It ends with a stop: push `dev` (the pre-push hook runs the local CI, D-053), then the user reruns `/build-roadmap`.
 5. Take the first milestone not marked `done`.
 
 ## For each milestone
@@ -40,7 +40,8 @@ When stopping, write in docs/progress.md: the milestone, what was tried, the exa
 
 - Committing on `main`, pushing to `main`, force-pushing, hard reset, rewriting history beyond `--amend` of the last unpushed commit, deleting a branch.
 - Calling a paid or remote service (`live` tests), or reading `.env`, `config.toml`, `.local/credentials/` or real user data.
-- Weakening a test, an invariant or a hook to get past a failure.
+- Weakening a test, an invariant or a hook to get past a failure; pushing with `--no-verify`.
+- Changing the CI (`tools/ci.py`, `.github/workflows/`) or starting a GitHub workflow: only on an explicit request from the user (D-053).
 
 ## Final report (at most fifteen lines)
 
