@@ -1,7 +1,7 @@
 {
   "template": "https://github.com/christophebnx/template_python",
   "is_template": false,
-  "synced_commit": "7c4f4c1e87c827806c9cc7d73a1dc9760a6fe71f",
+  "synced_commit": "acbf7f40e0851bdd9b54f0ae8cf9b6679fc70ce6",
   "owned": [
     ".claude/agents",
     ".claude/hooks",
