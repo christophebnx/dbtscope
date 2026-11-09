@@ -18,7 +18,8 @@ Read next: `docs/user-guide.md` (for users: install, usage, every feature), `doc
 
 ```bash
 uv sync                                   # install (creates .venv and uv.lock)
-uv run pre-commit install                 # pre-commit and commit-msg hooks
+uv run pre-commit install                 # pre-commit, commit-msg and pre-push hooks
+uv run python tools/ci.py                 # the CI, run locally: ruff check + default tests (also run by the pre-push hook, D-053)
 uv run pytest -q -n auto -m "not live and not browser"   # tests in parallel; drop -n auto to debug one test
 uv run --group browser pytest -q -m browser tests/browser   # page tests in headless Chromium (D-019)
 uv run ruff check . && uv run ruff format --check .
@@ -49,6 +50,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 9. **Project file names and formats are stable.** `dbt-erd.yml`, `dbt-erd-layout.json` (format `dbt-erd-layout`, version 1) and the localStorage key `dbt-erd-layout:<title>` are read by existing projects and pages: change them only through a superseding decision with a migration (D-013).
 10. **One self-contained page.** Python embeds data; the browser lays it out. Every `<` of the embedded JSON is written `\u003c`, and every `</script` of an inlined library `<\/script` (D-014, D-023).
 11. **A table is identified by its dbt `unique_id`** in every payload and in the layout.
+12. **The CI is local and minimal.** GitHub Actions run only when started by hand (`workflow_dispatch`); during development the CI runs locally, `uv run python tools/ci.py`, before every push (pre-push hook). The CI is exactly `ruff check` and the default tests. Any other trigger, job, step or OS needs an explicit request from the user, recorded as a decision (D-053); `tests/unit/test_ci.py` enforces it.
 
 ## Language convention
 
@@ -65,7 +67,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 - Agents run on the model set in their front matter (`model:`, D-049): change it there, not per call.
 - To build the roadmap autonomously, or resume it, use `/build-roadmap`. Progress and blocking questions live in `docs/progress.md`.
 - Each agent returns at most ten lines. Details go into `docs/`, not into the conversation.
-- Definition of done: tests green (`not live and not browser`; browser tests too when the page changed), ruff clean, no new duplicate-code finding, docs and the relevant `CLAUDE.md` updated, `CHANGELOG.md` entry added.
+- Definition of done: local CI green (`uv run python tools/ci.py`; browser tests too when the page changed), ruff format clean, no new duplicate-code finding, docs and the relevant `CLAUDE.md` updated, `CHANGELOG.md` entry added.
 - Each package under `src/dbtscope/` has its own `CLAUDE.md` (rules and module table). Read it before touching the package; keep it true after.
 
 ## Git workflow
@@ -84,7 +86,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 - Code and the docs it changes go in the same commit. Milestone-wide doc updates (roadmap, progress, changelog) go in a final `docs` commit for that milestone.
 - To correct the last unpushed commit, use `git commit --amend`. Never rewrite earlier history, never force-push, never delete a branch.
 - Stage files explicitly (`git add <paths>`); never commit `.env`, `config.toml` or anything under `.local/`.
-- Enforced: a Claude Code hook blocks `git commit` and `git push` on `main`; the `commit-msg` hook (`tools/check_commit_message.py`) rejects malformed messages; pre-commit runs ruff, duplicate detection and gitleaks.
+- Enforced: a Claude Code hook blocks `git commit` and `git push` on `main`; the `commit-msg` hook (`tools/check_commit_message.py`) rejects malformed messages; pre-commit runs ruff, duplicate detection and gitleaks; the `pre-push` hook runs the local CI. Never bypass a hook (`--no-verify`).
 
 ## Out of scope (do not build unless asked)
 
