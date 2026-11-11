@@ -22,7 +22,10 @@ class LayoutError(DomainError):
 
 
 def _problem(layout: Any) -> str | None:
-    """Why `layout` is not a layout the page can read, or None."""
+    """Why `layout` is not a layout the page can read, or None.
+
+    The page's import applies the same checks (`render/assets/boot.js readableLayout`): change both.
+    """
     if not isinstance(layout, dict) or layout.get("format") != LAYOUT_FORMAT:
         return f" is not a layout exported by the page (format {LAYOUT_FORMAT!r})"
     version = layout.get("version", LAYOUT_VERSION)  # files written before `version` existed

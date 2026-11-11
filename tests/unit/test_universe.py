@@ -96,14 +96,20 @@ def test_domain_labels_are_passed_through(shop: Project) -> None:
         {"key": "absent", "match": ["stg_*"]},
         {"key": "named", "label": "Orders", "match": ["type:source"]},
     ]
-    config = merge_config({}, {"domains": domains, "group_by": "none"})
-    data = universe_data(shop, config).model_dump(mode="json", by_alias=True)
-    labels = {d["key"]: d["label"] for d in data["domains"]}
-    configured = {d["key"] for d in domains}
-    assert [labels[k] for k in ("no_label", "empty", "absent", "named")] == [None, "", "absent", "Orders"]
-    # a domain with no rule is shown by its key, the no-domain entry by its own name
-    assert all(label == key or key == "" for key, label in labels.items() if key not in configured)
-    assert labels.get("", "No domain") == "No domain"
+
+    def labels(group_by: str, rules: list[dict[str, object]] = domains) -> dict[str, str | None]:
+        config = merge_config({}, {"domains": rules, "group_by": group_by})
+        data = universe_data(shop, config).model_dump(mode="json", by_alias=True)
+        return {d["key"]: d["label"] for d in data["domains"]}
+
+    by_schema = labels("schema")
+    assert [by_schema[k] for k in ("no_label", "empty", "absent", "named")] == [None, "", "absent", "Orders"]
+    # a domain with no rule (here the dbt groups of dim_customer and dim_product) is labelled by its key
+    unconfigured = {k: v for k, v in by_schema.items() if k not in {d["key"] for d in domains}}
+    assert unconfigured and all(label == key for key, label in unconfigured.items())
+    # a table no group, rule or group_by places (the source, its rule left out) is in the no-domain
+    # entry, under its own name
+    assert labels("none", domains[:3])[""] == "No domain"
 
 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
