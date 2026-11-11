@@ -244,6 +244,16 @@ Done when: the design note's test plan passes (each new test proved to fail once
 
 Done when: every finding of the audit is fixed, the default suite is green, ruff is clean with no duplicate-code finding, and CHANGELOG and progress are updated.
 
+- **M6.3 — Audit follow-up.** (Done.) (Asked by the user on 2026-11-11, "go pour la suite proposée"; audit `docs/architecture/2026-11-11-audit.md`, design note `docs/architecture/2026-11-11-m6.3-audit-follow-up.md`, D-054.)
+  - **Docs and tests:** the README CI sentence (D-053) and the stale progress points; direct tests of `domain_of`, `lower_first` and `config_source`.
+  - **Storage:** `storage/files.refused_message` builds the refused-path sentence once.
+  - **One display-name rule** `label || key`: `common.js labelOf`, `domain/classify.display_name`; the CLI summary no longer prints `None`; `domain/` passes the label through for every rule.
+  - **Page:** the layout import refuses what `check_layout` refuses; shared `placeTip`, `listRow` and `colorDot` in `common.js`; `detail.js entityName` (no more shadowing of `labelOf`).
+  - **Kind fallbacks** (detail `OTHER`, universe `TYPE_KINDS` first) documented, not unified.
+  - **Reference pages** regenerated once (D-028).
+
+Done when: the design note's test plan passes (each new test proved to fail once), the default and browser suites are green, ruff is clean with no duplicate-code finding, `tools/doc_consistency.py` is clean, and CHANGELOG and progress are updated.
+
 ## Later (not scheduled)
 
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
