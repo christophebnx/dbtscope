@@ -130,8 +130,8 @@ def test_os_reason_has_the_same_words_on_every_os(code: int, reason: str) -> Non
 
 
 def test_refused_message_is_the_whole_sentence() -> None:
-    windows = OSError(errno.ENAMETOOLONG, "File name too long", "/x")
-    assert refused_message(windows, "layout /x", "layout_file") == (
+    too_long = OSError(errno.ENAMETOOLONG, "File name too long", "/x")
+    assert refused_message(too_long, "layout /x", "layout_file") == (
         "cannot use layout /x: file name too long; choose a shorter layout_file"
     )
     denied = OSError(errno.EACCES, "Permission denied")

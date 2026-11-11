@@ -238,9 +238,13 @@ def test_images_are_described_referenced_and_small() -> None:
 def test_readme_ci_sentence_follows_d053() -> None:
     """The README cites D-053 and tools/ci.py and names no OS the workflow does not run on."""
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    sentence = next(line for line in readme.splitlines() if "CI runs" in line)
+    sentence = next((line for line in readme.splitlines() if "CI runs" in line), "")
+    assert sentence, "the README must say how the CI runs (a line holding 'CI runs')"
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     runners = re.findall(r"runs-on:\s*(\S+)", workflow)
     assert "D-053" in sentence and "tools/ci.py" in sentence
+    assert re.search(r"^on:\s*\n\s+workflow_dispatch:\s*$", workflow, re.MULTILINE), (
+        "the workflow runs by hand only"
+    )
     for name in ("Windows", "macOS"):
         assert name not in sentence or any(name.lower()[:3] in runner for runner in runners)
