@@ -85,7 +85,7 @@ def _domains(nodes: list[UniverseNode], config: Config, project: Project) -> tup
             color, label = NO_DOMAIN_COLOR, NO_DOMAIN[lang]
         else:
             color = rule.color if rule and rule.color else next(palette)
-            label = rule.label if rule and rule.label else key
+            label = rule.label if rule else key
         domains.append(UniverseDomain(key=key, label=label, color=color, owner=group.owner if group else ""))
     return tuple(domains)
 

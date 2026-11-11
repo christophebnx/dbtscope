@@ -304,7 +304,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  page:     opens on universe, en, libraries from CDNs (189 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -412,7 +412,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (191 kB)
+  page:     opens on universe, en, libraries from CDNs (192 kB)
   config:   none (built-in defaults)
 ```
 
@@ -494,7 +494,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  page:     opens on universe, en, libraries from CDNs (189 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -580,7 +580,7 @@ universe:
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
 ```
 
-`kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
+`kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label`, or with an empty or null one, is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
 
 ### Checks and errors
 
@@ -790,7 +790,7 @@ Every move is saved in the browser at once. To share an arrangement with the tea
 1. Click **Export layout** (top right) and save the file as `dbt-erd-layout.json` next to `dbt_project.yml`.
 2. Commit it: dbtscope embeds it in every page it generates (`layout_file` in the config to use another path).
 
-**Import layout** loads such a file into the page; **Reset layout** forgets the arrangement of the current tab. Which copy a page uses when both the browser and the file hold one, and the life of the file in pictures: [The layout file's life](how-it-works.md#the-layout-files-life).
+**Import layout** loads such a file into the page (a file of another format or version is refused and changes nothing); **Reset layout** forgets the arrangement of the current tab. Which copy a page uses when both the browser and the file hold one, and the life of the file in pictures: [The layout file's life](how-it-works.md#the-layout-files-life).
 
 ## Exporting images
 

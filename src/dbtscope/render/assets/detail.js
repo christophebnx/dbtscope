@@ -39,7 +39,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (state.group) DATA.relations.forEach(r => { if (byId.get(r.child).group === state.group) scope.add(r.parent); });
   }
   const isForeign = e => state.group && e.group !== state.group;
-  const labelOf = e => isForeign(e) ? `${e.group} · ${e.name}` : e.name;
+  const entityName = e => isForeign(e) ? `${e.group} · ${e.name}` : e.name;
 
   // --- controls -------------------------------------------------------------
   $d('focus').placeholder = T.focus;
@@ -74,7 +74,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   const focusInput = $d('focus');
   function findEntity(v) {
     const s = v.trim().toLowerCase();
-    return DATA.entities.find(e => scope.has(e.id) && (labelOf(e).toLowerCase() === s || e.name.toLowerCase() === s));
+    return DATA.entities.find(e => scope.has(e.id) && (entityName(e).toLowerCase() === s || e.name.toLowerCase() === s));
   }
   function submitFocus() { const e = findEntity(focusInput.value); if (e) setFocus(e.id); }
   focusInput.addEventListener('change', submitFocus);
@@ -101,15 +101,15 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const inScope = DATA.entities.filter(e => scope.has(e.id));
     const shown = DATA.kinds.map(k => [k, inScope.filter(e => e.kind === k.key).length]).filter(([, n]) => n);
     typesEl.replaceChildren(...shown.map(([k, n]) => filterRow(
-      { label: k.label, color: k.color, count: n, checked: state.kinds.has(k.key) },
+      { label: labelOf(k), color: k.color, count: n, checked: state.kinds.has(k.key) },
       on => { on ? state.kinds.add(k.key) : state.kinds.delete(k.key); render(); })));
-    $d('tables').innerHTML = inScope.map(e => `<option value="${esc(labelOf(e))}">`).join('');
-    focusInput.value = state.focus ? labelOf(byId.get(state.focus)) : '';
+    $d('tables').innerHTML = inScope.map(e => `<option value="${esc(entityName(e))}">`).join('');
+    focusInput.value = state.focus ? entityName(byId.get(state.focus)) : '';
   }
 
   function setFocus(id) {
     state.focus = id;
-    focusInput.value = id ? labelOf(byId.get(id)) : '';
+    focusInput.value = id ? entityName(byId.get(id)) : '';
     render();
   }
 
@@ -145,7 +145,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);
     return `"${id}" [id="${id}"${pin} tooltip="${dotStr(tip)}" label=<<table border="${border}" cellborder="0" cellspacing="0" cellpadding="5"${style} color="${esc(CONTRAST.edge(k.color, THEME.bg))}" bgcolor="${esc(k.bg)}">` +
-      `<tr><td colspan="2" bgcolor="${esc(k.color)}"${dotEdge(k.color)}><font color="${head}" point-size="16"><b>${dotText(labelOf(e))}</b></font></td></tr>${rows}</table>>];`;
+      `<tr><td colspan="2" bgcolor="${esc(k.color)}"${dotEdge(k.color)}><font color="${head}" point-size="16"><b>${dotText(entityName(e))}</b></font></td></tr>${rows}</table>>];`;
   }
 
   // positions: table id -> [x, y] in Graphviz points, every table pinned (for neato); none for dot's own layout
@@ -221,7 +221,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const { dot, relCount } = buildDot(ids);
     $d('meta').textContent = `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(relCount, T.rels)}` +
       (state.group ? ` · ${T.foreign}` : '');
-    $d('focus-info').textContent = state.focus ? T.focused + labelOf(byId.get(state.focus)) : '';
+    $d('focus-info').textContent = state.focus ? T.focused + entityName(byId.get(state.focus)) : '';
     const view = keepView && zv ? zv.get() : null;
     if (zv) { zv.destroy(); zv = null; }
     if (!ids.size) { box.innerHTML = `<div class="msg">${L.empty}</div>`; return; }

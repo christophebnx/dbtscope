@@ -78,12 +78,14 @@ Design: `docs/architecture/2026-11-05-m5.13-group-by-layers.md` § UI design.
 - **Tooltip.** Over a layer constellation: its label, its table count, "Domains: Sales · Finance · …" (first 12, then "+ N"), over a band "Domain: Sales · 42 tables", and "Double-click: zoom on this constellation" ("Domaines : …", "Domaine : …", "Double-clic : cadrer cette constellation"). The domain-mode tooltip is unchanged.
 - **Switching** is instant and framed by Fit (the trajectory when it is on); the hover and the search mark are cleared, as on any change of Links or Tables. Filters, search, the trajectory, the flow view, double-click and image export behave the same in both modes.
 - **Saved arrangements.** Each grouping keeps its own (scopes `layers:names`, `layers:keys`, `layers:all` in the `universe` section, D-013 format unchanged); a drag in one never moves the other; **Reset layout** clears both.
-- **Names without a label.** A domain, layer or kind whose rule sets `label: null` is shown by its key everywhere (filter rows, tooltips, canvas, flow view), through the one rule `common.js labelOf`. Before M5.13 such a layer showed nothing in the panel and "null" in the tooltip and the flow.
+- **Names without a label.** A domain, layer or kind whose rule sets `label: null` or an empty label is shown by its key everywhere (filter rows including the detail Types filter, tooltips, canvas, trajectory bar, flow view), through the one rule `common.js labelOf` = `label || key` (D-054). Before M5.13 such a layer showed nothing in the panel and "null" in the tooltip and the flow.
 - **Hint.** "… drag a table, or a constellation by its name, to arrange them · … double-click a constellation to zoom in, a table to open its detail" ("… ou une constellation par son nom … double-clic sur une constellation pour la cadrer …"), in both modes.
 
 ## Top bar — layout buttons
 
 - **Reset layout**, **Export layout**, **Import layout** (fr since M2: "Réinitialiser la disposition", "Exporter la disposition", "Importer une disposition") act on the manual arrangement of the page (D-013). They never export an image.
+- **Import refusal (M6.3).** A file the page cannot read (another format, a `version` other than 1, or a `universe` / `detail` section that is not a mapping) shows the alert "Not a dbt-erd layout file." ("Ce fichier n'est pas une disposition dbt-erd.") and changes nothing; the same files the command line refuses. A file without `version` is accepted.
+- **Tooltips (M6.3).** Both tooltips (universe, flow) sit 14 px right of and below the pointer, flip to its left then above it near the stage's right and bottom edges, keep 8 px from every edge, and are at most 360 px wide or the stage less 16 px. Not shown on touch in the flow view (unchanged).
 
 ## Image export (M2, D-021)
 

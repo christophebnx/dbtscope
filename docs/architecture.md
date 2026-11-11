@@ -120,7 +120,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Light tint of a kind colour for a table body | `domain/classify.background` (`TINT`) |
 | Domain key of a table (order: D-015) | `domain/universe.domain_of` |
 | Order of the default layers along the data flow (no `layers` rules) | `domain/universe.flow_rank` (`FLOW_PREFIXES`, `UNRANKED`) |
-| Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
+| Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; in the page, the import of a file: `render/assets/boot.js readableLayout` (mirrors of `domain/layout`); `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
 | JavaScript libraries of the page (CDN URL, vendored file, licence, hash); markup a vendored file may not hold | `render/page.LIBRARIES`, `UNSAFE_MARKUP` |
@@ -159,6 +159,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Display name of a domain, layer or kind: its label when a non-empty string, else its key (D-054) | `domain/classify.display_name` (CLI summary); in the page `render/assets/common.js labelOf` |
+| Place a tooltip near the pointer, flipped at the edges (page) | `render/assets/common.js placeTip` |
+| A list row: a mark, a text and an optional count (page) | `render/assets/common.js listRow` |
+| A new colour dot element (page) | `render/assets/common.js colorDot` (painted by `paintDot`) |
 | What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-048) | `render/assets/universe.js BY`, `grouping` |
 | The viewer's last grouping, kept out of the layout (page, D-048) | `render/assets/universe.js byMemory` |
 | Placement of a constellation's tables: bands (layer bands, or domain bands in layer mode) in one row, in the smallest circle (page) | `render/assets/universe.js layoutConstellation`, `bandsOf`, `columns`, `packRow` |

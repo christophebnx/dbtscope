@@ -71,7 +71,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 /* ---- universe view ---- */
 #u-q { width:220px; }
 #u-canvas { position:absolute; inset:0; display:block; touch-action:none; }
-.tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
+.tip { position:absolute; z-index:3; pointer-events:none; max-width:min(360px, calc(100% - 16px)); box-sizing:border-box; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }
 .tip .m { color:var(--muted); }
 .tip .desc { margin-top:6px; color:var(--fg); }
@@ -135,7 +135,6 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #f-graph g.node[aria-current] { cursor:default; }
 #f-graph g.node:focus { outline:none; }
 #f-graph g.node:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-#f-tip { max-width:min(360px, calc(100% - 16px)); box-sizing:border-box; }
 @media (max-width:600px) {
   /* an open side panel stacks above the toolbar, full width, scrolling inside itself (D-035) */
   .tab.on { flex-direction:column; }

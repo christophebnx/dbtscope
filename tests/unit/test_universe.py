@@ -89,6 +89,23 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
     assert {n["name"]: n["layer"] for n in data["nodes"]}["dim_customer"] == "other"
 
 
+def test_domain_labels_are_passed_through(shop: Project) -> None:
+    domains = [
+        {"key": "no_label", "label": None, "match": ["fct_orders"]},
+        {"key": "empty", "label": "", "match": ["fct_returns"]},
+        {"key": "absent", "match": ["stg_*"]},
+        {"key": "named", "label": "Orders", "match": ["type:source"]},
+    ]
+    config = merge_config({}, {"domains": domains, "group_by": "none"})
+    data = universe_data(shop, config).model_dump(mode="json", by_alias=True)
+    labels = {d["key"]: d["label"] for d in data["domains"]}
+    configured = {d["key"] for d in domains}
+    assert [labels[k] for k in ("no_label", "empty", "absent", "named")] == [None, "", "absent", "Orders"]
+    # a domain with no rule is shown by its key, the no-domain entry by its own name
+    assert all(label == key or key == "" for key, label in labels.items() if key not in configured)
+    assert labels.get("", "No domain") == "No domain"
+
+
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))

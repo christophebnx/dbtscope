@@ -1,6 +1,13 @@
 // Page boot: shared layout store, tabs, the export / import / reset of manual arrangements, and the
 // services that save files and exported images. The page-wide globals (PAGE, L…) come from common.js.
 const LAYOUT_FORMAT = 'dbt-erd-layout';   // domain/layout.LAYOUT_FORMAT, the format of the layout file
+const LAYOUT_VERSION = 1;   // domain/layout.LAYOUT_VERSION; a file without `version` is accepted
+const LAYOUT_SECTIONS = ['universe', 'detail'];   // domain/layout.LAYOUT_SECTIONS: mappings when present
+const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+// Whether the page can read an imported layout: what domain/layout._problem lets through.
+const readableLayout = d => isObject(d) && d.format === LAYOUT_FORMAT
+  && (!('version' in d) || d.version === LAYOUT_VERSION)
+  && LAYOUT_SECTIONS.every(s => !(s in d) || isObject(d[s]));
 
 // Manual positions, per view and per scope (universe: detail level; detail: what is drawn).
 // Kept in the browser, and seeded from the dbt-erd-layout.json embedded at generation:
@@ -20,7 +27,7 @@ const LAYOUT = (() => {
     get: (view, scope) => (data[view] || {})[scope],
     set(view, scope, value) { (data[view] = data[view] || {})[scope] = value; save(); },
     clear(view) { delete data[view]; save(); },
-    dump: () => ({ format: LAYOUT_FORMAT, version: 1, ...data }),
+    dump: () => ({ format: LAYOUT_FORMAT, version: LAYOUT_VERSION, ...data }),
     load(d) { data = d; save(); },
   };
 })();
@@ -116,7 +123,7 @@ $l('file').onchange = async ev => {
   if (!file) return;
   try {
     const d = JSON.parse(await file.text());
-    if (d.format !== LAYOUT_FORMAT) throw new Error();
+    if (!readableLayout(d)) throw new Error();
     LAYOUT.load(d);
     Object.values(views).forEach(v => v.relayout());
   } catch (e) { alert(L.bad); }

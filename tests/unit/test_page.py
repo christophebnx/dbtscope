@@ -7,7 +7,7 @@ import pytest
 from conftest import DATA_OPEN, data_block, empty_detail, empty_universe, page_data
 
 from dbtscope.domain.config import merge_config
-from dbtscope.domain.layout import LAYOUT_FORMAT
+from dbtscope.domain.layout import LAYOUT_FORMAT, LAYOUT_SECTIONS, LAYOUT_VERSION
 from dbtscope.domain.payload import DetailPayload
 from dbtscope.render import page as page_module
 from dbtscope.render.page import ASSETS, LIBRARIES, VENDOR, render_page
@@ -278,3 +278,23 @@ def test_flow_ranks_is_declared_once_in_common(offline: bool) -> None:
     for name in ("flow.js", "universe.js"):
         assert "function flowRanks(" not in (ASSETS / name).read_text(encoding="utf-8"), name
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_the_page_mirrors_the_layout_checks_of_the_domain() -> None:
+    boot = (ASSETS / "boot.js").read_text(encoding="utf-8")
+    assert f"const LAYOUT_VERSION = {LAYOUT_VERSION};" in boot
+    sections = ", ".join(f"'{s}'" for s in LAYOUT_SECTIONS)
+    assert f"const LAYOUT_SECTIONS = [{sections}];" in boot
+    assert "version: LAYOUT_VERSION" in boot and not re.search(r"version:\s*\d", boot)
+    assert "readableLayout(d)" in boot
+
+
+def test_one_display_name_rule_in_the_page() -> None:
+    reads = [
+        (name, line)
+        for name in ("common.js", "detail.js", "universe.js", "flow.js", "boot.js")
+        for line in (ASSETS / name).read_text(encoding="utf-8").splitlines()
+        if re.search(r"\.label\b", line)
+    ]
+    assert len(reads) == 1 and reads[0][0] == "common.js" and "const labelOf" in reads[0][1]
+    assert "labelOf =" not in (ASSETS / "detail.js").read_text(encoding="utf-8")

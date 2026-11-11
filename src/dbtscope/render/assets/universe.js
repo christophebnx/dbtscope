@@ -855,10 +855,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       tip.innerHTML = `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
         + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div><div class="a">${T.frame}</div>`;
     }
-    const r = stage.getBoundingClientRect();
-    tip.style.display = 'block';
-    tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - 380) + 'px';
-    tip.style.top = (ev.clientY - r.top + 14) + 'px';
+    placeTip(tip, stage, ev.clientX, ev.clientY);
   });
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; if (hover != null) { hover = null; draw(); } });
   // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
@@ -911,12 +908,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
     const ups = countByDomain(N, traj.up.keys()), downs = countByDomain(N, traj.down.keys());
     const rows = [...new Set([...ups.keys(), ...downs.keys()])].map(k => [k, ups.get(k) || 0, downs.get(k) || 0])
-      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}${L.colon}${countsText(cu, cd)}` }))
+      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${labelOf(DOM[k])}${L.colon}${countsText(cu, cd)}` }))
       .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
     $u('tj-list').replaceChildren(...rows.map(r => {
-      const li = document.createElement('li');
-      li.append(paintDot(document.createElement('i'), DOM[r.k].color), r.text);
-      return li;
+      return listRow(colorDot(DOM[r.k].color), r.text);
     }));
     const sum = $u('tj-sum'), emptyText = noTrajectory(trajOpts.direction);
     sum.textContent = countsText(u, d); sum.title = rows.map(r => r.text).join('\n');

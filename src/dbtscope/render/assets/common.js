@@ -127,7 +127,7 @@ function filterRow({ label, color, count, checked, title }, onChange) {
   box.type = 'checkbox'; box.checked = checked;
   box.onchange = () => onChange(box.checked);
   row.append(box);
-  if (color) row.append(paintDot(document.createElement('i'), color));
+  if (color) row.append(colorDot(color));
   const name = document.createElement('span'), n = document.createElement('small');
   name.textContent = label; n.textContent = num(count);
   row.append(name, n);
@@ -145,8 +145,31 @@ function fillSelect(el, pairs, current) {
 }
 
 // The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
-// `label: null`. The one display-name rule of the panels, tooltips and canvas.
-const labelOf = item => item.label ?? item.key;
+// `label: null` or an empty label (D-054). The one display-name rule of the panels, tooltips and canvas.
+const labelOf = item => item.label || item.key;
+
+// A new colour dot element (the one dot of lists and filter rows), painted by paintDot.
+const colorDot = color => paintDot(document.createElement('i'), color);
+
+// A list row: `mark` (an element), the text in a <span> and, when `count` is given, a <small> with it.
+function listRow(mark, text, count) {
+  const li = document.createElement('li'), span = document.createElement('span');
+  span.textContent = text; li.append(mark, span);
+  if (count !== undefined) { const small = document.createElement('small'); small.textContent = count; li.append(small); }
+  return li;
+}
+
+// Shows the already filled tooltip `tip` near the client point (x, y) inside `box`, its positioned container:
+// 14 px right of and below the point, flipped left then up near the right and bottom edges (8 px margins),
+// never closer than 8 px to the left or top edge.
+function placeTip(tip, box, x, y) {
+  tip.style.display = 'block';
+  const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = x - b.left + 14, top = y - b.top + 14;
+  if (left + w > b.width - 8) left = x - b.left - 14 - w;
+  if (top + h > b.height - 8) top = y - b.top - 14 - h;
+  tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+}
 
 // The name and meta lines of a table's tooltip (universe payload), escaped:
 // "<name>" then "domain · layer · kind · N columns". Each view appends its own lines.

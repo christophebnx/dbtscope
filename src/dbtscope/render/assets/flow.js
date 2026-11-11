@@ -92,7 +92,7 @@ function startFlow(DATA, EXPORT, close) {
     st.dot = buildDot();
     st.prepareMs = performance.now() - t0;
   }
-  const domainLabel = i => DOM[N[i].domain].label;
+  const domainLabel = i => labelOf(DOM[N[i].domain]);
   const byPlace = (a, b) => domainLabel(a).localeCompare(domainLabel(b)) || N[a].name.localeCompare(N[b].name);
   const levelOneOrder = up => (a, b) => (up.has(a) ? 0 : 1) - (up.has(b) ? 0 : 1) || byPlace(a, b);
 
@@ -149,25 +149,18 @@ function startFlow(DATA, EXPORT, close) {
     $f('cap').textContent = st.cap; $f('cap').hidden = !st.cap;
     domainList();
   }
-  const dot = color => paintDot(document.createElement('i'), color);
-  function row(mark, label, count) {
-    const li = document.createElement('li'), text = document.createElement('span');
-    text.textContent = label; li.append(mark, text);
-    if (count !== undefined) { const small = document.createElement('small'); small.textContent = count; li.append(small); }
-    return li;
-  }
   function legendMark(kind) { const s = document.createElement('span'); s.className = 'fmk ' + kind; return s; }
   // the Domains list: the line legend, then each domain of the flow with its colour and table count
   function domainList() {
-    const rows = [...countByDomain(N, st.members)].map(([k, c]) => ({ d: DOM[k], c })).sort((a, b) => b.c - a.c || a.d.label.localeCompare(b.d.label));
+    const rows = [...countByDomain(N, st.members)].map(([k, c]) => ({ d: DOM[k], name: labelOf(DOM[k]), c })).sort((a, b) => b.c - a.c || a.name.localeCompare(b.name));
     const sum = $f('dom-sum'), count = document.createElement('span');
     count.textContent = plural(rows.length, L.domainsN);
-    sum.replaceChildren(...rows.slice(0, 6).map(r => { const i = dot(r.d.color); i.setAttribute('aria-hidden', 'true'); return i; }), count);
-    sum.title = rows.map(r => `${r.d.label}${L.colon}${num(r.c)}`).join('\n');
+    sum.replaceChildren(...rows.slice(0, 6).map(r => { const i = colorDot(r.d.color); i.setAttribute('aria-hidden', 'true'); return i; }), count);
+    sum.title = rows.map(r => `${r.name}${L.colon}${num(r.c)}`).join('\n');
     const sep = document.createElement('li');
     sep.className = 'sep'; sep.setAttribute('role', 'separator');
-    $f('dom-list').replaceChildren(row(legendMark('start'), L.lgStart), row(legendMark('up'), L.up),
-      row(legendMark('down'), L.down), sep, ...rows.map(r => row(dot(r.d.color), r.d.label, num(r.c))));
+    $f('dom-list').replaceChildren(listRow(legendMark('start'), L.lgStart), listRow(legendMark('up'), L.up),
+      listRow(legendMark('down'), L.down), sep, ...rows.map(r => listRow(colorDot(r.d.color), r.name, num(r.c))));
   }
 
   // ---------------------------------------------------------------- drawing
@@ -280,12 +273,7 @@ function startFlow(DATA, EXPORT, close) {
     tip.innerHTML = tableTip(DATA, n) + trajectoryTip(st, i)
       + tableDesc(n)
       + (i === st.start ? '' : `<div class="a">${T.clickFlow}</div>`);
-    tip.style.display = 'block';
-    const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
-    let left = x - b.left + 14, top = y - b.top + 14;
-    if (left + w > b.width - 8) left = x - b.left - 14 - w;   // flips left, then up, near the edges
-    if (top + h > b.height - 8) top = y - b.top - 14 - h;
-    tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+    placeTip(tip, box, x, y);
   }
   function hideTip() { tip.style.display = 'none'; }
 

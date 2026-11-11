@@ -248,3 +248,10 @@ Rejected:
 - layer pins under the `domains` key;
 - the viewer's choice inside the exported layout;
 - the key name `group` (glossary, D-027).
+
+**D-054 — A domain, layer or kind is shown by its label when that is a non-empty string, else by its key; `domain/` passes labels through.**
+Approved by the user on 2026-11-11 with the audit's follow-up, option (b) (M6.3, design note `docs/architecture/2026-11-11-m6.3-audit-follow-up.md`; audit `docs/architecture/2026-11-11-audit.md` § 2).
+- **The rule.** `label` when it is a non-empty string, else `key` (`label: null` and `label: ""` show the key; a rule without `label` already gets its key from `Rule`). It exists once per runtime: `render/assets/common.js labelOf` (`label || key`) for every name the page shows (filters, tooltips, canvas, trajectory bar, flow view), `domain/classify.display_name` for the CLI summary.
+- **The payload.** Payload labels are the rule's `label` as configured (`str | None`) for domains too: `domain/universe._domains` no longer replaces a null or empty domain label by the key. Only the universe payload of a config with such a domain rule changes; what the page shows does not.
+
+Why: the rule lived in three places with three behaviours (Python for domains, the page's `label ?? key` for layers and kinds, none in the CLI, which printed `None`). Rejected: Python resolving every label (option (a): the payload of every `label: null` layer or kind changes, and the page keeps its rule for older payloads anyway); `??` (an empty label would show blank).
