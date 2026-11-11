@@ -25,6 +25,7 @@ from typing import Annotated, Any, Literal, TextIO, get_args
 import typer
 
 from dbtscope import __version__
+from dbtscope.domain.classify import display_name
 from dbtscope.domain.config import Config, View
 from dbtscope.domain.detail import detail_data, select
 from dbtscope.domain.errors import DomainError, in_words, lower_first
@@ -479,7 +480,9 @@ class Report:
 def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -> str:
     """The success summary: the page path, then one aligned line per view, page, config, layout."""
     entities = detail.entities
-    counts = ", ".join(f"{sum(e.kind == k.key for e in entities):,} {k.label}" for k in detail.kinds)
+    counts = ", ".join(
+        f"{sum(e.kind == k.key for e in entities):,} {display_name(k.key, k.label)}" for k in detail.kinds
+    )
     kinds = f" ({counts})" if entities and counts else ""
     config = report.config
     libraries = "offline, libraries embedded" if config.offline else "libraries from CDNs"

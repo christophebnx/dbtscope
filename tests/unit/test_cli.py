@@ -565,6 +565,21 @@ def test_the_page_is_opened(dbt_project: Path, monkeypatch: pytest.MonkeyPatch) 
 # --- streams and summary --------------------------------------------------------------------
 
 
+def test_summary_names_a_kind_without_label_by_its_key(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    write_config(
+        dbt_project,
+        "kinds:\n  - {key: stage, label: null, match: ['stg_*']}\n"
+        "  - {key: fact, label: '', match: ['fct_*']}\n",
+    )
+    monkeypatch.chdir(dbt_project)
+    assert main(NO_PARSE_NO_OPEN) == 0
+    line = next(x for x in capsys.readouterr().out.splitlines() if x.startswith("  detail:"))
+    assert "None" not in line
+    assert re.search(r"\d+ stage\b", line) and re.search(r"\d+ fact\b", line)
+
+
 def test_stdout_holds_only_the_summary_with_the_absolute_page_path(
     dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:

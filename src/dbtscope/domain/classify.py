@@ -26,6 +26,11 @@ OTHER = BuiltinKind(key="other", label={"en": "Other", "fr": "Autre"}, color=DEF
 TINT = 0.88  # share of white mixed into a kind colour for the table body
 
 
+def display_name(key: str, label: str | None) -> str:
+    """What a person reads for a domain, layer or kind: its label when non-empty, else its key (D-054)."""
+    return label or key
+
+
 def background(hex_color: str) -> str:
     """A light tint of a kind colour (`TINT`), for the table body."""
     red, green, blue = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))

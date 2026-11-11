@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from conftest import table
 
-from dbtscope.domain.classify import background, first_rule, group_of, in_scope, key_columns
+from dbtscope.domain.classify import background, display_name, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import Rule, merge_config
 from dbtscope.domain.model import Relation
 
@@ -10,6 +10,13 @@ NODE = table(
     tags=("domain_sales", "core"), path="models/marts/sales/fct_orders.sql", folder="marts/sales",
     schema_name="sales", database="dwh", package="shop",
 )  # fmt: skip
+
+
+def test_display_name() -> None:
+    assert display_name("k", "Label") == "Label"
+    assert display_name("k", None) == "k"
+    assert display_name("k", "") == "k"
+    assert display_name("k", " ") == " "
 
 
 def test_background_is_a_light_tint() -> None:

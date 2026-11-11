@@ -158,7 +158,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Flow view (page) | `render/assets/flow.js startFlow` |
 | The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
-| Display name of a payload domain, layer or kind (`label ?? key`) (page) | `render/assets/common.js labelOf` |
+| Display name of a domain, layer or kind: its label when a non-empty string, else its key (D-054) | `domain/classify.display_name` (CLI summary); in the page `render/assets/common.js labelOf` |
 | What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-048) | `render/assets/universe.js BY`, `grouping` |
 | The viewer's last grouping, kept out of the layout (page, D-048) | `render/assets/universe.js byMemory` |
 | Placement of a constellation's tables: bands (layer bands, or domain bands in layer mode) in one row, in the smallest circle (page) | `render/assets/universe.js layoutConstellation`, `bandsOf`, `columns`, `packRow` |
