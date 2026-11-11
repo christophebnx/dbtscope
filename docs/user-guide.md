@@ -229,8 +229,8 @@ Get-Command dbtscope     # Windows: where the command is
 The output looks like this:
 
 ```text
-dbtscope 0.2.0
-dbtscope v0.2.0
+dbtscope 0.3.0
+dbtscope v0.3.0
 - dbtscope
 ```
 

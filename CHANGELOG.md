@@ -4,6 +4,8 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
 ### Added
 
 - Synced with template `acbf7f4`: `tools/doc_consistency.py` resolves responsibility-map references by file, in any language (JavaScript modules, short module names, file names), as found on a larger map; its test reads the package name instead of assuming `app`.
