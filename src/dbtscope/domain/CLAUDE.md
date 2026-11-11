@@ -9,6 +9,7 @@
 - Selector field names map to `Table` attributes only through `selectors.ATTRIBUTES` (`field_value`).
 - The page JSON is byte-identical to `tests/fixtures/m3-reference-pages/`: a change of a payload field, its order or its type changes the page; regenerate the reference only for an intended page change, in the same commit.
 - User-visible labels produced here (`Other`, `No domain`…) exist in every page language (`en`, `fr`).
+- A table no `kinds` rule matches is `OTHER` in the detail (configured kinds only, the ERD's classes) and `TYPE_KINDS[resource_type]`, else `OTHER`, in the universe (where sources, seeds and snapshots are a third of the map): intended, documented in `how-it-works.md`; not one `kind_of`.
 
 ## Modules
 
