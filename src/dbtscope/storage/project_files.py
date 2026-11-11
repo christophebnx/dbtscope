@@ -27,7 +27,7 @@ from dbtscope.domain.errors import DomainError, in_words, lower_first
 from dbtscope.domain.layout import LAYOUT_HINT, LayoutError, check_layout
 from dbtscope.domain.manifest import ManifestError, parse_manifest
 from dbtscope.domain.model import Project
-from dbtscope.storage.files import os_reason, path_kind, refused_hint
+from dbtscope.storage.files import os_reason, path_kind, refused_message
 
 PRESETS = resources.files("dbtscope") / "presets"
 MANIFEST_HINT = "run dbt parse again"
@@ -128,9 +128,7 @@ def read_preset_file(path: Path, setting: str) -> dict[str, Any]:
     try:
         kind = path_kind(path)
     except OSError as error:
-        raise ConfigError(
-            f"cannot use {source}: {os_reason(error)}; {refused_hint(error, setting)}"
-        ) from error
+        raise ConfigError(refused_message(error, source, setting)) from error
     if kind != "file":
         what = {"missing": "not found", "folder": "is a folder"}.get(kind, "is not a regular file")
         raise ConfigError(f"{source} {what}; check {setting}")
@@ -217,8 +215,7 @@ def read_layout(path: Path) -> dict[str, Any] | None:
     try:
         kind = path_kind(path)
     except OSError as error:
-        hint = refused_hint(error, "layout_file in the config")
-        raise LayoutError(f"cannot use {source}: {os_reason(error)}; {hint}") from error
+        raise LayoutError(refused_message(error, source, "layout_file in the config")) from error
     if kind == "missing":
         return None
     if kind != "file":

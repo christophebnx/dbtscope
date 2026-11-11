@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from dbtscope.storage.files import atomic_write, is_name_too_long, os_reason, path_kind, refused_hint
+from dbtscope.storage.files import (
+    atomic_write,
+    is_name_too_long,
+    os_reason,
+    path_kind,
+    refused_hint,
+    refused_message,
+)
 
 
 def test_atomic_write_creates_and_replaces(tmp_path: Path) -> None:
@@ -120,3 +127,15 @@ def test_a_too_long_path_reported_as_not_found_is_refused(
 )
 def test_os_reason_has_the_same_words_on_every_os(code: int, reason: str) -> None:
     assert os_reason(OSError(code, "Words of this OS")) == reason
+
+
+def test_refused_message_is_the_whole_sentence() -> None:
+    windows = OSError(errno.ENAMETOOLONG, "File name too long", "/x")
+    assert refused_message(windows, "layout /x", "layout_file") == (
+        "cannot use layout /x: file name too long; choose a shorter layout_file"
+    )
+    denied = OSError(errno.EACCES, "Permission denied")
+    assert (
+        refused_message(denied, "/p", "--project-dir")
+        == "cannot use /p: permission denied; check --project-dir"
+    )

@@ -39,7 +39,7 @@ from dbtscope.storage.files import (
     is_name_too_long,
     os_reason,
     path_kind,
-    refused_hint,
+    refused_message,
 )
 from dbtscope.storage.project_files import (
     CONFIG_HINT,
@@ -255,7 +255,7 @@ def _kind(path: Path, option: str) -> PathKind:
     try:
         return path_kind(path)
     except OSError as error:  # e.g. ENAMETOOLONG, EACCES on a parent folder
-        raise RunError(f"cannot use {path}: {os_reason(error)}; {refused_hint(error, option)}") from error
+        raise RunError(refused_message(error, str(path), option)) from error
 
 
 def _project(value: str | None) -> Path:

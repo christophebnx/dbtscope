@@ -175,8 +175,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Words of an `OSError` (`permission denied`), the same on every OS | `storage/files.os_reason` (`REASONS`) |
 | Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` (`MAX_NAME`) |
 | Command-line options and help | `cli.app`, `cli.command`, `Options` |
-| What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind` (`PathKind`), `refused_hint` |
-| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
+| What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind` (`PathKind`), `refused_hint`, `refused_message` (the whole sentence) |
+| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path worded by `refused_message` with its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
 | How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
 | How messages name the config of a run (its file, the preset applied, or the defaults) | `cli._config_label` (through `config_source` for a file) |
 | One run: config, `dbt parse`, manifest, views, layout, page, summary | `cli.run` |

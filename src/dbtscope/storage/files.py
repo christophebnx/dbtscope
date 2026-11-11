@@ -91,6 +91,11 @@ def refused_hint(error: OSError, setting: str) -> str:
     return f"choose a shorter {setting}" if is_name_too_long(error) else f"check {setting}"
 
 
+def refused_message(error: OSError, source: str, setting: str) -> str:
+    """The sentence of a path the system refused: `cannot use <source>: <reason>; <what to do>`."""
+    return f"cannot use {source}: {os_reason(error)}; {refused_hint(error, setting)}"
+
+
 def os_reason(error: OSError) -> str:
     """The reason of an `OSError` in lower-case words (`permission denied`), without the path.
 
