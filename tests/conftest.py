@@ -28,6 +28,15 @@ from dbtscope.storage.project_files import read_manifest
 
 SHOP = "model.shop."  # unique_id prefix of the models of `shop`
 NO_PARSE_NO_OPEN = ("--no-parse", "--no-open")  # build from the written manifest, open nothing
+UNREADABLE_LAYOUTS: list[tuple[dict[str, Any], str]] = [  # (change to a valid layout, the CLI's problem)
+    ({"version": 99}, "version 99 is not supported (expected 1)"),
+    ({"version": 2}, "version 2 is not supported (expected 1)"),
+    ({"version": True}, "version True is not supported (expected 1)"),
+    ({"version": None}, "version None is not supported (expected 1)"),
+    ({"universe": []}, "universe must be a mapping"),
+    ({"universe": None}, "universe must be a mapping"),
+    ({"detail": "x"}, "detail must be a mapping"),
+]  # the page refuses the same files (tests/browser)
 DATA_OPEN = '<script type="application/json" id="data">'
 ROOT = Path(__file__).resolve().parent.parent
 USER_GUIDE = ROOT / "docs" / "user-guide.md"  # checked by test_cli.py (options) and test_docs.py

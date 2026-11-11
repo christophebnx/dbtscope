@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from conftest import UNREADABLE_LAYOUTS
 
 from dbtscope.domain.layout import LAYOUT_FORMAT, LAYOUT_HINT, LayoutError, check_layout
 
@@ -31,15 +32,7 @@ def test_anything_else_is_refused(bad: object) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    ("change", "problem"),
-    [
-        ({"version": 99}, "version 99 is not supported (expected 1)"),
-        ({"version": True}, "version True is not supported (expected 1)"),
-        ({"universe": []}, "universe must be a mapping"),
-        ({"detail": "x"}, "detail must be a mapping"),
-    ],
-)
+@pytest.mark.parametrize(("change", "problem"), UNREADABLE_LAYOUTS)
 def test_a_layout_the_page_cannot_read_is_refused(change: dict[str, Any], problem: str) -> None:
     with pytest.raises(LayoutError) as info:
         check_layout({"format": LAYOUT_FORMAT, "version": 1, **change}, "layout x.json")
