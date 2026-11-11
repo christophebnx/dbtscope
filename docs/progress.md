@@ -4,7 +4,7 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 
 | Milestone | Status | Commit | Notes |
 |---|---|---|---|
-| B0 Bootstrap | in progress | | Project initialised as `dbtscope`; hooks to confirm on the user's machine (CI green since M5.8) |
+| B0 Bootstrap | in progress | | Project initialised as `dbtscope`; hooks to confirm on the user's machine (they have run on every commit since; the user closes this row) |
 | M0 Import of dbt-erd-html v0.2 | done | | Output identical to the original tool on 5 configurations of the `shop` project |
 | M1 Trajectories | done | `1e10a09` | Trajectory mode built per `docs/architecture/2026-11-03-m1-trajectory-mode.md`; browser tests (D-019) cover criteria 1–5 and the 1,500-table check; run locally, not in CI |
 | M2 Image export and offline page | done | `3cd65b7` | Built per `docs/architecture/2026-11-03-m2-export-offline.md` (D-021 to D-023); libraries vendored with their licences, including Graphviz (EPL-1.0), Expat, Emscripten and musl compiled into `full.render.js`; browser tests network-free (D-022), run locally, not in CI |
@@ -32,7 +32,6 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 
 ## Open points
 
-- M4.1: the export file-name fallback (a title that slugs to nothing) is covered only by browser tests, which do not run in CI.
 - M4.2: the read-only output cases (permission denied, read-only file system) are covered only by monkeypatched tests: the sandbox ran as root, which bypasses permissions.
 - M4.2: `~` is not expanded in path options; the shell does it, so a quoted `"~/x.yml"` is read as a folder named `~`.
 - M4.2: a Ctrl-C during the imports, before `cli.main` runs, can still print a Python traceback.
@@ -42,7 +41,6 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 - M5.5: at the card levels some acme_retail circles (Product 261 → 294 world px at keys, Finance, Customer, Marketing by ≤ 5 %) are larger than before M5.5, whose cards overlapped; they are at the lower bound of a left-to-right placement (note § Acceptance). Narrower cards would need a tighter card width estimate or wrapped card names.
 - M5.8: on Windows a write to a closed stdout probably raises EINVAL rather than BrokenPipeError, so `dbtscope … | head` may end with "invalid argument; check the installation" there; the test is skipped on Windows until checked.
 - M5.10: Safari's trackpad `gesture*` handling is tested only with synthetic events in Chromium; to confirm on the user's Mac.
-- M5.9: CI is still over the 10 s target: about 14 s on Linux and macOS, 28 s on Windows, mostly the checkout and installing uv on the hosted runners. Further gains would need a cached uv binary or a self-hosted runner.
 - M6.1: not run here: the GitHub CLI and SSH access, the token variables, `uv tool update-shell`, the PowerShell lines (reviewed only) and the GitHub Actions example (moved unchanged). The `git+https` install worked through the sandbox's proxy credentials, not through a user's own git login. The guide's paths in pasted output are rewritten to `/home/ana/…`; counts, sizes and dbt's lines are real. CLAUDE.md "Read next" and `.claude/agents/documentation.md` (note § 5) are updated, applied by the main session as part of the user's documentation request.
 
 ## Blocking question

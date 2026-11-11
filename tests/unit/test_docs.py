@@ -233,3 +233,14 @@ def test_images_are_described_referenced_and_small() -> None:
     assert listed == {path.name for path in files}, "docs/images/README.md must list exactly its images"
     assert all(path.stat().st_size <= IMAGE_MAX_BYTES for path in files if path.suffix == ".png")
     assert sum(path.stat().st_size for path in files) <= IMAGES_MAX_BYTES
+
+
+def test_readme_ci_sentence_follows_d053() -> None:
+    """The README cites D-053 and tools/ci.py and names no OS the workflow does not run on."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    sentence = next(line for line in readme.splitlines() if "CI runs" in line)
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    runners = re.findall(r"runs-on:\s*(\S+)", workflow)
+    assert "D-053" in sentence and "tools/ci.py" in sentence
+    for name in ("Windows", "macOS"):
+        assert name not in sentence or any(name.lower()[:3] in runner for runner in runners)

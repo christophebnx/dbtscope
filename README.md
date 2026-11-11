@@ -44,7 +44,7 @@ The page itself is tested in headless Chromium (`tests/browser/`, marker `browse
 
 The example project `examples/acme_retail/` is also a test input: its `dbt parse` manifest is committed in `tests/fixtures/acme_retail/`, and a check against a fresh `dbt parse` runs when `DBTSCOPE_DBT` names a dbt with dbt-duckdb (D-033).
 
-How the code is built (the run, the layers and their allowed imports, the responsibility map): [`docs/architecture.md`](docs/architecture.md). Why: [`docs/decisions.md`](docs/decisions.md). CI runs on Ubuntu, Windows and macOS (D-043, D-044, `.github/workflows/ci.yml`).
+How the code is built (the run, the layers and their allowed imports, the responsibility map): [`docs/architecture.md`](docs/architecture.md). Why: [`docs/decisions.md`](docs/decisions.md). CI runs locally before every push, through the pre-push hook: `uv run python tools/ci.py` (ruff check and the default tests); the GitHub workflow runs the same script only when started by hand, on Ubuntu (D-053).
 
 ### Working with Claude Code
 
