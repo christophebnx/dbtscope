@@ -168,3 +168,12 @@ def test_domain_of_precedence() -> None:
         "analytics",
     ]
     assert domain_of(by_schema, merge_config({}, {"group_by": "none"})) == ""
+
+
+def test_an_empty_meta_domain_falls_through_to_the_rules() -> None:
+    config = merge_config({}, {"domains": [{"key": "ruled", "label": "Ruled", "match": ["name:fct_*"]}]})
+    assert domain_of(table(name="fct_a", meta={"domain": ""}), config) == "ruled"
+
+
+def test_a_numeric_meta_domain_is_turned_into_text() -> None:
+    assert domain_of(table(meta={"domain": 42}), merge_config({}, {})) == "42"
