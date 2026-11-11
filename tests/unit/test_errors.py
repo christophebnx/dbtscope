@@ -5,7 +5,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError, field_validator
 
-from dbtscope.domain.errors import in_words, validation_message
+from dbtscope.domain.errors import in_words, lower_first, validation_message
 
 
 class Inner(BaseModel):
@@ -104,3 +104,9 @@ def test_a_chosen_error_type_is_shown_first() -> None:
         validation_message(info.value, first="extra_forbidden")
         == "inner.colour: unknown key (and 1 more problem)"
     )
+
+
+def test_lower_first() -> None:
+    assert lower_first("Not found: X") == "not found: X"
+    assert lower_first("already lower") == "already lower"
+    assert lower_first("") == ""

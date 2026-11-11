@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 from colours import ciede2000, contrast
+from conftest import table
 
 from dbtscope.domain.config import DEFAULT_KIND_COLOR, merge_config
 from dbtscope.domain.model import Project, Table
@@ -14,6 +15,7 @@ from dbtscope.domain.universe import (
     PALETTE,
     TYPE_KINDS,
     UNRANKED,
+    domain_of,
     flow_rank,
     universe_data,
 )
@@ -144,3 +146,25 @@ def test_a_universe_with_a_seed_carries_the_seed_colour() -> None:
     data = universe_data(project, merge_config({}, {})).model_dump(mode="json", by_alias=True)
     assert {k["key"]: k["color"] for k in data["kinds"]}["seed"] == SEED
     assert data["nodes"][0]["kind"] == "seed"
+
+
+def test_domain_of_precedence() -> None:
+    """D-015: dbt group > meta.domain > `domains` rules > group_by; "" when nothing applies."""
+    config = merge_config(
+        {},
+        {
+            "group_by": "schema",
+            "domains": [{"key": "ruled", "label": "Ruled", "match": ["name:fct_*"]}],
+        },
+    )
+    grouped = table(group="grouped", meta={"domain": "meta"}, schema_name="analytics")
+    metad = table(meta={"domain": "meta"}, schema_name="analytics")
+    ruled = table(schema_name="analytics")
+    by_schema = table(name="dim_x", schema_name="analytics")
+    assert [domain_of(t, config) for t in (grouped, metad, ruled, by_schema)] == [
+        "grouped",
+        "meta",
+        "ruled",
+        "analytics",
+    ]
+    assert domain_of(by_schema, merge_config({}, {"group_by": "none"})) == ""

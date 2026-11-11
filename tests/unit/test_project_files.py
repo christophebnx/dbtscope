@@ -17,6 +17,7 @@ from dbtscope.storage.project_files import (
     MANIFEST_HINT,
     PRESETS,
     _yaml_problem,
+    config_source,
     load_config,
     preset_names,
     read_layout,
@@ -440,3 +441,7 @@ def test_backslashes_in_a_preset_key_are_folder_separators(dbt_project: Path) ->
     write_config(dbt_project, "preset: 'conf\\team.yml'\n")  # written on Windows, read anywhere
     loaded = load_config(dbt_project)
     assert (loaded.config.title, loaded.preset) == ("Team", path)
+
+
+def test_config_source_names_the_file() -> None:
+    assert config_source(Path("/p/dbt-erd.yml")) == "config /p/dbt-erd.yml"
