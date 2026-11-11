@@ -84,7 +84,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
   ```
   Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`. Scope: the layer or area (`domain`, `storage`, `cli`, `docs`, `claude`, `ci`, `deps`…).
 - Code and the docs it changes go in the same commit. Milestone-wide doc updates (roadmap, progress, changelog) go in a final `docs` commit for that milestone.
-- To correct the last unpushed commit, use `git commit --amend`. Never rewrite earlier history, never force-push, never delete a branch.
+- To correct the last unpushed commit, use `git commit --amend`. Never rewrite earlier history, never force-push, never delete a branch or a pushed tag. `/release` pushes its tag with the branch (D-055).
 - Stage files explicitly (`git add <paths>`); never commit `.env`, `config.toml` or anything under `.local/`.
 - Enforced: a Claude Code hook blocks `git commit` and `git push` on `main`; the `commit-msg` hook (`tools/check_commit_message.py`) rejects malformed messages; pre-commit runs ruff, duplicate detection and gitleaks; the `pre-push` hook runs the local CI. Never bypass a hook (`--no-verify`).
 

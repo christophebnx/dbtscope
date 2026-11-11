@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Changed
+
+- Releases (D-055): `/release` now pushes the release tag along with the branch, so it no longer stays in an ephemeral session; merge the release pull request with a merge commit to keep the tag in the history of `main`. A pushed tag is never moved or deleted by an agent.
+
 ## [0.3.0] - 2026-11-11
 
 ### Added
