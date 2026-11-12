@@ -11,6 +11,7 @@
     "Vehicle": 299, "Auction": 234, "Account": 179, "Claim": 105, "Activity": 98,
     "raw_crm": 72, "raw_dms": 72, "raw_erp": 72, "raw_lms": 72, "raw_pay": 72, "raw_tms": 72, "raw_web": 72
   },
+  "source_systems": ["raw_crm", "raw_dms", "raw_erp", "raw_lms", "raw_pay", "raw_tms", "raw_web"],
   "relations": 978,
   "lineage": 1643,
   "fold": {

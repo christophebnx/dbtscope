@@ -57,6 +57,7 @@ def test_example_domains_come_from_schemas_and_rules(example_project: Path) -> N
     tables = _project(example_project).tables
     assert len(domains) == EXPECTED["universe"]["domains"]
     assert not any(domain["owner"] for domain in domains.values())  # no dbt group (D-047)
+    assert sorted(k for k, d in domains.items() if d["system"]) == EXPECTED["universe"]["source_systems"]
     assert nodes["fct_orders"]["domain"] == tables[MODEL + "fct_orders"].schema_name == "sales"
     for name in ("customer_hub", "customer_sat"):  # silver, by its schema
         assert nodes[name]["domain"] == tables[MODEL + name].schema_name == "customer"

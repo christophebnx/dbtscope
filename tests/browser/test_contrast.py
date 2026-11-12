@@ -326,7 +326,7 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
     u = data["universe"]
     kind_color = {k["key"]: k["color"] for k in u["kinds"]}
     color_of = {n["name"]: kind_color[n["kind"]] for n in u["nodes"]}
-    domains = {d["label"] for d in u["domains"]}
+    domains = {d["label"] for d in u["domains"] if not d["system"]}  # a source system is drawn neutral, 12 px
     p.page.select_option("#u-detail", "keys")
     p.page.evaluate(RECORD)
     cards: set[str] = set()

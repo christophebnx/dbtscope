@@ -78,6 +78,7 @@ class UniverseDomain(BaseModel):
     label: str | None
     color: str
     owner: str
+    system: bool = False  # last key: made only of technical tables, or declared so (D-068)
 
 
 class UniverseLayer(BaseModel):

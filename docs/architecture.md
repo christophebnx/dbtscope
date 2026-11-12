@@ -184,7 +184,13 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Main tables of a constellation, ranked by relations (page; summary cards and names at Fit) | `render/assets/universe.js mainTables` (`MAIN_MAX`) |
 | Draw a summary card and its row hit regions; what fits in its room (page) | `render/assets/universe.js drawSummary`, `planCard`, `summaryHits` |
 | The constellation under the pointer, disc or summary card; frame the band of a card row (page) | `render/assets/universe.js constellationAt`, `zoomOnRow` |
-| Straight route between two constellations, arrowhead in the gap (page; routes and trajectory arrows, reworked by M8.4) | `render/assets/universe.js routeLine`, `arrowAt` |
+| Whether a domain is a source system: every table technical, or the domain rule's `system` (D-068) | `domain/universe.is_source_system`, `config.DomainRule` (`PresetDomainRule` in presets) |
+| Place the unpinned source systems in a grid upstream, in domain mode (page, D-069) | `render/assets/universe.js placeSystems` (`GRID_GAP`, `gridOrder`) |
+| Business domains' columns along the data flow from the directed routes (page, D-070) | `render/assets/universe.js flowColumns`, `byFlow` (over `common.js flowRanks`; `FLOW_X_BUSINESS`) |
+| Routes between constellations: counts (relations, lineage, Links value), direction, path around the others, ends on the outlines, arrowheads (page, D-071) | `render/assets/universe.js routePairs`, `routePath`, `pathBetween`, `routeLine` (clip; replaces the straight M8.3 route), `drawRoutes`, `headAt` with `arrowAt` |
+| Which routes are drawn by default; bundling of the source systems' routes; their tooltip (page, D-071) | `render/assets/universe.js strongOf` (`ROUTES_PER`), `bundleRoutes`, `routeView`, `routeAt`, `routeTip`, `routeWords` |
+| The constellation whose routes are spotlit (page, D-071) | `render/assets/universe.js spot`, `routeView` |
+| The source-systems group card: members, bounding box, rows; its text (page, D-069) | `render/assets/universe.js systemsGroup`, `cardPlans`, `cardOwners`, `renderSummaryText` |
 | Trajectory seen from afar: counts per card, edges aggregated per pair of constellations (page, D-066) | `render/assets/universe.js trajSummary`, `cardMark`, `drawTrajectoryArrows` |
 | Text summary of the constellations for screen readers (page, D-066) | `render/assets/universe.js renderSummaryText`, `#u-summary` |
 | Order of the Types list by role (page, D-059) | `render/assets/universe.js ROLE_ORDER` |
@@ -257,6 +263,9 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
 | Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
 | The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-048) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. |
+| A domain made only of technical tables, or so declared (universe, M8.4, D-068) | **source system** (`UniverseDomain.system`, `DomainRule.system`, `is_source_system`, `SYS`; French UI: système source); its opposite in the panel is **business domain** (French UI: domaine métier) | raw domain, source domain, landing | |
+| What the universe draws between two constellations for the links between their tables (M8.4, D-071) | **route** (`routes`, `routePath`, `routeLine`; French UI: route); a route is **directed** when its lineage mostly flows one way, its downstream end being the **reader** | edge, arc, connection | |
+| The constellation whose routes are all drawn while the others dim (M8.4) | **spotlight** (`spot`) | highlight, focus | Internal word; not in the UI. |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |

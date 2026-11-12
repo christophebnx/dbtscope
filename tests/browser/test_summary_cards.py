@@ -31,6 +31,7 @@ from browser.conftest import (
     Page,
     open_flow,
     scroll_width,
+    set_all_domains,
     universe_page,
 )
 from browser.test_constellations import choose
@@ -188,7 +189,8 @@ def ranking(data: dict[str, Any], visible: set[str], by: str = "domains") -> dic
 
 
 # the sizes of the design note's table of footprints, at 1280 x 800
-CARD_WIDTHS = {"vehicle": 207, "auction": 183, "account": 165, "activity": 127, "claim": 121}
+# the card widths at Fit (1280 x 800, M8.4 placement: one toolbar row, the source systems out of the forces)
+CARD_WIDTHS = {"vehicle": 214, "auction": 189, "account": 170, "activity": 131, "claim": 125, "@systems": 118}
 
 
 def rounded_radius(card: dict[str, Any], k: float) -> float:
@@ -215,7 +217,9 @@ def test_the_large_project_opens_on_cards_and_acme_and_shop_on_stars(
         f"large: fit {camera(p)['k']:.3f}, refR {s['refR']:.2f}, "
         f"kStars {s['kStars']:.3f}, kCards {s['kCards']:.3f}"
     )
-    assert s["weight"] == 1 and len(s["cards"]) == 12
+    assert (
+        s["weight"] == 1 and len(s["cards"]) == 6
+    )  # five business cards and the one group card of the seven systems
     assert p.page.evaluate("views.universe.drawnNames()") == []
     acme, _ = example_page
     a = summary(acme)
@@ -299,14 +303,17 @@ def test_cards_stay_inside_the_collision_radius_and_never_overlap(
     k = camera(p)["k"]
     s = summary(p)
     assert s["weight"] == 1
-    for c in s["cards"]:
+    cards = [
+        c for c in s["cards"] if c["key"] != "@systems"
+    ]  # the group card spans a grid: see test_systems_routes
+    for c in cards:
         assert c["w"] == c["h"] == pytest.approx(1.8 * c["r"])
         half, rho = c["w"] / 2, rounded_radius(c, k)
         corner = (half - rho) * math.sqrt(2) + rho
         assert corner <= 1.15 * c["r"] + 30, (c["key"], corner / c["r"])  # the layout's collision radius
         assert corner <= 1.18 * c["r"]
-    for i, a in enumerate(s["cards"]):
-        for b in s["cards"][i + 1 :]:
+    for i, a in enumerate(cards):
+        for b in cards[i + 1 :]:
             steps = [-1 + 2 * j / 14 for j in range(15)]
             points = [(a["x"] + u * a["w"] / 2, a["y"] + v * a["w"] / 2) for u in steps for v in steps]
             assert not any(inside(a, k, x, y) and inside(b, k, x, y) for x, y in points), (a["key"], b["key"])
@@ -352,9 +359,15 @@ def test_a_card_says_the_counts_of_its_constellation_by_layer_and_kind(
     s = summary(p)
     order = kind_order(data)
     want = expected_cards(data)
-    assert {c["key"] for c in s["cards"]} == set(want)
+    systems = {d["key"] for d in data["universe"]["domains"] if d["system"]}
+    group = card_of(s, "@systems")
+    assert {c["key"] for c in s["cards"]} == (set(want) - systems) | {"@systems"}
+    assert [r["key"] for r in group["rows"]] == sorted(systems) or {
+        r["key"] for r in group["rows"]
+    } == systems
+    assert group["n"] == sum(want[k]["n"] for k in systems) == sum(r["n"] for r in group["rows"])
     layer_order = [layer["key"] for layer in data["universe"]["layers"]]
-    for c in s["cards"]:
+    for c in (c for c in s["cards"] if c["key"] != "@systems"):
         w = want[c["key"]]
         assert c["n"] == w["n"] == sum(r["n"] for r in c["rows"])
         assert [r["key"] for r in c["rows"]] == sorted(w["rows"], key=layer_order.index)  # flow order
@@ -398,8 +411,8 @@ def test_the_entity_count_follows_the_fold_and_no_row_does(large_page: Any, open
         for t in p.page.evaluate("views.universe.geometry().tables")
         if roles[kinds[t["id"]]] in ("core", "connector")
     )
-    assert {c["key"]: c["entities"] for c in folded["cards"]} == {
-        c["key"]: drawn.get(c["key"], 0) for c in folded["cards"]
+    assert {c["key"]: c["entities"] for c in folded["cards"] if c["key"] != "@systems"} == {
+        c["key"]: drawn.get(c["key"], 0) for c in folded["cards"] if c["key"] != "@systems"
     }
     p.page.uncheck("#u-fold-box")
     p.page.evaluate(NEXT_FRAME)
@@ -421,11 +434,24 @@ def test_the_main_tables_are_the_ranking_of_the_names_at_fit(large_page: Any, op
     assert all(len(v) <= MAIN_MAX for v in want.values())
     assert any(len(v) == MAIN_MAX for v in want.values())
     sources = [c for c in s["cards"] if not c["main"]]
-    assert len(sources) == 7  # the source systems name no table
-    on_stars(p)
-    drawn = p.page.evaluate("views.universe.drawnNames()")
+    assert [c["key"] for c in sources] == [
+        "@systems"
+    ]  # the seven source systems are one group card, naming no table
+    assert len(sources[0]["rows"]) == 7
     by_id = {n["id"]: n["domain"] for n in data["universe"]["nodes"]}
     for key, ids in want.items():
+        on_stars(p)
+        p.page.evaluate(
+            """key => {
+              const u = views.universe, k = u.camera().k;
+              const d = u.geometry().constellations.find(c => c.key === key);
+              const box = document.getElementById('u-stage');
+              u.camera({ x: box.clientWidth / 2 - d.x * k, y: box.clientHeight / 2 - d.y * k, k });
+            }""",
+            key,
+        )
+        p.page.evaluate(NEXT_FRAME)
+        drawn = p.page.evaluate("views.universe.drawnNames()")
         named = [i for i in drawn if by_id[i] == key]
         assert named and set(named) <= set(ids[:FIT_NAMES])  # the names at Fit are the first of the same list
 
@@ -444,7 +470,7 @@ def test_cards_are_the_size_of_the_design_and_show_what_fits(large_page: Any, op
         assert d["named"] and d["count"].startswith(f"{c['n']} tables")
         assert d["rows"] == len(c["rows"]) and not d["more"]  # every row of every card
         if c["main"]:
-            assert d["names"] >= 2 and (d["w"] < 130 or d["names"] >= 3), (c["key"], d["w"], d["names"])
+            assert d["names"] >= 2 and (d["w"] < 135 or d["names"] >= 3), (c["key"], d["w"], d["names"])
         else:
             assert d["names"] == 0 and not d["heading"]
     assert drawn["vehicle"]["heading"] and drawn["vehicle"]["names"] == MAIN_MAX
@@ -501,7 +527,7 @@ def test_the_filters_change_every_count_row_and_card(large_page: Any, open_page:
     assert all("staging" not in [r["key"] for r in c["rows"]] for c in summary(p)["cards"])
     untick(p, "domains", "Claim")
     cards = summary(p)["cards"]
-    assert "claim" not in {c["key"] for c in cards} and len(cards) == 11
+    assert "claim" not in {c["key"] for c in cards} and len(cards) == 5
 
 
 def test_a_filter_change_at_the_stars_scale_takes_a_second_at_most(large_page: Any, open_page: Any) -> None:
@@ -573,7 +599,7 @@ def test_the_header_of_a_card_moves_and_pins_its_constellation(large_page: Any, 
         "domains"
     ]  # the scope of a folded drawing
     assert pins["claim"] == pytest.approx([moved["x"], moved["y"]], abs=1e-6)
-    assert set(pins) == {c["key"] for c in s["cards"]}
+    assert set(pins) == {c["key"] for c in p.page.evaluate("views.universe.geometry().constellations")}
 
 
 def test_a_click_on_a_row_frames_its_band_on_stars(large_page: Any, open_page: Any) -> None:
@@ -744,7 +770,12 @@ def test_a_trajectory_at_overview_marks_cards_and_aggregates_its_arrows(
     }
     assert {(a["from"], a["to"], a["dir"]): a["c"] for a in drawn["arrows"]} == dict(arrows) and arrows
     cards = {c["k"]: c for c in drawn["cards"]}
-    for key, m in per.items():
+    systems = {d["key"] for d in data["universe"]["domains"] if d["system"]}
+    on_cards: dict[str, dict[str, int]] = defaultdict(lambda: {"up": 0, "down": 0})
+    for key, m in per.items():  # the source systems are one group card, with their summed counts
+        on_cards["@systems" if key in systems else key]["up"] += m["up"]
+        on_cards["@systems" if key in systems else key]["down"] += m["down"]
+    for key, m in on_cards.items():
         if m["up"] + m["down"]:
             line = f"{m['up']} upstream · {m['down']} downstream"
             assert cards[key]["traj"] and line.startswith(cards[key]["traj"].rstrip("…"))  # in full, or cut
@@ -815,7 +846,9 @@ def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_card
     names = {n["id"]: n["name"] for n in data["universe"]["nodes"]}
     assert [i["name"] for i in text["items"]].count("Vehicle") == 1 and len(text["items"]) == len(s["cards"])
     by_name = {i["name"]: i for i in text["items"]}
-    for c in s["cards"]:
+    group = by_name.pop("Source systems")  # the source systems are one block, as they are one card
+    assert group["p"][0] == "7 source systems · 504 tables" and len(group["li"]) == 7
+    for c in (c for c in s["cards"] if c["key"] != "@systems"):
         item = by_name[labels[c["key"]]]
         count = f"{c['n']} tables" + (f" · {c['entities']} entities" if c["entities"] is not None else "")
         assert item["p"][0] == count
@@ -824,17 +857,17 @@ def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_card
             for r in c["rows"]
         ]
         main = f"Main tables: {', '.join(names[i] for i in c['main'])}"
-        assert (item["p"][1:] == [main]) if c["main"] else (item["p"][1:] == [])
+        assert item["p"][1] == main if c["main"] else len(item["p"]) == 1 or item["p"][1].startswith("Routes")
     assert (
-        len(by_name["Vehicle"]["p"]) == 2 and by_name["Vehicle"]["p"][1].count(",") == MAIN_MAX - 1
+        len(by_name["Vehicle"]["p"]) >= 2 and by_name["Vehicle"]["p"][1].count(",") == MAIN_MAX - 1
     )  # all five, none cut
 
 
 def test_the_text_summary_follows_the_filters_and_the_grouping(large_page: Any, open_page: Any) -> None:
     p = open_page(large_page[0])
-    assert len(text_summary(p)["items"]) == 12
+    assert len(text_summary(p)["items"]) == 6  # five business constellations and the source systems block
     untick(p, "domains", "Claim")
-    assert len(text_summary(p)["items"]) == 11
+    assert len(text_summary(p)["items"]) == 5
     choose(p, "layers")
     p.page.evaluate(NEXT_FRAME)
     layers = {layer["label"] for layer in p.page.evaluate("PAGE.universe.layers")}
@@ -863,7 +896,7 @@ def test_the_text_summary_is_there_at_every_scale_and_inert_with_the_flow(exampl
 
 def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None:
     p, _ = example_page
-    p.page.click("#u-none")
+    set_all_domains(p, False)
     p.page.evaluate(NEXT_FRAME)
     text = text_summary(p)
     assert text["heading"] == "Summary of the constellations"
@@ -872,18 +905,14 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
 
 
 def test_french_texts_and_plurals(tmp_path: Path, open_page: Any) -> None:
-    p, data = acme_page(tmp_path, open_page, "fr")
+    p, _ = acme_page(tmp_path, open_page, "fr")
     text = text_summary(p)
     assert text["heading"] == "Synthèse des constellations"
     s = summary(p)
-    one = next(c for c in s["cards"] if c["n"] <= 1)
-    labels = {d["key"]: d["label"] or d["key"] for d in data["universe"]["domains"]}
-    item = next(i for i in text["items"] if i["name"] == labels[one["key"]])
-    assert (
-        item["p"][0] == f"{plural(one['n'], ('table', 'tables'), 'fr')} · "
-        f"{plural(one['entities'], ('entité', 'entités'), 'fr')}"
-    )
-    assert any(i["p"][-1].startswith("Tables principales\u00a0: ") for i in text["items"])
+    one = next(c for c in s["cards"] if c["n"] <= 1)  # the one table of the single source system
+    systems = next(i for i in text["items"] if i["name"] == "Systèmes sources")
+    assert systems["p"][0] == f"1 système source · {plural(one['n'], ('table', 'tables'), 'fr')}"
+    assert any(q.startswith("Tables principales\u00a0: ") for i in text["items"] for q in i["p"])
     assert all(
         re.search("(?<!\u00a0): ", li) is None for i in text["items"] for li in i["li"]
     )  # the label and the value: never a bare colon in French
@@ -1072,7 +1101,9 @@ def assert_cards_fit_their_footprint(p: Page) -> None:
     k = camera(p)["k"]
     cards = {c["key"]: c for c in summary(p)["cards"]}
     for c in hits(p)["cards"]:
-        assert 0 < c["h"] <= c["w"] + 1e-6, c
+        assert 0 < c["h"] <= cards[c["k"]]["h"] * k + 1e-6, (
+            c
+        )  # the width, or the grid's height for the group card
         assert c["w"] == pytest.approx(1.8 * cards[c["k"]]["r"] * k, abs=1e-6)
         assert not re.search(r"(^|·\s)0 entit", c["count"]), c
 

@@ -465,3 +465,31 @@ def test_a_file_kind_key_that_is_not_a_string_is_a_config_error() -> None:
     preset = {"kinds": [{"key": "hub", "role": "core", "match": "x"}]}
     with pytest.raises(ConfigError, match=r"kinds\[0\]\.key"):
         merge_config(preset, {"kinds": [{"key": ["a"], "match": "x"}]})
+
+
+@pytest.mark.parametrize(("given", "expected"), [(True, True), (False, False), (None, None)])
+def test_a_domain_rule_system_is_a_bool_or_not_set(given: bool | None, expected: bool | None) -> None:
+    rule: dict[str, Any] = {"key": "d", "match": []}
+    if given is not None:
+        rule["system"] = given
+    assert merge_config({}, {"domains": [rule]}).domains[0].system is expected
+
+
+@pytest.mark.parametrize("value", ["yes", 1, "maybe"])
+def test_a_non_boolean_system_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"domains": [{"key": "a", "match": []}, {"key": "d", "match": [], "system": value}]})
+    assert str(info.value).startswith("domains[1].system: ")
+    assert "\n" not in str(info.value)
+
+
+def test_a_preset_domain_rule_may_set_system_but_a_kind_or_layer_rule_may_not() -> None:
+    check_preset({"domains": [{"key": "d", "match": "x", "system": True}]})
+    for section in ("kinds", "layers"):
+        with pytest.raises(ConfigError, match=rf"{section}\[0\].system: unknown key"):
+            check_preset({section: [{"key": "d", "match": "x", "system": True}]})
+
+
+def test_system_on_a_file_layer_rule_is_ignored() -> None:
+    config = merge_config({}, {"layers": [{"key": "l", "match": [], "system": True}]})
+    assert not hasattr(config.layers[0], "system")

@@ -30,5 +30,7 @@ dimensions, 31 facts), 388 of the 828 Raw vault tables drawn as stars. Expected 
 satellite: `no_relation_by_name` into `car_hub` (by name), `two_parents` into `van_hub` (the relation
 to `bus_hub` loses to the name), `effectivity_on_link` into its link, `no_parent` and `other_domain` none.
 
+Source systems (M8.4, D-068): the seven `raw_<system>` domains (`expected.json` `source_systems`), every table technical; the five business domains are not.
+
 Used with `LARGE_CONFIG` (`preset: data_vault` and the five domain labels); the universe then has no
 "Other" table and four layers (Sources, Staging, Raw vault, Data products).

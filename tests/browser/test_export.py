@@ -25,6 +25,7 @@ from browser.conftest import (
     Shop,
     names_of,
     only_own_url,
+    set_all_domains,
     show_detail,
     wait_exportable,
 )
@@ -356,10 +357,10 @@ def test_detail_png_is_the_drawn_diagram(shop_page: Shop) -> None:
 def test_buttons_are_disabled_on_an_empty_view(shop_page: Shop) -> None:
     p, _ = shop_page
     assert p.page.is_enabled("#u-export")
-    p.page.click("#u-none")
+    set_all_domains(p, False)
     assert p.page.is_disabled("#u-export")
     assert p.page.evaluate("views.universe.image()") is None
-    p.page.click("#u-all")
+    set_all_domains(p, True)
     assert p.page.is_enabled("#u-export")
 
     show_detail(p)

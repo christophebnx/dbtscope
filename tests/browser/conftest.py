@@ -143,6 +143,15 @@ def open_flow(p: Page, name: str, direction: str = "both", depth: str = "dall") 
     return p.page.evaluate("flow.state()")
 
 
+def set_all_domains(p: Page, on: bool) -> None:
+    """Tick or untick every domain of the universe panel: the business domains and, when there are some, the
+    source systems (each heading has its own all / none, M8.4)."""
+    suffix = "all" if on else "none"
+    p.page.click(f"#u-{suffix}")
+    if p.page.is_visible("#u-systems-h"):
+        p.page.click(f"#u-sys-{suffix}")
+
+
 def close_panel(p: Page, view: str) -> None:
     if p.page.is_visible(f"#{view}-panel"):
         p.page.click(f"#{view}-toggle")

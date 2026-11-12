@@ -159,7 +159,19 @@ def test_a_folded_table_draws_no_link_and_the_routes_do_not_change(large_page: A
     assert g["edges"] and not any(a in folded or b in folded for a, b in g["edges"])
     toggle(p)
     shown = geo(p)
-    assert shown["routes"] == g["routes"] and shown["routes"]
+    counts = (
+        "a",
+        "b",
+        "rel",
+        "lin",
+        "c",
+        "dir",
+        "bundled",
+    )  # the routes' paths follow the constellations' radii
+    assert [{k: r[k] for k in counts} for r in shown["routes"]] == [
+        {k: r[k] for k in counts} for r in g["routes"]
+    ]
+    assert shown["routes"]
     assert len(shown["edges"]) > len(g["edges"])
 
 

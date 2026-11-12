@@ -213,3 +213,9 @@ def test_payload_build_is_under_the_bound(tmp_path: Any) -> None:
     elapsed = time.perf_counter() - start
     print(f"parse + universe + detail, 1,419 tables: {elapsed * 1000:.0f} ms")
     assert elapsed < BOUND_S
+
+
+def test_the_seven_raw_domains_are_source_systems_and_the_business_domains_are_not() -> None:
+    systems = [d["key"] for d in _payload()["domains"] if d["system"]]
+    assert sorted(systems) == EXPECTED["source_systems"]
+    assert all(not d["system"] for d in _payload()["domains"] if not d["key"].startswith("raw_"))

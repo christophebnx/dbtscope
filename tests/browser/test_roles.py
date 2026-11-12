@@ -202,8 +202,22 @@ def test_on_stars_only_core_tables_are_named_at_most_three_per_domain(
     assert max(per_domain.values()) <= 3, per_domain
 
 
+def centre_on(p: Any, table: str) -> None:
+    """Keep the scale, centre the stage on a table (the placement of the constellations is no test input)."""
+    p.page.evaluate(
+        """id => {
+          const u = views.universe, k = u.camera().k, t = u.geometry().tables.find(t => t.id === id);
+          const box = document.getElementById('u-stage');
+          u.camera({ x: box.clientWidth / 2 - t.x * k, y: box.clientHeight / 2 - t.y * k, k });
+        }""",
+        table,
+    )
+    p.page.evaluate(NEXT_FRAME)
+
+
 def test_a_trajectory_name_still_shows_on_stars(large_page: Any, open_page: Any) -> None:
     p = opened_on_stars(large_page, open_page)
+    centre_on(p, "model.shop.orphan_ledger_sat")
     p.page.evaluate(ENTER, "orphan_ledger_sat")
     p.page.evaluate(NEXT_FRAME)
     assert "model.shop.orphan_ledger_sat" in p.page.evaluate(DRAWN)
@@ -213,10 +227,11 @@ def test_a_hovered_name_still_shows_on_stars(large_page: Any, open_page: Any) ->
     p = opened_on_stars(large_page, open_page)
     nodes = {n["id"]: n for n in large_page[1]["universe"]["nodes"]}
     kinds = {k["key"]: k["role"] for k in large_page[1]["universe"]["kinds"]}
-    camera = p.page.evaluate("views.universe.camera()")
-    box = p.page.locator("#u-canvas").bounding_box()
     geometry = p.page.evaluate("views.universe.geometry()")
     small = next(t for t in geometry["tables"] if kinds[nodes[t["id"]]["kind"]] == "descriptive")
+    centre_on(p, small["id"])
+    camera = p.page.evaluate("views.universe.camera()")
+    box = p.page.locator("#u-canvas").bounding_box()
     p.page.mouse.move(
         box["x"] + small["x"] * camera["k"] + camera["x"], box["y"] + small["y"] * camera["k"] + camera["y"]
     )

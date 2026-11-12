@@ -49,7 +49,8 @@ def enter_by_button(p: Page, name: str) -> None:
 
 
 def checkbox(p: Page, panel: str, label: str) -> Any:
-    return p.page.locator(f"#u-{panel} label", has_text=label).locator("input")
+    rows = "#u-domains label, #u-systems label" if panel == "domains" else f"#u-{panel} label"
+    return p.page.locator(rows, has_text=label).locator("input")
 
 
 # ---------------------------------------------------------------- the pure traversal

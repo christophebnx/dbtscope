@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from colours import ciede2000, contrast
 
@@ -15,6 +16,7 @@ from dbtscope.domain.universe import (
     TYPE_KINDS,
     UNRANKED,
     flow_rank,
+    is_source_system,
     universe_data,
 )
 from dbtscope.render.page import embedded_json
@@ -58,6 +60,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "label": "Sales",
         "color": "#123456",
         "owner": "Ana",
+        "system": False,
     }
     assert domains["returns"]["color"].startswith("#")
 
@@ -131,7 +134,13 @@ def test_tables_without_domain_come_last(shop: Project) -> None:
     data = universe_data(shop, merge_config({}, {"group_by": "none", "language": "fr"})).model_dump(
         mode="json", by_alias=True
     )
-    assert data["domains"][-1] == {"key": "", "label": "Hors domaine", "color": "#8a94a6", "owner": ""}
+    assert data["domains"][-1] == {
+        "key": "",
+        "label": "Hors domaine",
+        "color": "#8a94a6",
+        "owner": "",
+        "system": False,
+    }
 
 
 def test_default_layers_follow_the_data_flow() -> None:
@@ -289,3 +298,76 @@ def test_models_outside_the_models_folder_are_other_with_a_preset_and_hubs_still
     project = _projects(_model("odd_hub", "analytics/x"), _model("plain", "analytics/x"))
     layer = {n["name"]: n["layer"] for n in _payload(project, {}, read_preset("data_vault"))["nodes"]}
     assert layer == {"odd_hub": "vault", "plain": "other"}
+
+
+def _system_flags(project: Project, file_config: dict[str, Any]) -> dict[str, bool]:
+    return {d["key"]: d["system"] for d in _payload(project, file_config)["domains"]}
+
+
+def _src(name: str, schema: str) -> Table:
+    return Table(
+        unique_id=f"source.shop.{schema}.{name}",
+        name=name,
+        resource_type="source",
+        package="shop",
+        schema_name=schema,
+    )
+
+
+@pytest.mark.parametrize(
+    ("roles", "override", "expected"),
+    [
+        (["technical", "technical"], None, True),
+        (["technical", "none"], None, False),
+        (["technical", "core"], None, False),
+        ([], None, False),
+        (["core", "none"], True, True),
+        (["technical"], False, False),
+    ],
+)
+def test_is_source_system(roles: list[str], override: bool | None, expected: bool) -> None:
+    assert is_source_system(roles, override) is expected
+
+
+def test_a_domain_of_sources_only_is_a_source_system_without_a_preset() -> None:
+    project = _projects(_src("a", "crm"), _src("b", "crm"), _src("c", "erp"), _model("m1"), _src("d", "erp"))
+    flags = _system_flags(project, {"group_by": "schema"})
+    assert flags["crm"] is True
+    assert flags["erp"] is True
+    assert flags[""] is False  # the model has no schema: sources and a role-less model never mix
+
+
+def test_a_domain_mixing_sources_and_role_less_models_is_not_a_source_system() -> None:
+    project = _projects(
+        _src("a", "crm"),
+        _model("m1").model_copy(update={"schema_name": "crm"}),
+    )
+    assert _system_flags(project, {"group_by": "schema"}) == {"crm": False}
+
+
+def test_sources_under_a_user_kind_without_role_are_not_a_source_system() -> None:
+    project = _projects(_src("a", "crm"))
+    assert _system_flags(project, {"group_by": "schema"}) == {"crm": True}
+    kinds = [{"key": "src", "match": ["type:source"]}]
+    assert _system_flags(project, {"group_by": "schema", "kinds": kinds}) == {"crm": False}
+
+
+def test_the_first_rule_that_sets_system_wins_and_any_domain_key_can_be_named() -> None:
+    project = _projects(_src("a", "crm"), _src("b", "erp"), _model("m1", "x"))
+    rules = [
+        {"key": "crm", "match": []},
+        {"key": "crm", "system": False, "match": []},
+        {"key": "crm", "system": True, "match": []},
+        {"key": "x", "system": True, "match": ["m1"]},
+    ]
+    flags = _system_flags(project, {"group_by": "schema", "domains": rules})
+    assert flags["crm"] is False
+    assert flags["erp"] is True
+    assert flags["x"] is True
+
+
+def test_a_domain_carries_system_last_and_the_order_is_unchanged() -> None:
+    project = _projects(_src("a", "crm"), _src("b", "crm"), _model("m1"), _model("m2"), _model("m3"))
+    domains = _payload(project, {"group_by": "schema"})["domains"]
+    assert list(domains[0]) == ["key", "label", "color", "owner", "system"]
+    assert [d["key"] for d in domains] == ["crm", ""]
