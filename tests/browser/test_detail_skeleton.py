@@ -720,3 +720,76 @@ def test_the_folded_row_keeps_its_contrast_on_hostile_kind_colours(tmp_path: Pat
     p = open_detail(large(tmp_path, kinds), open_page)
     assert drawing(p)["skeleton"] is True
     assert assert_graphviz_texts_pass(p.page.evaluate("views.detail.svgImage(1)"), "skeleton, exported") > 0
+
+
+# ---------------------------------------------------------------- bounds, warning, PNG, storage, resize
+
+
+def test_the_vehicle_skeleton_is_138_tables_not_the_estimated_136(
+    vehicle: tuple[Page, dict[str, Any]],
+) -> None:
+    """The brief's 136 was an estimate on 271 tables: the group holds 277, 72 hubs, 64 links, 2 loose sats."""
+    p, data = vehicle
+    m, d = Model(data), drawing(p)
+    kinds = [m.kind(u) for u in d["drawn"]]
+    assert len(d["drawn"]) <= 138
+    assert (kinds.count("hub"), kinds.count("link"), kinds.count("sat")) == (72, 64, 2)
+    assert all(m.entities[u]["parent"] not in m.scope for u in d["drawn"] if m.kind(u) == "sat")
+
+
+def test_the_warning_is_absent_when_the_visible_tables_are_sixty_or_fewer(
+    tmp_path: Path, open_page: Any
+) -> None:
+    p = open_page(vault(tmp_path / "v", 21, 40)[0])  # 61 tables in the scope: a skeleton
+    show_detail(p)
+    fold_box(p, False)
+    assert p.page.inner_text("#d-fold-warn") == "61 tables: the drawing will be hard to read"
+    p.page.click("#d-types label:has-text('Satellite') input")  # 21 visible tables
+    wait_drawn(p)
+    assert drawing(p)["scope"] == 61 and p.page.is_visible("#d-fold")
+    assert p.page.inner_text("#d-fold-warn") == ""
+
+
+def test_a_skeleton_with_hubs_only_on_the_left_draws_without_error(tmp_path: Path, open_page: Any) -> None:
+    p = open_page(vault(tmp_path / "v", 21, 40)[0])  # no link: a single side
+    show_detail(p)
+    d = drawing(p)
+    assert d["skeleton"] is True and len(d["drawn"]) == 21 and len(d["folded"]) == 40
+    assert d["columns"] >= 1 and p.page.locator("#d-graph .msg").count() == 0
+
+
+def test_the_exported_png_is_the_skeleton_at_twice_the_screen(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = vehicle
+    box = p.page.locator("#d-graph svg").bounding_box()
+    name, body = p.download("#d-export-png")
+    assert name.endswith("-detail.png") and body[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = int.from_bytes(body[16:20], "big"), int.from_bytes(body[20:24], "big")
+    assert width > 0 and height > 0 and width / height == pytest.approx(box["width"] / box["height"], rel=0.1)
+
+
+def test_without_storage_the_choice_lasts_for_the_session(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = vehicle
+    p.page.evaluate(
+        "Object.defineProperty(Storage.prototype, 'setItem',"
+        " { value: () => { throw new Error('denied'); }, configurable: true })"
+    )
+    fold_box(p, False)
+    assert drawing(p)["skeleton"] is False
+    p.page.select_option("#d-group", "")
+    wait_drawn(p)
+    p.page.select_option("#d-group", "vehicle")
+    wait_drawn(p)
+    assert drawing(p)["fold"] is False
+
+
+def test_a_window_resize_does_not_lay_out_again(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = vehicle
+    before = drawing(p)
+    p.page.set_viewport_size({"width": 1000, "height": 700})
+    p.page.wait_for_timeout(400)
+    after = drawing(p)
+    assert (after["layoutMs"], after["size"], after["columns"]) == (
+        before["layoutMs"],
+        before["size"],
+        before["columns"],
+    )

@@ -25,3 +25,11 @@ def test_page_is_byte_identical(case: str, tmp_path: Path) -> None:
     assert data_block(page).decode("utf-8") == payload.decode("utf-8")  # readable diff first
     reference = EXPECTED["pages"][case]
     assert (hashlib.sha256(page).hexdigest(), len(page)) == (reference["sha256"], reference["size"])
+
+
+@pytest.mark.parametrize("case", sorted(set(CASES) - set(TWINS)))
+def test_the_detail_gains_only_the_parent_and_role_keys_at_their_defaults(case: str) -> None:
+    """M8.5 (D-072): no reference case holds a detail table whose parent is also a detail table."""
+    detail = json.loads((FOLDER / "payloads" / f"{case}.json").read_text(encoding="utf-8"))["detail"]
+    assert all(list(e)[-1] == "parent" and e["parent"] == "" for e in detail["entities"])
+    assert all(list(k)[-1] == "role" for k in detail["kinds"])
