@@ -32,7 +32,7 @@ sequenceDiagram
     U->>S: run the command in the project folder
     S->>F: read dbt-erd.yml and the preset
     alt default run
-        S->>D: dbt parse, its output shown on stderr
+        S->>D: dbt --log-level error parse, its output shown on stderr
         D->>F: write target/manifest.json
     else dbt cannot run or dbt parse fails (without --strict-parse)
         Note over S,F: a warning on stderr, the earlier manifest is read

@@ -309,7 +309,7 @@ What happens: dbtscope runs `dbt parse` (no warehouse connection), reads `target
 dbtscope --preset data_vault
 ```
 
-A real run on the example project, with `dbt parse`'s own output (stderr) followed by the summary (stdout); on your machine the paths are your own:
+A real run on the example project with `--log-level info`, showing `dbt parse`'s own output (stderr) followed by the summary (stdout); by default only dbt's errors are printed, so the dbt lines are absent. On your machine the paths are your own:
 
 ```text
 Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
@@ -326,7 +326,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 
 The summary reads: the page path; how many tables, domains, relations and lineage links the universe shows; what the detail view holds, by kind; how the page opens and where its libraries come from, with its size; the config file and preset used (`none (built-in defaults)` without a `dbt-erd.yml`).
 
-If dbt is not on `PATH`, cannot start, or `dbt parse` fails (often no profile), and `target/manifest.json` already exists, dbtscope maps that manifest and exits 0 instead of stopping. stderr gets a warning after dbt's own output:
+If dbt is not on `PATH`, cannot start, or `dbt parse` fails (often no profile), and `target/manifest.json` already exists, dbtscope maps that manifest and exits 0 instead of stopping. stderr gets a warning after dbt's own output (by default only dbt's errors; `--log-level warn|info|debug` for more):
 
 ```text
 dbtscope: warning: dbt parse failed (exit code 2, see above); mapping the earlier manifest, which may be out of date
@@ -557,6 +557,7 @@ In the panels of `dbtscope --help`, where `--version` and `-h, --help` are liste
 | `--manifest FILE` | read this `manifest.json` instead of running `dbt parse` |
 | `--dbt PATH` | dbt executable, a name on `PATH` or a path (default: `dbt`) |
 | `--strict-parse` | stop with an error when `dbt parse` cannot run or fails, instead of mapping the earlier manifest (for CI); cannot be used with `--no-parse` or `--manifest` |
+| `--log-level LEVEL` | dbt's console log level, passed to `dbt parse`: `debug`, `info`, `warn`, `error`, `none`. Default: `error`, dbt's errors only; `warn` (warnings) or `info` show more. Cannot be used with `--no-parse` or `--manifest` |
 | **Output** | |
 | `-o, --output FILE` | HTML page to write (default: `output` in the config, else `erd_output/erd.html` in the project folder) |
 | `--no-open` | do not open the page in the browser (CI) |
@@ -567,7 +568,7 @@ In the panels of `dbtscope --help`, where `--version` and `-h, --help` are liste
 | `--version` | show the version and exit |
 | `-h, --help` | show this help and exit |
 
-The page path and a summary go to stdout (the first line is the absolute path of the page); progress, `dbt parse`'s own output, warnings and errors go to stderr.
+The page path and a summary go to stdout (the first line is the absolute path of the page); progress, `dbt parse`'s own output, warnings and errors go to stderr. By default only dbt's errors appear there (`--log-level error`); use `--log-level warn`, `info` or `debug` for more.
 
 ## Configuration
 
@@ -871,7 +872,7 @@ Exit code 1 unless the row says otherwise.
 | `dbt not found on PATH; install dbt …` (with `--strict-parse`) | install dbt with your project's adapter, or pass `--dbt <path>`; without `--strict-parse` an existing manifest is mapped with a warning |
 | `--dbt … does not exist or is not executable` / `--dbt … not found on PATH` | check the path or the name given to `--dbt` |
 | `cannot run …` | dbt could not start (for example its first line names a Python that is gone): check `--dbt` or reinstall dbt |
-| `dbt parse failed (exit code …, see above)` | dbt's own messages are printed right above. Common causes: no profile (dbt still needs a `profiles.yml` to read the project, in the project folder or in `~/.dbt`, on Windows `%USERPROFILE%\.dbt`), the adapter is not installed, a broken model. As an error (exit 1) it comes with `--strict-parse`: fix the dbt project or its profile. Otherwise it is a warning and the earlier manifest is mapped |
+| `dbt parse failed (exit code …, see above)` | dbt's own messages are printed right above (its warnings are hidden by default: add `--log-level warn` (warnings) or `info` to see them; with `--log-level none` the reason reads `--log-level none hid dbt's messages` and dbt prints nothing). Common causes: no profile (dbt still needs a `profiles.yml` to read the project, in the project folder or in `~/.dbt`, on Windows `%USERPROFILE%\.dbt`), the adapter is not installed, a broken model. As an error (exit 1) it comes with `--strict-parse`: fix the dbt project or its profile. Otherwise it is a warning and the earlier manifest is mapped |
 | `dbtscope: warning: dbt parse failed …; mapping the earlier manifest` | not an error (exit 0): the page shows the project as of the manifest's last modification. Fix what dbt reports to refresh it, or pass `--no-parse` to skip `dbt parse` |
 | `dbt parse did not write …` | `dbt_project.yml` sets another `target-path`: pass `--manifest <that folder>/manifest.json` |
 | **Manifest** | |

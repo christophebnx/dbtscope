@@ -153,3 +153,17 @@ def test_a_closed_stdout_ends_without_a_traceback(dbt_project: Path) -> None:
     finally:
         os.close(write_end)
     assert (result.returncode, result.stderr) == (1, "")
+
+
+def test_a_real_dbt_process_gets_the_log_level_before_the_subcommand(dbt_project: Path) -> None:
+    argv_file = dbt_project / "argv.txt"
+    script = f"import pathlib, sys\npathlib.Path({str(argv_file)!r}).write_text(' '.join(sys.argv[1:]))"
+    dbt = fake_dbt_executable(dbt_project / "bin", script)
+    result = subprocess.run(
+        [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert argv_file.read_text(encoding="utf-8") == "--log-level error parse"

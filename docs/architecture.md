@@ -181,8 +181,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
 | How messages name the config of a run (its file, the preset applied, or the defaults) | `cli._config_label` (through `config_source` for a file) |
 | One run: config, `dbt parse`, manifest, views, layout, page, summary | `cli.run` |
-| Run `dbt parse` (output on stderr, OS errors and exit code as `ParseError`) | `cli._dbt_parse` |
-| Run dbt parse, or fall back to the earlier manifest (warning), or stop (no manifest, `--strict-parse`; D-054) | `cli._parse` (`Fallback`, `ParseError`, `_has_manifest`, `_modified`) |
+| Run `dbt --log-level <level> parse` (level from `--log-level`, default `error`, D-057; output on stderr, OS errors and exit code as `ParseError`) | `cli._dbt_parse` |
+| Run dbt parse, or fall back to the earlier manifest (warning), or stop (no manifest, `--strict-parse`; D-054; at log level `none` the failure says it hid dbt's messages, D-057) | `cli._parse` (`Fallback`, `ParseError`, `_has_manifest`, `_modified`) |
 | The manifest exists after `dbt parse` or with `--no-parse` | `cli._check_manifest` (through `_has_manifest`, the one "usable manifest file" check) |
 | Age of a file in words, and the UTC moment of the CLI | `cli._age`, `cli._moment` (used by `_saved` and the fallback warning) |
 | Build both views (a selector error names the config); empty views as an error or warnings | `cli._views`, `cli._check_views` |

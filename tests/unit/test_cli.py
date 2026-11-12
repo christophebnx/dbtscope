@@ -271,7 +271,7 @@ def test_dbt_runs_in_the_project_with_its_output_on_stderr(
     fake = fake_dbt()
     assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
     [(command, kwargs)] = fake.calls
-    assert command == [found_dbt(), "parse"]
+    assert command == [found_dbt(), "--log-level", "error", "parse"]
     assert kwargs["cwd"] == dbt_project and kwargs["stdout"] == 2
     assert kwargs["env"]["DBT_USE_COLORS"] == "false"
     assert capsys.readouterr().err == f"Running dbt parse in {dbt_project}...\n"
@@ -1136,3 +1136,71 @@ def timezone_plus(hours: int) -> timezone:
 def test_moment_converts_aware_datetimes_to_utc_and_takes_naive_ones_as_utc() -> None:
     assert _moment(datetime(2026, 11, 9, 16, 2, tzinfo=timezone_plus(2))) == "2026-11-09 14:02 UTC"
     assert _moment(datetime(2026, 11, 9, 14, 2)) == "2026-11-09 14:02 UTC"
+
+
+@pytest.mark.parametrize("level", ["debug", "info", "warn", "error", "none"])
+def test_log_level_is_passed_to_dbt_before_the_subcommand(
+    level: str, dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake = fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open", "--log-level", level]) == 0
+    assert fake.calls[0][0] == [found_dbt(), "--log-level", level, "parse"]
+    assert capsys.readouterr().err.startswith(f"Running dbt parse in {dbt_project}...")
+
+
+def test_dbt_log_level_of_the_environment_does_not_change_the_argv(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DBT_LOG_LEVEL", "info")
+    fake = fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    assert fake.calls[0][0] == [found_dbt(), "--log-level", "error", "parse"]
+
+
+@pytest.mark.parametrize("value", ["verbose", "ERROR"])
+def test_a_bad_log_level_is_a_usage_error(value: str, dbt_project: Path, capsys: Capsys) -> None:
+    message = fails(["--project-dir", str(dbt_project), "--no-open", "--log-level", value], capsys, code=2)
+    assert message.startswith("invalid value for '--log-level'")
+    assert "debug" in message and "none" in message
+
+
+@pytest.mark.parametrize(("other", "flag"), [("--no-parse", None), ("--manifest", "m.json")])
+def test_log_level_with_no_parse_or_manifest_is_a_usage_error(
+    other: str, flag: str | None, dbt_project: Path, capsys: Capsys
+) -> None:
+    args = ["--project-dir", str(dbt_project), "--no-open", "--log-level", "info", other]
+    if flag:
+        args.append(str(dbt_project / "target" / "manifest.json"))
+    assert fails(args, capsys, code=2) == (
+        f"invalid value for '--log-level': cannot be used together with {other}{USAGE}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("args", "reason"),
+    [
+        ([], "dbt parse failed (exit code 2, see above)"),
+        (["--log-level", "info"], "dbt parse failed (exit code 2, see above)"),
+        (["--log-level", "none"], "dbt parse failed (exit code 2; --log-level none hid dbt's messages)"),
+    ],
+    ids=["default", "info", "none"],
+)
+def test_the_failure_reason_follows_the_log_level(
+    args: list[str],
+    reason: str,
+    dbt_project: Path,
+    fake_dbt: Callable[..., FakeRun],
+    capsys: Capsys,
+) -> None:
+    fake_dbt(code=2)
+    base = ["--project-dir", str(dbt_project), "--no-open", *args]
+    hint = (
+        "run again with --log-level error to see why"
+        if "none" in args
+        else "fix the dbt project or its profile"
+    )
+    assert fails([*base, "--strict-parse"], capsys) == f"{reason}; {hint}"
+    assert main(base) == 0
+    err = capsys.readouterr().err
+    assert reason in err
+    assert ("--log-level error to see why" in err) == ("none" in args)

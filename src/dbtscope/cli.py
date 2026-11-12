@@ -52,6 +52,8 @@ from dbtscope.storage.project_files import (
 
 PROG = "dbtscope"
 PRESETS = preset_names()
+LogLevel = Literal["debug", "info", "warn", "error", "none"]  # dbt's console log levels
+DEFAULT_LOG_LEVEL: LogLevel = "error"  # dbt's errors only (D-057)
 Preset = Literal[tuple(PRESETS)]  # type: ignore[valid-type]  # the choices, read once from the package
 HELP = (
     "Build the interactive map of a dbt project from its manifest: "
@@ -135,6 +137,7 @@ class Options:
     offline: bool = False
     preset_file: str | None = None
     strict_parse: bool = False
+    log_level: LogLevel | None = None
 
 
 @dataclass(frozen=True)
@@ -285,14 +288,27 @@ def command(
             "instead of mapping the earlier manifest (for CI).",
         ),
     ] = False,
+    log_level: Annotated[
+        LogLevel | None,
+        typer.Option(
+            "--log-level",
+            metavar="LEVEL",
+            rich_help_panel="dbt",
+            show_default=False,
+            help=f"dbt's console log level: {in_words(get_args(LogLevel))} (passed to dbt parse). "
+            f"Default: {DEFAULT_LOG_LEVEL}, dbt's errors only.",
+        ),
+    ] = None,
 ) -> Options:
     """The command line as `Options`; the work is done by `run`, called from `main`."""
     del version  # eager: handled by `_show_version`
     if preset is not None and preset_file is not None:
         raise typer.BadParameter("cannot be used together with --preset", param_hint="'--preset-file'")
-    if strict_parse and (no_parse or manifest is not None):
+    if no_parse or manifest is not None:
         other = "--no-parse" if no_parse else "--manifest"
-        raise typer.BadParameter(f"cannot be used together with {other}", param_hint="'--strict-parse'")
+        for given, name in ((strict_parse, "--strict-parse"), (log_level is not None, "--log-level")):
+            if given:
+                raise typer.BadParameter(f"cannot be used together with {other}", param_hint=f"'{name}'")
     return Options(
         project_dir,
         config,
@@ -306,6 +322,7 @@ def command(
         offline,
         preset_file,
         strict_parse,
+        log_level,
     )
 
 
@@ -436,15 +453,17 @@ def _run_reason(error: OSError, command: str) -> str:
     return os_reason(error)
 
 
-def _dbt_parse(dbt: str, project: Path) -> None:
-    """Run `dbt parse` in `project`, its output on our stderr (D-029)."""
+def _dbt_parse(dbt: str, project: Path, log_level: LogLevel) -> None:
+    """Run `dbt --log-level <level> parse` in `project`, its output on our stderr (D-029, D-057)."""
     _say(sys.stderr, f"Running dbt parse in {project}...")
     env = None
     if not sys.stderr.isatty() and "DBT_USE_COLORS" not in os.environ:
         env = {**os.environ, "DBT_USE_COLORS": "false"}
     try:
         # on Ctrl-C (or any exception) `run` kills dbt before re-raising: no dbt is left behind
-        result = subprocess.run([dbt, "parse"], cwd=project, stdout=2, env=env, check=False)
+        result = subprocess.run(
+            [dbt, "--log-level", log_level, "parse"], cwd=project, stdout=2, env=env, check=False
+        )
     except OSError as error:
         raise ParseError(
             f"cannot run {dbt}: {_run_reason(error, dbt)}",
@@ -452,10 +471,17 @@ def _dbt_parse(dbt: str, project: Path) -> None:
             "check --dbt or reinstall dbt, or pass --no-parse to skip dbt parse",
         ) from error
     if result.returncode != 0:
+        if log_level == "none":
+            where, see = (
+                "; --log-level none hid dbt's messages",
+                "run again with --log-level error to see why",
+            )
+        else:
+            where, see = ", see above", f"fix what dbt reports ({PROFILE_HINT})"
         raise ParseError(
-            f"dbt parse failed (exit code {result.returncode}, see above)",
-            "fix the dbt project or its profile",
-            f"fix what dbt reports ({PROFILE_HINT}), or pass --no-parse to skip dbt parse",
+            f"dbt parse failed (exit code {result.returncode}{where})",
+            "fix the dbt project or its profile" if log_level != "none" else see,
+            f"{see}, or pass --no-parse to skip dbt parse",
         )
 
 
@@ -472,15 +498,16 @@ def _modified(path: Path) -> datetime:
         raise RunError(f"cannot read manifest {path}: {os_reason(error)}; check its permissions") from error
 
 
-def _parse(inputs: Inputs, strict: bool, now: datetime) -> Fallback | None:
+def _parse(inputs: Inputs, strict: bool, log_level: LogLevel, now: datetime) -> Fallback | None:
     """Run dbt parse, or fall back to the manifest on disk, or stop (D-054).
 
-    Returns None when dbt parse is not asked for or succeeded. A strict run stops on the failure.
+    dbt runs at the console `log_level` (D-057). Returns None when dbt parse is not asked for or
+    succeeded. A strict run stops on the failure.
     """
     if not inputs.parse:
         return None
     try:
-        _dbt_parse(inputs.dbt or _dbt(None), inputs.project)
+        _dbt_parse(inputs.dbt or _dbt(None), inputs.project, log_level)
     except ParseError as error:
         if strict:
             raise
@@ -677,7 +704,7 @@ def run(options: Options) -> None:
     config = config.model_copy(update=overrides)  # the command line last
     output = _output(options.output, inputs.project, config)
     now = datetime.now(UTC)
-    fallback = _parse(inputs, options.strict_parse, now)
+    fallback = _parse(inputs, options.strict_parse, options.log_level or DEFAULT_LOG_LEVEL, now)
     _check_manifest(inputs, ran_dbt=inputs.parse and fallback is None)
     if fallback is not None:
         _warn_fallback(fallback, inputs.manifest)
