@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, View
+from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, Role, View
 from dbtscope.domain.model import DOMAIN
 
 
@@ -90,6 +90,7 @@ class UniverseKind(BaseModel):
     key: str
     label: str | None
     color: str
+    role: Role = "none"
 
 
 class UniverseDefaults(BaseModel):

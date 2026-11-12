@@ -319,8 +319,8 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 11:08:44  Performance info: /home/ana/code/dbtscope/examples/acme_retail/target/perf_info.json
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
-  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
+  page:     opens on universe, en, libraries from CDNs (190 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -444,7 +444,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (191 kB)
+  page:     opens on universe, en, libraries from CDNs (193 kB)
   config:   none (built-in defaults)
 ```
 
@@ -470,14 +470,34 @@ Generating an offline page needs no network either: the libraries ship inside db
 
 A preset is a ready-made set of conventions: what the detail view selects, the kinds and their colours, the key columns and the grouping. Two are built in:
 
-| Preset | Detail view selects | Kinds | Key columns | Groups by |
+| Preset | Detail view selects | Kinds (role) | Key columns | Groups by |
 |---|---|---|---|---|
-| `data_vault` | `*_hub`, `*_link`, `*_nhlink`, `*_sal`, `*_sat`, `*_nhsat`, `*_masat`, `*_effsat`; excludes `vw_*`, `stg_*` | Hub, Link, NH link, Same-as link, Satellite, Ref hub, Ref sat, PIT, Bridge | `^(hk_\|hd_)` | schema |
-| `star_schema` | `fct_*`, `fact_*`, `f_*`, `dim_*`, `d_*`, `bridge_*`, `brg_*` | Fact, Dimension, Bridge | `(_id\|_key\|_sk\|_fk)$` | folder |
+| `data_vault` | `*_hub`, `*_link`, `*_nhlink`, `*_sal`, `*_sat`, `*_nhsat`, `*_masat`, `*_effsat`; excludes `vw_*`, `stg_*` | Hub (core), Link, NH link, Same-as link (connector), Satellite (descriptive), Ref hub (core), Ref sat, PIT (descriptive), Bridge (connector), Dimension, Fact (core), Staging (technical), View (none) | `^(hk_\|hd_)` | schema |
+| `star_schema` | `fct_*`, `fact_*`, `f_*`, `dim_*`, `d_*`, `bridge_*`, `brg_*` | Fact, Dimension (core), Bridge (connector), Staging (technical) | `(_id\|_key\|_sk\|_fk)$` | folder |
 
 ```bash
 dbtscope --preset data_vault
 dbtscope --preset star_schema
+```
+
+Each preset also sets the **layers** of the universe view by folder pattern, so a project in the usual folder layout needs no `layers` of its own. The first rule that matches a table gives its layer; a project's own `layers` replace these, and `layers: []` in `dbt-erd.yml` gives back one layer per first folder under `models/`.
+
+| `data_vault` layer | Tables |
+|---|---|
+| Sources | sources |
+| Staging | `stg_*`, seeds, snapshots, folders `raw*` (but not `raw*vault*`), `stg*`, `staging*`, `base*`, `bronze*` |
+| Raw vault | folders `int*`, `vault*`, `raw*vault*`, `ref*`, `silver*`, and the Data Vault names (`*_hub`, `*_link`, `*_sat`, `*_pit`…) |
+| Data products | `dim_*`, `fct_*`, folders `dp*`, `mart*`, `product*`, `gold*` |
+| Reports | folders `report*`, `expo*` |
+
+`star_schema` has Sources, Staging (as above), Intermediate (`int*`, `vault*`, `ref*`, `silver*`), Marts (`fct_*`, `fact_*`, `dim_*`, `bridge_*`, `brg_*`, `mart*`, `dp*`, `product*`, `gold*`) and Reports. A table no rule matches is in the layer "Other". An Openlane-style project (stage models `stg_*` and vault tables in `models/int_dwh/`, data products in `models/dp_dwh/`) can also write its own rules; with negation, one folder is split without listing every suffix:
+
+```yaml
+layers:
+  - {key: sources, label: Sources, match: ["type:source"]}
+  - {key: staging, label: Staging, match: ["stg_*"]}
+  - {key: vault, label: Raw vault, match: ["path:models/int_dwh/*,!vw_*,!stg_*"]}
+  - {key: products, label: Data products, match: ["dim_*", "fct_*"]}
 ```
 
 On the example's manifest without a config, they give:
@@ -525,8 +545,8 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
 ```text
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
-  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
+  page:     opens on universe, en, libraries from CDNs (190 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -594,7 +614,7 @@ group_by: schema              # schema | database | package | folder | folder:N 
 key_columns: "^(hk_|hd_)"     # regex; columns used by a relation are always keys
 include_packages: false       # also draw models from installed dbt packages
 kinds:                        # ordered, first match wins; unmatched tables are "Other"
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
+  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"], role: core}   # role: core | connector | descriptive | technical | none
   - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
   - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
 
@@ -615,6 +635,12 @@ universe:
 ```
 
 `kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
+
+### Roles
+
+A kind has a **role**, how much it matters in the structure: `core` (the business entities: hubs, dimensions, facts), `connector` (links and bridges), `descriptive` (satellites, PITs), `technical` (staging; sources, seeds and snapshots are technical by default) or `none` (no role). The role sets the size of the stars of the kind and which names the page shows first: [Reading the map](#reading-the-map). `role` belongs to `kinds` rules only (on a domain or layer rule, `dbt-erd.yml` ignores it and a preset refuses it). Empty or `null` means not set, which is the same as `none` on the page; any other value stops the run with one line: `config <path>: kinds[2].role: invalid role 'hubb' (core, connector, descriptive, technical or none); fix the file`.
+
+A `kinds` list in `dbt-erd.yml` replaces the preset's list, but a rule of yours with the **same key** as a preset kind and no `role` takes that kind's role, so naming `hub` yourself keeps it core. Write `role: none` to remove it.
 
 ### Checks and errors
 
@@ -641,17 +667,7 @@ view: universe
 select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
 ```
 
-**3. Name and colour the kinds.** These rules replace the preset's list. Their order matters: the first rule that matches a table gives its kind. In the universe, sources, seeds and snapshots no rule matches keep their built-in kind; the bronze models are "Other".
-
-<!-- excerpt: examples/acme_retail/dbt-erd.yml -->
-```yaml
-kinds:
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
-  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}
-  - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
-```
+**3. Kinds come from the preset.** The example lists no `kinds`: the `data_vault` preset names hub, link, satellite, dimension, fact and staging, with their colours and roles (core, connector, descriptive, technical, see [Roles](#roles)). The bronze `stg_*` models are "Staging"; sources, seeds and snapshots keep their built-in kinds, so no table is "Other".
 
 **4. Place every table in a domain.** The silver and gold tables already have a domain, their schema: each domain folder has `+schema: <domain>` in `dbt_project.yml`, and the project's `generate_schema_name` macro keeps it as written. The rules place what is organised by source system rather than by domain: sources, bronze models, seeds and snapshots. They also label and colour every domain. A source is matched by its type, schema and name together (a comma means "all of these").
 
@@ -689,8 +705,9 @@ The result is the summary of [Try it on the example project](#try-it-on-the-exam
 | `schema:sales`, `database:dwh`, `package:my_pkg` | target schema, database, dbt package |
 | `type:model` | resource type: `model`, `seed`, `snapshot`, `source` |
 | `tag:core,fct_*` | both at once |
+| `!vw_*`, `!tag:legacy`, `!path:models/raw*` | a part starting with `!` matches when the rest does **not**; `path:models/int_dwh/*,!vw_*` is every table of the folder but the views |
 
-Matching is case-insensitive, with shell-style wildcards (`*`, `?`, `[abc]`).
+Matching is case-insensitive, with shell-style wildcards (`*`, `?`, `[abc]`). A selector that **starts** with `!` must be quoted in YAML (`"!vw_*"`), else YAML reads a tag and the file fails to load; `path:models/int_dwh/*,!vw_*` needs no quotes. A selector made only of negations matches every table none of them excludes. A bare `!` stops the run with one line (`empty negation in '!'`).
 
 ### Preset files
 
@@ -738,6 +755,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 
 - **From afar**: the domains, their size, and the routes between them: one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes. A bar under each domain name shows its mix of kinds.
 - **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
+- **Size and names by role**: stars of core tables (hubs, dimensions, facts) are the largest, connectors (links) medium, descriptive and technical tables (satellites, staging, sources, seeds, snapshots) the smallest; inside a role, the more links a table has, the larger its star. Names follow: core tables first. From afar, each constellation names only its three core tables with the most relations; zooming in names the others.
 - **The same picture every time**: the same project gives the same placement at every generation.
 
 ![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)
@@ -746,7 +764,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly. The opening choice is `universe.links` in the config.
 - **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser (`dbtscope-constellations:<title>`, kept by **Reset layout**, never exported), and keeps a separate manual arrangement for each grouping.
-- **Side panel**: tick **Layers**, **Types** (the kinds) and **Domains** on and off, with "all" and "none" for domains. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
+- **Side panel**: tick **Layers**, **Types** (the kinds, core kinds first, then connectors, descriptive, technical and the others) and **Domains** on and off, with "all" and "none" for domains. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
 - The count line above the map says how many tables, links and domains are shown.
 
 ### Detail levels

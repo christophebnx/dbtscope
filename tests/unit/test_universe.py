@@ -61,10 +61,10 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
     }
     assert domains["returns"]["color"].startswith("#")
 
-    # default layers: sources first, then folders ordered along the flow
-    assert [layer["key"] for layer in data["layers"]] == ["sources", "staging", "catalog", "sales"]
+    # the preset's default layers (D-060): sources, staging, marts
+    assert [layer["key"] for layer in data["layers"]] == ["sources", "staging", "marts"]
     assert by_name["orders"]["layer"] == "sources" and by_name["orders"]["kind"] == "source"
-    assert by_name["stg_orders"]["kind"] == "other"
+    assert by_name["stg_orders"]["kind"] == "stg"
     assert data["defaults"] == {
         "links": "both",
         "detail": "names",
@@ -144,3 +144,100 @@ def test_a_universe_with_a_seed_carries_the_seed_colour() -> None:
     data = universe_data(project, merge_config({}, {})).model_dump(mode="json", by_alias=True)
     assert {k["key"]: k["color"] for k in data["kinds"]}["seed"] == SEED
     assert data["nodes"][0]["kind"] == "seed"
+
+
+def _projects(*tables: Table) -> Project:
+    return Project(tables={t.unique_id: t for t in tables}, relations=(), lineage=(), groups={}, root="shop")
+
+
+def _model(name: str, folder: str = "", kind: str = "model") -> Table:
+    path = f"models/{folder}/{name}.sql" if folder else f"models/{name}.sql"
+    return Table(
+        unique_id=f"{kind}.shop.{name}",
+        name=name,
+        resource_type=kind,
+        package="shop",
+        path=path,
+        folder=folder,
+    )
+
+
+def _payload(project: Project, file_config: dict[str, Any], preset: dict[str, Any] | None = None) -> Any:
+    config = merge_config(preset or {}, file_config)
+    return universe_data(project, config).model_dump(mode="json", by_alias=True)
+
+
+def test_kinds_carry_their_role_last_and_keep_their_order() -> None:
+    project = _projects(_model("a_sat"), _model("a_hub"), _model("z"), _model("s", kind="seed"))
+    file_config = {
+        "kinds": [
+            {"key": "sat", "match": ["*_sat"], "role": "descriptive"},
+            {"key": "hub", "match": ["*_hub"], "role": "core"},
+            {"key": "plain", "match": ["nothing"]},
+        ]
+    }
+    kinds = _payload(project, file_config)["kinds"]
+    assert [(k["key"], k["role"]) for k in kinds] == [
+        ("sat", "descriptive"),
+        ("hub", "core"),
+        ("seed", "technical"),
+        ("other", "none"),
+    ]
+    assert list(kinds[0]) == ["key", "label", "color", "role"]
+
+
+def test_without_a_preset_or_role_kinds_are_none_and_resource_kinds_technical() -> None:
+    src = Table(unique_id="source.shop.erp.o", name="o", resource_type="source", package="shop")
+    snap = _model("sn", kind="snapshot")
+    kinds = _payload(_projects(_model("m"), src, snap), {"kinds": [{"key": "m", "match": ["m"]}]})["kinds"]
+    assert {k["key"]: k["role"] for k in kinds} == {
+        "m": "none",
+        "source": "technical",
+        "snapshot": "technical",
+    }
+
+
+def _openlane() -> Project:
+    return _projects(
+        Table(unique_id="source.shop.crm.c", name="c", resource_type="source", package="shop"),
+        _model("stg_crm__c", "raw_crm"),
+        _model("country", "seeds", kind="seed"),
+        _model("stg_vehicle__car", "int_dwh/vehicle"),
+        _model("car_hub", "int_dwh/vehicle"),
+        _model("car_x_sat", "dwh"),
+        _model("raw_thing", "raw_vault"),
+        _model("dim_car", "dp_dwh/vehicle"),
+        _model("report_cars", "report_dwh"),
+        _model("loose", "elsewhere"),
+    )
+
+
+def test_a_preset_places_each_table_of_an_openlane_shaped_project_by_its_layers() -> None:
+    data = _payload(_openlane(), {}, read_preset("data_vault"))
+    layer = {n["name"]: n["layer"] for n in data["nodes"]}
+    assert layer == {
+        "c": "sources",
+        "stg_crm__c": "staging",
+        "country": "staging",
+        "stg_vehicle__car": "staging",  # by name, before the folder rules
+        "car_hub": "vault",
+        "car_x_sat": "vault",  # by name in a folder the preset cannot guess
+        "raw_thing": "vault",  # raw*vault* is not staging (negation)
+        "dim_car": "products",
+        "report_cars": "reports",
+        "loose": "other",
+    }
+    assert [layer["key"] for layer in data["layers"]] == [
+        "sources",
+        "staging",
+        "vault",
+        "products",
+        "reports",
+        "other",
+    ]
+
+
+def test_empty_layers_restore_the_folder_default() -> None:
+    data = _payload(_openlane(), {"layers": []}, read_preset("data_vault"))
+    keys = [layer["key"] for layer in data["layers"]]
+    assert keys[0] == "sources" and "staging" not in keys and "int_dwh" in keys and "other" not in keys

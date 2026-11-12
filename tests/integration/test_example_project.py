@@ -65,6 +65,17 @@ def test_example_domains_come_from_schemas_and_rules(example_project: Path) -> N
     assert nodes["calendar"]["domain"] == "shared"
 
 
+def test_example_kinds_come_from_the_preset_with_no_other(example_project: Path) -> None:
+    universe = page_of(example_project)[1]["universe"]
+    labels = {kind["key"]: kind["label"] for kind in universe["kinds"]}
+    counts = Counter(labels[node["kind"]] for node in universe["nodes"])
+    assert {label: counts.get(label, 0) for label in EXPECTED["universe"]["kinds"]} == EXPECTED["universe"][
+        "kinds"
+    ]
+    assert "other" not in labels
+    assert {kind["key"]: kind["role"] for kind in universe["kinds"]}["hub"] == "core"
+
+
 def test_example_layers_are_the_medallion(example_project: Path) -> None:
     universe = page_of(example_project)[1]["universe"]
     layers = [(layer["key"], layer["label"]) for layer in universe["layers"]]

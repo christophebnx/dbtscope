@@ -52,7 +52,7 @@ UNIVERSE = UniversePayload(
         (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols"]),
         (UNIVERSE.domains[0], ["key", "label", "color", "owner"]),
         (UNIVERSE.layers[0], ["key", "label"]),
-        (UNIVERSE.kinds[0], ["key", "label", "color"]),
+        (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
         (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations"]),
     ],
 )

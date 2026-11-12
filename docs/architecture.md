@@ -98,7 +98,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A list of choices in words (`a, b or c`) for messages and help | `domain/errors.in_words` |
 | First letter of a quoted reason or problem in lower case | `domain/errors.lower_first` |
 | One-line message of a validation error | `domain/errors.validation_message` |
-| Match a table against selectors | `domain/selectors.matches`, `matches_any` |
+| Match a table against selectors (a part starting with `!` negates, D-061) | `domain/selectors.matches`, `matches_any` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
 | Case-insensitive wildcard match of a value (selectors, `tag:` and `group_by: tag:<glob>`) | `domain/selectors.glob` |
 | Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
@@ -110,6 +110,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Read the layout file (missing → none) | `storage/project_files.read_layout` |
 | Read `dbt-erd.yml` and presets (built-in by name, file by path) | `storage/project_files.load_config`, `read_preset`, `read_preset_file` |
 | The built-in presets: their folder and names | `storage/project_files.PRESETS`, `preset_names` |
+| Role of a kind; a file kind rule inherits its preset kind's role by key (D-059) | `domain/config.KindRule`, `Role`, `ROLES`, `merge_config` (`_inherited_roles`) |
 | Validate a preset on its own (closed keys, D-030) | `domain/config.check_preset`, `Preset` |
 | Tell a preset name from a preset path | `domain/config.is_preset_path` |
 | The config file a run reads (`--config`, else `dbt-erd.yml`), returned with the config and the preset applied | `storage/project_files.load_config` (`LoadedConfig`) |
@@ -170,6 +171,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Rectangular de-overlap around dragged tables (page) | `render/assets/universe.js separate` (pinned), `placeAroundDragged` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
+| Star radius and name priority by role; names offered at Fit (page, D-058) | `render/assets/universe.js starR`, `TIER`, `orderLabels`, `FIT_NAMES`, `fitNames` |
+| Order of the Types list by role (page, D-059) | `render/assets/universe.js ROLE_ORDER` |
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
 | Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG (zoom layer transform removed) | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
 | Write a file atomically (temp + fsync + rename) | `storage/files.atomic_write` |
@@ -226,6 +229,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | `ref` / `source` dependency | **lineage** (`LineageEdge`, `lineage`); one item is a **lineage edge** | dependency, parent link | |
 | What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |
 | Classification of a table by the `kinds` rules (hub, fact…) or its built-in fallback | **kind** (`kinds`, `BuiltinKind`, `TYPE_KINDS`) | type, category | The page labels kinds "Types": UI text, frozen with the page. |
+| How much a kind matters in the structure (M8.1, D-059) | **role** (`role`, `Role`, `KindRule.role`, `UniverseKind.role`): `core`, `connector`, `descriptive`, `technical` or none | weight, class, category | The trajectory's start / upstream / downstream is its **side** (`sideOf`), not a role. French UI wording for a later phase: rôle; principal, liaison, descriptif, technique, aucun. |
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
 | Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
 | The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-048) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. |

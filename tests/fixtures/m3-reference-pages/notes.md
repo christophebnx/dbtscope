@@ -8,10 +8,11 @@ project of `tests/conftest.py`, built through `cli.main([... "--no-parse", "--no
 |---|---|
 | `none` | no `dbt-erd.yml`: defaults |
 | `star_schema` | `--preset star_schema` |
-| `data_vault` | `--preset data_vault` |
+| `data_vault` | `--preset data_vault` (its kinds with roles and its default layers, M8.1) |
 | `fr` | `language: fr`, `view: detail` (French built-in labels) |
 | `layers_domains` | `layers` via `path:` with an `other` layer and a `label: null`; `domains` with and without `color` / `label` (palette consumption); `group_by: folder:1` |
 | `kinds` | custom `kinds` (one without `color`, one without `label`, one with `label: null`), `key_columns: "_id$"`, `include_packages: true`, `universe` `links` / `detail` / `hidden_kinds`, `group_by: tag:co*` |
+| `roles` | `preset: data_vault` with a `kinds` list overriding `hub` without a role (inherits `core`), `fact` with `role: none` and `dim` with `role: technical`, and `layers` rules with a negated part (`!type:source,!stg_*`) (M8.1, D-059, D-061) |
 | `edge` | a description holding `<!-- <script>`, `</script>`, non-ASCII, U+2028 / U+2029 and a tab (D-023, `ensure_ascii=False`), a `null` column `data_type`, an embedded `dbt-erd-layout.json` with a fixed `savedAt` |
 | `offline` | `none` + `--offline` |
 | `offline_fr` | `fr` + `--offline` |

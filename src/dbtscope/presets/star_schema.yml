@@ -6,6 +6,21 @@ key_columns: "(_id|_key|_sk|_fk)$"
 select: ["fct_*", "fact_*", "f_*", "dim_*", "d_*", "bridge_*", "brg_*"]
 exclude: []
 kinds:
-  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*", "fact_*", "f_*"]}
-  - {key: dim, label: Dimension, color: "#2f6fb5", match: ["dim_*", "d_*"]}
-  - {key: bridge, label: Bridge, color: "#8e5bb5", match: ["bridge_*", "brg_*"]}
+  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*", "fact_*", "f_*"], role: core}
+  - {key: dim, label: Dimension, color: "#2f6fb5", match: ["dim_*", "d_*"], role: core}
+  - {key: bridge, label: Bridge, color: "#8e5bb5", match: ["bridge_*", "brg_*"], role: connector}
+  - {key: stg, label: Staging, color: "#60562e", match: ["stg_*"], role: technical}
+# default layers, by folder pattern (a project's own `layers` replace them; `layers: []` gives
+# back one layer per first folder). The first matching rule wins.
+layers:
+  - {key: sources, label: Sources, match: ["type:source"]}
+  - key: staging
+    label: Staging
+    match: ["stg_*", "type:seed", "type:snapshot", "path:models/raw*", "path:models/stg*",
+            "path:models/staging*", "path:models/base*", "path:models/bronze*"]
+  - {key: intermediate, label: Intermediate, match: ["path:models/int*", "path:models/vault*", "path:models/ref*", "path:models/silver*"]}
+  - key: marts
+    label: Marts
+    match: ["fct_*", "fact_*", "dim_*", "bridge_*", "brg_*", "path:models/mart*", "path:models/dp*",
+            "path:models/product*", "path:models/gold*"]
+  - {key: reports, label: Reports, match: ["path:models/report*", "path:models/expo*"]}

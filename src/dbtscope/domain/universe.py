@@ -20,9 +20,13 @@ from dbtscope.domain.payload import (
 
 # kinds for tables no configured kind matches
 TYPE_KINDS: dict[str, BuiltinKind] = {
-    "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
-    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#c62a36"),
-    "snapshot": BuiltinKind(key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b"),
+    "source": BuiltinKind(
+        key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8", role="technical"
+    ),
+    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#c62a36", role="technical"),
+    "snapshot": BuiltinKind(
+        key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b", role="technical"
+    ),
 }
 NO_DOMAIN = {"en": "No domain", "fr": "Hors domaine"}
 NO_DOMAIN_COLOR = "#8a94a6"
@@ -101,9 +105,13 @@ def _layers(used: set[str], config: Config) -> tuple[UniverseLayer, ...]:
 
 
 def _kinds(used: set[str], config: Config) -> tuple[UniverseKind, ...]:
-    kinds = [UniverseKind(key=k.key, label=k.label, color=k.color) for k in config.kinds if k.key in used]
+    kinds = [
+        UniverseKind(key=k.key, label=k.label, color=k.color, role=k.role or "none")
+        for k in config.kinds
+        if k.key in used
+    ]
     kinds += [
-        UniverseKind(key=t.key, label=t.label[config.language], color=t.color)
+        UniverseKind(key=t.key, label=t.label[config.language], color=t.color, role=t.role)
         for t in [*TYPE_KINDS.values(), OTHER]
         if t.key in used
     ]

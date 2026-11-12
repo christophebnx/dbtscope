@@ -45,14 +45,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
   // how connected each table is over all links: pivots (hubs, dimensions...) get bigger stars and their names first
-  const DEG = new Array(N.length).fill(0);
+  const DEG = new Array(N.length).fill(0), RELDEG = new Array(N.length).fill(0);
   [...DATA.relations, ...DATA.lineage].forEach(([a, b]) => { DEG[a]++; DEG[b]++; });
-  const starR = n => Math.min(14, 3 + 1.6 * Math.sqrt(DEG[n.i]));
-  // names compete for room on screen: kinds listed first in the config win, then the most connected tables
+  DATA.relations.forEach(([a, b]) => { RELDEG[a]++; RELDEG[b]++; });
+  const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
+  // a kind's role (read from the payload, D-059) sets its tier: the size of its stars and the priority of its names (D-058)
+  const TIER = { core: 'large', connector: 'medium', none: 'medium', descriptive: 'small', technical: 'small' };
+  const TIER_ORDER = { large: 0, medium: 1, small: 2 };
+  const SIZE = { large: { base: 6, slope: 1.6, cap: 16 }, medium: { base: 3, slope: 1.6, cap: 14 }, small: { base: 2, slope: 0.8, cap: 6 } };
+  const R_MAX = Math.max(...Object.values(SIZE).map(s => s.cap));
+  const ROLE_ORDER = ['core', 'connector', 'descriptive', 'technical', 'none'];
+  const FIT_NAMES = 3;  // names offered per constellation from afar: its core tables with the most relations
+  const tierOf = n => TIER[KIND[n.kind].role] || 'medium';
+  const R = N.map(n => { const z = SIZE[tierOf(n)]; return Math.min(z.cap, z.base + z.slope * Math.sqrt(DEG[n.i])); });
+  const starR = n => R[n.i];
+  // names compete for room on screen: by tier, then kinds listed first in the config win, then the most connected tables
   const KIND_RANK = Object.fromEntries(DATA.kinds.map((k, i) => [k.key, i]));
   const labelScore = n => (DEG[n.i] + 1) * (1 - 0.7 * KIND_RANK[n.kind] / Math.max(1, DATA.kinds.length - 1));
   const DOM = Object.fromEntries(DATA.domains.map(d => [d.key, d]));
-  const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
@@ -80,6 +90,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
   let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
   const layoutCache = new Map();
+  let drawn = [], fitCache = null;  // ids of the names drawn in the last frame (for the tests); the Fit names
   let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
   let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0 };
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
@@ -113,9 +124,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         title: title && title(it) },
       on => { on ? set.add(it.key) : set.delete(it.key); relayout(); })));
   }
+  // the Types rows by role, then in payload order (the sort is stable)
+  const KINDS_BY_ROLE = [...DATA.kinds].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
   function refreshPanel() {
     checkboxes($u('layers'), DATA.layers, COUNT.layer, state.layers);
-    checkboxes($u('kinds'), DATA.kinds, COUNT.kind, state.kinds, k => k.color);
+    checkboxes($u('kinds'), KINDS_BY_ROLE, COUNT.kind, state.kinds, k => k.color);
     checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}${L.colon}${d.owner}` : labelOf(d));
   }
   refreshPanel();
@@ -461,8 +474,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.lineTo(mx + Math.cos(ang + 2.5) * size, my + Math.sin(ang + 2.5) * size);
     ctx.lineTo(mx + Math.cos(ang - 2.5) * size, my + Math.sin(ang - 2.5) * size); ctx.fill();
   }
-  // role of a table in the trajectory: 'start' | 'up' | 'down' | null (a table in both maps is drawn as upstream)
-  const roleOf = i => !traj ? null : i === traj.start ? 'start' : traj.up.has(i) ? 'up' : traj.down.has(i) ? 'down' : null;
+  // side of a table in the trajectory: 'start' | 'up' | 'down' | null (a table in both maps is drawn as upstream)
+  const sideOf = i => !traj ? null : i === traj.start ? 'start' : traj.up.has(i) ? 'up' : traj.down.has(i) ? 'down' : null;
   const trajMembers = () => traj ? [traj.start, ...traj.up.keys(), ...traj.down.keys()] : [];
   const trajDist = i => i === traj.start ? 0 : Math.min(traj.up.get(i) ?? Infinity, traj.down.get(i) ?? Infinity);
 
@@ -530,16 +543,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const labels = [];
     const drawTable = n => {
       const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
-      const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, role = roleOf(n.i);
-      ctx.globalAlpha = traj ? (role ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1;
-      if (cards) drawCard(n, p, b, col, mark, role, k);
-      else { drawStar(n, p, col, mark, role, k); labels.push(n); }
+      const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, side = sideOf(n.i);
+      ctx.globalAlpha = traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1;
+      if (cards) drawCard(n, p, b, col, mark, side, k);
+      else { drawStar(n, p, col, mark, side, k); labels.push(n); }
     };
     if (traj) {  // trajectory tables after its edges, so arrows never cover them
-      visible.forEach(n => { if (!roleOf(n.i)) drawTable(n); });
+      visible.forEach(n => { if (!sideOf(n.i)) drawTable(n); });
       ctx.globalAlpha = 1;
       drawTrajectoryEdges(k);
-      visible.forEach(n => { if (roleOf(n.i)) drawTable(n); });
+      visible.forEach(n => { if (sideOf(n.i)) drawTable(n); });
     } else visible.forEach(drawTable);
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -568,7 +581,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     });
     if (byLayers && k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
-    if (!cards) drawNames(orderLabels(labels), screen, free, taken, k);
+    drawn = [];
+    if (!cards) drawNames(orderLabels(labels, k), screen, free, taken, k);
     ctx.textAlign = 'left';
     if (!onScreen) return;
     labelHits = hits;
@@ -641,12 +655,29 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // names by priority: in the trajectory mode its tables first (start, then by distance), then the hovered one, then by score
-  function orderLabels(labels) {
-    labels.sort((a, b) => labelScore(b) - labelScore(a));
+  function orderLabels(labels, k) {
+    labels.sort((a, b) => TIER_ORDER[tierOf(a)] - TIER_ORDER[tierOf(b)] || labelScore(b) - labelScore(a));
     const hov = hover != null && P[hover] ? [N[hover]] : [];
-    if (!traj) return [...hov, ...labels];
-    const inT = labels.filter(n => roleOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
-    return [...inT, ...hov, ...labels.filter(n => !roleOf(n.i))];
+    const fit = k < 0.6 ? fitNames() : null;
+    const ordinary = fit ? labels.filter(n => fit.has(n.i)) : labels;
+    if (!traj) return [...hov, ...ordinary];
+    const inT = labels.filter(n => sideOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
+    return [...inT, ...hov, ...ordinary.filter(n => !sideOf(n.i))];
+  }
+  // From afar, when core tables are drawn, the ordinary names offered are, per constellation, its FIT_NAMES core
+  // tables with the most relations (ties: links, name, id); null when no core table is drawn (names as at any zoom).
+  function fitNames() {
+    if (fitCache && fitCache.of === visible && fitCache.by === state.by) return fitCache.names;
+    const by = new Map();
+    visible.filter(n => KIND[n.kind].role === 'core').forEach(n => {
+      const g = grouping().of(n); if (!by.has(g)) by.set(g, []); by.get(g).push(n);
+    });
+    const names = by.size ? new Set() : null;
+    by.forEach(list => list
+      .sort((a, b) => RELDEG[b.i] - RELDEG[a.i] || DEG[b.i] - DEG[a.i] || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.id < b.id ? -1 : 1))
+      .slice(0, FIT_NAMES).forEach(n => names.add(n.i)));
+    fitCache = { of: visible, by: state.by, names };
+    return names;
   }
   // Table names below their stars, in one or two lines (nameLines), each over a light backdrop, skipping any
   // that would overlap a name already drawn or a domain name. An ordinary name is also skipped when it would
@@ -654,7 +685,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // from afar only the room around a star decides); trajectory and hovered names always compete.
   function drawNames(labels, screen, free, taken, k) {
     const at = new Map(labels.map(n => [n.i, screen(P[n.i].x, P[n.i].y)]));
-    const rad = n => Math.max(starR(n) * k, 2.5), rMax = Math.max(14 * k, 2.5);
+    const rad = n => Math.max(starR(n) * k, 2.5), rMax = Math.max(R_MAX * k, 2.5);
     const stars = d3.quadtree(labels, n => at.get(n.i)[0], n => at.get(n.i)[1]);
     const disc = new Map(constellations.map(d => [d.k, [...screen(d.x, d.y), d.r * k]]));
     const coversStar = (x, y, w, h) => {
@@ -674,19 +705,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].every(([px, py]) => Math.hypot(px - cx, py - cy) <= r);
     };
     let shown = 0;
+    drawn = [];
     for (const n of labels) {
       if (shown >= 400) break;
-      const role = roleOf(n.i);
-      const strong = role ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover;
+      const side = sideOf(n.i);
+      const strong = side ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover;
       ctx.font = `${strong ? 600 : 400} 11px ${FONT}`;
       const [sx, sy] = at.get(n.i), lines = nameLines(n.name);
       const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + rad(n) + 2;
       if (!free(x, y, w, h)) continue;
-      if (!role && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
-      taken.push([x, y, w, h]); shown++;
-      ctx.globalAlpha = traj && !role ? DIM : 1;
+      if (!side && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
+      taken.push([x, y, w, h]); shown++; drawn.push(n.id);
+      ctx.globalAlpha = traj && !side ? DIM : 1;
       ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = strong || role ? C.text : C.muted;
+      ctx.fillStyle = strong || side ? C.text : C.muted;
       lines.forEach((s, j) => ctx.fillText(s, sx, y + 11 + LINE_H * j));
     }
     ctx.globalAlpha = 1;
@@ -698,25 +730,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   }
-  function drawStar(n, p, col, mark, role, k) {
-    const far = k < 0.6, r = Math.max(starR(n), (role ? 3 : 2.5) / k);
+  function drawStar(n, p, col, mark, side, k) {
+    const far = k < 0.6, r = Math.max(starR(n), (side ? 3 : 2.5) / k);
     const edge = CONTRAST.edge(col, C.bg);   // a star too light for the page is outlined (D-042)
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     ctx.strokeStyle = edge === col ? '#ffffff' : edge; ctx.lineWidth = 1 / k; ctx.stroke();
-    if (role === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); return; }
+    if (side === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); return; }
     let out = 4 / k;
-    if (role) { out = (far ? 3 : 4) / k; ring(p, r + out, C[role], (far ? 1.5 : 2) / k, role === 'up', k); out += 3 / k; }
+    if (side) { out = (far ? 3 : 4) / k; ring(p, r + out, C[side], (far ? 1.5 : 2) / k, side === 'up', k); out += 3 / k; }
     if (mark) ring(p, r + out, C.text, 2 / k, false, k);
   }
-  function drawCard(n, p, b, col, mark, role, k) {
+  function drawCard(n, p, b, col, mark, side, k) {
     const x = p.x - b.w / 2, y = p.y - b.h / 2, mk = Math.min(k, 1), edge = CONTRAST.edge(col, C.bg);   // D-042
     ctx.fillStyle = C.card; ctx.fillRect(x, y, b.w, b.h);
-    ctx.strokeStyle = role === 'start' ? C.text : role ? C[role] : mark ? C.text : edge;
-    ctx.lineWidth = (role === 'start' ? 3 : role ? 2.5 : mark ? 2.5 : 1) / mk;
-    ctx.setLineDash(role === 'up' ? [6 / mk, 3 / mk] : []);
+    ctx.strokeStyle = side === 'start' ? C.text : side ? C[side] : mark ? C.text : edge;
+    ctx.lineWidth = (side === 'start' ? 3 : side ? 2.5 : mark ? 2.5 : 1) / mk;
+    ctx.setLineDash(side === 'up' ? [6 / mk, 3 / mk] : []);
     ctx.strokeRect(x, y, b.w, b.h);
     ctx.setLineDash([]);
-    if (role === 'start' || (role && mark)) {  // outer rectangle 3 px outside
+    if (side === 'start' || (side && mark)) {  // outer rectangle 3 px outside
       const o = 3 / k + ctx.lineWidth / 2;
       ctx.strokeStyle = C.text; ctx.lineWidth = 1.5 / mk; ctx.strokeRect(x - o, y - o, b.w + 2 * o, b.h + 2 * o);
     }
@@ -992,7 +1024,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function geometry() {
     return { by: state.by, layoutMs: perf.layout,
       tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
-                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy })),
+                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: R[n.i] })),
       constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
                                    bands: d.bands.map(b => ({ key: b.key, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
@@ -1005,5 +1037,5 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry };
+  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => [...drawn] };
 }

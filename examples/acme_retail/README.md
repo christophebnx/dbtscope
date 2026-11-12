@@ -21,8 +21,8 @@ To run dbtscope on it (clone, dbt with dbt-duckdb, the commands and the summary 
   keys would carry the adapter's prefix.
 - **dbt-core and dbt Fusion.** Model configs such as `contract` stay under `config:`, in block
   style; dbt Fusion supports the schema override macro too.
-- **Conventions.** `dbt-erd.yml` uses the `data_vault` preset and names the kinds of the detail
-  view. Its `domains` rules do two jobs: they place what is organised by source system rather than
+- **Conventions.** `dbt-erd.yml` uses the `data_vault` preset, which gives the kinds and their
+  roles (hub, link, satellite, dimension, fact, staging; no table is "Other"). Its `domains` rules do two jobs: they place what is organised by source system rather than
   by domain (sources, bronze models, seeds, snapshots), and they label and colour every domain. Four
   `layers` rules draw the bands Sources, Bronze (with seeds and snapshots), Silver and Gold. A
   project with one database per layer can write them as `database:bronze`, … instead of `path:`.
