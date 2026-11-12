@@ -32,8 +32,11 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M7.1 Fall back to the existing manifest | done | | Built per `docs/architecture/2026-11-12-m7-parse-fallback-wheel-install.md` (D-054, § A.7 wording): `cli._parse`, `Fallback`, `ParseError`, `_has_manifest`, `_modified`, `_age`, `_moment`; `--strict-parse`. Pages byte-identical. Asked by the user on 2026-11-12 |
 | M7.2 Install from a wheel file | done | | Same note (D-055): user guide § Option C, `uv build --wheel` in CLAUDE.md. The live wheel test and the manual Windows install (note § Test plan) are not run yet |
 | M7.3 Parse without a profile | rejected | | D-056, after the spike recorded in `docs/architecture/2026-11-12-parse-without-profile.md`; no code |
+| M7.4 dbt log level | done | | Built per `docs/architecture/2026-11-12-m7.4-dbt-log-level.md` (D-057): `--log-level` (default `error`), `dbt --log-level <level> parse`; usage error with `--no-parse` / `--manifest`; at `none` a failure says it hid dbt's messages. Pages byte-identical |
 
 ## Open points
+
+- M7.4: dbt Fusion's support of the global `--log-level` flag is unchecked.
 
 - M4.1: the export file-name fallback (a title that slugs to nothing) is covered only by browser tests, which do not run in CI.
 - M4.2: the read-only output cases (permission denied, read-only file system) are covered only by monkeypatched tests: the sandbox ran as root, which bypasses permissions.

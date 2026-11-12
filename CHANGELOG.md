@@ -4,8 +4,13 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Changed
+
+- dbt's info and warnings are hidden by default (M7.4, D-057): dbtscope runs `dbt --log-level error parse`. Scripts reading dbt's output use `--log-level info`.
+
 ### Added
 
+- `--log-level debug|info|warn|error|none` (M7.4, D-057, dbt panel): dbt's console log level, default `error`; a usage error with `--no-parse` or `--manifest`. At `none` a failure says "--log-level none hid dbt's messages" and hints "run again with --log-level error to see why".
 - Fallback to the existing manifest (M7.1, D-054): when dbt is not on `PATH`, cannot start, or `dbt parse` fails, and `target/manifest.json` exists, it is mapped with a three-line warning on stderr (reason, manifest path and last-modified age, next step) and a `manifest:` row in the summary; exit 0. New option `--strict-parse` (dbt panel) keeps the error, for CI; it is refused with `--no-parse` or `--manifest`. Without a manifest the error says no earlier manifest exists and points to `--manifest`.
 - Install from a wheel file, with no git or GitHub (M7.2, D-055): user guide § Option C (`uv tool install <wheel>`, upgrade with `--reinstall`); `uv build --wheel` builds it.
 - Synced with template `acbf7f4`: `tools/doc_consistency.py` resolves responsibility-map references by file, in any language (JavaScript modules, short module names, file names), as found on a larger map; its test reads the package name instead of assuming `app`.

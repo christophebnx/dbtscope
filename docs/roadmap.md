@@ -251,6 +251,7 @@ Asked by the user on 2026-11-12, after a failed first run on Windows: "dbtscope 
 - **M7.1 — Fall back to the existing manifest.** (Done.) (D-054.) When dbt is not on `PATH`, cannot start, or `dbt parse` fails, and `target/manifest.json` exists, it is mapped with a three-line warning (stderr) and a `manifest:` summary row; exit 0. New dbt-panel option `--strict-parse` turns it into an error (for CI). Pages, payloads and file formats unchanged.
 - **M7.2 — Install from a wheel file.** (Done.) (D-055.) `uv build --wheel`, shared as a file; users run `uv tool install <wheel>`, no git or GitHub. User guide § Option C. The live wheel test `tests/integration/test_wheel.py` and a manual install on Windows remain to be run.
 - **M7.3 — Parse without a profile.** (Rejected, D-056.) Design note `docs/architecture/2026-11-12-parse-without-profile.md` and its spike: a placeholder profile works only with the project's real adapter, so dbtscope would depend on the warehouse platform. Machines without dbt map an earlier manifest (D-054).
+- **M7.4 — dbt log level.** (Done.) (D-057.) dbtscope runs `dbt --log-level <level> parse`, default `error`; new dbt-panel option `--log-level debug|info|warn|error|none`, refused with `--no-parse` or `--manifest`. Design note `docs/architecture/2026-11-12-m7.4-dbt-log-level.md`.
 
 ## Later (not scheduled)
 
