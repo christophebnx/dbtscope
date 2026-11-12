@@ -157,15 +157,17 @@ Script: a placeholder profile in a temporary folder, `uvx --from dbt-core --with
 | dbt-labs/jaffle-shop (multi-warehouse, dbt_utils, audit_helper) | exit 0, 4 s, 13 models | exit 0, 4 s, 13 models | yes: 19 tables, 3 relations, 17 lineage links |
 | fivetran/dbt_hubspot (dispatched macros, fivetran_utils, spark_utils) | exit 0, 6 s, 176 models | exit 0, 6 s, 176 models | yes: 240 tables, 221 lineage links |
 | brooklyn-data/dbt_artifacts (35 files test `target.type`) | exit 0, 4 s, **34 models** | exit 0, 4 s, **46 models** | **no**: 12 models have `config(enabled = target.type == "snowflake")`; lineage 24 vs 55 links |
+| The user's project (Snowflake, Data Vault with datavault4dbt, Windows) | **exit 2**: `In dispatch: No macro named 'rehash_single_hub' found within namespace: 'datavault4dbt'` (the package has only warehouse-specific implementations, no `default__` or `duckdb__`) | exit 0, 105 s (full parse, Windows), 1,223 models, 1,048 tests, 260 sources | n/a: 1,453 tables in 10 domains, 317 relations, 1,606 lineage links, page 1.7 MB |
 
 Findings:
 
-1. **Parsing never failed because of the adapter.** Dispatched macros (`adapter.dispatch` falls back to `default__`) and warehouse-specific Jinja parse under duckdb.
+1. **A foreign adapter can fail the parse.** Dispatched macros fall back to `default__`, which is enough for jaffle-shop and dbt_hubspot, but a package that ships only warehouse-specific implementations (datavault4dbt, in the user's project) fails under duckdb at parse time. With a placeholder profile of the project's real adapter type, the same project parses and maps fully. **Consequence: the bundled duckdb cannot be the main path; the real adapter type, fetched with `uvx --with dbt-<type>`, is (B1 first, duckdb last).**
 2. **Models enabled by `target.type` are lost under a foreign adapter** (dbt_artifacts). The bundled duckdb alone is therefore not faithful for such projects. Mitigation: parse with the project's real adapter type when it is known (an earlier manifest's `metadata.adapter_type`, or `parse.adapter` in `dbt-erd.yml`), fetching that adapter with `uvx --with dbt-<type>` (uv is already required); duckdb only when the type is unknown, with a warning when the project's files mention `target.type`.
 3. **A package-like project has no `profile:`**: pass `--profile <name>` with the placeholder (done in the spike).
 4. **Packages must be installed** (`dbt_packages`); with none, parse fails and names the missing packages. `dbt deps` is a second dbt command (D-012) and needs the network: keep it out of scope, tell the user to run it.
-5. **Placeholder schema names show in the map**: with dbt's default `generate_schema_name`, `+schema: hubspot` becomes `main_hubspot` (placeholder schema `main`). Domains are still right, keys carry the prefix. Question 3 stays open: a neutral placeholder schema, or none.
-6. **duckdb database name** comes from `path`'s file name: use `path: warehouse.duckdb` (never opened by parse).
+5. **Projects that set `+database` / `+schema` keep their real names** (the user's project: `dp_prod_dwh.account`, `int_prod_cap.ukcars`, …): the placeholder names matter only where the project relies on the target's defaults.
+6. **Placeholder schema names show in the map**: with dbt's default `generate_schema_name`, `+schema: hubspot` becomes `main_hubspot` (placeholder schema `main`). Domains are still right, keys carry the prefix. Question 3 stays open: a neutral placeholder schema, or none.
+7. **duckdb database name** comes from `path`'s file name: use `path: warehouse.duckdb` (never opened by parse).
 
 ## Rejected options
 
