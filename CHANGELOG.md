@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Added
+
+- One-step install scripts (M8.1, D-058): `install/install.ps1` (Windows PowerShell 5.1 and 7) and `install/install.sh` (macOS, Linux), shipped next to the wheel. They install uv when missing, then dbtscope with `uv tool install --reinstall` from the wheel beside them (or `-Wheel` / `--wheel`, or `-FromGitHub` / `--from-github [--ref]`), run `uv tool update-shell`, check `dbtscope --version` and say whether dbt is on `PATH` (never run or installed). On Windows a marked PATH block is added to the PowerShell profile when the execution policy allows it (`-SkipProfile` opts out). No admin, no prompt, no token handled. User guide § Quick install, Upgrade, Uninstall and Troubleshooting; README Quick start.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added

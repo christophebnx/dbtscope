@@ -33,9 +33,11 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M7.2 Install from a wheel file | done | | Same note (D-055): user guide § Option C, `uv build --wheel` in CLAUDE.md. Live wheel test passed at the 0.3.0 release; installed and run by the user on Windows |
 | M7.3 Parse without a profile | rejected | | D-056, after the spike recorded in `docs/architecture/2026-11-12-parse-without-profile.md`; no code |
 | M7.4 dbt log level | done | | Built per `docs/architecture/2026-11-12-m7.4-dbt-log-level.md` (D-057): `--log-level` (default `error`), `dbt --log-level <level> parse`; usage error with `--no-parse` / `--manifest`; at `none` a failure says it hid dbt's messages. Pages byte-identical |
+| M8.1 One-step install scripts | done | | Built per `docs/architecture/2026-11-12-m8.1-install-scripts.md` (D-058): `install/install.ps1`, `install/install.sh`, `tests/unit/test_install_scripts.py` (fakes, no network). Asked by the user on 2026-11-12. Manual checks to run: Windows without uv and git (PowerShell 5.1 then 7: same-window `dbtscope --version`, new Windows Terminal tab, no red uv text, second run, `-FromGitHub` without git); macOS (bash 3.2) and Linux without uv. Package and pages unchanged |
 
 ## Open points
 
+- M8.1 (install scripts): manual checks still to run, the tests skip PowerShell when `pwsh` is absent. Windows PowerShell 5.1 and PowerShell 7 each: (1) a machine without uv and git, wheel next to the script; (2) an existing profile (UTF-8 with and without BOM, ANSI) keeps its content around the block, a second run replaces the block, `-SkipProfile` leaves it alone; (3) a user name with non-ASCII characters (the bin folder is read from `uv tool dir --bin` as UTF-8 and the block stays ASCII); (4) no red uv text; (5) `-FromGitHub` without git, and without access.
 - M7.4: dbt Fusion's support of the global `--log-level` flag is unchecked.
 
 - M4.1: the export file-name fallback (a title that slugs to nothing) is covered only by browser tests, which do not run in CI.

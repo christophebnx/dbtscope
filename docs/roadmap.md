@@ -253,6 +253,15 @@ Asked by the user on 2026-11-12, after a failed first run on Windows: "dbtscope 
 - **M7.3 — Parse without a profile.** (Rejected, D-056.) Design note `docs/architecture/2026-11-12-parse-without-profile.md` and its spike: a placeholder profile works only with the project's real adapter, so dbtscope would depend on the warehouse platform. Machines without dbt map an earlier manifest (D-054).
 - **M7.4 — dbt log level.** (Done.) (D-057.) dbtscope runs `dbt --log-level <level> parse`, default `error`; new dbt-panel option `--log-level debug|info|warn|error|none`, refused with `--no-parse` or `--manifest`. Design note `docs/architecture/2026-11-12-m7.4-dbt-log-level.md`.
 
+## M8 — One-step install and page links
+
+Asked by the user on 2026-11-12, after a manual install on Windows failed (uv, git, stale `PATH`, PowerShell 5.1 error noise).
+
+- **M8.1 — One-step install scripts.** (Done.) (D-058.) `install/install.ps1` (Windows PowerShell 5.1 and 7) and `install/install.sh` (macOS, Linux) install uv when missing, then dbtscope from a wheel next to the script or from GitHub, make it reachable (PowerShell profile block) and report dbt's presence. User guide § Quick install. Design note `docs/architecture/2026-11-12-m8.1-install-scripts.md`. Manual checks on Windows, macOS and Linux remain to be run.
+- **M8.2 — A shareable link to a table.** (Planned.) Design note `docs/architecture/2026-11-12-m8.2-table-link.md`.
+- **M8.3 — Flow view: the paths between two tables.** (Planned.) Design note `docs/architecture/2026-11-12-m8.3-flow-paths.md`.
+- **M8.4 — Print the current view on one page.** (Planned.) Design note `docs/architecture/2026-11-12-m8.4-print.md`.
+
 ## Later (not scheduled)
 
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
