@@ -261,7 +261,7 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 - **M8.2 — Entities (done).** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
 - **M8.3 — Summary cards (done).** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M8.4 — Source systems apart, readable routes (done).** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
-- **M8.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
+- **M8.5 — Detail skeleton (done).** A large group (more than 60 tables with parents) opens as core and connector tables with their folded tables as one row, on a grid of columns that fits the drawing area (D-072 to D-077). Closing items of M8: the retaken screenshots of `docs/images/` and the `data_vault` `select` question (D-077) go to the user.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
