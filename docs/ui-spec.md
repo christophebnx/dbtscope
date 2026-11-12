@@ -104,3 +104,17 @@ Design: `docs/architecture/2026-11-03-m2-export-offline.md` § UI design.
 ## Offline page (M2)
 
 - Built with `--offline` or `offline: true`. The page looks and behaves exactly like the default one and shows nothing about it.
+
+## Universe view — entities (M8.2, D-063)
+
+Design: `docs/architecture/2026-11-12-m8.2-entities.md` § UI design.
+
+- **Purpose.** On a large Data Vault, read the estate as its entities (hubs, links, dimensions, facts) and keep satellites, ref sats and PITs one step away.
+- **Entity and mark.** A descriptive table with a parent (its core or connector table in the same domain and layer, computed by dbtscope from relations then names) is drawn inside that table instead of as its own star. The parent is an **entity**; when it holds at least one table its star carries a **badge**: a dark disc (`#1f2933`, white 1.5 px outline, 13.6:1 on the page) on the upper right of the star, 4 px from afar, 7 px with the count in white from scale 0.6 (99+ above 99). The star's size is unchanged. In both groupings, at every zoom and in image export; trajectory rings, the start's double ring and the search ring stay visible around it. On cards the badge sits on the top-right corner.
+- **Tooltip.** An entity lists its folded tables, name and kind, 12 at most then "+ N" ("3 folded tables" / "3 tables repliées"). A table that has a parent but is drawn shows "Folds into: <parent>".
+- **Cards.** At keys and all fields, folded tables are rows under the columns (name, kind label in grey at the right), 12 at most then "+ N".
+- **Fold control.** Panel, after Constellations, heading "Entities" ("Entités"): one checkbox "Fold Satellite · PIT" ("Replier …", the descriptive kinds with a parent, from the roles) with the number of tables with a parent. Checked = folded; space toggles; 44 px on coarse pointers. Hidden when no table has a parent (the page is then as before). Default `universe.fold` (default true); the viewer's choice is kept in localStorage `dbtscope-fold:<title>` when it differs from the default, never exported. Changing it relayouts and fits, like the Constellations switch, and is announced to screen readers.
+- **Counts never drop because of a fold.** The meta line counts every table that passes the filters, folded included, and adds "N entities" ("N entités") while folding is on: "1,419 tables · 428 entities · 2,621 links · 12 domains". Domain and layer counts, composition bars, band counts and the Types counts are the same folded or shown. Routes between constellations carry the links of folded tables; no link of a folded table is drawn inside a constellation.
+- **Reach.** Searching a folded table opens its entity (one at a time), goes to the table, marks it and announces it ("car_unlinked_sat is folded into car_hub: shown"); a trajectory shows its tables, the start included, unfolded, and gives back the folded drawing when left; double-click on an entity opens its detail as before.
+- **Filters.** Unticking a kind or layer of folded tables lowers the entity's count and the meta line's tables as any filter does. Unticking the entity's own kind draws its folded tables as stars.
+- **Saved arrangements (D-064).** The folded drawing has its own arrangement (scopes `folded:*` and `layers:folded:*`, D-013 format unchanged); an offset saved while shown applies again when shown; older files are arrangements of the shown drawing; **Reset layout** clears all.
