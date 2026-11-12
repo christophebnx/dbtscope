@@ -51,7 +51,7 @@ A view, usable **by everyone** (data team, business, management), that answers w
 | **Interstellar routes** | dependencies between domains, as a single aggregated line per pair of domains, with a thickness proportional to the number of links | links between two domains |
 | **Layers** | position in the flow: sources → staging → vault → products | `layers:` config |
 
-All stars have the same size: the priority is a universe that **fits the screen as well as possible**, rather than a size that carries meaning.
+~~All stars have the same size: the priority is a universe that **fits the screen as well as possible**, rather than a size that carries meaning.~~ Superseded by D-058 (M8.1): the size of a star follows its degree and the role of its kind.
 
 ## 4. User experience
 

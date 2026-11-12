@@ -5,12 +5,7 @@ language: en
 view: universe
 # detail view: the raw vault (silver) and the star schema marts (gold)
 select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
-kinds:
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
-  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}
-  - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
+# kinds (hub, link, satellite, fact, dimension, staging) and their roles come from the preset
 # universe view: silver and gold tables take their domain from their schema (one per domain folder,
 # dbt_project.yml). These rules do two jobs: they place what is organised by source system, not by
 # domain (sources, bronze models, seeds, snapshots), and they label and colour every domain.

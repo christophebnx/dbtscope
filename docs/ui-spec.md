@@ -81,6 +81,14 @@ Design: `docs/architecture/2026-11-05-m5.13-group-by-layers.md` § UI design.
 - **Names without a label.** A domain, layer or kind whose rule sets `label: null` is shown by its key everywhere (filter rows, tooltips, canvas, flow view), through the one rule `common.js labelOf`. Before M5.13 such a layer showed nothing in the panel and "null" in the tooltip and the flow.
 - **Hint.** "… drag a table, or a constellation by its name, to arrange them · … double-click a constellation to zoom in, a table to open its detail" ("… ou une constellation par son nom … double-clic sur une constellation pour la cadrer …"), in both modes.
 
+## Universe view — roles (M8.1, D-058)
+
+- **Star size** is the degree radius (3 to 14 px) times a factor by the kind's role: core 1.35, connector and none 1, descriptive and technical 0.75; never under 2.5 px. Reserved boxes follow. Colour marks keep D-042.
+- **Names** compete in this order: trajectory, hovered, then core (each constellation's tables with the most relations first), connector, none, descriptive, technical. Below scale 0.6, when the page has a core kind, only the 3 core tables with the most relations of each constellation are offered.
+- **Types list** is ordered core, connector, descriptive, technical, none, then as configured; no headings. A kind row with a role has the tooltip `role: core` (fr `rôle : centrale`; connector `de liaison`, descriptive `descriptive`, technical `technique`).
+- A page without roles differs only by the built-in technical kinds (source, seed, snapshot): smaller stars, listed first, named last.
+- Exported images follow the view as on screen.
+
 ## Top bar — layout buttons
 
 - **Reset layout**, **Export layout**, **Import layout** (fr since M2: "Réinitialiser la disposition", "Exporter la disposition", "Importer une disposition") act on the manual arrangement of the page (D-013). They never export an image.

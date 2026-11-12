@@ -10,7 +10,7 @@ from dbtscope.domain.config import (
     NOT_IN_PRESET,
     Config,
     ConfigError,
-    Rule,
+    KindRule,
     check_preset,
     is_preset_path,
     merge_config,
@@ -42,7 +42,9 @@ def test_file_overrides_preset_and_universe_is_merged() -> None:
 
 def test_rules_are_normalised() -> None:
     config = merge_config({}, {"kinds": [{"key": "core", "match": "tag:core"}], "select": "fct_*"})
-    assert config.kinds == (Rule(key="core", label="core", color=DEFAULT_KIND_COLOR, match=("tag:core",)),)
+    assert config.kinds == (
+        KindRule(key="core", label="core", color=DEFAULT_KIND_COLOR, match=("tag:core",)),
+    )
     assert config.select == ("fct_*",)
 
 
@@ -353,3 +355,68 @@ def test_a_short_hex_colour_is_written_out_and_case_is_kept() -> None:
 def test_an_empty_rule_colour_means_none() -> None:
     config = merge_config({}, {"kinds": [{"key": "a", "color": "", "match": ["*"]}]})
     assert config.kinds[0].color == DEFAULT_KIND_COLOR
+
+
+@pytest.mark.parametrize("role", ["core", "connector", "descriptive", "technical"])
+def test_a_kind_accepts_each_role(role: str) -> None:
+    config = merge_config({}, {"kinds": [{"key": "k", "match": "x", "role": role}]})
+    assert config.kinds[0].role == role
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_an_empty_role_is_no_role(value: object) -> None:
+    assert merge_config({}, {"kinds": [{"key": "k", "match": "x", "role": value}]}).kinds[0].role is None
+
+
+@pytest.mark.parametrize("value", ["hubs", "Core", 3, ["core"]])
+def test_an_invalid_role_is_one_line(value: object) -> None:
+    kinds = [
+        {"key": "a", "match": "x"},
+        {"key": "b", "match": "x"},
+        {"key": "k", "match": "x", "role": value},
+    ]
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"kinds": kinds})
+    message = str(info.value)
+    assert (
+        message.startswith("kinds[2].role: invalid role ")
+        and "(core, connector, descriptive or technical)" in message
+    )
+    assert "\n" not in message
+
+
+def test_role_on_a_domain_rule_is_ignored_but_refused_in_a_preset() -> None:
+    config = merge_config({}, {"domains": [{"key": "d", "match": "x", "role": "core"}]})
+    assert not hasattr(config.domains[0], "role")
+    with pytest.raises(ConfigError, match="unknown key"):
+        check_preset({"domains": [{"key": "d", "match": "x", "role": "core"}]})
+    check_preset({"kinds": [{"key": "d", "match": "x", "role": "core"}]})
+
+
+def test_a_file_kind_inherits_the_role_of_the_preset_kind_it_repeats() -> None:
+    preset = {
+        "kinds": [
+            {"key": "hub", "match": "*_hub", "role": "core"},
+            {"key": "sat", "match": "*_sat", "role": "descriptive"},
+            {"key": "gone", "match": "*_gone", "role": "core"},
+        ]
+    }
+    file = {
+        "kinds": [
+            {"key": "hub", "match": "h_*"},
+            {"key": "sat", "match": "s_*", "role": None},
+            {"key": "fresh", "match": "f_*"},
+            {"key": "gone", "match": "g_*", "role": "technical"},
+        ]
+    }
+    kinds = {k.key: k.role for k in merge_config(preset, file).kinds}
+    assert kinds == {"hub": "core", "sat": None, "fresh": None, "gone": "technical"}
+    assert [k.key for k in merge_config(preset, {"kinds": [{"key": "hub", "match": "x"}]}).kinds] == ["hub"]
+
+
+def test_role_inheritance_leaves_malformed_kinds_to_validation() -> None:
+    preset = {"kinds": [{"key": "hub", "match": "x", "role": "core"}]}
+    with pytest.raises(ConfigError, match="kinds"):
+        merge_config(preset, {"kinds": "hub"})
+    with pytest.raises(ConfigError, match=r"kinds\[1\]"):
+        merge_config(preset, {"kinds": [{"key": "hub", "match": "x"}, "oops"]})

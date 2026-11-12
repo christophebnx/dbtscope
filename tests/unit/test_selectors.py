@@ -31,7 +31,7 @@ def test_any_selector_of_a_list_matches() -> None:
 
 
 def test_field_value_of_every_single_valued_field() -> None:
-    values = {f: field_value(NODE, f) for f in FIELDS - {"tag"}}
+    values = {f: field_value(NODE, f) for f in FIELDS - {"tag", "step"}}
     assert values == {
         "name": "fct_orders",
         "path": "models/sales/fct_orders.sql",
@@ -51,5 +51,22 @@ def test_unknown_field_is_a_domain_error_listing_the_fields_in_words() -> None:
         matches(NODE, "colour:red")
     assert str(info.value) == (
         "unknown selector field 'colour' in 'colour:red' "
-        "(expected database, name, package, path, schema, tag or type)"
+        "(expected database, name, package, path, schema, step, tag or type)"
     )
+
+
+@pytest.mark.parametrize(
+    ("folder", "selector", "expected"),
+    [
+        ("intermediate/x", "step:intermediate", True),
+        ("raw_vault/x", "step:intermediate", True),
+        ("staging/x", "step:stag*", True),
+        ("staging/x", "step:intermediate", False),
+        ("misc/x", "step:*", False),  # no step: matches nothing
+    ],
+)
+def test_step_selector_matches_the_step_of_the_default_layer(
+    folder: str, selector: str, expected: bool
+) -> None:
+    assert matches(table(folder=folder), selector) is expected
+    assert matches(table(resource_type="source"), "step:source")

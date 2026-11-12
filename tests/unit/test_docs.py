@@ -23,8 +23,9 @@ import pytest
 import yaml
 from conftest import EXAMPLE_EXPECTED, ROOT, USER_GUIDE, Block, blocks, page_of, prose, write_example
 
-from dbtscope.domain.config import Config, UniverseSettings, merge_config
-from dbtscope.domain.universe import FLOW_PREFIXES, UNRANKED
+from dbtscope.domain.config import ROLES, Config, UniverseSettings, merge_config
+from dbtscope.domain.steps import FLOW_PREFIXES, STEPS, UNRANKED
+from dbtscope.storage.project_files import read_preset
 
 HOW_IT_WORKS = ROOT / "docs" / "how-it-works.md"
 IMAGES = ROOT / "docs" / "images"
@@ -233,3 +234,35 @@ def test_images_are_described_referenced_and_small() -> None:
     assert listed == {path.name for path in files}, "docs/images/README.md must list exactly its images"
     assert all(path.stat().st_size <= IMAGE_MAX_BYTES for path in files if path.suffix == ".png")
     assert sum(path.stat().st_size for path in files) <= IMAGES_MAX_BYTES
+
+
+def guide_preset_kinds(preset: str) -> list[tuple[str, str]]:
+    """(label, role) of the kinds the user guide's preset table lists for `preset`, in order."""
+    text = USER_GUIDE.read_text(encoding="utf-8")
+    row = next(line for line in text.splitlines() if line.startswith(f"| `{preset}` |"))
+    pending: list[str] = []
+    kinds: list[tuple[str, str]] = []
+    for item in row.split("|")[3].split(", "):
+        match = re.fullmatch(r"(.+?) \((\w+)\)", item.strip())
+        pending.append(match[1] if match else item.strip())
+        if match:
+            kinds += [(label, match[2]) for label in pending]
+            pending = []
+    assert not pending, f"{preset}: kinds with no role in the guide: {pending}"
+    return kinds
+
+
+@pytest.mark.parametrize("preset", ["data_vault", "star_schema"])
+def test_guide_preset_table_lists_every_kind_with_its_role(preset: str) -> None:
+    shipped = [(k["label"], k["role"]) for k in read_preset(preset)["kinds"]]
+    assert guide_preset_kinds(preset) == shipped
+
+
+def test_docs_describe_roles_and_the_step_selector() -> None:
+    guide = USER_GUIDE.read_text(encoding="utf-8")
+    every_key = section_block(USER_GUIDE, "### Every key", "yaml").lines
+    assert any("role:" in line for line in every_key)
+    for role in ROLES:
+        assert f"`{role}`" in guide and role in HOW_IT_WORKS.read_text(encoding="utf-8")
+    selectors = guide[guide.index("step:staging") - 200 : guide.index("step:staging") + 400]
+    assert all(f"`{name}`" in selectors for name, _ in STEPS)

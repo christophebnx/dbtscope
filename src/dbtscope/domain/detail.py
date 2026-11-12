@@ -40,13 +40,19 @@ def detail_data(tables: dict[str, Table], relations: list[Relation], config: Con
     used_kinds = {e.kind for e in entities}
     lang = config.language
     kinds = [
-        DetailKind(key=k.key, label=k.label, color=k.color, bg=background(k.color))
+        DetailKind(key=k.key, label=k.label, color=k.color, bg=background(k.color), role=k.role)
         for k in config.kinds
         if k.key in used_kinds  # every configured kind has a colour (`Config._kind_colors`)
     ]
     if OTHER.key in used_kinds:
         kinds.append(
-            DetailKind(key=OTHER.key, label=OTHER.label[lang], color=OTHER.color, bg=background(OTHER.color))
+            DetailKind(
+                key=OTHER.key,
+                label=OTHER.label[lang],
+                color=OTHER.color,
+                bg=background(OTHER.color),
+                role=OTHER.role,
+            )
         )
     return DetailPayload(
         title=config.title,

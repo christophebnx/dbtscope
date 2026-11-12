@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, View
+from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, Role, View
 from dbtscope.domain.model import DOMAIN
 
 
@@ -22,6 +22,7 @@ class DetailKind(BaseModel):
     label: str | None  # null when a rule says `label: null`
     color: str
     bg: str  # light tint of `color`, for the table body
+    role: Role | None = None  # last key; null when the kind has none (D-058)
 
 
 class DetailEntity(BaseModel):
@@ -90,6 +91,7 @@ class UniverseKind(BaseModel):
     key: str
     label: str | None
     color: str
+    role: Role | None = None  # last key; null when the kind has none (D-058)
 
 
 class UniverseDefaults(BaseModel):

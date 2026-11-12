@@ -46,7 +46,7 @@ and an unknown key is an error. `dbt-erd.yml` stays lenient.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -58,7 +58,7 @@ from pydantic import (
     model_validator,
 )
 
-from dbtscope.domain.errors import DomainError, validation_message
+from dbtscope.domain.errors import DomainError, in_words, validation_message
 
 CONFIG_FILE = "dbt-erd.yml"
 DEFAULT_KIND_COLOR = "#777777"
@@ -70,6 +70,8 @@ View = Literal["universe", "detail"]  # tab shown when the page opens
 Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
 DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
 Constellations = Literal["domains", "layers"]  # what a universe constellation stands for (D-048)
+Role = Literal["core", "connector", "descriptive", "technical"]  # how much a kind matters (D-058)
+ROLES: tuple[str, ...] = get_args(Role)  # in this order: also the order of the Types list
 # unknown keys are accepted silently, as before the typed model: existing files keep working
 SETTINGS = ConfigDict(extra="ignore", frozen=True)
 # a preset is closed: a misspelt key is an error (D-030)
@@ -133,6 +135,25 @@ class Rule(BaseModel):
 RuleList = Annotated[tuple[Rule, ...], BeforeValidator(_as_list)]
 
 
+class KindRule(Rule):
+    """A rule of `kinds`: a `Rule` with an optional role (D-058)."""
+
+    role: Role | None = None
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _role(cls, value: Any) -> Any:
+        """No role (`null` or empty), or one of `ROLES`; anything else is an error."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, str) and value in ROLES:
+            return value
+        raise ValueError(f"invalid role {value!r} ({in_words(ROLES)})")
+
+
+KindRuleList = Annotated[tuple[KindRule, ...], BeforeValidator(_as_list)]
+
+
 class UniverseSettings(BaseModel):
     """The `universe` section: scope and opening state of the universe view."""
 
@@ -160,7 +181,7 @@ class Config(BaseModel):
     group_by: str = "schema"
     key_columns: str | None = None
     include_packages: StrictBool = False
-    kinds: RuleList = ()
+    kinds: KindRuleList = ()
     domains: RuleList = ()
     layers: RuleList = ()
     universe: UniverseSettings = UniverseSettings()
@@ -186,7 +207,7 @@ class Config(BaseModel):
 
     @field_validator("kinds", mode="after")
     @classmethod
-    def _kind_colors(cls, kinds: tuple[Rule, ...]) -> tuple[Rule, ...]:
+    def _kind_colors(cls, kinds: tuple[KindRule, ...]) -> tuple[KindRule, ...]:
         return tuple(k if k.color else k.model_copy(update={"color": DEFAULT_KIND_COLOR}) for k in kinds)
 
 
@@ -196,7 +217,14 @@ class PresetRule(Rule):
     model_config = PRESET_SETTINGS
 
 
+class PresetKindRule(KindRule):
+    """A kind rule of a preset: the fields of `KindRule`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
 PresetRuleList = Annotated[tuple[PresetRule, ...], BeforeValidator(_as_list)]
+PresetKindRuleList = Annotated[tuple[PresetKindRule, ...], BeforeValidator(_as_list)]
 
 
 class PresetUniverse(UniverseSettings):
@@ -213,7 +241,7 @@ class Preset(Config):
 
     model_config = PRESET_SETTINGS
 
-    kinds: PresetRuleList = ()
+    kinds: PresetKindRuleList = ()
     domains: PresetRuleList = ()
     layers: PresetRuleList = ()
     universe: PresetUniverse = PresetUniverse()
@@ -255,9 +283,28 @@ def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any
     return {k: v for value in values if value for k, v in value.items()}
 
 
+def _inherit_roles(preset_kinds: Any, file_kinds: Any) -> Any:
+    """`file_kinds` where a kind repeating a preset kind's key, with no `role` key, takes its role (D-058).
+
+    Lists still replace lists: only the role is inherited. A kind writing `role: null` keeps none;
+    anything that is not a list of mappings is passed on for validation to report.
+    """
+    if not isinstance(preset_kinds, list | tuple) or not isinstance(file_kinds, list | tuple):
+        return file_kinds
+    roles = {k["key"]: k["role"] for k in preset_kinds if isinstance(k, dict) and k.get("role")}
+    return [
+        {**k, "role": roles[k["key"]]}
+        if isinstance(k, dict) and "role" not in k and isinstance(k.get("key"), str) and k["key"] in roles
+        else k
+        for k in file_kinds
+    ]
+
+
 def merge_config(preset: dict[str, Any], file_config: dict[str, Any]) -> Config:
     """Defaults < preset < config file, validated once. `universe` is merged key by key."""
     merged = {**preset, **{k: v for k, v in file_config.items() if k != "preset"}}
+    if "kinds" in preset and "kinds" in file_config:
+        merged["kinds"] = _inherit_roles(preset["kinds"], file_config["kinds"])
     merged["universe"] = _merged_universe(preset, file_config)
     try:
         return Config.model_validate(merged)

@@ -319,8 +319,8 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 11:08:44  Performance info: /home/ana/code/dbtscope/examples/acme_retail/target/perf_info.json
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
-  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
+  page:     opens on universe, en, libraries from CDNs (191 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -444,7 +444,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (191 kB)
+  page:     opens on universe, en, libraries from CDNs (194 kB)
   config:   none (built-in defaults)
 ```
 
@@ -468,12 +468,12 @@ Generating an offline page needs no network either: the libraries ship inside db
 
 ### Conventions: presets and preset files
 
-A preset is a ready-made set of conventions: what the detail view selects, the kinds and their colours, the key columns and the grouping. Two are built in:
+A preset is a ready-made set of conventions: what the detail view selects, the kinds with their colours and **roles**, the default layers, the key columns and the grouping. A role says how much a kind matters in the structure: a *core* table (hub, dimension, fact) is drawn as a larger star and gets its name first, a *connector* (link, bridge) is of normal size, a *descriptive* table (satellite, PIT) or a *technical* one (staging, source, seed, snapshot) a smaller star. The layers of a preset use the `step:` selector, so a folder named `raw_vault` or `data_products` lands in the right layer; a `layers` list of your own replaces them (`layers: []` brings back one layer per folder). Two presets are built in:
 
-| Preset | Detail view selects | Kinds | Key columns | Groups by |
-|---|---|---|---|---|
-| `data_vault` | `*_hub`, `*_link`, `*_nhlink`, `*_sal`, `*_sat`, `*_nhsat`, `*_masat`, `*_effsat`; excludes `vw_*`, `stg_*` | Hub, Link, NH link, Same-as link, Satellite, Ref hub, Ref sat, PIT, Bridge | `^(hk_\|hd_)` | schema |
-| `star_schema` | `fct_*`, `fact_*`, `f_*`, `dim_*`, `d_*`, `bridge_*`, `brg_*` | Fact, Dimension, Bridge | `(_id\|_key\|_sk\|_fk)$` | folder |
+| Preset | Detail view selects | Kinds (role) | Layers | Key columns | Groups by |
+|---|---|---|---|---|---|
+| `data_vault` | `*_hub`, `*_link`, `*_nhlink`, `*_sal`, `*_sat`, `*_nhsat`, `*_masat`, `*_effsat`; excludes `vw_*`, `stg_*` | Staging (technical), Hub (core), Link, NH link, Same-as link (connector), Satellite (descriptive), Ref hub (core), Ref sat, PIT (descriptive), Bridge (connector), Dimension, Fact (core) | Sources, Staging, Raw vault, Data products | `^(hk_\|hd_)` | schema |
+| `star_schema` | `fct_*`, `fact_*`, `f_*`, `dim_*`, `d_*`, `bridge_*`, `brg_*` | Staging (technical), Fact (core), Dimension (core), Bridge (connector) | Sources, Staging, Intermediate, Marts | `(_id\|_key\|_sk\|_fk)$` | folder |
 
 ```bash
 dbtscope --preset data_vault
@@ -525,8 +525,8 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
 ```text
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
-  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Fact, 8 Dimension), 58 relations
-  page:     opens on universe, en, libraries from CDNs (188 kB)
+  detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
+  page:     opens on universe, en, libraries from CDNs (191 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -594,9 +594,9 @@ group_by: schema              # schema | database | package | folder | folder:N 
 key_columns: "^(hk_|hd_)"     # regex; columns used by a relation are always keys
 include_packages: false       # also draw models from installed dbt packages
 kinds:                        # ordered, first match wins; unmatched tables are "Other"
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
+  - {key: hub, label: Hub, color: "#2f6fb5", role: core, match: ["*_hub"]}   # role: core | connector | descriptive | technical, optional
+  - {key: link, label: Link, color: "#2e8b57", role: connector, match: ["*_link"]}
+  - {key: sat, label: Satellite, color: "#c9a227", role: descriptive, match: ["*_sat"]}
 
 # universe view
 domains:                      # used when a table has no dbt group and no meta.domain
@@ -614,7 +614,7 @@ universe:
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
 ```
 
-`kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
+`kinds` colour both views; a kind without `color` is grey `#777777`. The optional `role` of a kind (`core`, `connector`, `descriptive` or `technical`; any other value is an error) sizes its stars in the universe and orders its names; a kind you repeat from the preset, with no `role` of its own, keeps the preset's role (write `role: null` for none). A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
 
 ### Checks and errors
 
@@ -641,16 +641,11 @@ view: universe
 select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]
 ```
 
-**3. Name and colour the kinds.** These rules replace the preset's list. Their order matters: the first rule that matches a table gives its kind. In the universe, sources, seeds and snapshots no rule matches keep their built-in kind; the bronze models are "Other".
+**3. Kinds.** The example writes no `kinds` of its own: the preset gives Hub, Link, Satellite, Fact and Dimension, their colours and their roles, and Staging for the 18 `stg_*` models. In the universe, sources, seeds and snapshots no rule matches keep their built-in kind, so no table is "Other".
 
 <!-- excerpt: examples/acme_retail/dbt-erd.yml -->
 ```yaml
-kinds:
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat"]}
-  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*"]}
-  - {key: dim, label: Dimension, color: "#8e5bb5", match: ["dim_*"]}
+# kinds (hub, link, satellite, fact, dimension, staging) and their roles come from the preset
 ```
 
 **4. Place every table in a domain.** The silver and gold tables already have a domain, their schema: each domain folder has `+schema: <domain>` in `dbt_project.yml`, and the project's `generate_schema_name` macro keeps it as written. The rules place what is organised by source system rather than by domain: sources, bronze models, seeds and snapshots. They also label and colour every domain. A source is matched by its type, schema and name together (a comma means "all of these").
@@ -688,6 +683,7 @@ The result is the summary of [Try it on the example project](#try-it-on-the-exam
 | `path:models/marts/*` | file path, with forward slashes |
 | `schema:sales`, `database:dwh`, `package:my_pkg` | target schema, database, dbt package |
 | `type:model` | resource type: `model`, `seed`, `snapshot`, `source` |
+| `step:staging`, `step:interm*` | step of the data flow of the table's default layer (from its folder name, as in [How a table is classified](how-it-works.md#how-a-table-is-classified)): `source`, `staging`, `reference`, `intermediate`, `product`, `report` |
 | `tag:core,fct_*` | both at once |
 
 Matching is case-insensitive, with shell-style wildcards (`*`, `?`, `[abc]`).
@@ -737,7 +733,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 ### Reading the map
 
 - **From afar**: the domains, their size, and the routes between them: one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes. A bar under each domain name shows its mix of kinds.
-- **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
+- **Closer**: each table, coloured by kind, with its name. The size of a star follows the **role** of its kind (core tables larger, satellites, staging and sources smaller) and its number of links; from afar the names shown are the core tables with most relations, when the project's kinds have roles (a tooltip on each Types row gives the role). Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
 - **The same picture every time**: the same project gives the same placement at every generation.
 
 ![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)

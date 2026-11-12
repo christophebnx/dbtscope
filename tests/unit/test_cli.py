@@ -36,7 +36,7 @@ from dbtscope.render.page import LIBRARIES
 from dbtscope.storage.project_files import CONFIG_HINT, PRESETS, preset_names
 
 USAGE = "; see dbtscope --help"
-SELECTOR_FIELDS = "(expected database, name, package, path, schema, tag or type)"
+SELECTOR_FIELDS = "(expected database, name, package, path, schema, step, tag or type)"
 Capsys = pytest.CaptureFixture[str]
 TERMINAL_VARIABLES = (  # read by typer.rich_utils and rich.console to force a terminal, colours or width
     "GITHUB_ACTIONS",

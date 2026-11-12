@@ -1,18 +1,29 @@
 # Data Vault 2.0 naming: <entity>_hub, <a>_<b>_link, <entity>_sat, ...
 # Only the core is selected by default; reference tables and business vault
 # objects have a kind so that a project can add them to `select`.
+# `role` says how much a kind matters in the structure (core, connector, descriptive, technical):
+# it sizes the stars and picks the names of the universe view. `staging` comes first, so a
+# `stg_*_hub` staging model is never a hub. Layers use the `step:` selector (steps.py).
 title: Raw vault
 group_by: schema
 key_columns: "^(hk_|hd_)"
 select: ["*_hub", "*_link", "*_nhlink", "*_sal", "*_sat", "*_nhsat", "*_masat", "*_effsat"]
 exclude: ["vw_*", "stg_*"]
+layers:
+  - {key: sources, label: Sources, match: ["step:source"]}
+  - {key: staging, label: Staging, match: ["step:staging", "step:reference", "type:seed", "type:snapshot"]}
+  - {key: raw_vault, label: Raw vault, match: ["step:intermediate"]}
+  - {key: data_products, label: Data products, match: ["step:product", "step:report"]}
 kinds:
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: nhlink, label: NH link, color: "#1f8a8a", match: ["*_nhlink"]}
-  - {key: sal, label: Same-as link, color: "#8e5bb5", match: ["*_sal"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat", "*_nhsat", "*_masat", "*_effsat"]}
-  - {key: refhub, label: Ref hub, color: "#5b7fa6", match: ["*_refhub"]}
-  - {key: refsat, label: Ref sat, color: "#a8924a", match: ["*_refsat"]}
-  - {key: pit, label: PIT, color: "#b5651d", match: ["*_pit"]}
-  - {key: bridge, label: Bridge, color: "#8a5a44", match: ["*_bridge"]}
+  - {key: staging, label: Staging, color: "#a08497", role: technical, match: ["stg_*"]}
+  - {key: hub, label: Hub, color: "#2f6fb5", role: core, match: ["*_hub"]}
+  - {key: link, label: Link, color: "#2e8b57", role: connector, match: ["*_link"]}
+  - {key: nhlink, label: NH link, color: "#1f8a8a", role: connector, match: ["*_nhlink"]}
+  - {key: sal, label: Same-as link, color: "#8e5bb5", role: connector, match: ["*_sal"]}
+  - {key: sat, label: Satellite, color: "#c9a227", role: descriptive, match: ["*_sat", "*_nhsat", "*_masat", "*_effsat"]}
+  - {key: refhub, label: Ref hub, color: "#5b7fa6", role: core, match: ["*_refhub"]}
+  - {key: refsat, label: Ref sat, color: "#a8924a", role: descriptive, match: ["*_refsat"]}
+  - {key: pit, label: PIT, color: "#b5651d", role: descriptive, match: ["*_pit"]}
+  - {key: bridge, label: Bridge, color: "#8a5a44", role: connector, match: ["*_bridge"]}
+  - {key: dim, label: Dimension, color: "#0e9bbd", role: core, match: ["dim_*"]}
+  - {key: fact, label: Fact, color: "#8a1c5c", role: core, match: ["fct_*"]}

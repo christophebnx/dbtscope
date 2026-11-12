@@ -120,7 +120,12 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Which columns are keys | `domain/classify.key_columns` |
 | Light tint of a kind colour for a table body | `domain/classify.background` (`TINT`) |
 | Domain key of a table (order: D-015) | `domain/universe.domain_of` |
-| Order of the default layers along the data flow (no `layers` rules) | `domain/universe.flow_rank` (`FLOW_PREFIXES`, `UNRANKED`) |
+| Role of a kind (validation, values) | `domain/config.KindRule`, `Role`, `ROLES`; preset form `PresetKindRule` |
+| A file kind inherits the role of the preset kind it repeats | `domain/config._inherit_roles` (through `merge_config`) |
+| Steps of the data flow, default layer of a table, its rank and step | `domain/steps.STEPS`, `FLOW_PREFIXES`, `UNRANKED`, `default_layer`, `flow_rank`, `step_of` |
+| Star size and name priority by role; Types list order (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `ROLE_ORDER`, `NAME_ORDER`, `OVERVIEW_K`, `orderLabels` |
+| Main core tables of a constellation, by relations (page; names now, cards in M8.3) | `render/assets/universe.js mainTables` |
+| The large generated Data Vault project (tests) | `tests/large_project.large_manifest`, `write_large_project`, `LARGE_CONFIG`; browser fixture `tests/browser/conftest.large_page` |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
@@ -230,6 +235,9 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
 | The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-048) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
+| How much a kind matters in the structure (M8.1, D-058) | **role** (`role`, `Role`, `ROLES`, `KindRule.role`): `core`, `connector`, `descriptive`, `technical`, or none | importance, weight, tier, type | French UI wording: « rôle » ; `core` « centrale », `connector` « de liaison », `descriptive` « descriptive », `technical` « technique » (adjectives of « table »). In the trajectory, start / upstream / downstream is a **side**, never a role. |
+| Place of a default layer along the data flow, from its folder-name prefix (D-059) | **step** (`domain/steps.STEPS`, selector `step:`) | stage, level, rank (rank is its number) | `source`, `staging`, `reference`, `intermediate`, `product`, `report`. |
+| A table's place in a trajectory: start, upstream, downstream | **side** (`universe.js sideOf`) | role | Renamed from `roleOf` in M8.1. |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view, lineage graph | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. |

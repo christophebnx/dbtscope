@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "synthetic": true,
+  "tables": 1374,
+  "models": 1122,
+  "sources": 252,
+  "relations": 892,
+  "lineage": 1360,
+  "domains": {
+    "vehicle": 290, "auction": 225, "account": 170, "claim": 96, "activity": 89,
+    "raw_dealer": 72, "raw_auction_house": 72, "raw_crm": 72, "raw_billing": 72,
+    "raw_telematics": 72, "raw_claims": 72, "raw_web": 72
+  },
+  "layers": {"Sources": 252, "Staging": 252, "Raw vault": 808, "Data products": 62},
+  "kinds": {
+    "Hub": 175, "Link": 191, "Satellite": 422, "PIT": 20, "Dimension": 32, "Fact": 30,
+    "Staging": 252, "Source": 252
+  },
+  "business_domains": {
+    "vehicle": {"hubs": 70, "links": 66, "satellites": 135, "pits": 6, "dimensions": 7, "facts": 6},
+    "auction": {"hubs": 40, "links": 48, "satellites": 111, "pits": 5, "dimensions": 11, "facts": 10},
+    "account": {"hubs": 32, "links": 37, "satellites": 85, "pits": 4, "dimensions": 6, "facts": 6},
+    "claim": {"hubs": 17, "links": 21, "satellites": 49, "pits": 3, "dimensions": 3, "facts": 3},
+    "activity": {"hubs": 16, "links": 19, "satellites": 42, "pits": 2, "dimensions": 5, "facts": 5}
+  },
+  "special_satellites": {
+    "vehicle_e001_s5_sat": {"domain": "vehicle", "parents": []},
+    "vehicle_e002_s5_sat": {"domain": "vehicle", "parents": ["vehicle_e002_hub", "vehicle_e003_hub"]},
+    "vehicle_e004_s5_sat": {"domain": "claim", "parents": ["vehicle_e004_hub"]}
+  }
+}

@@ -5,7 +5,14 @@ group_by: folder
 key_columns: "(_id|_key|_sk|_fk)$"
 select: ["fct_*", "fact_*", "f_*", "dim_*", "d_*", "bridge_*", "brg_*"]
 exclude: []
+layers:
+  - {key: sources, label: Sources, match: ["step:source"]}
+  - {key: staging, label: Staging, match: ["step:staging", "step:reference", "type:seed", "type:snapshot"]}
+  - {key: intermediate, label: Intermediate, match: ["step:intermediate"]}
+  - {key: marts, label: Marts, match: ["step:product", "step:report"]}
+# `role` sizes the stars and picks the names of the universe view; `staging` comes first
 kinds:
-  - {key: fact, label: Fact, color: "#d9822b", match: ["fct_*", "fact_*", "f_*"]}
-  - {key: dim, label: Dimension, color: "#2f6fb5", match: ["dim_*", "d_*"]}
-  - {key: bridge, label: Bridge, color: "#8e5bb5", match: ["bridge_*", "brg_*"]}
+  - {key: staging, label: Staging, color: "#a08497", role: technical, match: ["stg_*"]}
+  - {key: fact, label: Fact, color: "#d9822b", role: core, match: ["fct_*", "fact_*", "f_*"]}
+  - {key: dim, label: Dimension, color: "#2f6fb5", role: core, match: ["dim_*", "d_*"]}
+  - {key: bridge, label: Bridge, color: "#8e5bb5", role: connector, match: ["bridge_*", "brg_*"]}

@@ -7,14 +7,14 @@ from typing import Any
 import yaml
 from colours import ciede2000, contrast
 
+from dbtscope.domain.classify import OTHER
 from dbtscope.domain.config import DEFAULT_KIND_COLOR, merge_config
 from dbtscope.domain.model import Project, Table
+from dbtscope.domain.steps import UNRANKED, flow_rank
 from dbtscope.domain.universe import (
     NO_DOMAIN_COLOR,
     PALETTE,
     TYPE_KINDS,
-    UNRANKED,
-    flow_rank,
     universe_data,
 )
 from dbtscope.render.page import embedded_json
@@ -61,10 +61,10 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
     }
     assert domains["returns"]["color"].startswith("#")
 
-    # default layers: sources first, then folders ordered along the flow
-    assert [layer["key"] for layer in data["layers"]] == ["sources", "staging", "catalog", "sales"]
+    # the preset's layers (steps of the data flow); folders with no step fall into "other"
+    assert [layer["key"] for layer in data["layers"]] == ["sources", "staging", "other"]
     assert by_name["orders"]["layer"] == "sources" and by_name["orders"]["kind"] == "source"
-    assert by_name["stg_orders"]["kind"] == "other"
+    assert by_name["stg_orders"]["kind"] == "staging"
     assert data["defaults"] == {
         "links": "both",
         "detail": "names",
@@ -144,3 +144,68 @@ def test_a_universe_with_a_seed_carries_the_seed_colour() -> None:
     data = universe_data(project, merge_config({}, {})).model_dump(mode="json", by_alias=True)
     assert {k["key"]: k["color"] for k in data["kinds"]}["seed"] == SEED
     assert data["nodes"][0]["kind"] == "seed"
+
+
+def test_universe_kinds_carry_their_role_last(shop: Project) -> None:
+    config = merge_config(read_preset("star_schema"), {})
+    data = json.loads(embedded_json(universe_data(shop, config)))
+    assert [(k["key"], k["role"]) for k in data["kinds"]] == [
+        ("staging", "technical"),
+        ("fact", "core"),
+        ("dim", "core"),
+        ("source", "technical"),
+    ]  # configured order, then the built-ins: the page sorts by role
+    assert all(list(k)[-1] == "role" for k in data["kinds"])
+
+
+def test_built_in_kinds_are_technical_and_other_has_no_role() -> None:
+    assert {k.role for k in TYPE_KINDS.values()} == {"technical"}
+    assert OTHER.role is None
+
+
+def test_a_payload_without_roles_keeps_the_order_of_its_kinds(shop: Project) -> None:
+    config = merge_config({}, {"kinds": [{"key": "z", "match": "fct_*"}, {"key": "a", "match": "dim_*"}]})
+    data = json.loads(embedded_json(universe_data(shop, config)))
+    assert [(k["key"], k["role"]) for k in data["kinds"]] == [
+        ("z", None),
+        ("a", None),
+        ("source", "technical"),
+        ("other", None),
+    ]
+
+
+def _preset_kinds() -> list[tuple[str, dict[str, Any]]]:
+    return [(name, k) for name in preset_names() for k in read_preset(name)["kinds"]]
+
+
+def test_every_preset_kind_has_a_role_and_staging_comes_first() -> None:
+    assert all(k.get("role") for _, k in _preset_kinds())
+    for name in preset_names():
+        assert read_preset(name)["kinds"][0]["key"] == "staging"
+    assert {k["key"] for n, k in _preset_kinds() if n == "data_vault"} >= {"staging", "dim", "fact"}
+
+
+def test_both_presets_have_the_four_default_layers() -> None:
+    labels = {n: [r["label"] for r in read_preset(n)["layers"]] for n in preset_names()}
+    assert labels == {
+        "data_vault": ["Sources", "Staging", "Raw vault", "Data products"],
+        "star_schema": ["Sources", "Staging", "Intermediate", "Marts"],
+    }
+
+
+def test_the_new_kind_colours_are_seen_from_the_page_and_every_other_colour() -> None:
+    new = {
+        ("data_vault", "staging"),
+        ("data_vault", "dim"),
+        ("data_vault", "fact"),
+        ("star_schema", "staging"),
+    }
+    others = {c for c in _shipped_colours()} | {SEED}
+    for name, kind in _preset_kinds():
+        if (name, kind["key"]) not in new:
+            continue
+        color = kind["color"]
+        assert contrast(color, PAGE_BG) >= 3.0, (name, kind["key"])
+        rivals = {k["color"] for n, k in _preset_kinds() if n == name and k["key"] != kind["key"]}
+        rivals |= others - {color}
+        assert min(ciede2000(color, c) for c in rivals) >= 12, (name, kind["key"])

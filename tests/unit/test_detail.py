@@ -43,3 +43,13 @@ def test_unmatched_tables_are_other_in_the_user_language(shop: Project) -> None:
     assert {e["kind"] for e in data["entities"]} == {"core", "other"}
     assert [k["label"] for k in data["kinds"]] == ["Cœur", "Autre"]
     assert data["grouped"] is False
+
+
+def test_detail_kinds_carry_their_role_last_and_other_has_none(shop: Project) -> None:
+    file_config = {"select": ["fct_*", "stg_*"], "kinds": [{"key": "fact", "match": "fct_*"}]}
+    config = merge_config(read_preset("star_schema"), file_config)  # `fact` repeats the preset's: role kept
+    data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config).model_dump(
+        mode="json"
+    )
+    assert [(k["key"], k["role"]) for k in data["kinds"]] == [("fact", "core"), ("other", None)]
+    assert list(data["kinds"][0])[-1] == "role"

@@ -10,6 +10,8 @@ Inside one selector, comma-separated parts must ALL match (intersection), as in 
     "database:dwh"             target database
     "package:my_package"       dbt package name
     "type:source"              resource type (model, source, seed, snapshot)
+    "step:staging"             step of the data flow of the default layer (steps.py: source, staging,
+                               reference, intermediate, product, report; glob allowed)
     "tag:DV_CORE,*_link"       both
 
 Matching is case-insensitive and uses shell-style globs (fnmatch).
@@ -22,6 +24,7 @@ from fnmatch import fnmatch
 
 from dbtscope.domain.errors import DomainError, in_words
 from dbtscope.domain.model import Table
+from dbtscope.domain.steps import default_layer, step_of
 
 # selector field -> `Table` attribute: the one map from selector names to the model
 ATTRIBUTES = {
@@ -32,7 +35,7 @@ ATTRIBUTES = {
     "package": "package",
     "type": "resource_type",
 }
-FIELDS = {*ATTRIBUTES, "tag"}
+FIELDS = {*ATTRIBUTES, "tag", "step"}
 
 
 class SelectorError(DomainError):
@@ -40,7 +43,7 @@ class SelectorError(DomainError):
 
 
 def field_value(table: Table, field: str) -> str:
-    """The value of a single-valued selector field (every field but `tag`) on `table`."""
+    """The value of a field of `ATTRIBUTES` (every field but `tag` and `step`) on `table`."""
     return str(getattr(table, ATTRIBUTES[field]))
 
 
@@ -60,6 +63,9 @@ def _part_matches(table: Table, part: str) -> bool:
         )
     if field == "tag":
         return any(glob(tag, pattern) for tag in table.tags)
+    if field == "step":
+        step = step_of(default_layer(table))
+        return bool(step) and glob(step, pattern)  # a folder with no step matches none, even `step:*`
     return glob(field_value(table, field), pattern)
 
 

@@ -26,6 +26,7 @@ What it covers, as dbt really writes it:
 - fields dbtscope does not read, ignored by `manifest_schema.INPUT`.
 
 `expected.json` holds the counts the tests check (`tests/integration/test_example_project.py`).
+Its `dbt-erd.yml` writes no `kinds`: the `data_vault` preset gives Hub, Link, Satellite, Fact, Dimension and Staging with their roles (M8.1), so the universe has `universe.kinds` Staging 18, Source 18, Seed 3, Snapshot 2, Hub 13, Link 12, Satellite 13, Fact 8, Dimension 8, and no Other.
 
 Regenerate after any change to `examples/acme_retail/` (then update `expected.json` if a count
 changes, and understand why):
