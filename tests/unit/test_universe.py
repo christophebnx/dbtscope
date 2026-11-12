@@ -366,6 +366,27 @@ def test_the_first_rule_that_sets_system_wins_and_any_domain_key_can_be_named() 
     assert flags["x"] is True
 
 
+def test_a_system_override_rule_keeps_the_label_and_colour_of_the_domains_own_rule() -> None:
+    project = _projects(_src("a", "raw_crm"))
+    rules = [
+        {"key": "raw_crm", "label": "CRM", "color": "#123456", "match": ["schema:raw_crm"]},
+        {"key": "raw_crm", "system": False, "match": []},
+    ]
+    (domain,) = _payload(project, {"group_by": "schema", "domains": rules})["domains"]
+    assert (domain["label"], domain["color"], domain["system"]) == ("CRM", "#123456", False)
+
+
+def test_the_first_rule_of_a_key_that_sets_a_label_or_colour_gives_it() -> None:
+    project = _projects(_src("a", "raw_crm"))
+    rules = [
+        {"key": "raw_crm", "match": ["schema:raw_crm"]},
+        {"key": "raw_crm", "label": "CRM", "color": "#123456", "match": []},
+        {"key": "raw_crm", "label": "Other", "color": "#654321", "match": []},
+    ]
+    (domain,) = _payload(project, {"group_by": "schema", "domains": rules})["domains"]
+    assert (domain["label"], domain["color"]) == ("CRM", "#123456")
+
+
 def test_a_domain_carries_system_last_and_the_order_is_unchanged() -> None:
     project = _projects(_src("a", "crm"), _src("b", "crm"), _model("m1"), _model("m2"), _model("m3"))
     domains = _payload(project, {"group_by": "schema"})["domains"]

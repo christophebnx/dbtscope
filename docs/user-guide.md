@@ -658,7 +658,7 @@ domains:
   - {key: reference, system: true, match: ["schema:reference"]}   # a reference domain, grouped with the sources
 ```
 
-When several rules share a key (one per schema of a domain), write `system` once, on any of them; the first rule of the key that sets it wins. `system` belongs to `domains` rules only (on a kind or layer rule `dbt-erd.yml` ignores it and a preset refuses it; a domain rule of a preset may set it). Anything but `true` or `false` stops the run with one line: `config <path>: domains[1].system: must be true or false; fix the file`. A user kind without a `role` that captures sources (say `kinds: [{key: src, match: ["type:source"]}]`) gives them no role, so their domain is no longer a source system: set `role: technical` on the kind, or `system: true` on the domain.
+When several rules share a key (one per schema of a domain), write `system` once, on any of them; for `system`, `label` and `color` alike, the first rule of the key that sets it wins, so an override rule such as `{key: raw_crm, system: false, match: []}` after the domain's own rule keeps its label and colour. `system` belongs to `domains` rules only (on a kind or layer rule `dbt-erd.yml` ignores it and a preset refuses it; a domain rule of a preset may set it). Anything but `true` or `false` stops the run with one line: `config <path>: domains[1].system: must be true or false; fix the file`. A user kind without a `role` that captures sources (say `kinds: [{key: src, match: ["type:source"]}]`) gives them no role, so their domain is no longer a source system: set `role: technical` on the kind, or `system: true` on the domain.
 
 ### Checks and errors
 

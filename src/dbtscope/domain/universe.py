@@ -8,7 +8,7 @@ from itertools import cycle
 
 from dbtscope.domain import fold
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import Config
+from dbtscope.domain.config import Config, DomainRule
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 from dbtscope.domain.payload import (
     UniverseDefaults,
@@ -94,6 +94,11 @@ def _system_override(key: str, config: Config) -> bool | None:
     return next((r.system for r in config.domains if r.key == key and r.system is not None), None)
 
 
+def _first_set(rules: Iterable[DomainRule], attribute: str, unset: str | None = None) -> str | None:
+    """`attribute` of the first rule that sets it (D-068, D-079); a label equal to the key is not set."""
+    return next((v for r in rules if (v := getattr(r, attribute)) and v != unset), None)
+
+
 def _roles_by_domain(members: list[fold.Member]) -> dict[str, list[str]]:
     """The kind role of every table, per domain key."""
     roles: dict[str, list[str]] = {}
@@ -106,17 +111,16 @@ def _domains(
     nodes: list[UniverseNode], config: Config, project: Project, roles: dict[str, list[str]]
 ) -> tuple[UniverseDomain, ...]:
     sizes = Counter(n.domain for n in nodes)
-    configured = {r.key: r for r in config.domains}
     lang, palette = config.language, cycle(PALETTE)
     domains = []
     for key, _ in sorted(sizes.items(), key=lambda kv: (kv[0] == "", -kv[1], kv[0])):
-        rule = configured.get(key)
+        rules = [r for r in config.domains if r.key == key]
         group = project.groups.get(key)
         if key == "":
             color, label = NO_DOMAIN_COLOR, NO_DOMAIN[lang]
         else:
-            color = rule.color if rule and rule.color else next(palette)
-            label = rule.label if rule and rule.label else key
+            color = _first_set(rules, "color") or next(palette)
+            label = _first_set(rules, "label", unset=key) or key
         system = is_source_system(roles[key], _system_override(key, config))
         domains.append(
             UniverseDomain(
