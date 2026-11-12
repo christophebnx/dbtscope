@@ -1,8 +1,8 @@
-# Brief — M7: a synthetic view of large projects
+# Brief — M8: a synthetic view of large projects
 
 *Written 2026-11-12 for a new Claude Code session, after an audit of the page on a large Data Vault project. Scope chosen with the user the same day (§ 3). Status: to build.*
 
-Read first, in this order: `CLAUDE.md`, `docs/roadmap.md` (M7), `docs/decisions.md`, `docs/architecture.md`, `docs/ui-spec.md`, `src/dbtscope/domain/CLAUDE.md`, `src/dbtscope/render/CLAUDE.md`, `docs/progress.md`. Then this brief.
+Read first, in this order: `CLAUDE.md`, `docs/roadmap.md` (M8), `docs/decisions.md`, `docs/architecture.md`, `docs/ui-spec.md`, `src/dbtscope/domain/CLAUDE.md`, `src/dbtscope/render/CLAUDE.md`, `docs/progress.md`. Then this brief.
 
 ## 1. Goal
 
@@ -38,38 +38,38 @@ Findings, numbered for reference in § 4:
 
 Decided with the user on 2026-11-12:
 
-- **In**: roles and a complete preset (M7.1), satellites folded into their entity (M7.2), summary cards at overview (M7.3), source systems apart and readable routes (M7.4), detail skeleton (M7.5).
+- **In**: roles and a complete preset (M8.1), satellites folded into their entity (M8.2), summary cards at overview (M8.3), source systems apart and readable routes (M8.4), detail skeleton (M8.5).
 - **Parent of a satellite**: from declared relations first, from names when no relation says it.
 - **Opening view**: cards inside the universe, not a new matrix tab.
 - **Source systems**: detected automatically, with a config override.
 - **Out, kept for later**: a domains × layers matrix view; a relation-driven placement of the raw vault (hubs as anchors, links between them); splitting the detail into sub-areas; any change to the flow view. Findings 5 (flow between layers) and 6 are only partly answered by this milestone; say so in `docs/progress.md` when closing.
 
-Five phases, each a sub-milestone run through `/feature M7.n`, in this order. Each ends green and pushed before the next starts. M7.1 carries the vocabulary every later phase uses.
+Five phases, each a sub-milestone run through `/feature M8.n`, in this order. Each ends green and pushed before the next starts. M8.1 carries the vocabulary every later phase uses.
 
 | Phase | Subject | Answers |
 |---|---|---|
-| M7.1 | Roles of kinds, complete presets with default layers, selector negation (optional), the large test project | 8, base of the rest |
-| M7.2 | Entities: satellites folded into their hub or link | 1, 2 |
-| M7.3 | Summary cards at overview | 1 |
-| M7.4 | Source systems apart, readable routes | 3, 4 |
-| M7.5 | Detail skeleton for large groups | 7 |
+| M8.1 | Roles of kinds, complete presets with default layers, selector negation (optional), the large test project | 8, base of the rest |
+| M8.2 | Entities: satellites folded into their hub or link | 1, 2 |
+| M8.3 | Summary cards at overview | 1 |
+| M8.4 | Source systems apart, readable routes | 3, 4 |
+| M8.5 | Detail skeleton for large groups | 7 |
 
 ## 4. Constraints that hold for all phases
 
 - **Invariants of `CLAUDE.md`**, all of them. In particular: `domain/` stays pure; the manifest is the only source; a table is identified by its `unique_id`; one self-contained page with the escaping rules.
 - **Python decides, the browser draws.** Roles, the parent of a folded table and the source-system flag are computed in `domain/` and embedded in the payload. The scripts never guess them from names.
-- **Stable project files** (invariant 9, D-013). `dbt-erd.yml` only gains optional keys; a config written before M7 gives a valid page. `dbt-erd-layout.json` keeps format `dbt-erd-layout` version 1: files and stored arrangements from before M7 load unchanged. If a phase needs a new scope in the layout, it follows the way D-048 added the layer scopes; anything beyond that needs a superseding decision with a migration, agreed with the user first.
+- **Stable project files** (invariant 9, D-013). `dbt-erd.yml` only gains optional keys; a config written before M8 gives a valid page. `dbt-erd-layout.json` keeps format `dbt-erd-layout` version 1: files and stored arrangements from before M8 load unchanged. If a phase needs a new scope in the layout, it follows the way D-048 added the layer scopes; anything beyond that needs a superseding decision with a migration, agreed with the user first.
 - **A count is never reduced by a fold.** Every table count on the page (meta line, domain names, filter rows, cards) keeps counting tables. Folding changes what is drawn, not what is counted.
 - **Every folded or summarised table stays reachable**: by search, by trajectory, by zoom, in the detail view.
 - **Reference pages.** The payload changes in every phase. Regenerate `tests/fixtures/m3-reference-pages/` once per phase, and state in `docs/progress.md` what changed in the payloads. A project with no preset and no `role` key must differ only by the new keys at their defaults.
 - **Performance budgets stay**: on the 1,500-table payload, page open ≤ 3 s, a filter change ≤ 1 s, trajectory and flow budgets as tested today. Add a budget wherever a phase adds a computation.
 - **UI rules stay** (`docs/ui-spec.md` § General): every string in English and French, WCAG AA text (D-037), 3:1 marks (D-042), plural agreement, 44 px touch targets, no horizontal scroll at 360 px, keyboard access, image export shows the view as it is on screen.
 - **Glossary** (D-027). New words (role, entity, fold, summary card, source system) enter the glossary of `docs/architecture.md` in the phase that introduces them, with their French UI wording. One word per concept.
-- **Decisions.** Each phase records its decisions in `docs/decisions.md` (next free number: D-054). M7.1 must record the new rule for star size. Today the radius grows with the table's degree, every relation and lineage link counted (`universe.js` `starR`: 3 + 1.6 × √degree, at most 14 px), although `docs/brief-universe-view.md` § 3 still says "all stars have the same size". The decision states the rule with roles and supersedes that line of the brief.
-- **Git.** Feature branch, Conventional Commits with `Milestone: M7.1` (… `M7.5`). Talk to the user in French; write the repository in English.
-- **Out of scope**: § 3 "Out"; the roadmap's "Later" items other than those named in M7.3 and M7.4; multi-project.
+- **Decisions.** Each phase records its decisions in `docs/decisions.md` (next free number: D-058). M8.1 must record the new rule for star size. Today the radius grows with the table's degree, every relation and lineage link counted (`universe.js` `starR`: 3 + 1.6 × √degree, at most 14 px), although `docs/brief-universe-view.md` § 3 still says "all stars have the same size". The decision states the rule with roles and supersedes that line of the brief.
+- **Git.** Feature branch, Conventional Commits with `Milestone: M8.1` (… `M8.5`). Talk to the user in French; write the repository in English.
+- **Out of scope**: § 3 "Out"; the roadmap's "Later" items other than those named in M8.3 and M8.4; multi-project.
 
-## 5. M7.1 — Roles, complete presets, the large test project
+## 5. M8.1 — Roles, complete presets, the large test project
 
 ### Roles
 
@@ -84,7 +84,7 @@ A kind rule gains an optional `role`. The role says how much a kind matters in t
 | (none) | unclassified, the default | | | other |
 
 - Config: `kinds: [{key: sat, …, role: descriptive}]`. A kind rule of `dbt-erd.yml` that overrides a preset kind by key keeps the preset's role unless it sets one. An unknown role is a one-line config error (as D-041 for colours).
-- Payload: each kind carries its role. No rule, no preset: every user kind has no role and the page behaves as before M7, apart from the built-in technical kinds.
+- Payload: each kind carries its role. No rule, no preset: every user kind has no role and the page behaves as before M8, apart from the built-in technical kinds.
 - Page, universe: `core` stars are larger than the others and their names are placed first; `descriptive` and `technical` stars are smaller. Whether the degree still varies the size inside a role: ui-designer, recorded in the decision. At Fit, the names offered are those of core tables with the most relations in their domain, never an arbitrary table (this takes the roadmap's "Later" item on overview labels). Sizes and thresholds: ui-designer.
 - Page, panels: the Types list is ordered by role (core, connector, descriptive, technical, none), then as today.
 
@@ -103,12 +103,12 @@ Found on the real Openlane manifest (1,453 tables, 2026-11-12). Its folders are 
 Both cases are solved by a preset, not by the tool: a project preset for Openlane (`layers` rules by folder and name) gives 6 layers, every table placed. The tool's behaviour without `layers` rules (one layer per first folder under `models/`) is kept: changing it would change the page of every project without rules.
 
 - **Preset default layers group folders by pattern.** The default `layers` of the built-in presets (above) match folders with globs, so that a family of folders forms one layer: `path:models/raw_*`, `path:models/stg*`, `path:models/bronze_*`, and so on for each step of the flow. On Openlane-shaped folders (`raw_<system>/` ×11) `preset: data_vault` alone gives one Raw layer. Folder names the presets cannot guess (`int_dwh`, `dp_dwh`) stay the project's own rules, in `dbt-erd.yml` or a project preset file.
-- **Negation in selectors, secondary.** Optional in this phase: drop it if it complicates M7.1, and say so in `docs/progress.md`. A selector part that starts with `!` matches when the rest does not: `path:models/int_dwh/*,!vw_*`. It applies wherever selectors do, through the one implementation of `domain/selectors.py`; a bare `!` is a one-line config error. It shortens rules where one folder holds several layers (Openlane's `int_dwh/` holds stage models `stg_*`, the vault, and views `vw_*` built on it), which today need a list of vault suffixes, and it keeps them right when a new suffix appears. In YAML a selector that starts with `!` must be quoted (`"!vw_*"`): the user guide says so.
+- **Negation in selectors, secondary.** Optional in this phase: drop it if it complicates M8.1, and say so in `docs/progress.md`. A selector part that starts with `!` matches when the rest does not: `path:models/int_dwh/*,!vw_*`. It applies wherever selectors do, through the one implementation of `domain/selectors.py`; a bare `!` is a one-line config error. It shortens rules where one folder holds several layers (Openlane's `int_dwh/` holds stage models `stg_*`, the vault, and views `vw_*` built on it), which today need a list of vault suffixes, and it keeps them right when a new suffix appears. In YAML a selector that starts with `!` must be quoted (`"!vw_*"`): the user guide says so.
 - The user guide (Configuration, Layers, Preset files) gains the Openlane-shaped example: a project preset with its `layers` rules.
 
 ### The large test project
 
-The audit used a throwaway generator. M7.1 adds it to the tests as the reference large Data Vault input (use `/add-fixture`; generated in code like `tests/unit/test_performance.big_manifest`, not a committed manifest), with the shape of § 2: 5 business domains of unequal size, 7 source systems of 36 sources and 36 staging models each, hubs with 1 to 4 satellites, links between two or three hubs (one in five across domains), effectivity satellites on some links, PITs, dimensions and facts, `relationships` tests from satellite to hub, link to hub, fact to dimension. Deterministic (seeded). It also holds the cases M7.2 needs: a satellite with no relation, a satellite with two parents, a satellite in another domain than its hub. Its folders follow Openlane's shape: one `raw_<system>/` folder per source system, and stage models (`stg_*`) and views (`vw_*`) in the vault folder next to the vault tables.
+The audit used a throwaway generator. M8.1 adds it to the tests as the reference large Data Vault input (use `/add-fixture`; generated in code like `tests/unit/test_performance.big_manifest`, not a committed manifest), with the shape of § 2: 5 business domains of unequal size, 7 source systems of 36 sources and 36 staging models each, hubs with 1 to 4 satellites, links between two or three hubs (one in five across domains), effectivity satellites on some links, PITs, dimensions and facts, `relationships` tests from satellite to hub, link to hub, fact to dimension. Deterministic (seeded). It also holds the cases M8.2 needs: a satellite with no relation, a satellite with two parents, a satellite in another domain than its hub. Its folders follow Openlane's shape: one `raw_<system>/` folder per source system, and stage models (`stg_*`) and views (`vw_*`) in the vault folder next to the vault tables.
 
 Done when:
 
@@ -119,7 +119,7 @@ Done when:
 5. If negation is built: on the large project, a `layers` rule written with it (`path:<vault folder>/*,!vw_*,!stg_*`) gives the same page as the same rules written with suffixes.
 6. User guide, how it works, the config reference and both presets' documentation describe roles, the presets' default layers, and negation if built.
 
-## 6. M7.2 — Entities: descriptive tables folded into their parent
+## 6. M8.2 — Entities: descriptive tables folded into their parent
 
 ### Rule
 
@@ -153,14 +153,14 @@ Done when, on the large project:
 4. Layout time and filter changes stay within the budgets, folded and shown.
 5. The star schema example and a page without roles are unchanged apart from the hidden control.
 
-## 7. M7.3 — Summary cards at overview
+## 7. M8.3 — Summary cards at overview
 
 At overview scale a constellation is drawn as a **summary card**, not as stars.
 
 - **When**: below a scale where stars would no longer be told apart. On a small project the stars are readable at Fit and cards never show; on the large project the page opens on cards. The threshold is one rule on the drawn size of stars (ui-designer), with a continuous transition while zooming, both ways. No new tab and no new mandatory control.
 - **Card of a domain**: name in its colour, table count and entity count; one row per layer present, in flow order, with the layer label, its count and a bar split by kind in kind colours (D-042 marks); the names of its three to five main core tables (most relations). The card keeps the constellation's place and about its footprint, so zooming in lands on the stars where the card was.
 - **Card of a layer** (grouping by layers): same, with one row per domain.
-- **Routes** between cards as between constellations (M7.4 makes them readable).
+- **Routes** between cards as between constellations (M8.4 makes them readable).
 - **Interactions**: hover gives the existing domain or layer tooltip; double-click zooms on the constellation (stars); dragging a card by its name moves the constellation as today; a click on a layer row zooms on that band.
 - **Filters** apply to the counts and rows. Search and trajectory: the camera goes to the table as today, which is past the card scale; a trajectory seen from afar marks the cards that hold its tables and their counts.
 - **Image export** shows the cards as on screen.
@@ -168,12 +168,12 @@ At overview scale a constellation is drawn as a **summary card**, not as stars.
 
 Done when:
 
-1. The large project opens on 12 cards (fewer once M7.4 lands); each of the four § 1 questions of `docs/brief-universe-view.md` about sizes and composition is answered without zooming.
+1. The large project opens on 12 cards (fewer once M8.4 lands); each of the four § 1 questions of `docs/brief-universe-view.md` about sizes and composition is answered without zooming.
 2. `acme_retail` opens on stars as today.
 3. Zooming in and out crosses the threshold without a jump of the camera, and the budgets hold.
 4. `docs/images/` gains the large-project overview; the user approves the screenshots.
 
-## 8. M7.4 — Source systems apart, readable routes
+## 8. M8.4 — Source systems apart, readable routes
 
 ### Source systems
 
@@ -198,9 +198,9 @@ Done when, on the large project with links on `both`:
 3. Hovering a domain shows every route it has.
 4. Route computation stays within the filter-change budget.
 
-## 9. M7.5 — Detail skeleton for large groups
+## 9. M8.5 — Detail skeleton for large groups
 
-- **When**: the tables to draw exceed a threshold (proposal: 60) and some have a parent (M7.2). Below it, or with no folded table, the detail is as today.
+- **When**: the tables to draw exceed a threshold (proposal: 60) and some have a parent (M8.2). Below it, or with no folded table, the detail is as today.
 - **Skeleton**: core and connector tables only. Each shows a last row "+ 3 satellites" (plural agreement, kind labels from the config) in place of its folded tables; the row's tooltip lists them. Relations of folded tables are not drawn.
 - **Control**: the same fold / show choice as the universe, in the detail panel, with a message when showing would draw more than the threshold ("271 tables: the drawing will be hard to read"). The Types list keeps counting every table.
 - **Focus** on a table (double-click, the focus box, a double-click from the universe) draws its folded tables in full, whatever the fold state; around the focus, a connector counts as a passage: "direct links" from a hub reaches the hubs on the other side of its links (check the present behaviour first; record the rule).

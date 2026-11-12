@@ -52,6 +52,8 @@ from dbtscope.storage.project_files import (
 
 PROG = "dbtscope"
 PRESETS = preset_names()
+LogLevel = Literal["debug", "info", "warn", "error", "none"]  # dbt's console log levels
+DEFAULT_LOG_LEVEL: LogLevel = "error"  # dbt's errors only (D-057)
 Preset = Literal[tuple(PRESETS)]  # type: ignore[valid-type]  # the choices, read once from the package
 HELP = (
     "Build the interactive map of a dbt project from its manifest: "
@@ -71,6 +73,10 @@ EPILOG = (
     "Exit codes: 0 done, 1 error, 2 wrong option, 130 interrupted."
 )
 USAGE_HINT = "see dbtscope --help"
+PROFILE_HINT = (
+    "often a missing profile: dbt still needs a profiles.yml to read the project, "
+    "in the project folder or in ~/.dbt, on Windows %USERPROFILE%\\.dbt"
+)
 LABEL_WIDTH = 10  # `universe: `, the longest summary label
 
 app = typer.Typer(
@@ -83,6 +89,36 @@ app = typer.Typer(
 
 class RunError(Exception):
     """A failure only the CLI can judge (paths, dbt, output, empty result), in its final words."""
+
+
+class ParseError(RunError):
+    """A failure of the dbt step that may fall back to the earlier manifest (D-054).
+
+    `str(error)` is `<reason>; <hint>`, the message of a strict run (no hint to skip dbt parse).
+    `warn_hint` is the `next:` line of the fallback warning.
+    """
+
+    def __init__(self, reason: str, hint: str, warn_hint: str) -> None:
+        super().__init__(f"{reason}; {hint}")
+        self.reason = reason
+        self.warn_hint = warn_hint
+
+
+@dataclass(frozen=True)
+class Fallback:
+    """A run that maps the manifest on disk because dbt parse failed.
+
+    `modified` is its mtime and `now` the start of the run: a manifest modified at or after `now`
+    was written by this failed run, not by an earlier one (`this_run`).
+    """
+
+    error: ParseError
+    modified: datetime
+    now: datetime
+
+    @property
+    def this_run(self) -> bool:
+        return self.modified >= self.now
 
 
 @dataclass(frozen=True)
@@ -100,16 +136,22 @@ class Options:
     dbt: str | None = None
     offline: bool = False
     preset_file: str | None = None
+    strict_parse: bool = False
+    log_level: LogLevel | None = None
 
 
 @dataclass(frozen=True)
 class Inputs:
-    """The paths of a run, resolved and checked; `dbt` is None when dbt does not run."""
+    """The paths of a run, resolved and checked; `dbt` is the explicit `--dbt`, resolved, else None.
+
+    `parse` says whether dbt parse runs (neither `--no-parse` nor `--manifest`).
+    """
 
     project: Path
     config: Path | None
     manifest: Path
     dbt: str | None
+    parse: bool = False
     preset_file: Path | None = None  # absolute; checked when read (`storage/project_files.read_preset_file`)
 
 
@@ -237,13 +279,50 @@ def command(
             "(about 2.5 MB larger). Default: the offline key of the config, else off.",
         ),
     ] = False,
+    strict_parse: Annotated[
+        bool,
+        _flag(
+            "--strict-parse",
+            "dbt",
+            "Stop with an error when dbt parse cannot run or fails, "
+            "instead of mapping the earlier manifest (for CI).",
+        ),
+    ] = False,
+    log_level: Annotated[
+        LogLevel | None,
+        typer.Option(
+            "--log-level",
+            metavar="LEVEL",
+            rich_help_panel="dbt",
+            show_default=False,
+            help=f"dbt's console log level: {in_words(get_args(LogLevel))} (passed to dbt parse). "
+            f"Default: {DEFAULT_LOG_LEVEL}, dbt's errors only.",
+        ),
+    ] = None,
 ) -> Options:
     """The command line as `Options`; the work is done by `run`, called from `main`."""
     del version  # eager: handled by `_show_version`
     if preset is not None and preset_file is not None:
         raise typer.BadParameter("cannot be used together with --preset", param_hint="'--preset-file'")
+    if no_parse or manifest is not None:
+        other = "--no-parse" if no_parse else "--manifest"
+        for given, name in ((strict_parse, "--strict-parse"), (log_level is not None, "--log-level")):
+            if given:
+                raise typer.BadParameter(f"cannot be used together with {other}", param_hint=f"'{name}'")
     return Options(
-        project_dir, config, preset, output, view, manifest, no_parse, no_open, dbt, offline, preset_file
+        project_dir,
+        config,
+        preset,
+        output,
+        view,
+        manifest,
+        no_parse,
+        no_open,
+        dbt,
+        offline,
+        preset_file,
+        strict_parse,
+        log_level,
     )
 
 
@@ -310,9 +389,10 @@ def _dbt(value: str | None) -> str:
     if found:
         return str(Path(found).absolute())
     if value is None:
-        raise RunError(
-            "dbt not found on PATH; install dbt, pass --dbt <path>, "
-            "or use --no-parse with an existing manifest"
+        raise ParseError(
+            "dbt not found on PATH",
+            "install dbt with your project's adapter, or pass --dbt <path>",
+            "install dbt with your project's adapter, or pass --no-parse to skip dbt parse",
         )
     if any(sep and sep in value for sep in (os.sep, os.altsep)):
         raise RunError(f"--dbt {Path(value).resolve()} does not exist or is not executable; check the path")
@@ -320,7 +400,7 @@ def _dbt(value: str | None) -> str:
 
 
 def _resolve(options: Options) -> Inputs:
-    """Resolve and check the project, config, manifest and dbt given on the command line.
+    """Resolve and check the project, config, manifest and an explicit dbt given on the command line.
 
     `--preset-file` is only resolved here: `load_config` checks it, as it checks the file's
     `preset` key (one implementation, D-030).
@@ -329,9 +409,11 @@ def _resolve(options: Options) -> Inputs:
     config = _config(options.config)
     preset_file = Path(options.preset_file).resolve() if options.preset_file is not None else None
     if options.manifest is not None:
-        return Inputs(project, config, _manifest(options.manifest), None, preset_file)
+        return Inputs(project, config, _manifest(options.manifest), None, False, preset_file)
     manifest = project / "target" / "manifest.json"
-    return Inputs(project, config, manifest, None if options.no_parse else _dbt(options.dbt), preset_file)
+    parse = not options.no_parse
+    dbt = _dbt(options.dbt) if parse and options.dbt is not None else None
+    return Inputs(project, config, manifest, dbt, parse, preset_file)
 
 
 def _output(value: str | None, project: Path, config: Config) -> Path:
@@ -371,27 +453,76 @@ def _run_reason(error: OSError, command: str) -> str:
     return os_reason(error)
 
 
-def _dbt_parse(dbt: str, project: Path) -> None:
-    """Run `dbt parse` in `project`, its output on our stderr (D-029)."""
+def _dbt_parse(dbt: str, project: Path, log_level: LogLevel) -> None:
+    """Run `dbt --log-level <level> parse` in `project`, its output on our stderr (D-029, D-057)."""
     _say(sys.stderr, f"Running dbt parse in {project}...")
     env = None
     if not sys.stderr.isatty() and "DBT_USE_COLORS" not in os.environ:
         env = {**os.environ, "DBT_USE_COLORS": "false"}
     try:
         # on Ctrl-C (or any exception) `run` kills dbt before re-raising: no dbt is left behind
-        result = subprocess.run([dbt, "parse"], cwd=project, stdout=2, env=env, check=False)
-    except OSError as error:
-        raise RunError(f"cannot run {dbt}: {_run_reason(error, dbt)}; check --dbt") from error
-    if result.returncode != 0:
-        raise RunError(
-            f"dbt parse failed with exit code {result.returncode} (see its messages above); "
-            "fix the project, or pass --no-parse to map the existing manifest"
+        result = subprocess.run(
+            [dbt, "--log-level", log_level, "parse"], cwd=project, stdout=2, env=env, check=False
         )
+    except OSError as error:
+        raise ParseError(
+            f"cannot run {dbt}: {_run_reason(error, dbt)}",
+            "check --dbt",
+            "check --dbt or reinstall dbt, or pass --no-parse to skip dbt parse",
+        ) from error
+    if result.returncode != 0:
+        if log_level == "none":
+            where, see = (
+                "; --log-level none hid dbt's messages",
+                "run again with --log-level error to see why",
+            )
+        else:
+            where, see = ", see above", f"fix what dbt reports ({PROFILE_HINT})"
+        raise ParseError(
+            f"dbt parse failed (exit code {result.returncode}{where})",
+            "fix the dbt project or its profile" if log_level != "none" else see,
+            f"{see}, or pass --no-parse to skip dbt parse",
+        )
+
+
+def _has_manifest(path: Path) -> bool:
+    """The default manifest is a usable file (`storage/files.path_kind`)."""
+    return _kind(path, "--project-dir") == "file"
+
+
+def _modified(path: Path) -> datetime:
+    """The manifest's mtime, in UTC; an `OSError` is a manifest error naming the file."""
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, UTC)
+    except OSError as error:
+        raise RunError(f"cannot read manifest {path}: {os_reason(error)}; check its permissions") from error
+
+
+def _parse(inputs: Inputs, strict: bool, log_level: LogLevel, now: datetime) -> Fallback | None:
+    """Run dbt parse, or fall back to the manifest on disk, or stop (D-054).
+
+    dbt runs at the console `log_level` (D-057). Returns None when dbt parse is not asked for or
+    succeeded. A strict run stops on the failure.
+    """
+    if not inputs.parse:
+        return None
+    try:
+        _dbt_parse(inputs.dbt or _dbt(None), inputs.project, log_level)
+    except ParseError as error:
+        if strict:
+            raise
+        if not _has_manifest(inputs.manifest):
+            raise RunError(
+                f"{error.reason}, and there is no earlier manifest {inputs.manifest}; "
+                "fix dbt, or pass --manifest <file>"
+            ) from error
+        return Fallback(error, _modified(inputs.manifest), now)
+    return None
 
 
 def _check_manifest(inputs: Inputs, ran_dbt: bool) -> None:
     """The default manifest exists once dbt has run (or was asked not to)."""
-    if _kind(inputs.manifest, "--project-dir") == "file":
+    if _has_manifest(inputs.manifest):
         return
     if ran_dbt:
         raise RunError(
@@ -400,6 +531,19 @@ def _check_manifest(inputs: Inputs, ran_dbt: bool) -> None:
         )
     raise RunError(
         f"manifest {inputs.manifest} not found; run without --no-parse so that dbt parse writes it"
+    )
+
+
+def _warn_fallback(fallback: Fallback, manifest: Path) -> None:
+    """The warning of a fallback: the key fact first, then the manifest and what to do next."""
+    error = fallback.error
+    if fallback.this_run:
+        lead = "mapping the manifest dbt wrote before failing, which may be incomplete"
+    else:
+        lead = "mapping the earlier manifest, which may be out of date"
+    modified = f"{_age(fallback.modified, fallback.now)} ({_moment(fallback.modified)})"
+    _warn(
+        f"{error.reason}; {lead}\n  manifest: {manifest}, last modified {modified}\n  next: {error.warn_hint}"
     )
 
 
@@ -450,6 +594,22 @@ def _size(size: int) -> str:
     return f"{kilobytes} kB" if kilobytes < 1000 else f"{size / 1e6:.1f} MB"
 
 
+def _moment(moment: datetime) -> str:
+    """`2026-11-01 10:00 UTC`; an aware datetime is converted to UTC, a naive one is taken as UTC."""
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(UTC)
+    return f"{moment:%Y-%m-%d %H:%M} UTC"
+
+
+def _age(written: datetime, now: datetime) -> str:
+    """`3 days ago`, `5 minutes ago`, `less than a minute ago` (also for a time in the future)."""
+    seconds = int((now - written).total_seconds())
+    for size, noun in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if seconds >= size:
+            return f"{_count(seconds // size, noun)} ago"
+    return "less than a minute ago"
+
+
 def _saved(saved_at: object) -> str:
     """`, saved 2026-11-01 10:00 UTC` from the layout's `savedAt`; its raw value if it does not parse."""
     if saved_at is None:
@@ -458,9 +618,7 @@ def _saved(saved_at: object) -> str:
         moment = datetime.fromisoformat(str(saved_at))
     except ValueError:
         return f", saved {saved_at}"
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(UTC)
-    return f", saved {moment:%Y-%m-%d %H:%M} UTC"
+    return f", saved {_moment(moment)}"
 
 
 @dataclass(frozen=True)
@@ -472,8 +630,10 @@ class Report:
     config_path: Path | None
     preset: str | Path | None  # the preset applied: a built-in name or a preset file
     page_size: int
+    manifest: Path
     layout_path: Path | None  # None when no layout is embedded
     saved_at: object = None  # the layout's `savedAt`
+    fallback: Fallback | None = None
 
 
 def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -> str:
@@ -491,6 +651,11 @@ def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -
         "config": f"{report.config_path or 'none (built-in defaults)'}"
         + (f", preset {report.preset}" if report.preset else ""),
     }
+    if report.fallback is not None:
+        fallback = report.fallback
+        age = _age(fallback.modified, fallback.now)
+        origin = "written by this run" if fallback.this_run else "earlier run"
+        rows["manifest"] = f"{report.manifest}, last modified {age} ({origin}; dbt parse failed)"
     if report.layout_path is not None:
         rows["layout"] = f"{report.layout_path}{_saved(report.saved_at)}"
     return "\n".join([str(report.output), *(f"  {f'{k}:':<{LABEL_WIDTH}}{v}" for k, v in rows.items())])
@@ -538,9 +703,11 @@ def run(options: Options) -> None:
         overrides["offline"] = True
     config = config.model_copy(update=overrides)  # the command line last
     output = _output(options.output, inputs.project, config)
-    if inputs.dbt is not None:
-        _dbt_parse(inputs.dbt, inputs.project)
-    _check_manifest(inputs, ran_dbt=inputs.dbt is not None)
+    now = datetime.now(UTC)
+    fallback = _parse(inputs, options.strict_parse, options.log_level or DEFAULT_LOG_LEVEL, now)
+    _check_manifest(inputs, ran_dbt=inputs.parse and fallback is None)
+    if fallback is not None:
+        _warn_fallback(fallback, inputs.manifest)
 
     parsed = read_manifest(inputs.manifest)
     if not parsed.tables:
@@ -557,7 +724,17 @@ def run(options: Options) -> None:
     _write_page(output, page_bytes)
     embedded = layout_path if layout is not None else None
     saved_at = layout.get("savedAt") if layout is not None else None
-    report = Report(output, config, config_path, preset, len(page_bytes), embedded, saved_at)
+    report = Report(
+        output,
+        config,
+        config_path,
+        preset,
+        len(page_bytes),
+        inputs.manifest,
+        embedded,
+        saved_at,
+        fallback,
+    )
     _say(sys.stdout, _summary(report, detail, universe))
     if not options.no_open:
         _open_browser(output)
