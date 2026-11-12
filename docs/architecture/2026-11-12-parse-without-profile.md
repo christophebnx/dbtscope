@@ -1,6 +1,6 @@
 # Parse without a profile — map any dbt project with no dbt setup (design note)
 
-Status: NEEDS USER APPROVAL. It refines D-012 (more than one `dbt parse`, a placeholder profile, a dbt that dbtscope may bring itself), adds an optional dependency extra (D-026 lists the runtime dependencies), adds an option, a `dbt-erd.yml` section, a summary row and warnings (user-visible behaviour not in the docs), and changes promises written in `docs/how-it-works.md` § What never happens. No released data format changes: `dbt-erd.yml` is only extended (as D-030 and D-048 did) and the layout file is untouched (D-013).
+Status: direction approved by the user on 2026-11-12 (see § User answers); the decision is recorded after the spike on real projects. Originally NEEDS USER APPROVAL. It refines D-012 (more than one `dbt parse`, a placeholder profile, a dbt that dbtscope may bring itself), adds an optional dependency extra (D-026 lists the runtime dependencies), adds an option, a `dbt-erd.yml` section, a summary row and warnings (user-visible behaviour not in the docs), and changes promises written in `docs/how-it-works.md` § What never happens. No released data format changes: `dbt-erd.yml` is only extended (as D-030 and D-048 did) and the layout file is untouched (D-013).
 
 ## Context
 
@@ -136,6 +136,27 @@ parse:
 - Adapters outside the § 2 table for attempt 2 (they still get attempt 3).
 - A bundled Fusion.
 - Rewriting names after the parse (stripping a placeholder prefix).
+
+## User answers (2026-11-12)
+
+The user approved the recommendations:
+
+1. The bundled dbt (dbt-core + dbt-duckdb) is a **required** dependency, not an extra: one install command, it works everywhere; the size (roughly 120–170 MB) is paid once.
+2. `auto` is the default everywhere; CI uses `--strict-parse` (D-054) or `--parse-profile project`.
+3. Placeholder names: open; the spike reports what they change in the map.
+4. A fresh placeholder parse comes before a stale earlier manifest.
+5. First ship attempt 3 only (bundled duckdb); attempt 2 and the `parse:` section of `dbt-erd.yml` wait.
+
+## Spike (2026-11-12)
+
+Script: a placeholder profile in a temporary folder, `uvx --from dbt-core --with dbt-<adapter> dbt parse --profiles-dir <tmp> --target-path <tmp> --log-path <tmp> --no-version-check`, then `dbtscope --manifest`. Run so far on `examples/acme_retail` only (running dbt on public projects cloned from GitHub needs the user's permission in the cloud session):
+
+| Adapter | `dbt parse` | Nodes | Map |
+| --- | --- | --- | --- |
+| duckdb, `path: ":memory:"` | exit 0, 14 s with a cold uv cache | 72 models, 2 snapshots, 3 seeds, 115 tests, 18 sources | identical to the committed manifest's: 95 tables, 7 domains, 58 relations, 110 lineage links |
+| snowflake placeholder | exit 0, 12 s | same | identical |
+
+Findings: the duckdb database name comes from the file name of `path` (`:memory:` gives `memory`), so the placeholder should use `path: warehouse.duckdb` (never opened by parse) to get `warehouse`. Schema names follow the project's `generate_schema_name`, unchanged by the adapter here. Still to run: the user's project (`openlane_dbt`, Windows) and projects that call warehouse-specific macros.
 
 ## Rejected options
 
