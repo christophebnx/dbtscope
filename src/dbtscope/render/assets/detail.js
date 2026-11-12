@@ -29,7 +29,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
           foldedShort: ['repliée', 'repliées'], foldedMeta: 'repliées', keysN: ['clé', 'clés'],
           foldFocused: 'Une table ciblée affiche toutes les tables',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}le schéma sera difficile à lire`,
-          foldLiveOn: n => `Tables descriptives repliées${L.colon}${num(n)} ${n > 1 ? 'tables dessinées' : 'table dessinée'}`,
+          foldLiveOn: n => `Tables descriptives repliées${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
           foldLiveOff: 'Tables descriptives affichées',
           passNote: kinds => `Passer par ${kinds} ne coûte aucun niveau` },
   }[PAGE.lang];
@@ -42,7 +42,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   // Skeleton (M8.5, D-073): a large group is drawn with its descriptive tables folded into their parents.
   // `e.parent` (an id, from the universe's computation, D-062) and the kinds' roles come with the payload.
   const SKELETON_MIN = 60;   // scope tables above which a group may be drawn as a skeleton: a drawing rule, as FLOW_MAX
-  const TIP_FOLDED = 12;     // folded tables listed in a table's tooltip before "+ N"
   const PARENT = new Map(DATA.entities.filter(e => e.parent && byId.has(e.parent)).map(e => [e.id, e.parent]));
   const ROLE = Object.fromEntries(DATA.kinds.map(k => [k.key, k.role]));
   const KIND_POS = new Map(DATA.kinds.map((k, i) => [k.key, i]));
@@ -80,13 +79,17 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('h-cols').textContent = T.hCols; $d('h-kinds').textContent = L.kinds;
   $d('h-fold').textContent = L.foldH;
   // the fold control (D-073): shown for a group that can be a skeleton; its own memory, applied when the focus is cleared
-  $d('fold-box').onchange = ev => {
-    state.fold = ev.target.checked;
-    foldMemory.set(state.fold ? 'folded' : 'shown', 'folded');
+  function setFold(on) {
+    state.fold = on;
+    foldMemory.set(on ? 'folded' : 'shown', 'folded');
     render();
     // the warning is a live region of its own: announce the choice only when it says nothing
-    $d('live').textContent = state.fold ? T.foldLiveOn(cur.drawn.size) : $d('fold-warn').textContent ? '' : T.foldLiveOff;
-  };
+    $d('live').textContent = on ? T.foldLiveOn(cur.drawn.size) : $d('fold-warn').textContent ? '' : T.foldLiveOff;
+  }
+  $d('fold-box').onchange = ev => setFold(ev.target.checked);
+  // the warning's action: the same choice as the checkbox, which keeps the focus (the button hides with the warning)
+  $d('fold-now').textContent = L.foldRow;
+  $d('fold-now').onclick = () => { $d('fold-box').focus(); setFold(true); };
   function refreshFold(visibleCount) {
     $d('fold').hidden = !eligible;
     if (!eligible) return;
@@ -96,7 +99,9 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     $d('fold-box').checked = state.fold;
     $d('fold-box').disabled = !!state.focus;
     $d('fold-row').title = state.focus ? T.foldFocused : L.foldTitle;
-    $d('fold-warn').textContent = !state.fold && !state.focus && visibleCount > SKELETON_MIN ? T.foldWarn(visibleCount) : '';
+    const warn = !state.fold && !state.focus && visibleCount > SKELETON_MIN;
+    $d('fold-warn').textContent = warn ? T.foldWarn(visibleCount) : '';
+    $d('fold-now').hidden = !warn;
   }
 
   const groupSel = $d('group');
@@ -129,7 +134,12 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('clear').onclick = () => setFocus(null);
   $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
-  const refit = () => zv && zv.fit();
+  const refit = () => { metaTitle(); if (zv) zv.fit(); };
+  // the meta line is one line cut with an ellipsis: when it is cut and says nothing more, its title holds it whole
+  function metaTitle() {
+    const m = $d('meta');
+    if (!m.title && m.scrollWidth > m.clientWidth) m.title = m.textContent;
+  }
   $d('fit').onclick = refit;
   window.addEventListener('resize', refit);
   sidePanel('d', refit);
@@ -189,10 +199,13 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   // The skeleton (D-073): no focus, a scope over SKELETON_MIN with a parent in it, and the viewer's choice "folded".
   const skeleton = () => eligible && state.fold && !state.focus;
+  // The shown drawing of such a scope (the viewer unfolded it, or the filters left no table to fold) over the
+  // threshold is laid out on the same grid: dot alone would make a strip of it (D-078).
+  const gridShown = drawn => eligible && !state.focus && drawn.size > SKELETON_MIN;
   // `cur`: what the last render drew, set before the layout starts. visible: the tables that pass the filters and the
   // focus; folded: those whose parent is visible, in a skeleton only; drawn: visible minus folded; held: parent id ->
   // its folded tables, in name order.
-  let cur = { skeleton: false, folded: new Set(), drawn: new Set(), held: new Map(), cols: null, positions: null, splines: '', scope: 0, size: [0, 0], layoutMs: 0, prepMs: 0 };
+  let cur = { skeleton: false, grid: false, folded: new Set(), drawn: new Set(), held: new Map(), cols: null, positions: null, splines: '', scope: 0, size: [0, 0], layoutMs: 0, prepMs: 0 };
   function drawingSets(visible, sk) {
     const folded = new Set(), held = new Map();
     if (sk) DATA.entities.forEach(e => {
@@ -248,27 +261,46 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       `<tr><td colspan="2" bgcolor="${esc(k.color)}"${dotEdge(k.color)}><font color="${head}" point-size="16"><b>${dotText(entityName(e))}</b></font></td></tr>${rows}</table>>];`;
   }
 
-  // --- skeleton layout (D-074) ------------------------------------------------------
+  // --- grid layout (D-074) ------------------------------------------------------
   // Dot alone makes a strip of the hubs (one column) beside the links, and every relation that crosses columns adds
-  // a virtual node to each column it crosses. A skeleton is laid out on a grid of K columns instead: referenced
-  // tables on the left side, referencing ones on the right, K chosen so that the drawing has the aspect of the
-  // drawing area; neato then only routes the relations around the pinned tables, as after a drag. Sizes are
-  // estimated in points (never measured, as the universe's boxes, D-040); everything here is deterministic.
-  // routed: neato routes the relations around the tables up to this many tables x relations (the vehicle group of the
-  // large project is 20,600, laid out in 2.6 s); above, they are straight lines, as Viz.js's 16 MB heap aborts the
-  // routing of 277 pinned tables
-  const SK = { gap: 16, gutter: 70, minAspect: 0.5, maxAspect: 3, sweeps: 4, routed: 25000 };
+  // a virtual node to each column it crosses. A large drawing (the skeleton, or the shown tables of a group over the
+  // threshold) is laid out on a grid instead, in K columns that come in pairs [hubs | links]: the referenced tables
+  // are dealt over the hub columns, each referencing table goes to the link column beside its first (highest-degree)
+  // parent, so a relation stays inside its pair. K is chosen so that the drawing has the aspect of the drawing area;
+  // the rows are then ordered and aligned by barycentre sweeps, and neato only routes the relations around the
+  // pinned tables, as after a drag. Sizes are estimated in points (never measured, as the universe's boxes, D-040);
+  // everything here is deterministic.
+  // routed: neato routes the relations around the tables up to this many tables x relations; above, they are
+  // straight lines, as Viz.js's 16 MB heap aborts the routing of 277 pinned tables
+  const SK = { gap: 16, gutter: 70, minAspect: 0.5, maxAspect: 3, sweeps: 6, scan: 60, routed: 5000 };
   const splinesFor = (ids, rels) => (ids.size * rels.length > SK.routed ? 'line' : 'true');
   function sizeOf(e) {
     const heldIds = cur.held.get(e.id) || [];
+    // the rows a table draws: none in a skeleton (but the folded row), else its keys and a "+ N columns" row, or all
+    const shown = cur.skeleton && !state.allColumns ? [] : state.allColumns ? e.columns : e.columns.filter(c => c[2]);
+    const extra = !cur.skeleton && !state.allColumns && shown.length < e.columns.length ? 1 : 0;
     let w = Math.max(entityName(e).length * 7.3 + 22, heldIds.length ? foldedText(heldIds).length * 6.1 + 18 : 0);
-    let h = 32 + (heldIds.length ? 26 : 0);
-    if (state.allColumns) { h += 24 * e.columns.length; w = Math.max(w, ...e.columns.map(c => (c[0].length + c[1].length) * 7 + 40)); }
+    let h = 32 + (heldIds.length ? 26 : 0) + 24 * (shown.length + extra);
+    if (shown.length) w = Math.max(w, ...shown.map(c => (c[0].length + c[1].length) * 7 + 40));
     return [w, h];
   }
   const byNameId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  // The centre y of the tables of a column, in this order, as near as possible to `want` while keeping their gaps
+  // (pool adjacent violators: the least squares fit of non-decreasing offsets).
+  function stack(ids, size, want) {
+    const off = ids.map(() => 0), blocks = [];
+    for (let i = 1; i < ids.length; i++) off[i] = off[i - 1] + (size.get(ids[i - 1])[1] + size.get(ids[i])[1]) / 2 + SK.gap;
+    ids.forEach((id, i) => {
+      blocks.push({ sum: want[i] - off[i], n: 1 });
+      while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
+        const top = blocks.pop(), under = blocks[blocks.length - 1];
+        under.sum += top.sum; under.n += top.n;
+      }
+    });
+    return blocks.flatMap(bl => Array.from({ length: bl.n }, () => bl.sum / bl.n)).map((v, i) => v + off[i]);
+  }
   // tables: the drawn entities; rels: the drawn relations. Returns { K, rows: the table ids of each column from top to
-  // bottom, size: id -> [w, h] }.
+  // bottom, y: id -> centre y (down, from 0), widths, height, size: id -> [w, h] }.
   function skeletonColumns(tables, rels) {
     const size = new Map(tables.map(e => [e.id, sizeOf(e)]));
     const degree = new Map(tables.map(e => [e.id, 0])), parentsOf = new Map(tables.map(e => [e.id, []]));
@@ -277,60 +309,73 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       degree.set(r.child, degree.get(r.child) + 1); degree.set(r.parent, degree.get(r.parent) + 1);
       parentsOf.get(r.child).push(r.parent); near.get(r.child).push(r.parent); near.get(r.parent).push(r.child);
     });
+    const byDegree = (a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b);
     const asChild = new Set(rels.map(r => r.child));
-    const left = tables.filter(e => !asChild.has(e.id)).sort((a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b));
-    const right = tables.filter(e => asChild.has(e.id));
+    let hubs = tables.filter(e => !asChild.has(e.id)).sort(byDegree), links = tables.filter(e => asChild.has(e.id)).sort(byNameId);
+    if (!hubs.length) [hubs, links] = [links.sort(byDegree), []];   // only cycles: no side to tell
+    const paired = links.length > 0;
+    for (const ps of parentsOf.values()) ps.sort((a, b) => byDegree(byId.get(a), byId.get(b)));
     const target = Math.log(Math.min(SK.maxAspect, Math.max(SK.minAspect, box.clientWidth / Math.max(1, box.clientHeight) || 1.6)));
-    function deal(K) {
-      const a = !right.length ? K : !left.length ? 0 : Math.min(K - 1, Math.max(1, Math.round(K * left.length / tables.length)));
-      const rows = Array.from({ length: K }, () => []), heights = new Array(K).fill(0), widths = new Array(K).fill(0);
-      const col = new Map();
-      const lowest = (from, to, nearCol) => {
-        let best = from;
-        for (let c = from + 1; c < to; c++) {
-          if (heights[c] < heights[best] - 1e-9 || (Math.abs(heights[c] - heights[best]) <= 1e-9 && Math.abs(c - nearCol) < Math.abs(best - nearCol))) best = c;
-        }
-        return best;
-      };
+    // P pairs [hubs | links] (P plain columns of hubs when nothing references a table)
+    function deal(P) {
+      const K = paired ? 2 * P : P, rows = Array.from({ length: K }, () => []), pair = new Map();
+      const heights = new Array(K).fill(0), widths = new Array(K).fill(0), col = new Map();
       const put = (e, c) => {
         const [w, h] = size.get(e.id);
         col.set(e.id, c); rows[c].push(e.id); heights[c] += h + SK.gap; widths[c] = Math.max(widths[c], w);
       };
-      left.forEach(e => put(e, lowest(0, a, 0)));
-      const mean = e => { const cs = parentsOf.get(e.id).filter(p => col.has(p)).map(p => col.get(p)); return cs.length ? d3.mean(cs) : (a - 1) / 2; };
-      right.map(e => [mean(e), e]).sort((p, q) => p[0] - q[0] || byNameId(p[1], q[1])).forEach(([m, e]) => put(e, lowest(a, K, m)));
+      hubs.forEach((e, i) => {   // the highest degrees first, dealt in a snake: 0..P-1, P-1..0, 0..P-1...
+        const p = Math.floor(i / P) % 2 ? P - 1 - i % P : i % P;
+        pair.set(e.id, p); put(e, paired ? 2 * p : p);
+      });
+      let pending = links;
+      while (pending.length) {
+        const rest = pending.filter(e => {
+          const anchor = parentsOf.get(e.id)[0];
+          if (!pair.has(anchor)) return true;
+          pair.set(e.id, pair.get(anchor)); put(e, 2 * pair.get(anchor) + 1);
+          return false;
+        });
+        if (rest.length === pending.length) {   // a cycle of links: the first one goes to the shortest link column
+          const c = [...Array(P).keys()].reduce((a, b) => (heights[2 * b + 1] < heights[2 * a + 1] ? b : a));
+          pair.set(rest[0].id, c); put(rest[0], 2 * c + 1); rest.shift();
+        }
+        pending = rest;
+      }
       const w = widths.reduce((x, y) => x + y, 0) + (K - 1) * SK.gutter;
-      return { K, rows, col, widths, heights, ratio: w / Math.max(1, ...heights) };
+      return { K, rows, col, widths, ratio: w / Math.max(1, ...heights) };
     }
     let best = null;
-    for (let K = Math.min(2, tables.length); K <= Math.min(tables.length, 60); K++) {
-      const d = deal(K), score = Math.abs(Math.log(d.ratio) - target);
+    const most = paired ? Math.min(hubs.length, SK.scan / 2) : Math.min(hubs.length, SK.scan);
+    for (let P = 1; P <= most; P++) {
+      const d = deal(P), score = Math.abs(Math.log(d.ratio) - target);
       if (!best || score < best.score - 1e-9) best = { ...d, score };
     }
-    if (!best) return { K: 0, rows: [], widths: [], heights: [], size };
-    // order each column by the barycentre of its neighbours in the other columns, a few alternating sweeps
-    const place = new Map();
-    const index = () => best.rows.forEach(r => r.forEach((id, i) => place.set(id, (i + 0.5) / r.length)));
-    index();
-    for (let sweep = 0; sweep < SK.sweeps; sweep++) {
-      const order = sweep % 2 ? [...best.rows.keys()].reverse() : [...best.rows.keys()];
-      order.forEach(c => {
-        const key = id => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => place.get(n)) : place.get(id); };
-        const keyed = best.rows[c].map(id => [key(id), id]);
-        best.rows[c] = keyed.sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1)).map(p => p[1]);
-        best.rows[c].forEach((id, i) => place.set(id, (i + 0.5) / best.rows[c].length));
-      });
-    }
-    return { K: best.K, rows: best.rows, widths: best.widths, heights: best.heights, size };
+    if (!best) return { K: 0, rows: [], widths: [], height: 0, y: new Map(), size };
+    // the rows: every column packed and centred on 0, then barycentre sweeps: the hubs by the mean y of the tables
+    // across their relations, then the links by the mean y of theirs, each column stacked as near as it can to its
+    // wish; the last step settles the links on their hubs, so a long relation runs in the gap between rows
+    const y = new Map(), rows = best.rows;
+    const settle = (c, order, want) => { rows[c] = order; stack(order, size, order.map(want)).forEach((v, i) => y.set(order[i], v)); };
+    rows.forEach((ids, c) => settle(c, ids, () => 0));
+    const wish = (c, id) => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => y.get(n)) : y.get(id); };
+    const sweep = cols => cols.forEach(c => {
+      const keyed = rows[c].map(id => [wish(c, id), id]).sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1));
+      settle(c, keyed.map(k => k[1]), id => wish(c, id));
+    });
+    const side = first => rows.map((r, c) => c).filter(c => !paired || c % 2 === first);
+    for (let i = 0; i < SK.sweeps; i++) { sweep(side(0)); if (paired) sweep(side(1)); }
+    const top = Math.min(...tables.map(e => y.get(e.id) - size.get(e.id)[1] / 2));
+    const bottom = Math.max(...tables.map(e => y.get(e.id) + size.get(e.id)[1] / 2));
+    tables.forEach(e => y.set(e.id, y.get(e.id) - top));
+    return { K: best.K, rows, widths: best.widths, height: bottom - top, y, size };
   }
-  // the centre of every table of a skeleton, in Graphviz points (y up): columns left to right, each centred on the
-  // middle of the tallest one
+  // the centre of every table of the grid, in Graphviz points (y up): columns left to right
   function skeletonPositions(grid) {
-    const pos = new Map(), tallest = Math.max(0, ...grid.heights);
+    const pos = new Map();
     let x = 0;
     grid.rows.forEach((ids, c) => {
-      let y = (tallest - grid.heights[c]) / 2;
-      ids.forEach(id => { const h = grid.size.get(id)[1]; pos.set(id, [Math.round(x + grid.widths[c] / 2), -Math.round(y + h / 2)]); y += h + SK.gap; });
+      ids.forEach(id => pos.set(id, [Math.round(x + grid.widths[c] / 2), -Math.round(grid.y.get(id))]));
       x += grid.widths[c] + SK.gutter;
     });
     return pos;
@@ -339,13 +384,14 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   // positions: table id -> [x, y] in Graphviz points, every table pinned (for neato); none for dot's own layout
   function buildDot(ids, positions, splines = 'true') {
+    // straight lines, once the tables are placed well, are a quiet grey: a long relation is a hint, not a wall
     const rels = drawnRelations(ids);
     const out = ['digraph G {', 'rankdir=LR; nodesep=0.35; ranksep=1.4; bgcolor="transparent";',
       // neato reads pinned positions in inches unless told they are points
       positions ? `splines=${splines}; overlap=true; inputscale=72;` : '',
       // Viz.js sizes boxes with built-in Helvetica/Arial metrics; any other font overflows them
       'node [shape=plain fontname="Arial" fontsize=14];',
-      'edge [color="#8a8f98" penwidth=1.4 arrowsize=0.8 dir=back arrowtail=crow];'];
+      `edge [color="${splines === 'line' ? '#8a8f9880' : '#8a8f98'}" penwidth=1.4 arrowsize=0.8 dir=back arrowtail=crow];`];
     DATA.entities.filter(e => ids.has(e.id)).forEach(e => out.push(nodeDot(e, positions && positions.get(e.id))));
     // Tables nothing else references (links, satellites, facts) all land in the last column; dozens
     // of them make one endless column, so spread them over 3, as Graphviz's `unflatten -l 3` would.
@@ -367,7 +413,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   // neato redraws with every table pinned, moved ones where they were dropped, so links are routed around the new
   // positions.
   const viewKey = () => [state.group, state.focus || '', state.focus ? state.depth : '', state.allColumns ? 'all' : 'keys',
-    DATA.kinds.filter(k => state.kinds.has(k.key)).map(k => k.key).join(','), ...(cur.skeleton ? ['fold'] : [])].join('|');
+    DATA.kinds.filter(k => state.kinds.has(k.key)).map(k => k.key).join(','), ...(cur.skeleton ? ['fold'] : cur.grid ? ['grid'] : [])].join('|');
 
   // centre of each drawn table in Graphviz points (y up), from the polygons Graphviz drew for it
   function centres(svg) {
@@ -397,8 +443,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
       if (Math.hypot(dx * ctm.a, dy * ctm.d) < 3) { g.removeAttribute('transform'); return; }
       justDragged = true; setTimeout(() => { justDragged = false; });
       const [cx, cy] = centres(svg).get(g.id), pinned = LAYOUT.get('detail', viewKey()) || {};
-      // neato moves its drawing to the origin: a skeleton's pins are kept in the frame of the positions it was given
-      const given = cur.skeleton && cur.positions ? cur.positions.get(g.id) : null, [sx, sy] = given ? [cx - given[0], cy - given[1]] : [0, 0];
+      // neato moves its drawing to the origin: a gridded drawing's pins are kept in the frame of the positions it was given
+      const given = cur.positions ? cur.positions.get(g.id) : null, [sx, sy] = given ? [cx - given[0], cy - given[1]] : [0, 0];
       pinned[g.id] = [Math.round(cx + dx - sx), Math.round(cy - dy - sy)];
       LAYOUT.set('detail', viewKey(), pinned);
       render(true);
@@ -413,26 +459,28 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   // keepView: redraw without moving the camera (after a drop)
   function render(keepView) {
     canExport(false);
-    const t0 = performance.now(), visible = visibleIds(), sk = skeleton();
-    const mine = cur = { skeleton: sk, ...drawingSets(visible, sk), cols: null, positions: null, splines: '', scope: scope.size, size: [0, 0], layoutMs: 0, prepMs: 0 };
+    const t0 = performance.now(), visible = visibleIds(), sk = skeleton(), sets = drawingSets(visible, sk);
+    const gridded = sk || gridShown(sets.drawn);
+    const mine = cur = { skeleton: sk, grid: gridded, ...sets, cols: null, positions: null, splines: '', scope: scope.size, size: [0, 0], layoutMs: 0, prepMs: 0 };
     const ids = mine.drawn;
     const pinned = LAYOUT.get('detail', viewKey()) || {};
-    // a skeleton is laid out on a grid (neato only routes the relations); a moved table keeps its place on it
+    // a large drawing is laid out on a grid (neato only routes the relations); a moved table keeps its place on it
     let grid = null;
-    if (sk) {
+    if (gridded) {
       const rels = drawnRelations(ids);
       mine.cols = skeletonColumns(DATA.entities.filter(e => ids.has(e.id)), rels);
       grid = mine.positions = skeletonPositions(mine.cols);
       Object.entries(pinned).forEach(([id, p]) => { if (grid.has(id)) grid.set(id, p); });
       mine.splines = splinesFor(ids, rels);
     }
-    const { dot, relCount } = buildDot(ids, grid, sk ? mine.splines : undefined);
+    const { dot, relCount } = buildDot(ids, grid, gridded ? mine.splines : undefined);
     mine.prepMs = performance.now() - t0;
     refreshFold(visible.size);
     const foreign = state.group ? ` · ${T.foreign}` : '', rels = plural(relCount, T.rels), all = plural(scope.size, L.tables);
     $d('meta').textContent = sk ? `${num(ids.size)} / ${all} · ${plural(mine.folded.size, T.foldedShort)} · ${rels}${foreign}`
       : `${num(ids.size)} / ${all} · ${rels}${foreign}`;
     $d('meta').title = sk ? tally(ids) + (mine.folded.size ? ` · ${T.foldedMeta}${L.colon}${tally(mine.folded)}` : '') : '';
+    metaTitle();
     $d('focus-info').textContent = state.focus ? T.focused + entityName(byId.get(state.focus)) : '';
     const view = keepView && zv ? zv.get() : null;
     if (zv) { zv.destroy(); zv = null; }
@@ -504,7 +552,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     svgImage: scale => svgImage(box, zv, scale),
     // what the last render drew, for the browser tests: the skeleton, its fold choice, the drawn and folded ids,
     // the scope size, the number of columns, the SVG size in points, the layout and preparation times (ms)
-    drawing: () => ({ skeleton: cur.skeleton, fold: state.fold, drawn: [...cur.drawn], folded: [...cur.folded], scope: cur.scope,
+    drawing: () => ({ skeleton: cur.skeleton, grid: cur.grid, fold: state.fold, drawn: [...cur.drawn], folded: [...cur.folded], scope: cur.scope,
       columns: cur.cols ? cur.cols.K : 0, splines: cur.splines, size: cur.size, layoutMs: cur.layoutMs, prepMs: cur.prepMs }),
   };
 }

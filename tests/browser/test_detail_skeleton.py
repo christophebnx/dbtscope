@@ -22,6 +22,7 @@ from conftest import (
     model,
     page_of,
     relationships_test,
+    write_config,
     write_example,
     write_project,
 )
@@ -40,6 +41,7 @@ LAYOUT_KEY = "dbt-erd-layout:" + TITLE
 FOLD_KEY = "dbtscope-detail-fold:" + TITLE
 SKELETON_KEY = "vehicle|||keys|hub,link,sat|fold"
 SHOWN_KEY = "vehicle|||keys|hub,link,sat"
+GRID_KEY = SHOWN_KEY + "|grid"  # the shown drawing of a group over the threshold (D-078)
 BOUND_MS = 5000  # render to mounted SVG
 PREP_MS = 50  # sets, K scan, dealing
 HEADER_PT = 16  # the font size of a table's header (nodeDot)
@@ -183,7 +185,8 @@ def test_the_vehicle_group_opens_as_a_skeleton_within_the_bounds(
     assert all(m.entities[uid]["parent"] in d["drawn"] for uid in d["folded"])
     assert sorted(held) == sorted({m.entities[u]["parent"] for u in d["folded"]})
     w, h = d["size"]
-    assert 0.5 <= w / h <= 3 and d["splines"] == "true", d["size"]
+    assert 0.5 <= w / h <= 3 and d["splines"] == "line" and d["grid"] is True, d["size"]
+    assert d["columns"] % 2 == 0, "columns come in pairs [hubs | links]"
     assert d["layoutMs"] < BOUND_MS and d["prepMs"] < PREP_MS, (d["layoutMs"], d["prepMs"])
     k0 = p.page.evaluate(K_NOW)
     for _ in range(3):  # three wheel notches from Fit: one notch is about x1.15
@@ -273,7 +276,8 @@ def test_the_meta_line_counts_the_scope_the_folded_tables_and_splits_by_kind(
     assert p.page.inner_text("#d-meta").startswith(
         f"{VEHICLE['scope']} / {VEHICLE['scope']} tables · 288 relations"
     )
-    assert not p.page.get_attribute("#d-meta", "title")
+    title = p.page.get_attribute("#d-meta", "title")  # none, or the whole line when cut by the ellipsis
+    assert not title or title == p.page.inner_text("#d-meta")
 
 
 def test_the_highlight_box_lights_the_table_that_holds_the_match(
@@ -313,13 +317,44 @@ def test_the_fold_control_shows_everything_and_warns(vehicle: tuple[Page, dict[s
     assert p.page.inner_text("#d-live") == f"Descriptive tables folded: {VEHICLE['drawn']} tables drawn"
 
 
-def test_the_unfolded_drawing_is_today_s(vehicle: tuple[Page, dict[str, Any]]) -> None:
+def test_the_unfolded_drawing_of_a_large_group_is_laid_out_on_the_grid(
+    vehicle: tuple[Page, dict[str, Any]],
+) -> None:
     p, _ = vehicle
     fold_box(p, False)
-    meta, svg = p.page.evaluate(SIGNATURE)
-    baseline = BASELINE["large"][""]
-    assert meta == baseline[0]
-    assert hashlib.sha256(svg.encode()).hexdigest() == baseline[1]
+    d = drawing(p)
+    w, h = d["size"]
+    assert d["skeleton"] is False and d["grid"] is True and len(d["drawn"]) == VEHICLE["scope"]
+    assert d["columns"] % 2 == 0 and 0.5 <= w / h <= 3 and d["splines"] == "line", d["size"]
+    assert p.page.locator("#d-graph .msg").count() == 0
+    print(
+        f"vehicle unfolded: {w:.0f} x {h:.0f} pt (W/H {w / h:.2f}), K {d['columns']}, {d['layoutMs']:.0f} ms"
+    )
+
+
+def test_the_warning_has_a_fold_action_that_keeps_the_keyboard_focus(
+    vehicle: tuple[Page, dict[str, Any]],
+) -> None:
+    p, _ = vehicle
+    assert p.page.is_hidden("#d-fold-now")
+    fold_box(p, False)
+    assert p.page.is_visible("#d-fold-now") and p.page.inner_text("#d-fold-now") == "Fold"
+    p.page.focus("#d-fold-now")
+    p.page.keyboard.press("Enter")
+    wait_drawn(p)
+    assert drawing(p)["skeleton"] is True and p.page.is_checked("#d-fold-box")
+    assert p.page.is_hidden("#d-fold-now") and p.page.evaluate("document.activeElement.id") == "d-fold-box"
+    assert p.page.inner_text("#d-live").startswith("Descriptive tables folded")
+
+
+def test_the_fold_action_is_in_french(tmp_path: Path, open_page: Any) -> None:
+    p = open_detail(large(tmp_path, "language: fr\n"), open_page)
+    fold_box(p, False)
+    assert p.page.inner_text("#d-fold-now") == "Replier"
+    p.page.click("#d-fold-now")
+    wait_drawn(p)
+    live = f"Tables descriptives repliées\u00a0: {VEHICLE['drawn']} tables dessinées"
+    assert p.page.inner_text("#d-live") == live
 
 
 def test_the_choice_is_kept_in_its_own_key_and_never_exported(
@@ -665,26 +700,83 @@ def test_dragging_a_hub_in_the_skeleton_writes_the_fold_key_and_survives_a_reloa
     )
 
 
-def test_the_shown_drawing_keeps_its_own_earlier_arrangement(
+def test_the_shown_drawing_has_its_own_grid_key_and_an_earlier_arrangement_stays_untouched(
     large_page: tuple[Path, dict[str, Any]], open_page: Any
 ) -> None:
     entities = large_page[1]["detail"]["entities"]
     hub = next(e["id"] for e in entities if e["name"] == "car_hub")
     other = next(e["id"] for e in entities if e["name"] == "van_hub")
-    sat = next(e["id"] for e in entities if e["parent"] == hub)
     p = open_detail(large_page, open_page)
     skeleton_size = drawing(p)["size"]
     fold_box(p, False)
-    (hx, hy), (ox, oy) = p.page.evaluate(CENTRE, hub), p.page.evaluate(CENTRE, other)
-    pinned = {SHOWN_KEY: {hub: [round(hx + 150), round(hy + 60)], sat: [10, 10]}}  # a pre-M8.5 key
+    shown_size = drawing(p)["size"]
+    before = relative(p, hub, other)
+    pinned = {SHOWN_KEY: {hub: [10, 10]}}  # an arrangement of the dot drawing, made before the grid
     fold_box(p, True)  # the choice is kept: fold again before the reload
     seed(p, pinned)
     assert drawing(p)["skeleton"] is True and set(stored(p)) == {SHOWN_KEY}
     assert drawing(p)["size"] == skeleton_size, "the shown arrangement does not move the skeleton"
-    fold_box(p, False)  # the earlier key applies to the shown drawing unchanged
-    assert relative(p, hub, other) == pytest.approx([hx + 150 - ox, hy + 60 - oy], abs=2)
+    fold_box(p, False)
+    assert drawing(p)["size"] == shown_size and relative(p, hub, other) == pytest.approx(before, abs=2)
+    box = p.page.locator(f'{NODE}[id="{hub}"]').bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    p.page.mouse.move(x, y)
+    p.page.mouse.down()
+    p.page.mouse.move(x + 60, y + 40, steps=6)
+    p.page.mouse.up()
+    wait_drawn(p)
+    assert set(stored(p)) == {SHOWN_KEY, GRID_KEY} and set(stored(p)[GRID_KEY]) == {hub}
+    assert stored(p)[SHOWN_KEY] == pinned[SHOWN_KEY], "the earlier key is kept as it was"
+    k = p.page.evaluate(K_NOW)
+    assert relative(p, hub, other) == pytest.approx([before[0] + 60 / k, before[1] - 40 / k], abs=2)
     fold_box(p, True)
-    assert stored(p)[SHOWN_KEY] == pinned[SHOWN_KEY], "a table hidden by the fold keeps its position"
+    assert stored(p)[GRID_KEY] and drawing(p)["size"] == skeleton_size
+
+
+def test_a_pinned_shown_drawing_over_the_straight_line_threshold_lays_out_without_error(
+    large_page: tuple[Path, dict[str, Any]], open_page: Any
+) -> None:
+    """277 pinned tables routed by neato abort Viz.js's 16 MB heap: above the threshold they are lines."""
+    hub = next(e["id"] for e in large_page[1]["detail"]["entities"] if e["name"] == "car_hub")
+    p = open_detail(large_page, open_page)
+    fold_box(p, False)
+    seed(p, {GRID_KEY: {hub: [400, -300]}})
+    fold_box(p, False)
+    d = drawing(p)
+    assert d["grid"] is True and d["splines"] == "line" and len(d["drawn"]) == VEHICLE["scope"]
+    assert p.page.locator("#d-graph .msg").count() == 0 and d["layoutMs"] < BOUND_MS
+
+
+def test_a_foreign_dashed_entity_holds_its_folded_tables(tmp_path: Path, open_page: Any) -> None:
+    """61 satellites of schema `a` reference 3 hubs of schema `b`, both in one domain: group `a` draws those
+    hubs dashed, each holding its folded satellites."""
+    nodes = [model(f"x{i}_hub", "b", columns=[f"hk_x{i}"]) for i in range(3)]
+    tests = []
+    for i in range(61):
+        name, hub = f"s{i:02d}_sat", i % 3
+        nodes.append(model(name, "a", columns=[f"hk_x{hub}"]))
+        tests.append(relationships_test(name, f"hk_x{hub}", f"x{hub}_hub", f"hk_x{hub}"))
+    manifest = {"metadata": {"project_name": "shop"}, "nodes": {n["unique_id"]: n for n in nodes + tests}}
+    write_project(tmp_path / "v", manifest)
+    write_config(tmp_path / "v", 'domains:\n  - {key: d, label: D, match: ["schema:a", "schema:b"]}\n')
+    p = open_page(page_of(tmp_path / "v", "--preset", "data_vault")[0])
+    show_detail(p)
+    d = drawing(p)
+    assert d["skeleton"] is True and len(d["drawn"]) == 3 and len(d["folded"]) == 61 and d["scope"] == 64
+    hub = "model.shop.x0_hub"
+    dashed = 'id => !!document.querySelector(`#d-graph g.node[id="${id}"] polygon[stroke-dasharray]`)'
+    assert p.page.evaluate(dashed, hub)
+    texts = node_texts(p, hub)
+    assert texts[0] == "b · x0_hub" and texts[-1] == "+ 21 folded tables · Satellite"
+
+
+def test_a_graphviz_error_in_a_skeleton_shows_the_error_state(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = vehicle
+    fold_box(p, False)
+    p.page.evaluate("() => { GRAPHVIZ.render = () => Promise.reject(new Error('heap')); }")
+    p.page.click("#d-fold-box")
+    p.page.wait_for_selector("#d-graph .msg:has-text('Render error: Error: heap')")
+    assert p.page.locator("#d-graph svg").count() == 0 and p.page.is_disabled("#d-export-png")
 
 
 def test_the_layout_file_holds_both_keys_and_resets(vehicle: tuple[Page, dict[str, Any]]) -> None:
@@ -793,3 +885,13 @@ def test_a_window_resize_does_not_lay_out_again(vehicle: tuple[Page, dict[str, A
         before["size"],
         before["columns"],
     )
+
+
+def test_the_detail_toolbar_keeps_one_row_at_1280(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = vehicle
+    first = p.page.locator("#d-toggle").bounding_box()
+    group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()
+    assert group["y"] == first["y"] or abs(group["y"] - first["y"]) < 8
+    meta = p.page.locator("#d-meta")
+    assert meta.evaluate("m => getComputedStyle(m).whiteSpace") == "nowrap"
+    assert meta.get_attribute("title"), "a line cut with an ellipsis says itself in its title"

@@ -152,6 +152,9 @@ function fillSelect(el, pairs, current) {
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
 
+// Folded tables a tooltip lists before "+ N": the one limit of the universe's entity tooltip and the detail's.
+const TIP_FOLDED = 12;
+
 // The label of the fold row (D-063, D-073), shown by both views: "Fold Satellite · PIT", the descriptive kinds
 // that fold, the first three, then " + N".
 function foldLabel(kinds) {

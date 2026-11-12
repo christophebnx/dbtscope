@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (287 kB)
+  page:     opens on universe, en, libraries from CDNs (291 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (290 kB)
+  page:     opens on universe, en, libraries from CDNs (293 kB)
   config:   none (built-in defaults)
 ```
 
@@ -550,7 +550,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (287 kB)
+  page:     opens on universe, en, libraries from CDNs (291 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -867,7 +867,7 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Group filter**: one schema, folder or tag at a time (`group_by`), or **All groups**. It opens on the largest group. It is hidden when there is only one group, or with `group_by: none`. The tables of other groups that the selected group points to stay visible with a dashed border, so cross-group links are not lost.
 - **Kind filters**: tick hubs, links, facts, dimensions… on and off. The layout is recomputed.
 - **Focus**: type a table name or double-click a table to show only its neighbourhood, 1 to 3 levels deep; **Show all** returns to the whole group. A **connector** (a link of a Data Vault, or any kind with the role `connector`) costs no level: at "direct links" a hub shows its satellites, its links and the hubs across those links; the panel says "Passing through Link costs no level". A focus draws every table of its neighbourhood in full, with its columns, whatever the fold choice below.
-- **Large groups, folded**: when a group holds more than 60 tables and some descriptive tables have a parent ([why a satellite has no parent](#why-is-this-satellite-not-folded)), the detail opens as a **skeleton**: only the core and connector tables are drawn, hubs on the left and links on the right, laid out in as many columns as the drawing area asks for, so that the names stay readable at Fit. Each table that holds descriptive tables ends with one row, "+ 3 folded tables · Satellite" (or "+ 4 folded tables · Satellite 3 · PIT 1"); hover the table for the list of its folded tables and its column count. A skeleton draws no column rows, only the table's name and the folded row: a focus, or **All columns**, shows the columns. The meta line reads "136 / 271 tables · 135 folded · 214 relations": drawn tables out of the group's, folded tables, drawn relations (hover it for the split by kind). Type a name in **Highlight…** and the table that holds the match is lit.
+- **Large groups, folded**: when a group holds more than 60 tables and some descriptive tables have a parent ([why a satellite has no parent](#why-is-this-satellite-not-folded)), the detail opens as a **skeleton**: only the core and connector tables are drawn, hubs on the left and links on the right, laid out in as many column pairs (hubs, then their links) as the drawing area asks for, so that the names stay readable after a few wheel notches; relations are straight grey lines. Unfolded, the group is drawn the same way (a warning says it is hard to read, with a **Fold** button next to it). Each table that holds descriptive tables ends with one row, "+ 3 folded tables · Satellite" (or "+ 4 folded tables · Satellite 3 · PIT 1"); hover the table for the list of its folded tables and its column count. A skeleton draws no column rows, only the table's name and the folded row: a focus, or **All columns**, shows the columns. The meta line reads "136 / 271 tables · 135 folded · 214 relations": drawn tables out of the group's, folded tables, drawn relations (hover it for the split by kind). Type a name in **Highlight…** and the table that holds the match is lit.
 - **Entities**: the panel's **Entities** box, "Fold Satellite", shows only for such a group, with the number of tables it folds. Untick it to draw every table of the group; the page then warns "271 tables: the drawing will be hard to read". While a table is focused, the box is greyed (a focus draws every table); your choice applies again when you press **Show all**. The page remembers it in the browser (`dbtscope-detail-fold:<title>`, never exported); it is separate from the universe's **Fold**.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
@@ -893,7 +893,7 @@ The three drawings (universe, detail, flow) zoom and pan the same way.
 Both tabs let you drag things where you want them:
 
 - **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. An arrangement is kept per grouping (Domains, Layers), per **Tables** level (names, keys, all fields) and per fold state (folded, shown): a move at names does not carry over to keys, nor a move made while the descriptive tables are folded to the unfolded drawing.
-- **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types, and, for a skeleton, its own (the folded drawing and the shown one of the same group do not share positions; a table hidden by the fold keeps its position for when it is shown).
+- **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types, and, for a skeleton, its own (the folded drawing and the shown one of the same group do not share positions, the shown one of a large group having its own key; a table hidden by the fold keeps its position for when it is shown).
 
 Every move is saved in the browser at once. To share an arrangement with the team:
 

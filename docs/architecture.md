@@ -138,7 +138,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
 | The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
 | Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
-| Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `sizeOf`, `SK` |
+| Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `stack`, `sizeOf`, `gridShown`, `SK` |
 | Neighbourhood of a focused table, connectors as passages (page, D-076) | `render/assets/detail.js` `visibleIds` |
 | Folded-drawing layout scopes (page, D-064) | `render/assets/universe.js` `BY[*].scope` |
 | The `folded:` row of the CLI summary | `cli._folded_row` |

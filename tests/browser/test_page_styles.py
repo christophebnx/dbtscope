@@ -89,15 +89,15 @@ def test_no_horizontal_scroll_at_360_px(build_page: Any, open_page: Any, lang: s
 def test_export_group_ends_the_detail_toolbar_when_it_wraps(
     build_page: Any, open_page: Any, lang: str
 ) -> None:
-    # 1280 px with the panel open: the detail toolbar wraps, Export image stays at its right end
-    p = open_page(build_page(f"language: {lang}\n")[0])
+    # 1000 px, panel open: the detail toolbar wraps (one row at 1280, M8.5); Export image stays at the end
+    p = open_page(build_page(f"language: {lang}\n")[0], viewport={"width": 1000, "height": 800})
     show_detail(p, exportable=False)
     assert p.page.is_visible("#d-panel")
     bar = p.page.locator("#tab-detail .toolbar").bounding_box()
     group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()
     first = p.page.locator("#d-toggle").bounding_box()
     assert bar and group and first
-    assert group["y"] > first["y"], "the toolbar wraps at 1280 px with the panel open"
+    assert group["y"] > first["y"], "the toolbar wraps at 1000 px with the panel open"
     padding = p.page.evaluate(
         "parseFloat(getComputedStyle(document.querySelector('#tab-detail .toolbar')).paddingRight)"
     )

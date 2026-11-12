@@ -45,6 +45,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #d-fold:not([hidden]) { margin-top:16px; }   /* the group select above has no bottom margin */
 #d-fold-warn { margin-top:6px; color:var(--fg); }
 #d-fold-warn:empty { margin:0; }
+#d-fold-now { margin-top:6px; }
 #d-depth-note { margin-top:6px; }
 .panel h3[hidden], .panel label[hidden] { display:none; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
@@ -61,9 +62,9 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .stage { flex:1; min-width:0; display:flex; flex-direction:column; }
 .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
 .toolbar .meta { color:var(--muted); font-size:13px; }
-/* the universe's counts are one line in a box of fixed height (a longer line never wraps the toolbar, so the stage keeps
+/* the universe's and the detail's counts are one line in a box of fixed height (a longer line never wraps the toolbar, so the stage keeps
    its size and the camera its place while the zoom crosses 0.6): cut with an ellipsis, the title holds the whole text */
-#u-meta { flex:100 1 8em; min-width:0; height:30px; line-height:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#u-meta, #d-meta { flex:100 1 8em; min-width:0; height:30px; line-height:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */
@@ -73,8 +74,8 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .canvas-box { flex:1; min-height:0; position:relative; overflow:hidden; }
 
 /* ---- detail view ---- */
-#d-focus { width:240px; }
-#d-q { width:160px; }
+#d-focus { flex:0 1 200px; min-width:140px; }   /* the toolbar keeps one row at 1280 px */
+#d-q { flex:0 1 160px; min-width:0; }
 #d-graph { position:absolute; inset:0; touch-action:none; }
 #d-graph .msg { padding:24px; color:var(--muted); }
 #d-graph .dim { opacity:.15; transition:opacity .15s; }

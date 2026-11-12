@@ -3,44 +3,44 @@
   "synthetic": true,
   "pages": {
     "none": {
-      "sha256": "b58402c3aedb4c5dd048d80193e5ec8a504834de56e3d60a6f124485340d8ed9",
-      "size": 246634
+      "sha256": "ba84e2ce300a0a2980d991b0419db3fe053bead4a388d8b4b912c9fba845a8a6",
+      "size": 250307
     },
     "star_schema": {
-      "sha256": "e71244be6b3946e3687c6991499c83951fc57b6a3126551610c117a1d168f071",
-      "size": 246476
+      "sha256": "53778b5b42be4abfa079bc91ea63f98a6089d6b28e331fe56618720a3f746d2e",
+      "size": 250149
     },
     "data_vault": {
-      "sha256": "d963c276f893b56630eef48e1ba3a71dfb609ae1cef993f43b23b31ba1dfa318",
-      "size": 245228
+      "sha256": "1567bee7239663d2d841ecde6437245b7c06dfefbd42116a173938e69dc48ed6",
+      "size": 248901
     },
     "fr": {
-      "sha256": "0e0a9fc009800922efe2da5583e023e6310550e2f80cb07335f87a501e72d3e2",
-      "size": 246632
+      "sha256": "976624d69c293a0c25044c5553a111768d4dccecf09bd9e31a047c6026bad2aa",
+      "size": 250305
     },
     "layers_domains": {
-      "sha256": "095c672a89cba270e1f1e0f8c69760d1e1eb40f059eb235cc1096c19cbab0672",
-      "size": 246608
+      "sha256": "b45031273909a562729b9abd0339c440b5a6e2f51f7bcca522d930148cf6095f",
+      "size": 250281
     },
     "kinds": {
-      "sha256": "bf480d7675a4917d004558e0c78d092e29e96858e0136be0e3661a731185cac3",
-      "size": 246780
+      "sha256": "7569232069df3b84587b9f78eb87bd0757ad1255f545d4f0279418c739f4eb47",
+      "size": 250453
     },
     "roles": {
-      "sha256": "8fa0aeafd63cb67792803c288b61a607e21c0c880df098bfde26b5594ec6331f",
-      "size": 245211
+      "sha256": "d21c8597afc1142e9589fb0791322cde7a5e6d7fdd13c936645bc16902d27f6a",
+      "size": 248884
     },
     "edge": {
-      "sha256": "3722d908281505af08c84cec930061b78d96e5a40c285383ecbdc2486f62f5cc",
-      "size": 246859
+      "sha256": "c0ffa6500ea169a80f526774349920e943af597c99e77dd12a01f9fdce078266",
+      "size": 250532
     },
     "offline": {
-      "sha256": "1c64cf5fbb5294f168928ab7f141b1c61a6ba261e5245f6eb95b39604c195053",
-      "size": 2544533
+      "sha256": "6e1c99649c978f36c2b04c7b7a061c97517723b88ee5f9aed41063c90d0aaaf2",
+      "size": 2548206
     },
     "offline_fr": {
-      "sha256": "d4c9453d38d708eeb87c47825eb1224f7fe807806c4eda3ec49e6b8bc6852dac",
-      "size": 2544531
+      "sha256": "51757d465be07892fa00fee13bb19af72cdb48e62e8bd33f2fc3eb11de43498b",
+      "size": 2548204
     }
   }
 }

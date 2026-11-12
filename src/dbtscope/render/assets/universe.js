@@ -1801,7 +1801,6 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       + (band ? `<div class="m">${T.domainOne}${L.colon}${esc(labelOf(DOM[band.key]))} · ${plural(band.n, L.tables)}</div>` : '')
       + extra + `<div class="a">${T.frameC}</div>`;
   }
-  const TIP_FOLDED = 12;   // folded tables listed in an entity's tooltip before "+ N"
   // the tooltip block of a table: the tables folded into it (an entity), or where it folds (a table with a parent)
   function foldTip(n) {
     const held = HELD.get(n.i);
