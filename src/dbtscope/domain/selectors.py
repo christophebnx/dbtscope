@@ -51,6 +51,14 @@ def glob(value: str, pattern: str) -> bool:
     return fnmatch(value.lower(), pattern.lower())
 
 
+def _split_part(part: str) -> tuple[str, str]:
+    """The `(field, pattern)` of one non-negated part; a bare part is a `name` pattern."""
+    field, sep, pattern = part.partition(":")
+    if not sep:
+        return "name", part.strip()
+    return field.strip().lower(), pattern.strip()
+
+
 def _part_matches(table: Table, part: str) -> bool:
     if part.strip().startswith("!"):
         rest = part.strip()[1:].strip()
@@ -59,10 +67,7 @@ def _part_matches(table: Table, part: str) -> bool:
                 f"empty negation in {part.strip()!r} (write the selector after '!', such as '!vw_*')"
             )
         return not _part_matches(table, rest)
-    field, sep, pattern = part.partition(":")
-    if not sep:
-        field, pattern = "name", part
-    field, pattern = field.strip().lower(), pattern.strip()
+    field, pattern = _split_part(part)
     if field not in FIELDS:
         raise SelectorError(
             f"unknown selector field {field!r} in {part!r} (expected {in_words(sorted(FIELDS))})"
@@ -74,17 +79,9 @@ def _part_matches(table: Table, part: str) -> bool:
 
 def name_patterns(selector: str) -> tuple[str, ...]:
     """The positive name patterns of one selector, in order (a bare part or `name:`; not `!` parts)."""
-    found = []
-    for part in selector.split(","):
-        part = part.strip()
-        if not part or part.startswith("!"):
-            continue
-        field, sep, pattern = part.partition(":")
-        if not sep:
-            found.append(part)
-        elif field.strip().lower() == "name":
-            found.append(pattern.strip())
-    return tuple(found)
+    parts = (part.strip() for part in selector.split(","))
+    split = (_split_part(part) for part in parts if part and not part.startswith("!"))
+    return tuple(pattern for field, pattern in split if field == "name")
 
 
 def matches(table: Table, selector: str) -> bool:
