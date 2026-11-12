@@ -330,6 +330,17 @@ def test_double_click_on_a_card_lands_on_its_stars_centred(large_page: Any, open
     assert p.page.evaluate("views.universe.drawnNames()")  # the stars are drawn where the card was
 
 
+def test_double_click_on_a_card_of_a_narrow_screen_still_lands_on_stars(
+    large_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_page[0], viewport=NARROW)
+    s = summary(p)
+    card = max(hits(p)["cards"], key=lambda c: c["w"])
+    p.page.mouse.dblclick(*canvas_xy(p, *blank_point(card)))
+    p.page.wait_for_timeout(CENTRE_WAIT_MS)
+    assert camera(p)["k"] >= s["kStars"] and summary(p)["weight"] == 0  # not the disc's frame scale
+
+
 # ---------------------------------------------------------------- content
 
 
