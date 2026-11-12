@@ -34,6 +34,8 @@ NARROW = {"width": 360, "height": 800}
 PAGE_BG = (0xF5, 0xF6, 0xF8)  # C.bg of universe.js
 CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
 HERE = Path(__file__).parent
+# config text that opts out of the fold (M8.2): the example opens folded, some tests need the shown drawing
+NO_FOLD = "universe:\n  fold: false\n"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

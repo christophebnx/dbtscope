@@ -35,6 +35,8 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel { width:260px; flex:none; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:12px 14px; font-size:13px; }
 .panel.closed { display:none; }
 .panel h3, .panel legend { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:16px 0 6px; display:flex; justify-content:space-between; align-items:center; }
+/* no top margin on a panel's first visible heading: the first child, or the first one after the leading hidden
+   fieldsets (the universe panel starts with at most two: #u-by and #u-fold-box) */
 .panel h3:first-child, .panel fieldset[hidden]:first-child + h3, .panel fieldset[hidden]:first-child + fieldset[hidden] + h3 { margin-top:0; }
 .panel fieldset { border:0; margin:0; padding:0; min-width:0; }
 .panel legend { padding:0; margin-top:0; }

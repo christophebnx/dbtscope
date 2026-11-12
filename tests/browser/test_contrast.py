@@ -664,3 +664,9 @@ def test_hostile_dots_reach_3_to_1(dbt_project: Path, build_page: Any, open_page
 
 def test_example_dots_reach_3_to_1(tmp_path: Path, open_page: Any) -> None:
     check_dots(*acme_page(tmp_path, open_page, "en"))
+
+
+def test_the_entity_mark_from_afar_is_a_ring_that_reaches_the_mark_contrast() -> None:
+    """From afar an entity is a thin ring of `C.text` around its star."""
+    ring = "#1f2933"  # C.text = THEME.fg
+    assert contrast(ring, BG) >= MARK and contrast(ring, "#ffffff") >= MARK

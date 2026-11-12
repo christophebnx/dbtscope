@@ -20,7 +20,7 @@ import pytest
 from conftest import page_of, write_config, write_example, write_project
 from large_project import SPECIAL
 
-from browser.conftest import NARROW, Page, scroll_width
+from browser.conftest import NARROW, NO_FOLD, Page, scroll_width
 from browser.test_universe_layout import geometry, overlapping, rect, without_time
 from browser.test_zoom import drag, universe_at
 
@@ -31,7 +31,6 @@ META = "document.getElementById('u-meta').textContent"
 FOLD_BOX = "#u-fold-box"
 ACME = "ACME retail"
 LARGE = "dbt ERD"
-NO_FOLD = "universe:\n  fold: false\n"
 TIMED = (
     "async f => { const t0 = performance.now(); await f(); await "
     + NEXT_FRAME
@@ -275,27 +274,23 @@ def dim_with_folded_satellites(data: dict[str, Any]) -> dict[str, Any]:
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="M8.2 bug: the refit after the unfolding click drops k below FAR (0.5), so dblclick's "
-    "`t.k >= FAR ? pick || again : null` never reaches the lastClick fallback; the detail does not open",
-)
 def test_a_double_click_on_a_table_whose_trajectory_unfolds_still_opens_the_detail(
     large_page: Any, open_page: Any
 ) -> None:
     from browser.test_trajectory import centre
 
     p = open_large(large_page, open_page)
-    x, y = centre(p, dim_with_folded_satellites(large_page[1])["name"])
+    data = large_page[1]
+    nodes, in_detail = data["universe"]["nodes"], {e["id"] for e in data["detail"]["entities"]}
+    # a table of the detail (a dim_ table is not in it: its double-click zooms) with a folded table downstream
+    hub = next(
+        nodes[b] for a, b in data["universe"]["lineage"] if nodes[b]["id"] in in_detail and nodes[a]["parent"]
+    )
+    x, y = centre(p, hub["name"])
     p.page.mouse.dblclick(x, y)  # the first click unfolds and relayouts, the second must still mean the table
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="M8.2 usability: a click that unfolds trajectory members relayouts and refits the view "
-    "(k 1.5 -> 0.2): the clicked table leaves the pointer",
-)
 def test_a_click_that_unfolds_the_trajectory_keeps_the_table_under_the_pointer(
     large_page: Any, open_page: Any
 ) -> None:

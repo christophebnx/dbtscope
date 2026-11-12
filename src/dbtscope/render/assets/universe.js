@@ -93,6 +93,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const ID = new Map(N.map(n => [n.id, n.i]));
   const PARENT = N.map(n => (n.parent && ID.has(n.parent) ? ID.get(n.parent) : -1));
   const CAN_FOLD = PARENT.some(p => p >= 0);
+  // the roles of a parent: the copy of domain/fold.PARENT_ROLES (the payload does not carry them)
   const isEntity = n => ['core', 'connector'].includes(KIND[n.kind].role);
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
@@ -202,7 +203,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // would the fold draw table i inside its parent now? (the fold is on, the parent is drawn, its entity is not
   // the one opened by the search); a trajectory member is never folded (D-063)
-  const wouldFold = i => state.fold && PARENT[i] >= 0 && PARENT[i] !== opened && passes(N[PARENT[i]]);
+  const foldable = i => state.fold && PARENT[i] >= 0 && passes(N[PARENT[i]]);
+  const wouldFold = i => foldable(i) && PARENT[i] !== opened;
   // the trajectory members the fold would otherwise hide: what makes entering or leaving a trajectory relayout
   const unfoldedKey = () => trajMembers().filter(wouldFold).sort((a, b) => a - b).join();
   $u('q').onchange = ev => {
@@ -210,7 +212,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!n) return;
     // a folded table opens its entity (one at a time); any other table closes it
     const before = opened, hidden = tick(n.i);
-    const inFold = CAN_FOLD && state.fold && PARENT[n.i] >= 0 && state.kinds.has(N[PARENT[n.i]].kind);
+    const inFold = foldable(n.i);
     if (inFold) { if (!(traj && trajMembers().includes(n.i))) opened = PARENT[n.i]; } else opened = null;
     if (hidden) refreshPanel();
     if (hidden || opened !== before) relayout();
@@ -238,7 +240,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const folded = held.slice(0, HELD_ROWS).map(i => [N[i].name, labelOf(KIND[N[i].kind])]);
     const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8),
       ...folded.map(r => r[0].length + 1 + r[1].length * 0.8), 10);
-    const cw = 16 + chars * 5.6, extra = held.length ? 6 + 11 * (folded.length + (held.length > HELD_ROWS ? 1 : 0)) : 0;
+    const cw = 16 + chars * 5.6, extra = held.length ? 10 + 11 * (folded.length + (held.length > HELD_ROWS ? 1 : 0)) : 0;
     const ch = 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0) + extra, pad = held.length ? 6 : 0;
     return { w: cw + pad, h: ch + pad, cw, ch, oy: 0, shown, more: rows.length - shown.length, folded,
              heldMore: held.length - folded.length };
@@ -823,7 +825,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.setLineDash([]);
   }
   // The badge of an entity holding `count` tables (D-063): a dark disc with a white outline, centred on
-  // (cx, cy), 4 screen px from afar (a dot), 7 px zoomed in with the count (99+ above 99)
+  // (cx, cy), 7 screen px with the count (99+ above 99); a card keeps a 4 px dot from afar (a star gets a ring)
   function drawBadge(cx, cy, count, k) {
     const near = k >= 0.6, rb = (near ? 7 : 4) / k;
     ctx.fillStyle = C.text; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 / k;
@@ -838,7 +840,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const edge = CONTRAST.edge(col, C.bg);   // a star too light for the page is outlined (D-042)
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     ctx.strokeStyle = edge === col ? '#ffffff' : edge; ctx.lineWidth = 1 / k; ctx.stroke();
-    const badge = () => { if (held) drawBadge(p.x + r * Math.SQRT1_2, p.y - r * Math.SQRT1_2, held.length, k); };   // after the rings
+    // after the rings; from afar a thin dark ring hugging the star (1.5 px gap, 1.25 px wide, tighter than every
+    // trajectory ring), so the kind colour still shows; from 0.6 up the numbered badge
+    const badge = () => {
+      if (!held) return;
+      if (far) ring(p, r + 1.5 / k, C.text, 1.25 / k, false, k);
+      else drawBadge(p.x + r * Math.SQRT1_2, p.y - r * Math.SQRT1_2, held.length, k);
+    };
     if (side === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); badge(); return; }
     let out = 4 / k;
     if (side) { out = (far ? 3 : 4) / k; ring(p, r + out, C[side], (far ? 1.5 : 2) / k, side === 'up', k); out += 3 / k; }
@@ -1024,12 +1032,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
   const FAR = 0.5;
   const frameText = () => (state.by === 'layers' ? T.frameC : T.frame);
-  // the table the last click entered the trajectory of: entering it may have unfolded tables and moved the
-  // table under the pointer, so a double-click that follows it still means that table
-  let lastClick = null;
   canvas.addEventListener('dblclick', ev => {
-    const again = lastClick && ev.timeStamp - lastClick.at < 600 ? lastClick.n : null;
-    const n = t.k >= FAR ? pick(ev) || again : null;
+    const n = t.k >= FAR ? pick(ev) : null;
     if (n) {
       if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
@@ -1044,7 +1048,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   canvas.addEventListener('click', ev => {
     if (ev.detail > 1) return;   // the second click of a double-click
     const n = t.k >= FAR ? pick(ev) : null;
-    if (n) { lastClick = { n, at: ev.timeStamp }; enterTrajectory(n.i); return; }
+    if (n) { enterTrajectory(n.i); return; }
     if (traj && !labelAt(...d3.pointer(ev, canvas)) && !domainAt(ev)) leaveTrajectory(false);
   });
 
@@ -1056,19 +1060,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
-    if (!traj.brought && unfoldedKey() !== folded) relayout();   // unfold its members (or fold the last ones back)
+    if (!traj.brought && unfoldedKey() !== folded) relayoutAnchored(i);   // unfold its members (or fold the last ones back)
     const n = N[i], summary = renderBar();
     live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
     draw();
   }
   function leaveTrajectory(restoreFocus) {
     if (!traj) return;
-    const inBar = bar.contains(document.activeElement), unfolded = unfoldedKey() !== '';
+    const inBar = bar.contains(document.activeElement), unfolded = unfoldedKey() !== '', start = traj.start;
     traj = null; bar.hidden = true; $u('tj-counts').open = false;
     $u('fit').removeAttribute('title');
     live.textContent = T.closed;
     if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
-    if (unfolded) relayout();   // the members drawn by the mode fold back (the layout cache gives the same placement)
+    if (unfolded) relayoutAnchored(start);   // the members drawn by the mode fold back, the start staying put
     else draw();
   }
   // fills the bar from the current trajectory; returns the counts (or empty-state) text
@@ -1140,6 +1144,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     draw();
   }
   // recompute the layout; the trajectory is kept (indices into N are stable, only P changes)
+  // a relayout that folds or unfolds trajectory members: no refit, the camera keeps its scale and the table
+  // `i` (the one clicked) stays at the same screen point, so it stays under the pointer
+  function relayoutAnchored(i) {
+    const was = P[i] && t.apply([P[i].x, P[i].y]);
+    found = null; hover = null; layout(); if (traj) renderBar();
+    if (!was || !P[i]) return fit(false), draw();
+    sel.call(zoom.transform, d3.zoomIdentity.translate(was[0] - t.k * P[i].x, was[1] - t.k * P[i].y).scale(t.k));
+    draw();
+  }
   function relayout() { found = null; hover = null; layout(); if (traj) renderBar(); fit(false); draw(); }
   let size = '';
   new ResizeObserver(() => {

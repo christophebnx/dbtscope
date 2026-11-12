@@ -16,6 +16,7 @@ from conftest import SHOP, page_of, shop_manifest, write_config, write_example, 
 from browser.conftest import (
     CENTRE_WAIT_MS,
     NARROW,
+    NO_FOLD,
     Page,
     scroll_width,
     show_detail,
@@ -99,9 +100,7 @@ def shared_tooltip(p: Page) -> str:
 def test_universe_meta_and_domain_tooltip_agree(tmp_path: Path, open_page: Any, lang: str) -> None:
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(
-        project, config.replace("language: en\n", f"language: {lang}\n") + "universe:\n  fold: false\n"
-    )
+    write_config(project, config.replace("language: en\n", f"language: {lang}\n") + NO_FOLD)
     p = open_page(page_of(project)[0])
     none, shared, tables, domains = UNIVERSE_COUNTS[lang]
     p.page.click("#u-none")

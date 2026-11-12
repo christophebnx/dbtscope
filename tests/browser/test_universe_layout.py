@@ -23,7 +23,7 @@ from conftest import SHOP, page_of, write_config, write_example
 from reference_pages import LAYOUT as EDGE_LAYOUT
 from reference_pages import build_page as reference_page
 
-from browser.conftest import Page, universe_page
+from browser.conftest import NO_FOLD, Page, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 
 pytestmark = pytest.mark.browser
@@ -117,8 +117,6 @@ PARTIAL_LAYERS = """layers:
   - {key: source, label: Sources, match: ["type:source"]}
   - {key: gold, label: Gold, match: ["path:models/gold/*"]}
 """
-# the example opens folded (M8.2); these tests are about the shown drawing
-NO_FOLD = "universe:\n  fold: false\n"
 
 
 def band_of(domain: dict[str, Any], x: float) -> int:

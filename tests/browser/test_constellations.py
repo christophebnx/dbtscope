@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import page_of, write_config, write_example
 
-from browser.conftest import NARROW, Page, close_panel, open_flow, scroll_width, universe_page
+from browser.conftest import NARROW, NO_FOLD, Page, close_panel, open_flow, scroll_width, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 from browser.test_universe_layout import (
     HOVER,
@@ -40,10 +40,6 @@ FR = "\u00a0: "  # L.colon in French (D-039)
 # every storage call throws, as in a blocked or private context
 NO_STORAGE = """for (const m of ['getItem', 'setItem', 'removeItem'])
   Storage.prototype[m] = () => { throw new DOMException('blocked', 'SecurityError'); };"""
-
-
-# the example opens folded (M8.2); these tests are about the shown drawing
-NO_FOLD = "universe:\n  fold: false\n"
 
 
 def example(tmp_path: Path, extra: str = "", lang: str = "en") -> tuple[Path, dict[str, Any]]:
