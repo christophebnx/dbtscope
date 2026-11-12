@@ -214,6 +214,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `example_page`, `Page`; session fixtures `browser` (the local Chromium) and `cdn` (the vendored libraries served for their CDN URLs); `VIEWPORT` (the default window) |
 | Block every request but the page's own (browser tests) | `tests/browser/conftest.only_own_url` |
 | Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `open_flow`, `wait_flow`, `close_panel`, `scroll_width`, `names`, `names_of`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
+| Build the large Data Vault test project (tests, M8.1) | `tests/large_project.large_manifest`, `LARGE_CONFIG`, `SPECIAL`, `write_large_project` |
+| The page of the large project, built not opened (browser tests, M8.1) | `tests/browser/conftest.large_page` |
 | The page of a synthetic universe payload (browser tests) | `tests/browser/conftest.universe_page` |
 
 ## Glossary

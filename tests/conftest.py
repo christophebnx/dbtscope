@@ -42,8 +42,9 @@ def model(
     group: str | None = None,
     meta: dict[str, Any] | None = None,
     package: str = "shop",
+    folder: str | None = None,
 ) -> dict[str, Any]:
-    path = f"models/{schema}/{name}.sql"
+    path = f"models/{folder or schema}/{name}.sql"  # the folder apart from the schema when given
     return {
         "unique_id": f"model.{package}.{name}",
         "name": name,
@@ -65,20 +66,28 @@ def model(
     }
 
 
-def source(name: str, source_name: str = "erp") -> dict[str, Any]:
+def source(
+    name: str,
+    source_name: str = "erp",
+    schema: str = "raw",
+    path: str = "models/staging/sources.yml",
+    columns: tuple[str, ...] | list[str] = (),
+) -> dict[str, Any]:
     return {
         "unique_id": f"source.shop.{source_name}.{name}",
         "name": name,
         "source_name": source_name,
         "resource_type": "source",
-        "schema": "raw",
+        "schema": schema,
         "database": "dwh",
         "package_name": "shop",
-        "original_file_path": "models/staging/sources.yml",
-        "path": "staging/sources.yml",
+        "original_file_path": path,
+        "path": path.removeprefix("models/"),
         "tags": [],
         "description": "",
-        "columns": {},
+        "columns": {
+            c: {"name": c, "data_type": "varchar", "description": "", "constraints": []} for c in columns
+        },
     }
 
 

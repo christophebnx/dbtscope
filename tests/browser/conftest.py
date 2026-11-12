@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from conftest import empty_detail, page_of, write_config, write_example
+from large_project import write_large_project
 
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.payload import UniversePayload
@@ -229,3 +230,11 @@ def example_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, 
     """The page of the example project `acme_retail` (D-033), opened, and its payload."""
     html, data = page_of(write_example(tmp_path / "acme_retail"))
     return open_page(html), data
+
+
+@pytest.fixture
+def large_page(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    """The page of the generated large Data Vault project (1,419 tables, M8.1) and its payload.
+
+    Not opened: the tests time the opening themselves (`open_page(html)`)."""
+    return page_of(write_large_project(tmp_path / "large"))
