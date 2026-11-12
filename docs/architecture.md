@@ -38,6 +38,7 @@ flowchart TD
     D -- no --> E["dbt parse in the project folder (cli._dbt_parse), its output on stderr"]
     D -- yes --> F["manifest.json"]
     E --> F
+    E -- "cannot run or fails, manifest present: warning (cli._parse)" --> F
     F --> G["typed model: Project (read_manifest, domain/manifest.parse_manifest)"]
     G --> H["detail view: DetailPayload (domain/detail)"]
     G --> I["universe view: UniversePayload (domain/universe)"]
@@ -176,17 +177,19 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Whether the system refused a path for a too-long name (POSIX or Windows forms) | `storage/files.is_name_too_long` (`MAX_NAME`) |
 | Command-line options and help | `cli.app`, `cli.command`, `Options` |
 | What a user-given path is (missing, folder, file, other; one `stat`) and what to do when the system refuses it | `storage/files.path_kind` (`PathKind`), `refused_hint` |
-| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, dbt), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
+| Resolve and check the paths given on the command line | `cli._resolve` (project, config, manifest, and `--dbt` only when given), `cli._output` (the page), each through `cli._kind` (`path_kind`, refused path named by its option); `--preset-file` is resolved by `cli._resolve` and checked by `storage/project_files.read_preset_file` (as the `preset:` key) |
 | How messages name a config file (`config <path>`) | `storage/project_files.config_source` |
 | How messages name the config of a run (its file, the preset applied, or the defaults) | `cli._config_label` (through `config_source` for a file) |
 | One run: config, `dbt parse`, manifest, views, layout, page, summary | `cli.run` |
-| Run `dbt parse` (output on stderr, OS errors and exit code as `RunError`) | `cli._dbt_parse` |
-| The manifest exists after `dbt parse` or with `--no-parse` | `cli._check_manifest` |
+| Run `dbt parse` (output on stderr, OS errors and exit code as `ParseError`) | `cli._dbt_parse` |
+| Run dbt parse, or fall back to the earlier manifest (warning), or stop (no manifest, `--strict-parse`; D-054) | `cli._parse` (`Fallback`, `ParseError`, `_has_manifest`, `_modified`) |
+| The manifest exists after `dbt parse` or with `--no-parse` | `cli._check_manifest` (through `_has_manifest`, the one "usable manifest file" check) |
+| Age of a file in words, and the UTC moment of the CLI | `cli._age`, `cli._moment` (used by `_saved` and the fallback warning) |
 | Build both views (a selector error names the config); empty views as an error or warnings | `cli._views`, `cli._check_views` |
 | Write the page, OS errors named by the output | `cli._write_page` |
 | Open the page in the browser (a failure is a warning) | `cli._open_browser` |
 | Write one line of the CLI on stdout or stderr | `cli._say` (`_warn`; `_fail`, the one place that collapses whitespace) |
-| The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`) |
+| The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`; the `manifest:` row of a fallback) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
 | The CI checks, locally and in the manual workflow (D-053) | `tools/ci.STEPS`, `tools/ci.main` |

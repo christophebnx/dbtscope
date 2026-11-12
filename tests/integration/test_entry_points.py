@@ -51,7 +51,7 @@ def test_the_installed_script_exits_2_on_a_wrong_option() -> None:
 def test_dbt_output_goes_to_stderr_above_the_error(dbt_project: Path) -> None:
     dbt = fake_dbt_executable(dbt_project / "bin", 'import sys\nprint("boom", flush=True)\nsys.exit(2)')
     result = subprocess.run(
-        [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)],
+        [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--strict-parse", "--dbt", str(dbt)],
         capture_output=True,
         text=True,
         check=False,
@@ -60,8 +60,28 @@ def test_dbt_output_goes_to_stderr_above_the_error(dbt_project: Path) -> None:
     lines = result.stderr.splitlines()
     assert lines[0] == f"Running dbt parse in {dbt_project.resolve()}..."
     assert lines[1] == "boom"
-    assert lines[2].startswith("dbtscope: error: dbt parse failed with exit code 2 (see its messages above)")
+    assert lines[2].startswith("dbtscope: error: dbt parse failed (exit code 2, see above)")
     assert len(lines) == 3
+
+
+def test_a_failing_dbt_falls_back_with_its_messages_above_the_warning(dbt_project: Path) -> None:
+    dbt = fake_dbt_executable(dbt_project / "bin", 'import sys\nprint("boom", flush=True)\nsys.exit(2)')
+    result = subprocess.run(
+        [*DBTSCOPE, "--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = result.stderr.splitlines()
+    assert lines[0] == f"Running dbt parse in {dbt_project.resolve()}..."
+    assert lines[1] == "boom"
+    assert lines[2].startswith("dbtscope: warning: dbt parse failed (exit code 2, see above); ")
+    assert lines[3].startswith("  manifest: ") and lines[4].startswith("  next: ")
+    assert len(lines) == 5
+    out = result.stdout.splitlines()
+    assert out[0] == str(dbt_project.resolve() / "erd_output" / "erd.html")
+    assert any(line.strip().startswith("manifest:") and "dbt parse failed" in line for line in out)
 
 
 # A fake dbt that ignores Ctrl-C (as a slow dbt may): only dbtscope can end it. It writes its pid

@@ -34,6 +34,8 @@ sequenceDiagram
     alt default run
         S->>D: dbt parse, its output shown on stderr
         D->>F: write target/manifest.json
+    else dbt cannot run or dbt parse fails (without --strict-parse)
+        Note over S,F: a warning on stderr, the earlier manifest is read
     else with --no-parse or --manifest
         Note over S,F: dbt is not run, an existing manifest is read
     end

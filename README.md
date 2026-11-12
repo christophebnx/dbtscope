@@ -17,7 +17,7 @@ cd path/to/your/dbt/project          # the folder that holds dbt_project.yml
 dbtscope --preset data_vault         # or plain dbtscope; runs dbt parse, writes erd_output/erd.html, opens it
 ```
 
-The repository is private: set up git's access first ([Access to the private repository](docs/user-guide.md#access-to-the-private-repository)). Other ways to install (SSH, a git clone, `uvx`), upgrade and uninstall: [user guide § Install](docs/user-guide.md#install).
+The repository is private: set up git's access first ([Access to the private repository](docs/user-guide.md#access-to-the-private-repository)). No GitHub access (for example Windows without git)? Install from a wheel file: [user guide § Option C](docs/user-guide.md#option-c-from-a-wheel-file). If `dbt parse` cannot run but `target/manifest.json` exists, that manifest is mapped, with a warning. Other ways to install (SSH, a git clone, `uvx`), upgrade and uninstall: [user guide § Install](docs/user-guide.md#install).
 
 ## Documentation
 
