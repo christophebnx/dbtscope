@@ -873,3 +873,279 @@ def test_the_same_payload_gives_the_same_routes_twice(large_page: Any, open_page
         )
         p.page.close()
     assert runs[0] == runs[1]
+
+
+# ---------------------------------------------------------------- arrowheads, spotlight, words, export
+
+ARROW = "rgba(71, 85, 105, 0.8)"  # C.arrow as the canvas reports it
+SPY = """() => { window.__fills = []; const proto = CanvasRenderingContext2D.prototype;
+  if (proto.__spied) return;
+  proto.__spied = true;
+  const fill = proto.fill, text = proto.fillText;
+  proto.fill = function (...a) {
+    window.__fills.push(['fill', this.fillStyle, this.globalAlpha]);
+    return fill.apply(this, a);
+  };
+  proto.fillText = function (t, ...a) {
+    window.__fills.push(['text', String(t), this.globalAlpha]);
+    return text.call(this, t, ...a);
+  }; }"""
+
+
+def frame_calls(p: Page) -> list[list[Any]]:
+    """The fills and texts of one screen frame."""
+    p.page.evaluate(SPY)
+    p.page.evaluate("views.universe.shown()")
+    p.page.evaluate(NEXT_FRAME)
+    return p.page.evaluate("window.__fills")
+
+
+def arrowheads(p: Page) -> int:
+    return sum(1 for kind, style, _ in frame_calls(p) if kind == "fill" and style == ARROW)
+
+
+def test_arrowheads_are_drawn_with_lineage_and_not_with_relations_only(
+    large_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_page[0])
+    at_stars(p)
+    p.page.check("#u-routes-box")
+    p.page.evaluate(NEXT_FRAME)
+    routes = [r for r in geometry(p)["routes"] if r["drawn"] and r["pts"]]
+    want = sum({1: 1, -1: 1, 2: 2}.get(r["dir"], 0) for r in routes)
+    assert (
+        want and arrowheads(p) == want
+    )  # one per directed route, one at each end for "each reads the other"
+    p.page.select_option("#u-links", "relations")
+    p.page.evaluate(NEXT_FRAME)
+    assert arrowheads(p) == 0
+
+
+def test_a_route_without_lineage_has_no_direction(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    at_stars(p)
+    routes = geometry(p)["routes"]
+    assert all((r["dir"] == 0) == (r["lin"] == 0) or r["dir"] != 0 for r in routes)
+    assert all(r["dir"] == 0 for r in routes if r["lin"] == 0)
+
+
+def centre_alphas(p: Page, labels: list[str]) -> dict[str, float]:
+    alphas: dict[str, float] = {}
+    for kind, text, alpha in frame_calls(p):
+        if kind == "text" and text in labels:
+            alphas[text] = alpha
+    return alphas
+
+
+def test_the_spotlight_keeps_neighbours_bright_and_dims_the_others(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    reset(p)
+    at_stars(p)
+    g, cam = geometry(p), camera(p)
+    by = {c["key"]: c for c in g["constellations"]}
+    everyone = [*BUSINESS, *SYSTEMS]
+    partners: dict[str, set[str]] = {k: set() for k in everyone}
+    for r in g["routes"]:
+        partners[r["a"]].add(r["b"])
+        partners[r["b"]].add(r["a"])
+    key = min((k for k in everyone if partners[k]), key=lambda k: (len(partners[k]), k))
+    me = by[key]
+    near, far = partners[key], set(everyone) - partners[key] - {key}
+    labels = {d["key"]: d["label"] or d["key"] for d in large_page[1]["universe"]["domains"]}
+    names = [labels[k] for k in everyone]
+    before = centre_alphas(p, names)
+    assert set(before.values()) == {1}
+    k = cam["k"]
+    for angle in range(0, 360, 30):  # the rim of the disc, trying angles until no star is under the pointer
+        x = me["x"] + 0.97 * me["r"] * math.cos(math.radians(angle))
+        y = me["y"] + 0.97 * me["r"] * math.sin(math.radians(angle))
+        move_to(p, x * k + cam["x"], y * k + cam["y"])
+        mine = [r for r in geometry(p)["routes"] if key in (r["a"], r["b"])]
+        if (
+            mine
+            and all(r["drawn"] for r in mine)
+            and not any(r["drawn"] for r in geometry(p)["routes"] if key not in (r["a"], r["b"]))
+        ):
+            break
+    else:
+        pytest.fail("no point of the disc spotlights it")
+    p.page.evaluate("window.__fills = []")
+    during = centre_alphas(p, names)
+    assert during[labels[key]] == 1
+    assert all(during[labels[k_]] == 1 for k_ in near)
+    assert far and all(during[labels[k_]] == pytest.approx(0.45) for k_ in far)
+
+
+def test_a_row_of_the_layers_panel_spotlights_its_constellation(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    p.page.check("#u-by input[value=layers]")
+    p.page.evaluate(NEXT_FRAME)
+    reset(p)
+    assert not geometry(p)["systems"]["grouped"]  # layer mode: no group card
+    p.page.focus("#u-layers label:nth-child(2) input")
+    p.page.evaluate(NEXT_FRAME)
+    drawn = [r for r in geometry(p)["routes"] if r["drawn"]]
+    keys = {k for r in drawn for k in (r["a"], r["b"])}
+    assert drawn and len(drawn) < len(geometry(p)["routes"]) and len(keys) >= 2
+    common = set.intersection(*({r["a"], r["b"]} for r in drawn))
+    assert len(common) == 1  # every drawn route touches the focused layer
+
+
+def tip_at_middle(p: Page, route: dict[str, Any]) -> str:
+    cam = camera(p)
+    x, y = route["pts"][len(route["pts"]) // 2]
+    move_to(p, x * cam["k"] + cam["x"], y * cam["k"] + cam["y"])
+    return tip(p)
+
+
+def long_routes(p: Page) -> list[dict[str, Any]]:
+    return [r for r in geometry(p)["routes"] if r["drawn"] and not r["bundled"] and len(r["pts"]) > 4]
+
+
+def test_the_route_tooltip_has_the_direction_words_the_plurals_and_follows_links(
+    large_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_page[0])
+    reset(p)
+    at_stars(p)
+    p.page.check("#u-routes-box")
+    p.page.evaluate(NEXT_FRAME)
+    seen = set()
+    for r in long_routes(p):
+        text = tip_at_middle(p, r)
+        ends = (r["a"], r["b"])
+        if not text or not all(e in text.lower() for e in ends):
+            continue  # another route or thing under the pointer (a constellation or table takes precedence)
+        rel = f"{r['rel']} relation{'s' if r['rel'] != 1 else ''}"
+        lin = f"{r['lin']} lineage link{'s' if r['lin'] != 1 else ''}"
+        assert rel in text and lin in text, text
+        if r["dir"] in (1, -1):
+            assert " reads " in text and "→" in text
+        elif r["dir"] == 2:
+            assert "Each reads the other" in text
+        else:
+            assert "No lineage" in text and "—" in text
+        seen.add(r["dir"])
+    assert seen & {1, -1}  # at least the directed case was reached
+    p.page.select_option("#u-links", "lineage")
+    p.page.evaluate(NEXT_FRAME)
+    at_stars(p)
+    for r in long_routes(p):
+        text = tip_at_middle(p, r)
+        if "lineage link" in text:
+            assert "relation" not in text
+            return
+    pytest.fail("no route tooltip under Links = lineage")
+
+
+def test_the_route_tooltip_in_french(tmp_path: Path, open_page: Any) -> None:
+    from conftest import page_of
+    from large_project import write_large_project
+
+    project = write_large_project(tmp_path / "large")
+    config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
+    (project / "dbt-erd.yml").write_text(config + "\nlanguage: fr\n", encoding="utf-8")
+    p = open_page(page_of(project)[0])
+    reset(p)
+    at_stars(p)
+    for r in long_routes(p):
+        text = tip_at_middle(p, r)
+        if "lien" in text or "relation" in text:
+            assert "lineage" not in text and " reads " not in text
+            assert "lien" in text and ("lit" in text or "Aucune lignée" in text), text
+            return
+    pytest.fail("no route tooltip")
+
+
+def png(p: Page) -> list[int]:
+    return p.page.evaluate(
+        "views.universe.image().then(b => b.arrayBuffer().then(a => [...new Uint8Array(a)]))"
+    )
+
+
+@pytest.mark.parametrize("where", ["fit", "stars"])
+def test_the_export_is_byte_identical_with_and_without_the_spotlight(
+    large_page: Any, open_page: Any, where: str
+) -> None:
+    p = open_page(large_page[0])
+    reset(p)
+    if where == "stars":
+        at_stars(p)
+    plain = png(p)
+    cam = camera(p)
+    if where == "fit":
+        hover_card(p, "vehicle")
+    else:
+        v = centres(p)["vehicle"]
+        move_to(p, v["x"] * cam["k"] + cam["x"], v["y"] * cam["k"] + cam["y"])
+    assert any(r["drawn"] for r in geometry(p)["routes"]) and png(p) == plain
+
+
+def test_the_export_follows_the_all_routes_state(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    reset(p)
+    strongest = png(p)
+    p.page.check("#u-routes-box")
+    p.page.evaluate(NEXT_FRAME)
+    everything = png(p)
+    assert everything != strongest
+    p.page.uncheck("#u-routes-box")
+    p.page.evaluate(NEXT_FRAME)
+    assert png(p) == strongest
+
+
+def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
+    large_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_page[0])
+    reset(p)
+    p.page.fill("#u-q", "car_hub")
+    p.page.click("#u-traj")
+    overview = camera(p)
+    p.page.evaluate("c => views.universe.camera(c)", {**overview, "k": summary(p)["kCards"]})
+    p.page.evaluate(NEXT_FRAME)
+    p.page.check("#u-routes-box")  # never turned on by a trajectory
+    p.page.evaluate(NEXT_FRAME)
+    hover_card(p, "vehicle")  # no spotlight while a trajectory runs
+    routes = geometry(p)["routes"]
+    assert {(r["a"], r["b"]) for r in routes if r["drawn"]} == expected_drawn(routes)
+    assert 0 < sum(r["drawn"] for r in routes) < len(routes)
+    assert re.search(r"\d+ of \d+ routes", meta(p))
+    p.page.click("#u-tj-leave")
+
+
+def test_the_route_computation_stays_within_its_budget_over_several_runs(
+    large_page: Any, open_page: Any
+) -> None:
+    """Budget: 30 ms per layout at the stars scale on the large project (design note § 4). The worst of
+    eight first draws at that scale is reported; a median above 30 ms or a worst above 45 ms fails."""
+    runs = []
+    for _ in range(8):
+        p = open_page(large_page[0])
+        reset(p)
+        at_stars(p)  # the first draw at the stars scale finds the paths of the 40-odd individual routes
+        runs.append(p.page.evaluate("views.universe.perf()")["routes"])
+        p.page.close()
+    print(
+        f"perf.routes over {len(runs)} runs (ms): worst {max(runs):.1f}, median {median(runs):.1f}, "
+        f"best {min(runs):.1f}; the 30 ms budget "
+        f"{'holds' if max(runs) <= 30 else 'is exceeded'} for the worst"
+    )
+    assert median(runs) <= 30 and max(runs) <= 45
+
+
+def test_a_drag_step_recomputes_the_routes_within_their_budget(large_page: Any, open_page: Any) -> None:
+    """Budget: a drag step of a constellation (paths recomputed) at most 16 ms (design note § 4)."""
+    p = open_page(large_page[0])
+    reset(p)
+    card = first_card(p, "vehicle")
+    hx, hy = card["header"]["x"] + 20, card["header"]["y"] + 8
+    p.page.mouse.move(*canvas_xy(p, hx, hy))
+    p.page.mouse.down()
+    routes = []
+    for step in range(1, 11):
+        p.page.mouse.move(*canvas_xy(p, hx + 5 * step, hy + 3 * step))
+        routes.append(p.page.evaluate("views.universe.perf()")["routes"])
+    p.page.mouse.up()
+    print(f"drag step perf.routes (ms): worst {max(routes):.1f}, median {median(routes):.1f}")
+    assert median(routes) <= 16

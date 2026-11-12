@@ -147,6 +147,25 @@ def test_an_invalid_role_is_one_line_naming_the_file_and_the_kind(
     )
 
 
+def test_a_non_boolean_system_is_one_line_naming_the_file_and_the_rule(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(
+        dbt_project, "domains:\n  - {key: a, match: ['a_*']}\n  - {key: b, system: maybe, match: []}\n"
+    )
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message.startswith(f"config {dbt_project / 'dbt-erd.yml'}: domains[1].system: ")
+    assert message.endswith("; fix the file")
+
+
+def test_a_boolean_system_override_reaches_the_page_payload(dbt_project: Path) -> None:
+    write_config(dbt_project, "domains:\n  - {key: sales, system: true, match: ['*']}\n")
+    assert main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN]) == 0
+    data = page_data((dbt_project / PAGE).read_text(encoding="utf-8"))
+    domains = {d["key"]: d for d in data["universe"]["domains"]}
+    assert domains["sales"]["system"] is True and list(domains["sales"])[-1] == "system"
+
+
 def test_a_bare_negation_is_one_line_naming_the_config(
     dbt_project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
