@@ -72,6 +72,21 @@ def _part_matches(table: Table, part: str) -> bool:
     return glob(field_value(table, field), pattern)
 
 
+def name_patterns(selector: str) -> tuple[str, ...]:
+    """The positive name patterns of one selector, in order (a bare part or `name:`; not `!` parts)."""
+    found = []
+    for part in selector.split(","):
+        part = part.strip()
+        if not part or part.startswith("!"):
+            continue
+        field, sep, pattern = part.partition(":")
+        if not sep:
+            found.append(part)
+        elif field.strip().lower() == "name":
+            found.append(pattern.strip())
+    return tuple(found)
+
+
 def matches(table: Table, selector: str) -> bool:
     """True when every comma-separated part of `selector` matches `table`."""
     return all(_part_matches(table, part) for part in selector.split(",") if part.strip())

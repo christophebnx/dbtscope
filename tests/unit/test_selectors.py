@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 from conftest import table
 
-from dbtscope.domain.selectors import FIELDS, SelectorError, field_value, glob, matches, matches_any
+from dbtscope.domain.selectors import (
+    FIELDS,
+    SelectorError,
+    field_value,
+    glob,
+    matches,
+    matches_any,
+    name_patterns,
+)
 
 NODE = table(
     tags=("core", "daily"),
@@ -87,3 +95,21 @@ def test_negation_applies_in_a_list_and_to_an_unknown_field() -> None:
     assert matches_any(NODE, ["dim_*", "!dim_*"])
     with pytest.raises(SelectorError, match="unknown selector field"):
         matches(NODE, "!colour:red")
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("*_hub", ("*_hub",)),
+        ("name:dim_*", ("dim_*",)),
+        ("NAME: dim_* ", ("dim_*",)),
+        ("path:models/*,*_sat", ("*_sat",)),
+        ("*_sat,!vw_*", ("*_sat",)),
+        ("tag:x,schema:y,type:model", ()),
+        ("a_*, b_*", ("a_*", "b_*")),
+        ("", ()),
+        (" , ", ()),
+    ],
+)
+def test_name_patterns_are_the_positive_name_parts_in_order(selector: str, expected: tuple[str, ...]) -> None:
+    assert name_patterns(selector) == expected

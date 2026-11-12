@@ -99,6 +99,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | First letter of a quoted reason or problem in lower case | `domain/errors.lower_first` |
 | One-line message of a validation error | `domain/errors.validation_message` |
 | Match a table against selectors (a part starting with `!` negates, D-061) | `domain/selectors.matches`, `matches_any` |
+| Positive name patterns of one selector (the name globs a kind is matched by) | `domain/selectors.name_patterns` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
 | Case-insensitive wildcard match of a value (selectors, `tag:` and `group_by: tag:<glob>`) | `domain/selectors.glob` |
 | Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
@@ -121,6 +122,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Which columns are keys | `domain/classify.key_columns` |
 | Light tint of a kind colour for a table body | `domain/classify.background` (`TINT`) |
 | Domain key of a table (order: D-015) | `domain/universe.domain_of` |
+| Parent of a descriptive table (relation, then stem; same domain and layer; D-062) | `domain/fold.parents`, `Member` |
+| Stem of a table's name from its kind's name glob | `domain/fold.stem` |
 | Order of the default layers along the data flow (no `layers` rules) | `domain/universe.flow_rank` (`FLOW_PREFIXES`, `UNRANKED`) |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
