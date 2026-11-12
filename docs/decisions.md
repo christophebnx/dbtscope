@@ -410,3 +410,8 @@ Refines D-074 and D-075. Rejected: reading old unfolded pins in the grid's frame
 Recorded on 2026-11-12 (M8.5, audit fix). D-068 took `system` from the first rule of the key that sets it, while the label and the colour came from the last rule of the key, so an override `{key: raw_crm, system: false, match: []}` written after the domain's own rule replaced its label by the key and its colour by a palette colour. `domain/universe._domains` now takes each of the three from the first rule of the key that sets it (a label equal to the key is not set, since a rule without `label` gets its key); none set gives the key and the next palette colour as before.
 
 Refines D-068 and D-015. Rejected: the last rule winning for all three (an override rule would have to repeat label and colour).
+
+**D-080 — A focus draws the tables folded into the focused table, also those folded by name only.**
+Recorded on 2026-11-12 (M8.5, audit fix). The focus walk of D-076 follows relations only, so a satellite whose parent comes from the name step (D-062, no relation) was not drawn when its hub was focused, although the skeleton folds it into that hub (brief § 4: every folded table stays reachable in the detail view). `detail.js visibleIds` now adds, after the walk, every in-scope table whose `parent` is the focused table; the kind filter still applies. Tables folded into the neighbours of the focus are not added (the drawing would grow with every link); a focus on the satellite still shows it alone.
+
+Refines D-076. Rejected: the folded tables of every drawn table (a hub's focus would draw the satellites of all its links and hubs across).

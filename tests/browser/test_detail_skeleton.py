@@ -26,7 +26,7 @@ from conftest import (
     write_example,
     write_project,
 )
-from large_project import LARGE_CONFIG, write_large_project
+from large_project import LARGE_CONFIG, SPECIAL, write_large_project
 
 from browser.conftest import NARROW, Page, scroll_width, show_detail, wait_exportable
 from browser.test_contrast import assert_graphviz_texts_pass
@@ -469,6 +469,20 @@ def test_a_focus_on_a_hub_shows_its_links_and_the_hubs_across_them(
         first["size"],
     )
     assert p.page.is_enabled("#d-fold-box")
+
+
+def test_a_focus_on_a_hub_draws_its_satellite_folded_by_name_only(
+    vehicle: tuple[Page, dict[str, Any]],
+) -> None:
+    p, data = vehicle
+    m = Model(data)
+    satellite = SPECIAL["no_relation_by_name"]
+    hub = m.entities[satellite]["parent"]
+    assert hub in m.scope and hub not in m.next[satellite], "a name-only parent has no relation"
+    focus(p, hub)
+    d = drawing(p)
+    assert satellite in d["drawn"] and d["folded"] == []
+    assert hub in d["drawn"] and set(m.held()[hub]) <= set(d["drawn"])
 
 
 @pytest.mark.parametrize("depth", [2, 3])

@@ -174,7 +174,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   // --- graph ----------------------------------------------------------------
   // The tables around the focus: a breadth-first walk over relations inside the scope, `state.depth` levels. A
   // connector (a kind of role `connector`, D-059) that the walk reaches is a passage: its neighbours join the same
-  // level (D-076), so a hub at "direct links" also shows the hubs across its links. The kind filter applies after.
+  // level (D-076), so a hub at "direct links" also shows the hubs across its links. The tables folded into the focus itself
+  // (by relation or by name only, D-062) join it too (D-080). The kind filter applies after.
   function visibleIds() {
     let ids = new Set(scope);
     if (state.focus) {
@@ -192,6 +193,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
         frontier = next;
       }
     }
+    if (state.focus) PARENT.forEach((p, id) => { if (p === state.focus && scope.has(id)) ids.add(id); });
     return new Set([...ids].filter(id => id === state.focus || state.kinds.has(byId.get(id).kind)));
   }
 
