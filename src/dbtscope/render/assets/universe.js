@@ -22,7 +22,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`, summaryH: 'Summary of the constellations',
           entitiesN: ['entity', 'entities'], foldsInto: 'Folds into',
           openedLive: (t, p) => `${t} is folded into ${p}: shown`,
-          foldLiveOn: n => `Descriptive tables folded: ${n}`, foldLiveOff: 'Descriptive tables shown',
+          foldLiveOn: n => `Descriptive tables folded${L.colon}${n}`,
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
           systemsN: ['source system', 'source systems'], groupTip: 'Click a row to zoom on it',
@@ -54,7 +54,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           summaryH: 'Synthèse des constellations',
           entitiesN: ['entité', 'entités'], foldsInto: 'Se replie dans',
           openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
-          foldLiveOn: n => `Tables descriptives repliées\u00a0: ${n}`, foldLiveOff: 'Tables descriptives affichées',
+          foldLiveOn: n => `Tables descriptives repliées${L.colon}${n}`,
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
           systemsN: ['système source', 'systèmes sources'], groupTip: 'Clic sur une ligne pour la cadrer',
@@ -176,7 +176,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       state.fold = ev.target.checked; opened = null;
       foldMemory.set(state.fold ? 'folded' : 'shown', DATA.defaults.fold ? 'folded' : 'shown');
       relayout();
-      $u('live').textContent = state.fold ? T.foldLiveOn(plural(entitiesIn(visible), T.entitiesN)) : T.foldLiveOff;
+      $u('live').textContent = state.fold ? T.foldLiveOn(plural(entitiesIn(visible), T.entitiesN)) : L.foldLiveOff;
     };
   }
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds;
@@ -1805,9 +1805,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function foldTip(n) {
     const held = HELD.get(n.i);
     if (held) {
-      const lines = held.slice(0, TIP_FOLDED).map(i => `<div>${esc(N[i].name)} <span class="m">· ${esc(labelOf(KIND[N[i].kind]))}</span></div>`);
-      const more = held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '';
-      return `<div class="held"><b>${plural(held.length, L.foldedN)}</b>${lines.join('')}${more}</div>`;
+      const [head, ...rest] = foldedLines(held.map(i => ({ name: N[i].name, kind: labelOf(KIND[N[i].kind]) })));
+      return `<div class="held"><b>${esc(head)}</b>${rest.map(t => `<div>${esc(t)}</div>`).join('')}</div>`;
     }
     return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
   }

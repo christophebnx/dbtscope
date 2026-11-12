@@ -15,7 +15,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
           foldFocused: 'A focus draws every table',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}the drawing will be hard to read`,
           foldLiveOn: n => `Descriptive tables folded${L.colon}${plural(n, L.tables)} drawn`,
-          foldLiveOff: 'Descriptive tables shown',
           passNote: kinds => `Passing through ${kinds} costs no level` },
     fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
           cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
@@ -30,7 +29,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
           foldFocused: 'Une table ciblée affiche toutes les tables',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}le schéma sera difficile à lire`,
           foldLiveOn: n => `Tables descriptives repliées${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
-          foldLiveOff: 'Tables descriptives affichées',
           passNote: kinds => `Passer par ${kinds} ne coûte aucun niveau` },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
@@ -84,7 +82,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     foldMemory.set(on ? 'folded' : 'shown', 'folded');
     render();
     // the warning is a live region of its own: announce the choice only when it says nothing
-    $d('live').textContent = on ? T.foldLiveOn(cur.drawn.size) : $d('fold-warn').textContent ? '' : T.foldLiveOff;
+    $d('live').textContent = on ? T.foldLiveOn(cur.drawn.size) : $d('fold-warn').textContent ? '' : L.foldLiveOff;
   }
   $d('fold-box').onchange = ev => setFold(ev.target.checked);
   // the warning's action: the same choice as the checkbox, which keeps the focus (the button hides with the warning)
@@ -224,12 +222,10 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const list = kinds.map(([k, n]) => (kinds.length > 1 ? `${labelOf(KIND[k])} ${num(n)}` : labelOf(KIND[k])));
     return `+ ${plural(ids.length, L.foldedN)} · ${list.join(' · ')}`;
   }
-  // a table's tooltip in a skeleton: its folded tables (the first TIP_FOLDED, then "+ N") and its column count
+  // a table's tooltip in a skeleton: its folded tables (`foldedLines`) and its column count
   function skeletonTip(e, heldIds) {
-    const lines = heldIds.slice(0, TIP_FOLDED).map(id => `${byId.get(id).name} · ${labelOf(KIND[byId.get(id).kind])}`);
-    if (heldIds.length > TIP_FOLDED) lines.push(`+ ${num(heldIds.length - TIP_FOLDED)}`);
     const keys = e.columns.filter(c => c[2]).length;
-    return [heldIds.length ? [plural(heldIds.length, L.foldedN), ...lines].join('\n') : '',
+    return [heldIds.length ? foldedLines(heldIds.map(id => ({ name: byId.get(id).name, kind: labelOf(KIND[byId.get(id).kind]) }))).join('\n') : '',
       `${plural(e.columns.length, L.columns)} · ${plural(keys, T.keysN)}`].filter(Boolean).join('\n\n');
   }
 

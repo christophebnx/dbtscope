@@ -18,6 +18,7 @@ const STRINGS = {
         exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
         foldedN: ['folded table', 'folded tables'], foldH: 'Entities', foldRow: 'Fold',
+        foldLiveOff: 'Descriptive tables shown',
         foldTitle: 'Draw these tables inside the table they describe',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
@@ -33,6 +34,7 @@ const STRINGS = {
         exportImage: 'Exporter l\'image', png: 'PNG', filters: 'Filtres', empty: 'Aucune table pour ces filtres.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
         foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités', foldRow: 'Replier',
+        foldLiveOff: 'Tables descriptives affichées',
         foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
@@ -154,6 +156,15 @@ const labelOf = item => item.label ?? item.key;
 
 // Folded tables a tooltip lists before "+ N": the one limit of the universe's entity tooltip and the detail's.
 const TIP_FOLDED = 12;
+
+// The folded tables of an entity as the lines of a tooltip (D-063, D-073), as text: the heading "N folded tables",
+// one "name · kind" line for each of the first TIP_FOLDED of `items` ({name, kind}: the kind's label), then "+ N".
+// The universe wraps them in HTML, the detail joins them with newlines.
+function foldedLines(items) {
+  const lines = items.slice(0, TIP_FOLDED).map(t => `${t.name} · ${t.kind}`);
+  if (items.length > TIP_FOLDED) lines.push(`+ ${num(items.length - TIP_FOLDED)}`);
+  return [plural(items.length, L.foldedN), ...lines];
+}
 
 // The label of the fold row (D-063, D-073), shown by both views: "Fold Satellite · PIT", the descriptive kinds
 // that fold, the first three, then " + N".
