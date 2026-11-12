@@ -48,7 +48,7 @@ Five phases, each a sub-milestone run through `/feature M7.n`, in this order. Ea
 
 | Phase | Subject | Answers |
 |---|---|---|
-| M7.1 | Roles of kinds, complete presets, layers from folders, selector negation, the large test project | 8, base of the rest |
+| M7.1 | Roles of kinds, complete presets with default layers, selector negation (optional), the large test project | 8, base of the rest |
 | M7.2 | Entities: satellites folded into their hub or link | 1, 2 |
 | M7.3 | Summary cards at overview | 1 |
 | M7.4 | Source systems apart, readable routes | 3, 4 |
@@ -100,9 +100,11 @@ A kind rule gains an optional `role`. The role says how much a kind matters in t
 
 Found on the real Openlane manifest (1,453 tables, 2026-11-12). Its folders are `raw_<system>/` (11 of them), `ref_refdata/`, `int_cap/`, `int_dwh/<domain>/`, `dp_dwh/<domain>/`.
 
-- **Default layers merge folders of one prefix.** Without `layers` rules, the layer is the first folder under `models/` (`domain/universe.py` `_default_layer`), so Openlane gets 15 layers, one per `raw_*` folder. `FLOW_PREFIXES` already gives those folders the same rank. Folders whose name starts with the same known prefix followed by `_` (`raw_*`, `bronze_*`, `stg_*`…) now form one layer, keyed and labelled by the prefix ("Raw"). A folder of its own (`int_dwh`) is unchanged. This takes the roadmap's "Later" item on medallion folders. It changes the page of every project with no `layers` rules: record a decision, and check the effect on the reference pages and `acme_retail`.
-- **Negation in selectors.** A selector part that starts with `!` matches when the rest does not: `path:models/int_dwh/*,!vw_*` is a table of that folder whose name does not start with `vw_`. It applies wherever selectors do (`select`, `exclude`, every rule's `match`), through the one implementation of `domain/selectors.py`. A bare `!` or `!` followed by nothing is a one-line config error. Openlane needs it because one folder holds three layers: `int_dwh/` holds the datavault4dbt stage models (`stg_*`), the vault, and views built on the vault (`vw_*_sat`, `vw_*_ref`). Since the first rule that matches wins and rules are also the flow order, the vault can today only be written as a list of suffixes. In YAML a selector that starts with `!` must be quoted (`"!vw_*"`, `!` opens a tag): the user guide says so, and the config error for an unquoted one names the fix if the YAML loader lets it be detected.
-- Both points go into the user guide (Configuration, Layers) with the Openlane-shaped example.
+Both cases are solved by a preset, not by the tool: a project preset for Openlane (`layers` rules by folder and name) gives 6 layers, every table placed. The tool's behaviour without `layers` rules (one layer per first folder under `models/`) is kept: changing it would change the page of every project without rules.
+
+- **Preset default layers group folders by pattern.** The default `layers` of the built-in presets (above) match folders with globs, so that a family of folders forms one layer: `path:models/raw_*`, `path:models/stg*`, `path:models/bronze_*`, and so on for each step of the flow. On Openlane-shaped folders (`raw_<system>/` ×11) `preset: data_vault` alone gives one Raw layer. Folder names the presets cannot guess (`int_dwh`, `dp_dwh`) stay the project's own rules, in `dbt-erd.yml` or a project preset file.
+- **Negation in selectors, secondary.** Optional in this phase: drop it if it complicates M7.1, and say so in `docs/progress.md`. A selector part that starts with `!` matches when the rest does not: `path:models/int_dwh/*,!vw_*`. It applies wherever selectors do, through the one implementation of `domain/selectors.py`; a bare `!` is a one-line config error. It shortens rules where one folder holds several layers (Openlane's `int_dwh/` holds stage models `stg_*`, the vault, and views `vw_*` built on it), which today need a list of vault suffixes, and it keeps them right when a new suffix appears. In YAML a selector that starts with `!` must be quoted (`"!vw_*"`): the user guide says so.
+- The user guide (Configuration, Layers, Preset files) gains the Openlane-shaped example: a project preset with its `layers` rules.
 
 ### The large test project
 
@@ -113,9 +115,9 @@ Done when:
 1. On the large project with `preset: data_vault` and only `domains` rules in the config, "Other" holds no table and the Layers list is Sources → Staging → Raw vault → Data products.
 2. The names shown at Fit are core tables.
 3. A config with no preset and with `layers` rules gives a page whose payload differs from today's only by the new keys.
-4. Without `layers` rules, the large project's `raw_*` folders form one layer.
-5. On the large project, a `layers` rule written with negation (`path:<vault folder>/*,!vw_*,!stg_*`) separates stage, vault and views; the same rule list written with suffixes gives the same page.
-6. User guide, how it works, the config reference and both presets' documentation describe roles, merged default layers and negation.
+4. With `preset: data_vault` and no `layers` rules of its own, the large project's `raw_*` folders form one layer.
+5. If negation is built: on the large project, a `layers` rule written with it (`path:<vault folder>/*,!vw_*,!stg_*`) gives the same page as the same rules written with suffixes.
+6. User guide, how it works, the config reference and both presets' documentation describe roles, the presets' default layers, and negation if built.
 
 ## 6. M7.2 — Entities: descriptive tables folded into their parent
 

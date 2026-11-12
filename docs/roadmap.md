@@ -248,7 +248,7 @@ Done when: every finding of the audit is fixed, the default suite is green, ruff
 
 Brief: `docs/briefs/2026-11-12-m7-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order:
 
-- **M7.1 — Roles, complete presets, the large test project.** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers; default layers merge folders of one prefix (`raw_*`); selectors gain negation (`!vw_*`); a generated large Data Vault project enters the tests.
+- **M7.1 — Roles, complete presets, the large test project.** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers that group folders by pattern (`raw_*`); selectors may gain negation (`!vw_*`, optional); a generated large Data Vault project enters the tests.
 - **M7.2 — Entities.** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
 - **M7.3 — Summary cards.** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M7.4 — Source systems apart, readable routes.** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
