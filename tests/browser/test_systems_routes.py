@@ -1149,3 +1149,44 @@ def test_a_drag_step_recomputes_the_routes_within_their_budget(large_page: Any, 
     p.page.mouse.up()
     print(f"drag step perf.routes (ms): worst {max(routes):.1f}, median {median(routes):.1f}")
     assert median(routes) <= 16
+
+
+# ---------------------------------------------------------------- layer mode: bands in the panel order
+
+
+def test_layer_bands_are_keyed_by_their_domain_when_a_system_is_listed_first(
+    tmp_path: Path, open_page: Any
+) -> None:
+    """The payload lists the system first; the bands (business domains first) still keep their own keys."""
+
+    def table(i: int, domain: str, layer: str) -> dict[str, Any]:
+        return {
+            "id": f"t.{i}",
+            "name": f"t{i}",
+            "domain": domain,
+            "layer": layer,
+            "kind": "k0",
+            "desc": "",
+            "cols": [],
+        }
+
+    nodes = [table(0, "raw", "l0"), table(1, "sales", "l0"), table(2, "sales", "l0"), table(3, "sales", "l1")]
+    payload = UniversePayload.model_validate(
+        {
+            "nodes": nodes,
+            "relations": [[1, 3]],
+            "lineage": [[0, 1]],
+            "domains": [
+                {"key": "raw", "label": "Raw", "color": "#2f6fb5", "owner": "", "system": True},
+                {"key": "sales", "label": "Sales", "color": "#b5562f", "owner": ""},
+            ],
+            "layers": [{"key": "l0", "label": "Zero"}, {"key": "l1", "label": "One"}],
+            "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "constellations": "layers"},
+        }
+    )
+    p = open_page(universe_page(tmp_path, payload, view="universe"))
+    g = geometry(p)
+    assert g["by"] == "layers"
+    zero = next(c for c in g["constellations"] if c["key"] == "l0")
+    assert sorted((b["key"], b["n"]) for b in zero["bands"]) == [("raw", 1), ("sales", 2)]

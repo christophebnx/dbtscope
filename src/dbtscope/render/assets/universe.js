@@ -100,7 +100,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const SYS = new Set(DATA.domains.filter(d => d.system).map(d => d.key));
   const HAS_SYS = SYS.size > 0 && SYS.size < DATA.domains.length;
   const BUSINESS = DATA.domains.filter(d => !HAS_SYS || !SYS.has(d.key)), SYSTEMS = DATA.domains.filter(d => HAS_SYS && SYS.has(d.key));
-  const DOM_POS = Object.fromEntries([...BUSINESS, ...SYSTEMS].map((d, i) => [d.key, i]));
+  const DOM_LIST = [...BUSINESS, ...SYSTEMS];   // the panel order: a domain's position is its index here, never in the payload
+  const DOM_POS = Object.fromEntries(DOM_LIST.map((d, i) => [d.key, i]));
   const GROUP = '@systems';   // the key of the source-systems group card (not a domain key in practice)
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
@@ -226,6 +227,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the Types rows by role, then in payload order (the sort is stable)
   const KINDS_BY_ROLE = [...DATA.kinds].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
   const KIND_POS = new Map(KINDS_BY_ROLE.map((k, i) => [k.key, i]));
+  // a mix ([kind, count] pairs) in the order of the Types rows
+  const inKindOrder = mix => [...mix].sort((p, q) => KIND_POS.get(p[0]) - KIND_POS.get(q[0]));
   function refreshPanel() {
     const owner = d => d.owner ? `${T.owner}${L.colon}${d.owner}` : labelOf(d);
     checkboxes($u('layers'), DATA.layers, COUNT.layer, state.layers, null, null, 'layers');
@@ -503,6 +506,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the business box, else the fewest columns that fit, filled column by column; the grid's right edge is GRID_GAP
   // left of the leftmost business disc and its columns are centred on the box's centre (on 0 without business)
   let gridOrder = new Map();
+  // constellations in the order of the source-systems grid, the panel order for the unplaced
+  const inGridOrder = list => [...list].sort((a, b) => (gridOrder.get(a.k) ?? Infinity) - (gridOrder.get(b.k) ?? Infinity) || DOM_POS[a.k] - DOM_POS[b.k]);
   function placeSystems(free, sim, model) {
     gridOrder = new Map();
     if (!free.length) return;
@@ -564,7 +569,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     domains: { of: n => n.domain, band: layerPos, bandKey: pos => DATA.layers[pos].key,
                rank: (key, members) => d3.mean(members, n => LAYER[n.layer].rank), flowX: FLOW_X_BUSINESS,
                pins: 'domains', scope: () => (folding() ? 'folded:' : '') + state.detail },
-    layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DATA.domains[pos].key,
+    layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DOM_LIST[pos].key,
               rank: key => LAYER[key].rank, flowX: 0.3, pins: 'layers',
               scope: () => 'layers:' + (folding() ? 'folded:' : '') + state.detail },
   };
@@ -752,13 +757,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     out.push(P[P.length - 1]);
     return out;
   }
+  // the distance from the point (px, py) to the segment p -> q
+  function segmentDist(px, py, p, q) {
+    const dx = q[0] - p[0], dy = q[1] - p[1], l2 = dx * dx + dy * dy;
+    const f = l2 ? Math.max(0, Math.min(1, ((px - p[0]) * dx + (py - p[1]) * dy) / l2)) : 0;
+    return Math.hypot(px - p[0] - dx * f, py - p[1] - dy * f);
+  }
   // does the segment p -> q meet the obstacle: its circle (cr > 0), its rectangle (hw > 0), or both (their union)?
   function segmentHits(p, q, o) {
     const dx = q[0] - p[0], dy = q[1] - p[1];
-    if (o.cr) {
-      const l2 = dx * dx + dy * dy, f = l2 ? Math.max(0, Math.min(1, ((o.x - p[0]) * dx + (o.y - p[1]) * dy) / l2)) : 0;
-      if (Math.hypot(p[0] + dx * f - o.x, p[1] + dy * f - o.y) < o.cr) return true;
-    }
+    if (o.cr && segmentDist(o.x, o.y, p, q) < o.cr) return true;
     if (!o.hw) return false;
     let t0 = 0, t1 = 1;   // Liang-Barsky against the rectangle
     for (const [d, dist] of [[-dx, p[0] - (o.x - o.hw)], [dx, o.x + o.hw - p[0]], [-dy, p[1] - (o.y - o.hh)], [dy, o.y + o.hh - p[1]]]) {
@@ -848,17 +856,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // a polyline resampled to about 3 points per segment of its corners (the ends kept)
   const sampleLine = way => way.flatMap((p, j) => (j ? steps(8).slice(1).map(f => lerp2(way[j - 1], p, f)) : [p]));
+  // The path of the key between the ends a and b, stored in the model: the path of the previous model stays while its
+  // ends have not moved and it still clears every obstacle, else it is found again. The time adds to this frame's perf.
+  function pathFor(rm, key, a, b, obs) {
+    const t0 = performance.now(), at = [a.x, a.y, b.x, b.y].join(), before = rm.before && rm.before.get(key);
+    const kept = before && before.at === at && before.clear && !crossed(before.pts, obs).n;
+    const path = kept ? before : { ...routePath(a, b, obs, !dragging), at };
+    rm.paths.set(key, path);
+    perf.routes += performance.now() - t0;
+    return path;
+  }
   // the world polyline of the pair (from, to) at its ends' centres, in that direction; cached with the route model
   function pathBetween(from, to) {
     const rm = routeModel(), key = pairKey(from, to);
     if (!rm.paths.has(key)) {
       const obs = rm.circles.filter(o => o.k !== from && o.k !== to).concat(rm.grp && !rm.members.has(from) && !rm.members.has(to) ? [rm.groupObs] : []);
-      const end = k => (k === GROUP ? rm.grp : rm.by.get(k)), [lo, hi] = from < to ? [end(from), end(to)] : [end(to), end(from)];
-      const before = rm.before && rm.before.get(key), at = [lo.x, lo.y, hi.x, hi.y].join();
-      // a path of the previous model stays while its ends have not moved and it still clears every obstacle
-      const t0 = performance.now(), kept = before && before.at === at && before.clear && !crossed(before.pts, obs).n;
-      rm.paths.set(key, kept ? before : { ...routePath(lo, hi, obs, !dragging), at });
-      perf.routes += performance.now() - t0;
+      const end = k => (k === GROUP ? rm.grp : rm.by.get(k));
+      pathFor(rm, key, ...(from < to ? [end(from), end(to)] : [end(to), end(from)]), obs);
     }
     const p = rm.paths.get(key);
     return from < to ? p : { ...p, pts: [...p.pts].reverse() };
@@ -871,13 +885,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function systemsGroup() {
     if (groupCache && groupCache.ver === geomVer) return groupCache.g;
     let g = null;
-    const members = constellations.filter(d => isSystem(d.k));
+    let members = constellations.filter(d => isSystem(d.k));
     if (members.length >= 2) {
       const x0 = d3.min(members, d => d.x - d.r), x1 = d3.max(members, d => d.x + d.r), y0 = d3.min(members, d => d.y - d.r), y1 = d3.max(members, d => d.y + d.r);
       const meets = d => { const cx = Math.max(x0, Math.min(d.x, x1)), cy = Math.max(y0, Math.min(d.y, y1)); return Math.hypot(d.x - cx, d.y - cy) < d.r; };
       if (!constellations.some(d => !isSystem(d.k) && meets(d))) {
-        members.sort((a, b) => (gridOrder.get(a.k) ?? Infinity) - (gridOrder.get(b.k) ?? Infinity) || DOM_POS[a.k] - DOM_POS[b.k]);
-        const rows = members.map(d => ({ key: d.k, n: d.n, kinds: [...d.mix].sort((p, q) => KIND_POS.get(p[0]) - KIND_POS.get(q[0])) }));
+        members = inGridOrder(members);
+        const rows = members.map(d => ({ key: d.k, n: d.n, kinds: inKindOrder(d.mix) }));
         g = { k: GROUP, group: true, members, x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: d3.max(members, d => d.r), gridW: x1 - x0, gridH: y1 - y0, n: d3.sum(members, d => d.n),
               mix: [...d3.rollup(members.flatMap(d => d.mix), v => d3.sum(v, m => m[1]), m => m[0])], sum: { rows, entities: null, main: [] } };
       }
@@ -918,19 +932,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       rm.bundled = [...keep, ...bundled];
     }
     rm.strongIndiv = strongOf(rm.indiv); rm.strongBundled = rm.bundled ? strongOf(rm.bundled) : null;
-    perf.routes = performance.now() - t0;   // the model; the paths drawn add their time as they are found
+    perf.routes += performance.now() - t0;   // the model; the paths drawn add their time as they are found
     return rm;
   }
   // the path of a bundled route (group card to a business domain), kept like the others while nothing moved
   function bundledPath(rm, b) {
-    const key = GROUP + '|' + b.target, to = rm.by.get(b.target), at = [rm.grp.x, rm.grp.y, to.x, to.y].join();
+    const key = GROUP + '|' + b.target;
     if (rm.paths.has(key)) return rm.paths.get(key);
-    const obs = rm.circles.filter(o => !rm.members.has(o.k) && o.k !== b.target), t0 = performance.now();
-    const before = rm.before && rm.before.get(key), kept = before && before.at === at && before.clear && !crossed(before.pts, obs).n;
-    const path = kept ? before : { ...routePath(rm.grp, to, obs, !dragging), at };
-    perf.routes += performance.now() - t0;
-    rm.paths.set(key, path);
-    return path;
+    return pathFor(rm, key, rm.grp, rm.by.get(b.target), rm.circles.filter(o => !rm.members.has(o.k) && o.k !== b.target));
   }
   // the path of a route of the current model: { pts (centre to centre, world), clear }
   const pathOf = r => (r.bundled ? bundledPath(routeModel(), r) : pathBetween(r.source, r.target));
@@ -1043,8 +1052,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     let best = null, bestD = Infinity;
     routeHits.forEach(({ r, w, pts }) => {
       for (let j = 1; j < pts.length; j++) {
-        const [x0, y0] = pts[j - 1], [x1, y1] = pts[j], dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy;
-        const f = l2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / l2)) : 0, d = Math.hypot(px - x0 - dx * f, py - y0 - dy * f);
+        const d = segmentDist(px, py, pts[j - 1], pts[j]);
         if (d <= Math.max(6, w / 2 + 3) && d < bestD) { best = r; bestD = d; }
       }
     });
@@ -1068,6 +1076,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   function paint(onScreen, scale) {
     const t0 = performance.now(), k = t.k, W = stage.clientWidth, H = stage.clientHeight;
+    perf.routes = 0;   // per frame: the model and the paths this draw finds
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     if (onScreen) { summaryHits = []; cardInfo = []; routeHits = []; }
@@ -1291,7 +1300,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function summaryOf(d, all) {
     const byLayers = state.by === 'layers', pos = key => (byLayers ? DOM_POS[key] : LAYER[key].rank);
     const rows = [...d3.group(all, n => (byLayers ? n.domain : n.layer))]
-      .map(([key, ns]) => ({ key, n: ns.length, kinds: [...d3.rollup(ns, v => v.length, n => n.kind)].sort((a, b) => KIND_POS.get(a[0]) - KIND_POS.get(b[0])) }))
+      .map(([key, ns]) => ({ key, n: ns.length, kinds: inKindOrder(d3.rollup(ns, v => v.length, n => n.kind)) }))
       .sort((a, b) => pos(a.key) - pos(b.key));
     return { rows, entities: folding() ? entitiesIn(all) : null,
              main: (mainTables().get(d.k) || []).map(n => n.i) };
@@ -1323,10 +1332,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       return [el('h3', constellationLabel(d.k)), el('p', countLine(d.n, d.sum.entities)), ul, ...main, ...routesBlock(d.k, routes)];
     });
     if (sys.size) {   // the source systems, one block whatever the scale or the arrangement
-      const members = constellations.filter(d => sys.has(d.k)).sort((a, b) => (gridOrder.get(a.k) ?? Infinity) - (gridOrder.get(b.k) ?? Infinity) || DOM_POS[a.k] - DOM_POS[b.k]);
+      const members = inGridOrder(constellations.filter(d => sys.has(d.k)));
       const ul = document.createElement('ul');
       members.forEach(d => ul.append(el('li', `${labelOf(DOM[d.k])}${L.colon}${plural(d.n, L.tables)} — `
-        + [...d.mix].sort((p, q) => KIND_POS.get(p[0]) - KIND_POS.get(q[0])).map(([kind, c]) => `${labelOf(KIND[kind])} ${num(c)}`).join(', '))));
+        + inKindOrder(d.mix).map(([kind, c]) => `${labelOf(KIND[kind])} ${num(c)}`).join(', '))));
       parts.push(el('h3', T.systemsH), el('p', `${plural(members.length, T.systemsN)} · ${plural(d3.sum(members, d => d.n), L.tables)}`), ul,
         ...routesBlock(GROUP, bundleRoutes(routes, sys).bundled));
     }
