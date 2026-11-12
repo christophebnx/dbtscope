@@ -34,7 +34,7 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M7.3 Parse without a profile | rejected | | D-056, after the spike recorded in `docs/architecture/2026-11-12-parse-without-profile.md`; no code |
 | M7.4 dbt log level | done | | Built per `docs/architecture/2026-11-12-m7.4-dbt-log-level.md` (D-057): `--log-level` (default `error`), `dbt --log-level <level> parse`; usage error with `--no-parse` / `--manifest`; at `none` a failure says it hid dbt's messages. Pages byte-identical |
 | M8.1 Roles, complete presets, large test project | done | `5a01007` | Built per `docs/architecture/2026-11-12-m8.1-roles-presets.md` (D-058 to D-061). Payloads: each universe kind gains `role` (last key); `data_vault` and `star_schema` pages also change (new kinds, roles, default layers). Selector negation `!` built; `universe.js` tiers, radii, name priority, names at Fit, Types order, `sideOf`, `drawnNames()`; reference pages regenerated once (new case `roles`).<br>Large project `tests/large_project.py` (1,419 tables, deterministic), fixture `tests/fixtures/large-data-vault/`. Measures on it: payload build 0.22 s (bound 1.5 s); page open to first frame 0.44 s (budget 3 s), page 857 kB; a Types filter change 68 ms (budget 1 s).<br>Default suite 840 tests. Open points below |
-| M8.2 Entities | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 6 |
+| M8.2 Entities | in progress | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 6 |
 | M8.3 Summary cards | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 7 |
 | M8.4 Source systems apart, readable routes | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 8 |
 | M8.5 Detail skeleton | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 9 |
