@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (267 kB)
+  page:     opens on universe, en, libraries from CDNs (270 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (270 kB)
+  page:     opens on universe, en, libraries from CDNs (272 kB)
   config:   none (built-in defaults)
 ```
 
@@ -548,7 +548,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (267 kB)
+  page:     opens on universe, en, libraries from CDNs (270 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -803,7 +803,7 @@ On a large project the map opens on one **summary card** per constellation inste
 
 - **Source systems apart** (domain mode): domains made only of technical tables sit in a grid on the far left, upstream of the business domains, drawn in grey (their colour stays on the panel dot and in the layer view). They are ordered by the business domains they feed, in one column or the fewest that fit the height of the business domains. From afar, two or more of them are **one card**, "Source systems" with one row per system; a click on a row frames that system, a double-click the whole grid, dragging the header moves them all. Zoomed in, each is a neutral disc of its own. A source system you drag among the business domains gets its own card again. **Reset layout** gives the placement back; a saved arrangement loads exactly as it was saved.
 - **Business domains along the data flow**: a domain read by others sits left of its readers (a route is directed when most of its lineage goes one way).
-- **Routes**: one per pair of domains linked by their tables, from the edge of one to the edge of the other, curved around the domains in between, as thick as the number of links, with an arrowhead at the reader's end when the lineage goes one way (two heads when each reads the other, none for business relations only, which have no direction). By default the strongest are drawn: those among the three heaviest of either of their ends. When some are hidden the count line says so ("18 of 40 routes") and **Show all routes** draws them all (kept for the session only). From afar the routes of the source systems are bundled into one route per business domain.
+- **Routes**: one per pair of domains linked by their tables, from the edge of one to the edge of the other, curved around the domains in between, as thick as the number of links, with an arrowhead at the reader's end when the lineage goes one way (two heads when each reads the other, none for business relations only, which have no direction). By default the strongest are drawn: those among the three heaviest of either of their ends; a source system draws at most its three heaviest, none of weight 1, and a route the page cannot draw clear of the other domains is left out too. When some are hidden the count line says so ("18 of 40 routes", in place of the number of links, so the line stays on one line) and **Show all routes** draws them all (kept for the session only); pointing at a domain draws all its routes anyway. From afar the routes of the source systems are bundled into one route per business domain.
 - **Hover or focus**: pointing at a domain, or hovering or focusing its row in the panel (Tab to the row), draws **all** its routes, keeps its neighbours bright and dims the rest. Hovering a route gives its tooltip: its ends (upstream first), its relations and lineage links (only those **Links** counts), who reads whom, and for a bundled route the systems it sums.
 - **Screen readers**: the hidden summary lists the source systems as one block and, for each constellation, every route with its counts and direction.
 

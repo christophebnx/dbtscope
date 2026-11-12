@@ -24,7 +24,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           foldRow: 'Fold', foldTitle: 'Draw these tables inside the table they describe', foldsInto: 'Folds into',
           openedLive: (t, p) => `${t} is folded into ${p}: shown`,
           foldLiveOn: n => `Descriptive tables folded: ${n}`, foldLiveOff: 'Descriptive tables shown',
-          businessH: 'Business domains', systemsH: 'Source systems', allBusiness: 'All business domains',
+          businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
           systemsN: ['source system', 'source systems'], groupTip: 'Click a row to zoom on it',
           routesN: ['route', 'routes'], routesOf: (s, t) => `${num(s)} of ${num(t)} routes`, allRoutes: 'Show all routes',
@@ -58,7 +58,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           foldsInto: 'Se replie dans',
           openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
           foldLiveOn: n => `Tables descriptives repliées\u00a0: ${n}`, foldLiveOff: 'Tables descriptives affichées',
-          businessH: 'Domaines métier', systemsH: 'Systèmes sources', allBusiness: 'Tous les domaines métier',
+          businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
           systemsN: ['système source', 'systèmes sources'], groupTip: 'Clic sur une ligne pour la cadrer',
           routesN: ['route', 'routes'], routesOf: (s, t) => `${plural(s, ['route', 'routes'])} sur ${num(t)}`,
@@ -943,13 +943,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // the path of a route of the current model: { pts (centre to centre, world), clear }
   const pathOf = r => (r.bundled ? bundledPath(routeModel(), r) : pathBetween(r.source, r.target));
-  // The routes drawn by default (D-071): those among the ROUTES_PER heaviest of either of their ends, ties included
+  // The routes drawn by default (D-071). A source system keeps at most its ROUTES_PER heaviest routes, never of weight 1
+  // and no tie kept (weight, then the other end's key); a route between two systems must be kept by both. Any other
+  // route is kept when it is among the ROUTES_PER heaviest of either end, ties included.
   function strongOf(list) {
-    const top = new Map();
-    list.forEach(r => [r.source, r.target].forEach(k => { if (!top.has(k)) top.set(k, []); top.get(k).push(r.c); }));
+    const top = new Map(), own = new Map(), add = (map, k, v) => { if (!map.has(k)) map.set(k, []); map.get(k).push(v); };
+    const systems = r => [r.source, r.target].filter(isSystem), other = (r, k) => (r.source === k ? r.target : r.source);
+    list.forEach(r => { [r.source, r.target].forEach(k => add(top, k, r.c)); systems(r).forEach(k => add(own, k, r)); });
     top.forEach(v => v.sort((a, b) => b - a));
     const floor = k => (top.get(k).length >= ROUTES_PER ? top.get(k)[ROUTES_PER - 1] : 0);
-    return new Set(list.filter(r => r.c >= floor(r.source) || r.c >= floor(r.target)));
+    const chosen = new Map([...own].map(([k, v]) => [k, new Set(v.filter(r => r.c > 1)
+      .sort((p, q) => q.c - p.c || (other(p, k) < other(q, k) ? -1 : 1)).slice(0, ROUTES_PER))]));
+    return new Set(list.filter(r => (systems(r).length ? systems(r).every(k => chosen.get(k).has(r))
+      : r.c >= floor(r.source) || r.c >= floor(r.target))));
   }
   // What the frame draws of the routes at summary weight a: the sets (with their alpha), the one the pointer and the
   // counts act on, the spotlight and the constellations it keeps lit
@@ -960,14 +966,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     let sp = !traj && routesOn ? spot : null;
     if (sp && rm.bundled && a >= 0.5 && rm.members.has(sp)) sp = GROUP;
     if (sp === GROUP && cur !== sets[1]) sp = null;
-    sets.forEach(s => { s.shown = all ? s.list : s.list.filter(r => s.strong.has(r)); });
+    // a route is kept by default when it is strong and its path clears the other constellations (paths are found only
+    // for a set the frame draws); "all routes" and the spotlight draw the others
+    sets.forEach(s => {
+      s.kept = !routesOn || s.alpha < 0.01 ? [...s.strong] : s.list.filter(r => s.strong.has(r) && pathOf(r).clear);
+      s.shown = all ? s.list : s.kept;
+    });
     let near = null;
     if (sp) {
       near = new Set([sp]);
       cur.list.forEach(r => { if (r.source === sp) near.add(r.target); else if (r.target === sp) near.add(r.source); });
       if (near.has(GROUP)) rm.members.forEach(k => near.add(k));
     }
-    return { rm, sets, cur, sp, near, hides: sets.some(s => s.strong.size < s.list.length) };
+    return { rm, sets, cur, sp, near, hides: cur.kept.length < cur.list.length };
   }
   // the outline of a constellation (or the group) at weight a: its disc, and its card while the cards are drawn (world px)
   function outlineOf(key, rm, plans) {
@@ -1006,7 +1017,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('routes-box').onchange = ev => {
     showAll = ev.target.checked;
     const cur = lastView && lastView.cur;
-    if (cur) $u('live').textContent = showAll ? T.allRoutesOn(cur.list.length) : T.allRoutesOff(cur.strong.size, cur.list.length);
+    if (cur) $u('live').textContent = showAll ? T.allRoutesOn(cur.list.length) : T.allRoutesOff(cur.kept.length, cur.list.length);
     draw();
   };
   const lineWidth = c => Math.min(8, 1 + 1.2 * Math.log2(c));   // screen px
@@ -1091,7 +1102,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const entities = folding() ? [plural(entitiesIn(visible), T.entitiesN)] : [];
       const hidden = routesOn && !(showAll && !traj) && view.cur.shown.length < view.cur.list.length
         ? [T.routesOf(view.cur.shown.length, view.cur.list.length)] : [];
-      $u('meta').textContent = [plural(pass.length, L.tables), ...entities, plural(linkCount, T.linksN), groups, ...hidden].join(' · ');
+      // one line: while the routes entry shows (some routes are hidden) it replaces the links count, so it stays in view;
+      // the title always holds the whole line
+      const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables), ...entities];
+      $u('meta').textContent = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
+      $u('meta').title = [...counts, links, groups, ...hidden].join(' · ');
       lastView = view; syncRoutesRow(view);
     }
     if (!visible.length) {
@@ -1388,12 +1403,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return [words, marks].find(c => textW(c, `600 11px ${FONT}`) <= inner) || ellipsis(marks, inner, `600 11px ${FONT}`);
   }
   // The height is the content's, at most the width (the card stays centred on its constellation): `plan.h`.
+  const GROUP_SHORT = 60;
   function planCard(d, w, mark, cap = w) {
     const h = cap, { PAD, HEAD, LINE, GAP, ROW } = CARD, byLayers = state.by === 'layers', rows = d.sum.rows;
     const padX = Math.max(PAD, Math.round(0.34 * cardRadius(w))), inner = w - 2 * padX;
     const plan = { padX, h, name: '', size: 13, count: '', traj: '', rows: [], more: '', mainY: 0, heading: false, names: [] };
     if (w < 24) return plan;
-    const name = constellationLabel(d.k);
+    // the group card's heading is the short word under GROUP_SHORT px of inner width (a card of 24 px or more is always
+    // named, M8.3); any name is cut with an ellipsis when it does not fit
+    const name = d.group && inner < GROUP_SHORT ? T.systemsShort : constellationLabel(d.k);
     plan.size = textW(name, `600 13px ${FONT}`) <= inner ? 13 : 11;
     plan.name = ellipsis(name, inner, `600 ${plan.size}px ${FONT}`);
     let y = PAD + HEAD;
@@ -1810,6 +1828,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
     return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
   }
+  // The tooltip TIP_GAP px below and right of the pointer; flipped to the left and above where it would leave the stage,
+  // and, when one of the four places is clear of `avoid` (the hovered card, in canvas px), taken in that order
+  const TIP_GAP = 12;
+  function placeTip(ev, avoid) {
+    const r = stage.getBoundingClientRect(), c = canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    const w = tip.offsetWidth, h = tip.offsetHeight, g = TIP_GAP;
+    const fits = ([l, tp]) => l >= 0 && tp >= 0 && l + w <= r.width && tp + h <= r.height;
+    const apart = ([l, tp]) => !avoid || l + w <= avoid.x + c.left - r.left || l >= avoid.x + avoid.w + c.left - r.left
+      || tp + h <= avoid.y + c.top - r.top || tp >= avoid.y + avoid.h + c.top - r.top;
+    const spots = [[x + g, y + g], [x - g - w, y + g], [x + g, y - g - h], [x - g - w, y - g - h]];
+    const [left, top] = spots.find(q => fits(q) && apart(q)) || spots.find(fits) || [Math.max(0, Math.min(x + g, r.width - w)), Math.max(0, Math.min(y + g, r.height - h))];
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  }
   canvas.addEventListener('mousemove', ev => {
     const n = pick(ev), h = n ? n.i : null, over = constellationAt(ev);
     const d = n ? null : over, [px, py] = d3.pointer(ev, canvas);
@@ -1846,10 +1877,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>${main}<div class="a">${T.frame}</div>${click}`;
       }
     }
-    const r = stage.getBoundingClientRect();
     tip.style.display = 'block';
-    tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - 380) + 'px';
-    tip.style.top = (ev.clientY - r.top + 14) + 'px';
+    placeTip(ev, d && !tablesLive() ? info : null);
   });
   canvas.addEventListener('mouseleave', () => {
     tip.style.display = 'none';
