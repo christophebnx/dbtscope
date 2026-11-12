@@ -1,6 +1,6 @@
 # Parse without a profile — map any dbt project with no dbt setup (design note)
 
-Status: direction approved by the user on 2026-11-12 (see § User answers); the decision is recorded after the spike on real projects. Originally NEEDS USER APPROVAL. It refines D-012 (more than one `dbt parse`, a placeholder profile, a dbt that dbtscope may bring itself), adds an optional dependency extra (D-026 lists the runtime dependencies), adds an option, a `dbt-erd.yml` section, a summary row and warnings (user-visible behaviour not in the docs), and changes promises written in `docs/how-it-works.md` § What never happens. No released data format changes: `dbt-erd.yml` is only extended (as D-030 and D-048 did) and the layout file is untouched (D-013).
+Status: Rejected by the user on 2026-11-12 after the spike below (D-056): dbtscope stays independent of the warehouse platform and keeps running the machine's own `dbt parse` (D-012). Kept as the record of the options and of the spike.
 
 ## Context
 
