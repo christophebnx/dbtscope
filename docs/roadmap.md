@@ -244,6 +244,18 @@ Done when: the design note's test plan passes (each new test proved to fail once
 
 Done when: every finding of the audit is fixed, the default suite is green, ruff is clean with no duplicate-code finding, and CHANGELOG and progress are updated.
 
+## M7 — A synthetic view of large projects
+
+Brief: `docs/briefs/2026-11-12-m7-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order:
+
+- **M7.1 — Roles, complete presets, the large test project.** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers; a generated large Data Vault project enters the tests.
+- **M7.2 — Entities.** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
+- **M7.3 — Summary cards.** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
+- **M7.4 — Source systems apart, readable routes.** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
+- **M7.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
+
+Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
+
 ## Later (not scheduled)
 
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
