@@ -149,14 +149,23 @@ The user approved the recommendations:
 
 ## Spike (2026-11-12)
 
-Script: a placeholder profile in a temporary folder, `uvx --from dbt-core --with dbt-<adapter> dbt parse --profiles-dir <tmp> --target-path <tmp> --log-path <tmp> --no-version-check`, then `dbtscope --manifest`. Run so far on `examples/acme_retail` only (running dbt on public projects cloned from GitHub needs the user's permission in the cloud session):
+Script: a placeholder profile in a temporary folder, `uvx --from dbt-core --with dbt-<adapter> dbt parse --profile <name> --profiles-dir <tmp> --target-path <tmp> --log-path <tmp> --no-version-check`, then `dbtscope --manifest`. dbt 1.12.7, dbt-duckdb 1.11.1, dbt-snowflake 1.12.5. Public projects run with the user's permission; their packages were cloned with git into `dbt_packages` because `dbt deps` could not download from the hub through the session's proxy.
 
-| Adapter | `dbt parse` | Nodes | Map |
+| Project | duckdb placeholder | snowflake placeholder | Same map? |
 | --- | --- | --- | --- |
-| duckdb, `path: ":memory:"` | exit 0, 14 s with a cold uv cache | 72 models, 2 snapshots, 3 seeds, 115 tests, 18 sources | identical to the committed manifest's: 95 tables, 7 domains, 58 relations, 110 lineage links |
-| snowflake placeholder | exit 0, 12 s | same | identical |
+| `examples/acme_retail` (duckdb project) | exit 0, 14 s cold, 72 models | exit 0, 12 s, 72 models | yes: 95 tables, 7 domains, 58 relations, 110 lineage links |
+| dbt-labs/jaffle-shop (multi-warehouse, dbt_utils, audit_helper) | exit 0, 4 s, 13 models | exit 0, 4 s, 13 models | yes: 19 tables, 3 relations, 17 lineage links |
+| fivetran/dbt_hubspot (dispatched macros, fivetran_utils, spark_utils) | exit 0, 6 s, 176 models | exit 0, 6 s, 176 models | yes: 240 tables, 221 lineage links |
+| brooklyn-data/dbt_artifacts (35 files test `target.type`) | exit 0, 4 s, **34 models** | exit 0, 4 s, **46 models** | **no**: 12 models have `config(enabled = target.type == "snowflake")`; lineage 24 vs 55 links |
 
-Findings: the duckdb database name comes from the file name of `path` (`:memory:` gives `memory`), so the placeholder should use `path: warehouse.duckdb` (never opened by parse) to get `warehouse`. Schema names follow the project's `generate_schema_name`, unchanged by the adapter here. Still to run: the user's project (`openlane_dbt`, Windows) and projects that call warehouse-specific macros.
+Findings:
+
+1. **Parsing never failed because of the adapter.** Dispatched macros (`adapter.dispatch` falls back to `default__`) and warehouse-specific Jinja parse under duckdb.
+2. **Models enabled by `target.type` are lost under a foreign adapter** (dbt_artifacts). The bundled duckdb alone is therefore not faithful for such projects. Mitigation: parse with the project's real adapter type when it is known (an earlier manifest's `metadata.adapter_type`, or `parse.adapter` in `dbt-erd.yml`), fetching that adapter with `uvx --with dbt-<type>` (uv is already required); duckdb only when the type is unknown, with a warning when the project's files mention `target.type`.
+3. **A package-like project has no `profile:`**: pass `--profile <name>` with the placeholder (done in the spike).
+4. **Packages must be installed** (`dbt_packages`); with none, parse fails and names the missing packages. `dbt deps` is a second dbt command (D-012) and needs the network: keep it out of scope, tell the user to run it.
+5. **Placeholder schema names show in the map**: with dbt's default `generate_schema_name`, `+schema: hubspot` becomes `main_hubspot` (placeholder schema `main`). Domains are still right, keys carry the prefix. Question 3 stays open: a neutral placeholder schema, or none.
+6. **duckdb database name** comes from `path`'s file name: use `path: warehouse.duckdb` (never opened by parse).
 
 ## Rejected options
 
