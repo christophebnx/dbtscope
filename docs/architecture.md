@@ -12,7 +12,7 @@ Each fact has one home; other files link to it instead of copying it.
 | Streams, message form, exit codes | D-029 (contract); for users: streams in user guide § Options, message form and exit codes (the epilog's words) in user guide § Troubleshooting | this file § Overview, `how-it-works.md`, CHANGELOG |
 | Domain resolution order | D-015 (rule); `docs/how-it-works.md` § How a table is classified (users) | user guide § Configuration, glossary, responsibility map |
 | Config keys, presets, precedence | user guide § Configuration (keys checked by `tests/unit/test_docs.py`); D-030 (preset rules) | README § Configuration, this file § Configuration, `domain/CLAUDE.md` |
-| Install, upgrade, uninstall | user guide § Install | README § Quick start |
+| Install, upgrade, uninstall | user guide § Install | README § Quick start, `install/` (scripts), D-058 |
 | Run flow and the module of each step | modules: this file § Overview (diagram); for users: `how-it-works.md` § One run, step by step | README |
 | What is read from the manifest, what the page contains, how views are laid out (concepts) | `docs/how-it-works.md` | this file § Overview, user guide |
 | Layers and allowed imports | this file § Layers (diagram and table); enforced by `tests/unit/test_layering.py` | `CLAUDE.md` invariant 1, README |
@@ -191,6 +191,8 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Write one line of the CLI on stdout or stderr | `cli._say` (`_warn`; `_fail`, the one place that collapses whitespace) |
 | The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`; the `manifest:` row of a fallback) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
+| Install uv and dbtscope for a user, make `dbtscope` reachable, report dbt's presence (D-058); runs before dbtscope exists, so nothing is reused from Python | `install/install.ps1`, `install/install.sh` |
+| Check the install scripts (static rules, runs against fake uv, git, curl and dbt) | `tests/unit/test_install_scripts.py` |
 | Check a commit message | `tools/check_commit_message.problems` |
 | The CI checks, locally and in the manual workflow (D-053) | `tools/ci.STEPS`, `tools/ci.main` |
 | Block secrets, protected folders, commits and pushes on `main` (Claude Code); the project's list in `.claude/guard.json` | `.claude/hooks/guard_paths.py` |
@@ -201,6 +203,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Empty payloads and a single `Table` (tests) | `tests/conftest.empty_detail`, `empty_universe`, `table` |
 | Write a test project and its files (tests) | `tests/conftest.write_project`, `write_manifest`, `write_config`, `write_layout`; fixtures `dbt_project`, `shop` |
 | Copy the example project with its committed manifest (tests) | `tests/conftest.write_example`, `EXAMPLE`, `EXAMPLE_MANIFEST`, `EXAMPLE_EXPECTED`, `EXAMPLE_TOOL`; fixture `example_project`. The example's paths and `LOCAL` ignore list are owned by `tools/example_manifest` (the committed manifest's path is its `TARGET`); `tests/conftest` reuses them |
+| A fake executable of any name, run through the system Python (tests) | `tests/conftest.fake_executable` |
 | A fake dbt executable (tests) | `tests/conftest.fake_dbt_executable` |
 | Write a preset file (tests) | `tests/conftest.write_preset`, `PRESET_TEXT` |
 | Split a Markdown doc into fenced blocks and prose (tests) | `tests/conftest.Block`, `blocks`, `prose`; `USER_GUIDE` (path of the user guide) |

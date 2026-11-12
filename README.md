@@ -8,6 +8,8 @@ Warehouses built with dbt rarely declare foreign keys, so database tools draw ta
 
 ## Quick start
 
+Received a folder with a wheel and `install.ps1` / `install.sh`? Run the script: [user guide § Quick install](docs/user-guide.md#quick-install-recommended). Otherwise:
+
 Install [uv](https://docs.astral.sh/uv/) (Windows: `winget install --id=astral-sh.uv -e`; macOS: `brew install uv`; Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`; more ways in the [user guide](docs/user-guide.md#install-uv)), then:
 
 ```bash
