@@ -89,6 +89,20 @@ Design: `docs/architecture/2026-11-05-m5.13-group-by-layers.md` § UI design.
 - A page without roles differs only by the built-in technical kinds (source, seed, snapshot): smaller stars, listed first, named last.
 - Exported images follow the view as on screen.
 
+## Universe view — entities (M8.2, D-062)
+
+Design: `docs/architecture/2026-11-12-m8.2-entities.md` § UI design.
+
+- **Purpose.** On a large Data Vault, draw the hubs and links, not their satellites: each descriptive table is folded into its parent, a core or connector table (an **entity**), yet every table stays counted and reachable.
+- **Control.** In the universe panel, after Constellations and before Links: a checkbox "Fold descriptive tables into their entity" ("Replier les tables descriptives dans leur entité"), checked by default, with the count of tables that have a parent at its right and, under it, the labels of the descriptive kinds concerned (first three, then "+ N"). Hidden when no table has a parent. The viewer's choice is remembered (`dbtscope-fold:<title>`, never exported); the default is `universe.fold`. 44 px row on coarse pointers; Space toggles.
+- **Mark.** An entity's star carries a dark pill with the number of visible tables folded into it (1 to 99, then "99+"), 15 px high at its upper right; below scale 0.6 a dark dot without digits. It falls with the filters and disappears at 0. Shape and digits, not colour; the same in both groupings and in exported images.
+- **Tooltip of an entity.** "N folded tables" then up to 8 lines "name · Kind", then "+ N". **Cards** (keys, all fields) list them under the columns: a heading "N folded tables", up to 12 rows (kind dot, name, kind), then "+ N".
+- **Reaching a folded table.** Search, or a trajectory (start included), shows the table on a dashed orbit around its entity, with its name; the table found has the search ring. Nothing else moves; the orbit is cleared by the next search, the control, a filter change or a click on the background. Orbit tables answer to hover, click (trajectory) and double-click (detail) but cannot be dragged. A polite message names the entity.
+- **Filters.** A table whose entity is filtered out (or, in layer mode, lies in another layer) is drawn as an ordinary star; its tooltip says "Entity: X (filtered out)" or "(other layer)".
+- **Meta line.** With folding on: "1,374 tables · 428 entities · 2,285 links · 12 domains" ("1 374 tables · 428 entités · …"); entities are the visible core and connector tables. Counts of tables, links and rows never change with the fold.
+- **Hint.** Gains "a number on a star: tables folded into it…" while folding is on.
+- Counts, saved arrangements, the flow view and the detail view: as before M8.2.
+
 ## Top bar — layout buttons
 
 - **Reset layout**, **Export layout**, **Import layout** (fr since M2: "Réinitialiser la disposition", "Exporter la disposition", "Importer une disposition") act on the manual arrangement of the page (D-013). They never export an image.

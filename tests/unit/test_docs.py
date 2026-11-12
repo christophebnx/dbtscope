@@ -43,7 +43,7 @@ DIAGRAM_STARTS = ("flowchart TD", "flowchart LR", "sequenceDiagram")
 EXCERPT = re.compile(r"<!-- excerpt: (\S+) -->")
 LINK = re.compile(r"(!?)\[([^\]]*)\]\(([^)\s]+)\)")
 IMAGE_MAX_BYTES, IMAGES_MAX_BYTES = 200_000, 1_200_000
-SUMMARY_KEYS = ("universe:", "detail:", "page:", "config:")
+SUMMARY_KEYS = ("universe:", "fold:", "detail:", "page:", "config:")
 GUIDE_PROJECT = re.compile(r"/home/ana/\S*?(?:acme_retail|shop-map)")  # the guide's sample project paths
 # (heading of the guide, example with its dbt-erd.yml, extra arguments of each run shown in the block)
 SUMMARIES = [

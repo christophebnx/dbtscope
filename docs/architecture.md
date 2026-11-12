@@ -101,6 +101,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Match a table against selectors | `domain/selectors.matches`, `matches_any` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
 | Case-insensitive wildcard match of a value (selectors, `tag:` and `group_by: tag:<glob>`) | `domain/selectors.glob` |
+| The name glob of a selector (its single name part, else none) | `domain/selectors.name_glob` |
 | Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
 | Shape of the manifest fields dbtscope reads | `domain/manifest_schema` |
 | Tables, columns, relations, lineage, groups, project | `domain/model` |
@@ -125,6 +126,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Steps of the data flow, default layer of a table, its rank and step | `domain/steps.STEPS`, `FLOW_PREFIXES`, `UNRANKED`, `default_layer`, `flow_rank`, `step_of` |
 | Star size and name priority by role; Types list order (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `ROLE_ORDER`, `NAME_ORDER`, `OVERVIEW_K`, `orderLabels` |
 | Main core tables of a constellation, by relations (page; names now, cards in M8.3) | `render/assets/universe.js mainTables` |
+| Parent of a descriptive table (relation, then name stem; same domain; ties none) and the stem of a table (M8.2, D-061) | `domain/fold.parents`, `stem` |
+| Which tables are drawn, folded or shown; entity marks and counts (page, D-062) | `render/assets/universe.js PARENT`, `FOLDED`, `layout`, `placeShown` |
+| The viewer's last fold choice, kept out of the layout (page) | `render/assets/universe.js foldMemory` |
 | The large generated Data Vault project (tests) | `tests/large_project.large_manifest`, `write_large_project`, `LARGE_CONFIG`; browser fixture `tests/browser/conftest.large_page` |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
@@ -194,7 +198,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Write the page, OS errors named by the output | `cli._write_page` |
 | Open the page in the browser (a failure is a warning) | `cli._open_browser` |
 | Write one line of the CLI on stdout or stderr | `cli._say` (`_warn`; `_fail`, the one place that collapses whitespace) |
-| The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`; the `manifest:` row of a fallback) |
+| The success summary | `cli._summary` (`Report`; counts `_count`, sizes `_size`, layout date `_saved`; the `manifest:` row of a fallback; the `fold:` row, `_fold_row`, M8.2) |
 | Map an error to a CLI exit code and message (0, 1, 2 usage, 130 interrupted) | `cli.main` (`_usage_message`, `_fail`) |
 | Check a commit message | `tools/check_commit_message.problems` |
 | The CI checks, locally and in the manual workflow (D-053) | `tools/ci.STEPS`, `tools/ci.main` |
@@ -238,6 +242,10 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | How much a kind matters in the structure (M8.1, D-058) | **role** (`role`, `Role`, `ROLES`, `KindRule.role`): `core`, `connector`, `descriptive`, `technical`, or none | importance, weight, tier, type | French UI wording: « rôle » ; `core` « centrale », `connector` « de liaison », `descriptive` « descriptive », `technical` « technique » (adjectives of « table »). In the trajectory, start / upstream / downstream is a **side**, never a role. |
 | Place of a default layer along the data flow, from its folder-name prefix (D-059) | **step** (`domain/steps.STEPS`, selector `step:`) | stage, level, rank (rank is its number) | `source`, `staging`, `reference`, `intermediate`, `product`, `report`. |
 | A table's place in a trajectory: start, upstream, downstream | **side** (`universe.js sideOf`) | role | Renamed from `roleOf` in M8.1. |
+| The `core` or `connector` table a `descriptive` table is folded into (D-061) | **parent** (`UniverseNode.parent`, `domain/fold.parents`, `PARENT`) | owner, hub, anchor | In prose "parent table"; never for lineage ("parent" of a `LineageEdge` / `Relation` stays the model's field name). |
+| Drawing a descriptive table inside its parent instead of as its own star (D-062) | **fold** (config `universe.fold`, payload `defaults.fold`, `state.fold`, `foldMemory`); a **folded table**; the opposite is **shown** | collapse, merge, hide | French UI: « replier » / « afficher » ; « table repliée ». |
+| A core or connector table with the tables folded into it (UI, D-062) | **entity** in UI text only (`T.entitiesN`) | holder, group, cluster | French « entité ». In code the table is the **parent** and its tables `FOLDED`; the payload words `entities` / `DetailEntity` (D-027) stay the detail's tables, a different concept, written "detail entity" in prose. |
+| A descriptive table's name without its kind's fixed glob part (D-061) | **stem** (`domain/fold.stem`) | root, base name | Compared at a non-alphanumeric boundary. |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view, lineage graph | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. |

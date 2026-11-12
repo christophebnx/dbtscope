@@ -35,7 +35,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel { width:260px; flex:none; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:12px 14px; font-size:13px; }
 .panel.closed { display:none; }
 .panel h3, .panel legend { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:16px 0 6px; display:flex; justify-content:space-between; align-items:center; }
-.panel h3:first-child, .panel fieldset[hidden] + h3 { margin-top:0; }
+.panel h3:first-child, .panel fieldset[hidden] + h3, .panel fieldset[hidden] + fieldset[hidden] + h3 { margin-top:0; }
 .panel fieldset { border:0; margin:0; padding:0; min-width:0; }
 .panel legend { padding:0; margin-top:0; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
@@ -45,7 +45,13 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel input[type=radio] { margin:3px 3px 3px 4px; }   /* the checkbox's default margin: rows of one height */
 .panel label i { width:10px; height:10px; border-radius:50%; flex:none; }
 .panel label span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.panel label small { color:var(--muted); margin-left:auto; }
+.panel label small { color:var(--muted); margin-left:auto; font-variant-numeric:tabular-nums; }
+/* the fold control: a checkbox row whose text wraps, with a muted second line */
+.panel #u-fold { margin-bottom:12px; }
+.panel label.fold { align-items:flex-start; }
+.panel label.fold input { margin-top:3px; }
+.panel label.fold span { flex:1; min-width:0; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
+.panel label .sub { display:block; color:var(--muted); font-size:12px; line-height:1.4; }
 .panel .hint { color:var(--muted); font-size:12px; line-height:1.5; margin-top:18px; }
 
 /* ---- drawing area ---- */

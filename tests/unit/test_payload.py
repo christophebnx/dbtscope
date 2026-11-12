@@ -49,11 +49,11 @@ UNIVERSE = UniversePayload(
         (ENTITY, ["id", "name", "group", "kind", "description", "columns"]),
         (DETAIL.relations[0], ["child", "parent", "column"]),
         (UNIVERSE, ["nodes", "relations", "lineage", "domains", "layers", "kinds", "defaults"]),
-        (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols"]),
+        (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols", "parent"]),
         (UNIVERSE.domains[0], ["key", "label", "color", "owner"]),
         (UNIVERSE.layers[0], ["key", "label"]),
         (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations"]),
+        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold"]),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -102,3 +102,9 @@ def test_payload_literals_are_the_config_literals() -> None:
     assert PagePayload.model_fields["view"].annotation is config.View
     assert UniverseDefaults.model_fields["links"].annotation is config.Links
     assert UniverseDefaults.model_fields["detail"].annotation is config.DetailLevel
+
+
+def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
+    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).fold is True
+    assert NODE.parent is None
+    assert '"parent":null' in embedded_json(UNIVERSE) and '"fold":true' in embedded_json(UNIVERSE)

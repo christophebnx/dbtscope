@@ -79,6 +79,11 @@ UNIVERSE_COUNTS = {
     "en": ("0 tables · 0 links · 0 domains", "1 table · 0 links · 1 domain", "tables", "2 domains"),
     "fr": ("0 table · 0 lien · 0 domaine", "1 table · 0 lien · 1 domaine", "tables", "2 domaines"),
 }
+# folded (the default on the example): the meta line also counts the entities (D-062)
+FOLDED_COUNTS = {
+    "en": ("0 tables · 0 entities · 0 links · 0 domains", "1 table · 0 entities · 0 links · 1 domain"),
+    "fr": ("0 table · 0 entité · 0 lien · 0 domaine", "1 table · 0 entité · 0 lien · 1 domaine"),
+}
 
 
 def shared_tooltip(p: Page) -> str:
@@ -95,13 +100,18 @@ def shared_tooltip(p: Page) -> str:
     raise AssertionError("no domain tooltip found on the halo of Shared")
 
 
+@pytest.mark.parametrize("fold", [False, True], ids=["shown", "folded"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_universe_meta_and_domain_tooltip_agree(tmp_path: Path, open_page: Any, lang: str) -> None:
-    project = write_example(tmp_path / "acme_retail")
+def test_universe_meta_and_domain_tooltip_agree(
+    tmp_path: Path, open_page: Any, lang: str, fold: bool
+) -> None:
+    project = write_example(tmp_path / "acme_retail", fold=fold)
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     write_config(project, config.replace("language: en\n", f"language: {lang}\n"))
     p = open_page(page_of(project)[0])
     none, shared, tables, domains = UNIVERSE_COUNTS[lang]
+    if fold:
+        none, shared = FOLDED_COUNTS[lang]
     p.page.click("#u-none")
     assert meta(p) == none
     domain_box(p, "Shared").check()

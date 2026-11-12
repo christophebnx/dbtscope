@@ -23,7 +23,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           role: 'role', roles: { core: 'core', connector: 'connector', descriptive: 'descriptive', technical: 'technical' },
           hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
               + 'click a table to see its trajectory (Esc to leave) · '
-              + 'double-click a constellation to zoom in, a table to open its detail' },
+              + 'double-click a constellation to zoom in, a table to open its detail',
+          fold: 'Fold descriptive tables into their entity',
+          foldTitle: 'Draw each descriptive table inside its entity. Search or a trajectory shows it around its entity.',
+          foldedN: ['folded table', 'folded tables'], entitiesN: ['entity', 'entities'],
+          entity: 'Entity', entityHidden: ' (filtered out)', entityLayer: ' (other layer)',
+          foldOn: n => `Descriptive tables folded into ${plural(n, T.entitiesN)}`, foldOff: 'Descriptive tables shown',
+          foundFolded: (n, p) => `${n} is folded into ${p}; shown around it.`, shownAround: 'Shown around their entity',
+          hintFold: ' · a number on a star: tables folded into it, shown around it by search or trajectory' },
     fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
           names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
           every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
@@ -42,7 +49,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           role: 'rôle', roles: { core: 'centrale', connector: 'de liaison', descriptive: 'descriptive', technical: 'technique' },
           hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
               + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
-              + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail' },
+              + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail',
+          fold: 'Replier les tables descriptives dans leur entité',
+          foldTitle: 'Dessiner chaque table descriptive dans son entité. La recherche ou une trajectoire l\'affiche autour de son entité.',
+          foldedN: ['table repliée', 'tables repliées'], entitiesN: ['entité', 'entités'],
+          entity: 'Entité', entityHidden: ' (masquée par les filtres)', entityLayer: ' (autre couche)',
+          foldOn: n => `Tables descriptives repliées dans ${plural(n, T.entitiesN)}`, foldOff: 'Tables descriptives affichées',
+          foundFolded: (n, p) => `${n} est repliée dans ${p}\u202f; affichée autour d\'elle.`, shownAround: 'Affichées autour de leur entité',
+          hintFold: ' · un nombre sur une étoile\u00a0: tables repliées dans celle-ci, affichées autour d\'elle par la recherche ou la trajectoire' },
   }[PAGE.lang];
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
@@ -57,6 +71,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const STAR_MAX = 14, STAR_MIN = 2.5;   // degree radius cap before the factor; floor after it (world px)
   const OVERVIEW_K = 0.6;                // = the `far` threshold of drawStar, routes and band markers
   const OVERVIEW_NAMES = 3;              // core names offered per constellation below OVERVIEW_K
+  // folded tables (M8.2, D-062)
+  const BADGE_H = 15, BADGE_MAX = 26;   // entity badge, screen px: height; widest (3 characters "99+")
+  const BADGE_DOT = 3.5;                // below OVERVIEW_K the badge is a dot of this screen radius, no digits
+  const ORBIT_GAP = 18;                 // world px between an entity's star and its first orbit
+  const ORBIT_RING = 16, ORBIT_STEP = 16;  // most shown tables per orbit; world px between two orbits
+  const ORBIT_ROOM = 10;                // world px added to a shown star's radius when spacing neighbours (room for ring + search mark)
+  const FOLD_ROWS = 12, FOLD_HEAD = 15, TIP_FOLDED = 8;  // folded rows on a card; heading row height; folded names in a tooltip
+  const KIND_LIST = 3;                  // kind labels written under the panel control before "+ N"
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
   const roleOf = n => KIND[n.kind].role ?? null;
   const HAS_CORE = DATA.kinds.some(k => k.role === 'core');
@@ -90,19 +112,39 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
   const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
+  // the viewer's last fold choice, kept apart from the layout like the grouping and never exported (D-062)
+  const foldMemory = (() => {
+    const key = 'dbtscope-fold:' + PAGE.title;
+    return {
+      get() { try { const v = localStorage.getItem(key); return v === 'folded' ? true : v === 'shown' ? false : null; } catch (e) { return null; } },
+      set(value, fallback) {
+        try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value ? 'folded' : 'shown'); } catch (e) { /* session only */ }
+      },
+    };
+  })();
+  // the parent of each table (a node index, null for none): Python decides it, the page never guesses from names (D-061)
+  const IDX = new Map(N.map(n => [n.id, n.i]));
+  const PARENT = N.map(n => (n.parent == null ? null : IDX.get(n.parent) ?? null));
+  const FOLDABLE = PARENT.some(p => p != null);
   const state = {
     domains: new Set(DATA.domains.map(d => d.key)),
     layers: new Set(DATA.layers.map(l => l.key)),
     kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
+    fold: FOLDABLE ? foldMemory.get() ?? DATA.defaults.fold : false,
   };
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
   let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
   const layoutCache = new Map();
   let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
+  // folded tables (D-062): vis = filter-visible tables; drawn = visible minus folded; FOLDED = parent -> its visible folded
+  // tables; foldedSet = those tables; SP / orbits = folded tables shown now, on an orbit round their entity (placeShown)
+  let vis = new Set(), drawn = [], FOLDED = new Map(), foldedSet = new Set(), entityCount = 0;
+  let SP = new Map(), orbits = [];
+  const posOf = i => P[i] || SP.get(i);
   let drawnNames = [];   // the tables whose names the last screen frame drew (test hook)
-  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0 };
+  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, place: 0 };
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
   const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
   const DEPTH = { d1: 1, d2: 2, d3: 3, dall: Infinity };
@@ -124,9 +166,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     radio.checked = radio.value === state.by;
     radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); relayout(); };
   });
+  // the fold control (D-062): one checkbox, shown only when some table has a parent; its second line names the
+  // descriptive kinds that fold here, as written in the config
+  $u('fold').hidden = !FOLDABLE;
+  const foldKinds = DATA.kinds.filter(k => k.role === 'descriptive' && N.some(n => n.kind === k.key && PARENT[n.i] != null)).map(labelOf);
+  $u('fold-t').textContent = T.fold;
+  $u('fold-kinds').textContent = foldKinds.slice(0, KIND_LIST).join(', ') + (foldKinds.length > KIND_LIST ? ` + ${num(foldKinds.length - KIND_LIST)}` : '');
+  $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
+  $u('fold').querySelector('label').title = T.foldTitle;
+  $u('fold-on').checked = state.fold;
+  const hintText = () => T.hint + (state.fold ? T.hintFold : '');
+  $u('fold-on').onchange = ev => {
+    state.fold = ev.target.checked; foldMemory.set(state.fold, DATA.defaults.fold);
+    $u('hint').textContent = hintText();
+    relayout();
+    live.textContent = state.fold ? T.foldOn(entityCount) : T.foldOff;
+  };
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
-  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
+  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = hintText();
 
   function checkboxes(el, items, countOf, set, color, title) {
     el.replaceChildren(...items.map(it => filterRow(
@@ -157,7 +215,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function reveal(indices) {
     let hidden = 0;
     indices.forEach(i => {
-      if (P[i]) return;
+      if (vis.has(i)) return;
       const n = N[i]; hidden++;
       state.domains.add(n.domain); state.layers.add(n.layer); state.kinds.add(n.kind);
     });
@@ -169,7 +227,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!n) return;
     reveal([n.i]);
     found = n.i;
-    zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5));
+    placeShown();   // a folded table is shown on an orbit round its entity, nothing is laid out again
+    if (foldedSet.has(n.i)) live.textContent = T.foundFolded(n.name, N[PARENT[n.i]].name);
+    const p = posOf(n.i);
+    zoomTo(p.x, p.y, Math.max(t.k, 1.5));
+    draw();
   };
 
   // ---------------------------------------------------------------- geometry
@@ -178,15 +240,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // box runs from the star top to the bottom of the label drawn below it (one or two lines, nameLines); the
   // label width is estimated (11 px, bold), never measured, so the placement does not depend on the fonts
   // installed (D-040).
+  // An entity also reserves what marks its folded tables (D-062): at names level the room of its badge (sized by
+  // BADGE_MAX, not by the digits, so a filter does not move it), on a card the list of its folded tables.
   function box(n) {
+    const held = FOLDED.get(n.i) || [];
     if (state.detail === 'names') {
       const r = starR(n), lines = nameLines(n.name), longest = d3.max(lines, s => s.length);
-      return { w: Math.max(6 + longest * 6.2, 2 * r + 4), h: 2 * r + 4 + LINE_H * lines.length, oy: LINE_H / 2 * lines.length };
+      const b = { w: Math.max(6 + longest * 6.2, 2 * r + 4), h: 2 * r + 4 + LINE_H * lines.length, oy: LINE_H / 2 * lines.length };
+      if (!held.length) return b;
+      const e = Math.max(0, Math.ceil(0.71 * r + BADGE_H - (r + 2)));
+      return { w: Math.max(b.w, 2 * (0.71 * r + BADGE_MAX)), h: b.h + e, oy: b.oy - e / 2 };
     }
     const rows = state.detail === 'keys' ? n.cols.filter(c => c[2]) : n.cols, shown = rows.slice(0, 30);
-    const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8), 10);
-    return { w: 16 + chars * 5.6, h: 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0), oy: 0,
-             shown, more: rows.length - shown.length };
+    const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8), 10,
+      ...held.map(i => N[i].name.length + 1 + labelOf(KIND[N[i].kind]).length * 0.8));
+    const top = 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0), listed = Math.min(held.length, FOLD_ROWS);
+    const list = held.length ? FOLD_HEAD + 11 * listed + (held.length > FOLD_ROWS ? 11 : 0) : 0;
+    return { w: 16 + chars * 5.6, h: top + list, oy: 0, shown, more: rows.length - shown.length, held, top };
   }
 
   // A table's name as drawn below its star: one line up to 14 characters, else two, split after the `__`
@@ -237,8 +307,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     layoutRuns++;
     const t0 = performance.now();
     visible = N.filter(n => state.domains.has(n.domain) && state.layers.has(n.layer) && state.kinds.has(n.kind));
-    const vis = new Set(visible.map(n => n.i));
-    B = []; visible.forEach(n => B[n.i] = box(n));
+    vis = new Set(visible.map(n => n.i));
+    // a visible table is folded when its parent is visible and in its constellation (a layer differing from its
+    // parent's keeps it a star, a filtered-out parent too); every count still holds the folded tables
+    const G = grouping();
+    FOLDED = new Map(); foldedSet = new Set();
+    if (state.fold) {
+      visible.forEach(n => {
+        const p = PARENT[n.i];
+        if (p == null || !vis.has(p) || G.of(N[p]) !== G.of(n)) return;
+        foldedSet.add(n.i);
+        if (!FOLDED.has(p)) FOLDED.set(p, []);
+        FOLDED.get(p).push(n.i);   // N is sorted by name then id
+      });
+    }
+    drawn = visible.filter(n => !foldedSet.has(n.i));
+    entityCount = visible.filter(n => roleOf(n) === 'core' || roleOf(n) === 'connector').length;
+    B = []; drawn.forEach(n => B[n.i] = box(n));
     const seen = new Set(); edges = [];
     const add = list => list.forEach(([a, b]) => {
       const key = a < b ? a + ',' + b : b + ',' + a;
@@ -247,12 +332,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (state.links !== 'lineage') add(DATA.relations);
     if (state.links !== 'relations') add(DATA.lineage);
 
-    const G = grouping(), local = new Map();
+    const local = new Map(), whole = d3.group(visible, G.of);
     MAIN = new Map();
-    for (const [key, members] of d3.group(visible, G.of)) {
+    for (const [key, members] of d3.group(drawn, G.of)) {
       mainTables(members).forEach((n, rank) => MAIN.set(n.i, rank));
-      // a constellation's inner layout only depends on the grouping, its own tables, links and detail level
-      const cached = [state.by, key, state.detail, state.links, members.map(n => n.i).join(',')].join('|');
+      // a constellation's inner layout only depends on the grouping, its own tables, links, detail level and the
+      // fold state: folded tables change an entity's box (its badge, its card)
+      const held = members.filter(n => FOLDED.has(n.i)).map(n => `${n.i}:${FOLDED.get(n.i).join('.')}`).join(';');
+      const cached = [state.by, key, state.detail, state.links, state.fold, members.map(n => n.i).join(','), held].join('|');
       if (!layoutCache.has(cached)) layoutCache.set(cached, layoutConstellation(key, members));
       local.set(key, layoutCache.get(cached));
     }
@@ -275,9 +362,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const saved = savedLayout();
     REL = new Map();
     for (const [, dl] of local) placeAroundDragged(dl.ns, saved.nodes);
-    constellations = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length, bands: v.bands,
+    constellations = [...local].map(([k, v]) => ({ k, rank: v.rank, n: whole.get(k).length, bands: v.bands,
       r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
-      mix: [...d3.rollup(v.ns, g => g.length, s => N[s.i].kind)].sort((a, b) => b[1] - a[1]) }));
+      mix: [...d3.rollup([...v.ns.map(s => N[s.i]), ...whole.get(k).filter(n => foldedSet.has(n.i))], g => g.length, s => s.kind)]
+        .sort((a, b) => b[1] - a[1]) }));
     constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
@@ -300,7 +388,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
     P = [];
     constellations.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
-    tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
+    tree = d3.quadtree(drawn, n => P[n.i].x, n => P[n.i].y);
+    placeShown();
     perf.layout = performance.now() - t0;
   }
 
@@ -505,7 +594,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (onScreen) {
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
-      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${groups}`;
+      const entities = state.fold ? ` · ${plural(entityCount, T.entitiesN)}` : '';
+      $u('meta').textContent = `${plural(visible.length, L.tables)}${entities} · ${plural(edges.length, T.linksN)} · ${groups}`;
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -516,7 +606,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const screen = (x, y) => [x * k + t.x, y * k + t.y];
     // in the trajectory mode, constellations holding none of its drawn tables are context only
     const G = grouping(), byLayers = state.by === 'layers';
-    const tdom = traj ? new Set(trajMembers().filter(i => P[i]).map(i => G.of(N[i]))) : null;
+    const tdom = traj ? new Set(trajMembers().filter(i => posOf(i)).map(i => G.of(N[i]))) : null;
     const ctxAlpha = d => tdom && !tdom.has(d.k) ? DIM_CTX : 1;
 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
@@ -545,6 +635,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
     ctx.lineWidth = 1 / k;
     edges.forEach(([a, b]) => {
+      if (!P[a] || !P[b]) return;   // an end is folded into its entity: not drawn inside the constellation
       const hl = near && (a === hover || b === hover), cross = G.of(N[a]) !== G.of(N[b]);
       if (!hl && (k < 0.35 || (k < 0.6 && cross))) return;
       ctx.strokeStyle = hl ? C.hl : cross ? C.cross : C.edge;
@@ -552,21 +643,26 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     });
 
     const cards = state.detail !== 'names' && k > 0.35;
-    const labels = [];
+    const labels = [], badges = [];
     const drawTable = n => {
       const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
       const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, side = sideOf(n.i);
       ctx.globalAlpha = traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1;
       if (cards) drawCard(n, p, b, col, mark, side, k);
-      else { drawStar(n, p, col, mark, side, k); labels.push(n); }
+      else {
+        drawStar(n, p, col, mark, side, k); labels.push(n);
+        if (FOLDED.has(n.i)) badges.push([p, Math.max(starR(n), (side ? 3 : 2.5) / k), FOLDED.get(n.i).length, ctx.globalAlpha]);
+      }
     };
     if (traj) {  // trajectory tables after its edges, so arrows never cover them
-      visible.forEach(n => { if (!sideOf(n.i)) drawTable(n); });
+      drawn.forEach(n => { if (!sideOf(n.i)) drawTable(n); });
       ctx.globalAlpha = 1;
       drawTrajectoryEdges(k);
-      visible.forEach(n => { if (sideOf(n.i)) drawTable(n); });
-    } else visible.forEach(drawTable);
+      drawn.forEach(n => { if (sideOf(n.i)) drawTable(n); });
+    } else drawn.forEach(drawTable);
+    badges.forEach(b => { ctx.globalAlpha = b[3]; drawBadge(...b.slice(0, 3), k); });
     ctx.globalAlpha = 1;
+    if (SP.size) drawOrbits(k);
     ctx.restore();
 
     // screen-space text: constellation names first, then band names (layer mode), then table names by
@@ -593,7 +689,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     });
     if (byLayers && k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
-    const named = cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k);
+    const around = SP.size ? drawShownNames(screen, taken, k) : [];
+    const named = [...around, ...(cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k))];
     ctx.textAlign = 'left';
     if (!onScreen) return;
     drawnNames = named;
@@ -674,7 +771,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const overview = HAS_CORE && k < OVERVIEW_K;
     const rest = labels.filter(n => !sideOf(n.i) && (!overview || (roleOf(n) === 'core' && main(n) < OVERVIEW_NAMES)))
       .sort((a, b) => rank(a) - rank(b) || (roleOf(a) === 'core' ? main(a) - main(b) : 0) || labelScore(b) - labelScore(a));
-    const hov = hover != null && P[hover] ? [N[hover]] : [];
+    const hov = hover != null && P[hover] ? [N[hover]] : [];   // a shown table's name is drawn anyway
     if (!traj) return [...hov, ...rest];
     const inT = labels.filter(n => sideOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
     return [...inT, ...hov, ...rest];
@@ -763,12 +860,77 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       });
       if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.more)}`, x + 5, y + 28 + b.shown.length * 11); }
     }
+    if (b.held.length) drawFolded(b, x, y, k);
+  }
+  // the folded tables of an entity on its card, under its columns: a separator, a heading, then a kind dot, name and
+  // kind per table (FOLD_ROWS rows, then "+ N"); below scale 0.6 only the separator is drawn
+  function drawFolded(b, x, y, k) {
+    const top = y + b.top;
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / Math.min(k, 1);
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + b.w, top); ctx.stroke();
+    if (k <= 0.6) return;
+    ctx.fillStyle = C.text; ctx.font = `600 9px ${FONT}`; ctx.fillText(plural(b.held.length, T.foldedN), x + 5, top + 11);
+    ctx.font = `9px ${FONT}`;
+    b.held.slice(0, FOLD_ROWS).forEach((i, j) => {
+      const n = N[i], col = KIND[n.kind].color, edge = CONTRAST.edge(col, C.bg), base = top + FOLD_HEAD + 9 + j * 11, label = labelOf(KIND[n.kind]);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 8, base - 3, 2.5, 0, 7); ctx.fill();
+      if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / k; ctx.stroke(); }
+      ctx.fillStyle = C.text; ctx.fillText(n.name, x + 14, base);
+      ctx.fillStyle = C.muted; ctx.fillText(label, x + b.w - 5 - ctx.measureText(label).width, base);
+    });
+    if (b.held.length > FOLD_ROWS) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.held.length - FOLD_ROWS)}`, x + 5, top + FOLD_HEAD + 9 + FOLD_ROWS * 11); }
+  }
+  // the count badge of an entity (names level): a dark pill with the number at the upper right of its star, sized in
+  // screen pixels; a plain dot from afar. r is the drawn radius of the star.
+  function drawBadge(p, r, held, k) {
+    const ax = p.x + 0.71 * r, ay = p.y - 0.71 * r;
+    ctx.fillStyle = C.text; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 / k;
+    if (k < OVERVIEW_K) { ctx.beginPath(); ctx.arc(ax, ay, BADGE_DOT / k, 0, 7); ctx.fill(); ctx.stroke(); return; }
+    const text = held > 99 ? '99+' : num(held), w = Math.max(15, 8 + 6 * text.length) / k, h = BADGE_H / k, rad = h / 2, y = ay - h;
+    ctx.beginPath(); ctx.moveTo(ax + rad, y); ctx.lineTo(ax + w - rad, y); ctx.arc(ax + w - rad, y + rad, rad, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(ax + rad, y + h); ctx.arc(ax + rad, y + rad, rad, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.font = `700 ${10 / k}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, ax + w / 2, y + h / 2 + 0.5 / k);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+  // the folded tables shown now (search, trajectory): a dashed orbit round each entity, then its tables on it, each
+  // over a white halo, above everything else
+  function drawOrbits(k) {
+    ctx.save(); ctx.strokeStyle = C.muted; ctx.globalAlpha = 0.6; ctx.lineWidth = 1 / k; ctx.setLineDash([3 / k, 3 / k]);
+    orbits.forEach(o => { ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, 7); ctx.stroke(); });
+    ctx.restore();
+    SP.forEach((p, i) => {
+      const n = N[i], side = sideOf(i), r = Math.max(starR(n), (side ? 3 : 2.5) / k);
+      ctx.globalAlpha = traj && !side ? DIM : 1;
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(p.x, p.y, r + 2 / k, 0, 7); ctx.fill();
+      drawStar(n, p, KIND[n.kind].color, i === hover || i === found, side, k);
+    });
+    ctx.globalAlpha = 1;
+  }
+  // the names of the shown tables, outside their orbit along the radial direction (right half left-aligned, left half
+  // right-aligned, near the vertical centred), over a white stroke; they never yield to another name. -> their indices
+  function drawShownNames(screen, taken, k) {
+    const out = [], vertical = Math.sin(20 * Math.PI / 180);
+    SP.forEach((p, i) => {
+      const n = N[i], [sx, sy] = screen(p.x, p.y), gap = Math.max(starR(n) * k, 3) + 4 + 2;
+      const cos = Math.cos(p.a), sin = Math.sin(p.a), ax = sx + cos * gap, ay = sy + sin * gap;
+      ctx.font = `${i === found ? 600 : 400} 11px ${FONT}`;
+      const w = ctx.measureText(n.name).width + 6, h = LINE_H - 2;
+      const x = Math.abs(cos) <= vertical ? ax - w / 2 : cos > 0 ? ax : ax - w, y = Math.abs(cos) <= vertical ? (sin < 0 ? ay - h : ay) : ay - h / 2;
+      taken.push([x, y, w, h]); out.push(i);
+      ctx.globalAlpha = traj && !sideOf(i) ? DIM : 1;
+      ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff';
+      ctx.strokeText(n.name, x + 3, y + 10); ctx.fillStyle = C.text; ctx.fillText(n.name, x + 3, y + 10);
+      ctx.lineJoin = 'miter'; ctx.textAlign = 'center';
+    });
+    ctx.globalAlpha = 1;
+    return out;
   }
   // the lineage edges of the trajectory, parent -> child, at every zoom and whatever the Links selector shows
   function drawTrajectoryEdges(k) {
     const far = k < 0.6, lw = (far ? 1.5 : 2) / k, head = (far ? 7 : 8) / k;
     traj.edges.forEach(([c, p, dir]) => {
-      const a = P[p], b = P[c];
+      const a = posOf(p), b = posOf(c);
       if (!a || !b) return;   // hidden by a filter changed in the mode
       ctx.strokeStyle = C[dir]; ctx.fillStyle = C[dir]; ctx.lineWidth = lw;
       ctx.setLineDash(dir === 'up' ? [5 / k, 3 / k] : []);
@@ -784,7 +946,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // zooms and a one-finger drag pans, as in the detail (a touch drag cannot hand a finger over to a pinch)
   const drag = d3.drag().container(canvas).touchable(false).filter(ev => !ev.button)
     .subject(ev => {
-      const n = t.k >= FAR ? pickAt(...t.invert([ev.x, ev.y])) : null;
+      const [wx, wy] = t.invert([ev.x, ev.y]);
+      if (t.k >= FAR && pickShown(wx, wy)) return null;   // a shown (orbit) table is not draggable: the pointer pans
+      const n = t.k >= FAR ? pickAt(wx, wy) : null;
       if (n) return { n, x: ev.x, y: ev.y };
       const hit = labelAt(ev.x, ev.y);
       return hit ? { d: hit.d, x: ev.x, y: ev.y } : null;
@@ -794,7 +958,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const dx = ev.dx / t.k, dy = ev.dy / t.k, s = ev.subject;
       s.moved = true;
       if (s.n) { P[s.n.i].x += dx; P[s.n.i].y += dy; }
-      else { s.d.x += dx; s.d.y += dy; visible.forEach(n => { if (grouping().of(n) === s.d.k) { P[n.i].x += dx; P[n.i].y += dy; } }); }
+      else { s.d.x += dx; s.d.y += dy; drawn.forEach(n => { if (grouping().of(n) === s.d.k) { P[n.i].x += dx; P[n.i].y += dy; } }); }
+      if (SP.size) placeShown();   // the orbits follow their entity
       draw();
     })
     .on('end', ev => {
@@ -811,7 +976,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       // pin every constellation where it stands, so recomputing the layout later doesn't move the others
       constellations.forEach(d => saved[G.pins][d.k] = [d.x, d.y]);
       LAYOUT.set('universe', G.scope(), saved);
-      tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
+      tree = d3.quadtree(drawn, n => P[n.i].x, n => P[n.i].y);
       draw();
     });
   const sel = zoomOn(d3.select(canvas).call(drag), zoom);
@@ -827,10 +992,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // the whole universe, or the drawn tables of the trajectory while the mode is on
   function fit(animate) {
-    const tj = trajMembers().filter(i => P[i]);
+    const tj = trajMembers().filter(i => posOf(i));
     if (tj.length) {
-      return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2),
-        d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2), animate, 2);
+      return frame(d3.min(tj, i => posOf(i).x - boxOf(i).w / 2), d3.min(tj, i => posOf(i).y + boxOf(i).oy - boxOf(i).h / 2),
+        d3.max(tj, i => posOf(i).x + boxOf(i).w / 2), d3.max(tj, i => posOf(i).y + boxOf(i).oy + boxOf(i).h / 2), animate, 2);
     }
     if (!constellations.length) return draw();
     frame(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
@@ -841,7 +1006,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(w / 2, top0 + h / 2).scale(k).translate(-x, -y));
   }
   const pick = ev => pickAt(...t.invert(d3.pointer(ev, canvas)));
+  // the shown (orbit) table nearest to a world point, if one is within reach
+  function pickShown(wx, wy) {
+    let best = null, near = Math.max(8, 8 / t.k);
+    SP.forEach((p, i) => { const d = Math.hypot(wx - p.x, wy - p.y); if (d <= near) { best = N[i]; near = d; } });
+    return best;
+  }
+  // a shown table wins over the table at rest under it
   function pickAt(wx, wy) {
+    const over = pickShown(wx, wy);
+    if (over) return over;
     if (!tree) return null;
     const n = tree.find(wx, wy, Math.max(200, 12 / t.k));
     if (!n) return null;
@@ -869,16 +1043,30 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       + (band ? `<div class="m">${T.domainOne}${L.colon}${esc(labelOf(DOM[band.key]))} · ${plural(band.n, L.tables)}</div>` : '')
       + `<div class="a">${T.frameC}</div>`;
   }
+  // the fold lines of a table's tooltip: an entity lists its folded tables (name, kind; TIP_FOLDED, then "+ N"); a table with
+  // a parent names it, and says why it is not folded when it is a star at rest while the page folds
+  function foldTip(n) {
+    const held = FOLDED.get(n.i) || [], p = PARENT[n.i];
+    let text = '';
+    if (p != null) {
+      const why = !state.fold || SP.has(n.i) ? '' : !vis.has(p) ? T.entityHidden : T.entityLayer;
+      text += `<div class="m">${T.entity}${L.colon}${esc(N[p].name)}${why}</div>`;
+    }
+    if (!held.length) return text;
+    text += `<div class="m"><b>${plural(held.length, T.foldedN)}</b></div>`
+      + held.slice(0, TIP_FOLDED).map(i => `<div class="m">${esc(N[i].name)} · ${esc(labelOf(KIND[N[i].kind]))}</div>`).join('');
+    return text + (held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '');
+  }
   canvas.addEventListener('mousemove', ev => {
     const n = pick(ev), h = n ? n.i : null;
     if (h !== hover) { hover = h; draw(); }
     const d = n ? null : domainAt(ev);
     const [px, py] = d3.pointer(ev, canvas);
-    canvas.style.cursor = (n && t.k >= FAR) || labelAt(px, py) ? 'grab' : '';
+    canvas.style.cursor = (n && !SP.has(n.i) && t.k >= FAR) || labelAt(px, py) ? 'grab' : '';
     if (!n && !d) { tip.style.display = 'none'; return; }
     if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
-      tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
+      tip.innerHTML = tableTip(DATA, n) + foldTip(n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
         `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
     } else if (state.by === 'layers') {
       tip.innerHTML = layerTip(d, t.invert(d3.pointer(ev, canvas))[0]);
@@ -900,7 +1088,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const n = t.k >= FAR ? pick(ev) : null;
     if (n) {
       if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
-      found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
+      found = n.i; zoomTo(posOf(n.i).x, posOf(n.i).y, Math.max(t.k * 2.5, 1.5));
       return;
     }
     const d = domainAt(ev);
@@ -913,7 +1101,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (ev.detail > 1) return;   // the second click of a double-click
     const n = t.k >= FAR ? pick(ev) : null;
     if (n) { enterTrajectory(n.i); return; }
-    if (traj && !labelAt(...d3.pointer(ev, canvas)) && !domainAt(ev)) leaveTrajectory(false);
+    if (labelAt(...d3.pointer(ev, canvas)) || domainAt(ev)) return;
+    if (traj) leaveTrajectory(false);
+    if (found != null && foldedSet.has(found)) { found = null; placeShown(); draw(); }   // the empty background hides the orbit
   });
 
   // ---------------------------------------------------------------- trajectory mode
@@ -923,14 +1113,17 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
-    const n = N[i], summary = renderBar();
-    live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
+    placeShown();   // the folded tables of the trajectory, start included, on their entities' orbits
+    const n = N[i], summary = renderBar(), around = trajMembers().filter(j => SP.has(j)).length;
+    live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '')
+      + (around ? ` ${T.shownAround}${L.colon}${num(around)}.` : '');
     draw();
   }
   function leaveTrajectory(restoreFocus) {
     if (!traj) return;
     const inBar = bar.contains(document.activeElement);
     traj = null; bar.hidden = true; $u('tj-counts').open = false;
+    placeShown();   // the search keeps what it shows
     $u('fit').removeAttribute('title');
     live.textContent = T.closed;
     if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
@@ -955,7 +1148,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('tj-counts').hidden = empty; $u('tj-empty').hidden = !empty;
     $u('tj-empty').textContent = empty ? emptyText : '';
     $u('tj-flow').disabled = empty;
-    const hidden = trajMembers().filter(j => !P[j]).length;
+    const hidden = trajMembers().filter(j => !vis.has(j)).length;
     $u('tj-hidden').textContent = hidden ? plural(hidden, T.hiddenN) : '';
     $u('tj-back').textContent = traj.brought ? plural(traj.brought, T.brought) : '';
     $u('fit').title = T.fitTraj;
@@ -1006,6 +1199,31 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // recompute the layout; the trajectory is kept (indices into N are stable, only P changes)
   function relayout() { found = null; hover = null; layout(); if (traj) renderBar(); fit(false); draw(); }
+  const boxOf = i => B[i] || { w: 2 * starR(N[i]) + 4, h: 2 * starR(N[i]) + 4, oy: 0 };   // a shown table reserves nothing: its star
+  // Puts the folded tables that must be seen on an orbit round their entity, without laying anything out again
+  // (D-018): the folded tables of the trajectory, start included, and every folded table of the entity of the table
+  // found by search. Ring j of an entity holds at most ORBIT_RING tables, evenly spaced from the top, in name order;
+  // its radius clears the entity's star and the shown stars next to each other. They reserve no room.
+  function placeShown() {
+    const t0 = performance.now();
+    SP = new Map(); orbits = [];
+    const want = new Set(trajMembers().filter(i => foldedSet.has(i)));
+    if (found != null && foldedSet.has(found)) FOLDED.get(PARENT[found]).forEach(i => want.add(i));
+    const byParent = d3.group([...want].sort((a, b) => a - b), i => PARENT[i]);
+    byParent.forEach((list, parent) => {
+      const c = P[parent], tallest = d3.max(list, i => starR(N[i]));
+      for (let j = 0; j * ORBIT_RING < list.length; j++) {
+        const ring = list.slice(j * ORBIT_RING, (j + 1) * ORBIT_RING), m = ring.length;
+        const r = Math.max(starR(N[parent]) + ORBIT_GAP + j * ORBIT_STEP, (tallest + ORBIT_ROOM) / Math.sin(Math.PI / Math.max(m, 2)));
+        orbits.push({ x: c.x, y: c.y, r });
+        ring.forEach((i, q) => {
+          const a = -Math.PI / 2 + 2 * Math.PI * q / m;
+          SP.set(i, { x: c.x + r * Math.cos(a), y: c.y + r * Math.sin(a), a });
+        });
+      }
+    });
+    perf.place = performance.now() - t0;
+  }
   let size = '';
   new ResizeObserver(() => {
     const s = stage.clientWidth + 'x' + stage.clientHeight;
@@ -1016,15 +1234,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the screen rectangle reserved by a drawn table (its card, or its star and name), in CSS px from the
   // canvas's top left corner; null when not drawn
   function place(id) {
-    const n = N.find(m => m.id === id), p = n && P[n.i], b = n && B[n.i];
+    const n = N.find(m => m.id === id), p = n && posOf(n.i), b = n && boxOf(n.i);
     return p ? { x: (p.x - b.w / 2) * t.k + t.x, y: (p.y + b.oy - b.h / 2) * t.k + t.y, w: b.w * t.k, h: b.h * t.k } : null;
   }
   // the placement in world coordinates (the grouping; tables at their point P, with their reserved box;
   // constellations with their bands) and the time of the last layout: read-only, for the browser tests
   function geometry() {
     return { by: state.by, layoutMs: perf.layout,
-      tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
-                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: starR(n) })),
+      tables: [...drawn, ...[...SP.keys()].map(i => N[i])].map(n => ({ id: n.id, domain: n.domain, layer: n.layer,
+        x: posOf(n.i).x, y: posOf(n.i).y, w: boxOf(n.i).w, h: boxOf(n.i).h, oy: boxOf(n.i).oy, r: starR(n),
+        parent: PARENT[n.i] == null ? null : N[PARENT[n.i]].id, held: (FOLDED.get(n.i) || []).length, shown: SP.has(n.i) })),
+      fold: { available: FOLDABLE, on: state.fold },
+      folded: [...foldedSet].filter(i => !SP.has(i)).map(i => N[i].id),
       constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
                                    bands: d.bands.map(b => ({ key: b.key, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
@@ -1037,5 +1258,5 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames };
+  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames, placeMs: () => perf.place };
 }

@@ -237,3 +237,25 @@ def large_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, di
     """The page of the large generated Data Vault project (D-060), opened, and its payload."""
     html, data = page_of(write_large_project(tmp_path / "large"))
     return open_page(html), data
+
+
+@pytest.fixture
+def large_page_shown(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, dict[str, Any]]:
+    """The large project's page with `universe.fold: false`: every table drawn, as before M8.2 (D-062)."""
+    project = write_large_project(tmp_path / "large")
+    config = project / "dbt-erd.yml"
+    config.write_text(config.read_text(encoding="utf-8") + "universe:\n  fold: false\n", encoding="utf-8")
+    html, data = page_of(project)
+    return open_page(html), data
+
+
+@pytest.fixture
+def large(large_page: tuple[Page, dict[str, Any]]) -> tuple[Page, dict[str, Any]]:
+    """The folded large page (the default state), under the short name the fold tests use."""
+    return large_page
+
+
+@pytest.fixture
+def large_project(tmp_path: Path) -> Path:
+    """The large generated project written into `tmp_path`, its page not built yet."""
+    return write_large_project(tmp_path / "large")

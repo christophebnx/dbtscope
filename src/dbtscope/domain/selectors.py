@@ -74,6 +74,21 @@ def matches(table: Table, selector: str) -> bool:
     return all(_part_matches(table, part) for part in selector.split(",") if part.strip())
 
 
+def name_glob(selector: str) -> str | None:
+    """The pattern of the single name part of `selector` (a bare part or `name:`), else None.
+
+    None when the selector has no name part (`tag:hub`) or several (`name:a*,name:*b`).
+    """
+    globs = []
+    for part in (p for p in selector.split(",") if p.strip()):
+        field, sep, pattern = part.partition(":")
+        if not sep:
+            globs.append(part.strip())
+        elif field.strip().lower() == "name":
+            globs.append(pattern.strip())
+    return globs[0] if len(globs) == 1 else None
+
+
 def matches_any(table: Table, selectors: Iterable[str]) -> bool:
     """True when at least one selector of the list matches `table`."""
     return any(matches(table, selector) for selector in selectors)

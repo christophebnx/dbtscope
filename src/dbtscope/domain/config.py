@@ -30,6 +30,7 @@
       detail: names               # names | keys | all
       hidden_kinds: []            # kinds unticked when the page opens
       constellations: domains     # domains | layers
+      fold: true                  # draw descriptive tables inside their parent (D-062)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
@@ -165,6 +166,7 @@ class UniverseSettings(BaseModel):
     detail: DetailLevel = "names"
     hidden_kinds: StrList = ()
     constellations: Constellations = "domains"
+    fold: StrictBool = True  # descriptive tables drawn inside their parent when the page opens (D-062)
 
 
 class Config(BaseModel):

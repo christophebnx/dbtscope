@@ -73,8 +73,15 @@ def overlapping(boxes: list[tuple[float, float, float, float]]) -> list[tuple[in
 
 @pytest.fixture
 def acme(tmp_path: Path, open_page: Any) -> tuple[Path, Opener]:
-    """The example page and a way to open it (again)."""
+    """The example page (its satellites folded, D-062) and a way to open it (again)."""
     html, _ = page_of(write_example(tmp_path / "acme_retail"))
+    return html, lambda: open_page(html)
+
+
+@pytest.fixture
+def acme_shown(tmp_path: Path, open_page: Any) -> tuple[Path, Opener]:
+    """The example page with every table drawn (`universe.fold: false`)."""
+    html, _ = page_of(write_example(tmp_path / "acme_retail", fold=False))
     return html, lambda: open_page(html)
 
 
@@ -84,7 +91,7 @@ def big(tmp_path: Path, open_page: Any) -> tuple[Path, Opener]:
     return html, lambda: open_page(html)
 
 
-@pytest.fixture(params=["acme", "big"])
+@pytest.fixture(params=["acme", "acme_shown", "big"])
 def project(request: pytest.FixtureRequest) -> tuple[Path, Opener]:
     return request.getfixturevalue(request.param)
 
@@ -121,9 +128,9 @@ def band_of(domain: dict[str, Any], x: float) -> int:
 
 
 def test_tables_without_a_layer_follow_their_parents(tmp_path: Path, open_page: Any) -> None:
-    project = write_example(tmp_path / "acme_retail")
+    project = write_example(tmp_path / "acme_retail", fold=False)
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS)
+    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS + "universe:\n  fold: false\n")
     html, data = page_of(project)
     p = open_page(html)
     nodes = data["universe"]["nodes"]

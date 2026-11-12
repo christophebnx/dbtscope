@@ -12,6 +12,7 @@ from collections import defaultdict
 from typing import Any
 
 import pytest
+from conftest import page_of, write_example
 
 from browser.conftest import Page, Shop
 
@@ -97,8 +98,9 @@ def test_the_role_tooltip_is_in_french(tmp_path: Any, build_page: Any, open_page
     )
 
 
-def test_star_radius_follows_the_degree_and_the_role(example_page: tuple[Page, dict[str, Any]]) -> None:
-    p, data = example_page
+def test_star_radius_follows_the_degree_and_the_role(tmp_path: Any, open_page: Any) -> None:
+    html, data = page_of(write_example(tmp_path / "acme_retail", fold=False))
+    p = open_page(html)
     universe = data["universe"]
     deg = degrees(universe)
     index = {n["id"]: i for i, n in enumerate(universe["nodes"])}
@@ -163,9 +165,9 @@ def test_a_page_without_roles_lists_source_then_other(shop_page: Shop) -> None:
 
 
 def test_the_large_project_opens_fast_and_shows_core_names_in_every_domain(
-    large_page: tuple[Page, dict[str, Any]],
+    large_page_shown: tuple[Page, dict[str, Any]],
 ) -> None:
-    p, data = large_page
+    p, data = large_page_shown
     universe = data["universe"]
     opened = p.page.evaluate("views.universe.geometry().layoutMs")
     assert opened < OPEN_S * 1000
@@ -190,12 +192,49 @@ def test_the_large_project_panel_has_no_other_and_ordered_layers(
     assert layers == ["Sources", "Staging", "Raw vault", "Data products"]
 
 
-def test_a_filter_change_on_the_large_project_is_fast(large_page: tuple[Page, dict[str, Any]]) -> None:
-    p, _ = large_page
+def test_the_folded_large_project_opens_fast_and_shows_core_names(
+    large_page: tuple[Page, dict[str, Any]],
+) -> None:
+    """Folded (the default), the constellations are smaller: most domains still show a core name."""
+    p, data = large_page
+    universe = data["universe"]
+    assert p.page.evaluate("views.universe.geometry().layoutMs") < OPEN_S * 1000
+    assert fit_scale(p) < OVERVIEW_K
+    names = p.page.evaluate("views.universe.drawnNames()")
+    roles = {k["key"]: k["role"] for k in universe["kinds"]}
+    assert names and all(roles[universe["nodes"][i]["kind"]] == "core" for i in names)
+    business = {"vehicle", "auction", "account", "claim", "activity"}
+    assert len(business & {universe["nodes"][i]["domain"] for i in names}) >= 4
+    rank = main_rank(universe)
+    assert [rank[i] for i in names] == sorted(rank[i] for i in names)
+
+
+def test_a_filter_change_on_the_large_project_is_fast(large_page_shown: tuple[Page, dict[str, Any]]) -> None:
+    p, _ = large_page_shown
     drawn = "views.universe.geometry().tables.length"
     before = p.page.evaluate(drawn)
     ms = p.page.evaluate(
         "() => { const t0 = performance.now(); document.querySelector('#u-kinds input').click(); "
+        "return performance.now() - t0; }"
+    )
+    assert ms < FILTER_S * 1000
+    assert 0 < p.page.evaluate(drawn) < before
+
+
+def test_a_filter_change_on_the_folded_large_project_is_fast(large_page: tuple[Page, dict[str, Any]]) -> None:
+    """Folded: unticking the hubs turns their satellites into stars (D-062); unticking staging draws fewer."""
+    p, _ = large_page
+    drawn = "views.universe.geometry().tables.length"
+    ms = p.page.evaluate(
+        "() => { const t0 = performance.now(); document.querySelector('#u-kinds input').click(); "
+        "return performance.now() - t0; }"
+    )
+    assert ms < FILTER_S * 1000
+    before = p.page.evaluate(drawn)
+    ms = p.page.evaluate(
+        "() => { const t0 = performance.now(); "
+        "[...document.querySelectorAll('#u-kinds label')].find(l => l.textContent.startsWith('Staging'))"
+        ".querySelector('input').click(); "
         "return performance.now() - t0; }"
     )
     assert ms < FILTER_S * 1000

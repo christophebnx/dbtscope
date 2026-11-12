@@ -36,10 +36,30 @@ NO_PRESET_BEFORE_M8 = {  # sha256 of the payloads of M3, before the `role` keys 
     "kinds": "59aa35888c6a383a2cff78b24a2aa755aa010a283860acaa3da4a38e746417f7",
 }
 ROLE_KEY = re.compile(rb',"role":(?:null|"(?:core|connector|descriptive|technical)")')
+FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true')  # M8.2: a node's parent, the universe's fold default
+NO_FOLD_BEFORE_M8_2 = {  # sha256 of the payloads before M8.2 (D-061, D-062), every case
+    "none": "d439c123da7c57b36298627d7ac690174dcd1f216fef33f4039a30e9e49e9638",
+    "star_schema": "44547a0b8f835b6bc0314c62a64d36bdbec2fb1d34d98c03b810230c5a7c9b4a",
+    "data_vault": "cd14e48df4d00612751f271d02e00600c0f74578f5ebd0758127ec0418e39b29",
+    "fr": "96ceedafa4df51db8ba39c3524e74b708b3a994f8458040f71cf0fee15d783d4",
+    "layers_domains": "2673c44f273e112f25cdb6d9b65684e4eefd8712a0d314973d1dcbfaa213e844",
+    "kinds": "de781b5329e60716f1f7318c251f55fa4a5d0ca40ec8c97557c1bcc794506ed5",
+    "edge": "d3ae2eea1ac356ae9623dd89f478f9da11270ed859ea6bb456c9750f0b219632",
+}
 
 
 @pytest.mark.parametrize("case", list(NO_PRESET_BEFORE_M8))
 def test_a_page_without_preset_differs_from_the_pre_m8_one_only_by_role_keys(case: str) -> None:
     payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
     assert ROLE_KEY.search(payload)
-    assert hashlib.sha256(ROLE_KEY.sub(b"", payload)).hexdigest() == NO_PRESET_BEFORE_M8[case]
+    assert (
+        hashlib.sha256(FOLD_KEYS.sub(b"", ROLE_KEY.sub(b"", payload))).hexdigest()
+        == NO_PRESET_BEFORE_M8[case]
+    )
+
+
+@pytest.mark.parametrize("case", list(NO_FOLD_BEFORE_M8_2))
+def test_a_page_differs_from_the_pre_m8_2_one_only_by_the_parent_and_fold_keys(case: str) -> None:
+    payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
+    assert payload.count(b',"fold":true') == 1 and b',"parent":null' in payload
+    assert hashlib.sha256(FOLD_KEYS.sub(b"", payload)).hexdigest() == NO_FOLD_BEFORE_M8_2[case]

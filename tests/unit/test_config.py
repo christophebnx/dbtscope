@@ -24,6 +24,15 @@ def test_defaults_alone_are_valid() -> None:
     assert config == Config()
 
 
+def test_fold_defaults_to_true_is_read_and_is_allowed_in_a_preset() -> None:
+    assert merge_config({}, {}).universe.fold is True
+    assert merge_config({}, {"universe": {"fold": False}}).universe.fold is False
+    preset = {"universe": {"fold": False}}
+    assert check_preset(preset) == preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.fold is False
+    assert merge_config(preset, {"universe": {"fold": True}}).universe.fold is True
+
+
 def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config({}, {}).universe.constellations == "domains"
     assert merge_config({}, {"universe": {"constellations": "layers"}}).universe.constellations == "layers"
@@ -136,6 +145,7 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
         ({"universe": {"hidden_kinds": [True]}}, "universe.hidden_kinds[0]: must be a string"),
         ({"universe": {"links": None}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
         ({"universe": {"constellations": "rows"}}, "universe.constellations: must be 'domains' or 'layers'"),
+        ({"universe": {"fold": "yes"}}, "universe.fold: must be true or false"),
         ({"view": "map", "language": "de"}, "language: must be 'en' or 'fr' (and 1 more problem)"),
     ],
 )  # fmt: skip

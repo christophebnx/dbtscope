@@ -70,6 +70,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "detail": "names",
         "hiddenKinds": ["source"],
         "constellations": "domains",
+        "fold": True,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -90,7 +91,7 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))
-    assert list(data["defaults"])[-1] == "constellations"
+    assert list(data["defaults"])[-2:] == ["constellations", "fold"]
     assert data["defaults"]["constellations"] == "layers"
     assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
 
@@ -209,3 +210,29 @@ def test_the_new_kind_colours_are_seen_from_the_page_and_every_other_colour() ->
         rivals = {k["color"] for n, k in _preset_kinds() if n == name and k["key"] != kind["key"]}
         rivals |= others - {color}
         assert min(ciede2000(color, c) for c in rivals) >= 12, (name, kind["key"])
+
+
+def test_a_node_carries_its_parents_id_last_and_the_fold_default_follows_the_config() -> None:
+    config = merge_config(read_preset("data_vault"), {"universe": {"fold": False}})
+    tables = {
+        t.unique_id: t
+        for t in (
+            Table(unique_id="model.x.a_hub", name="a_hub", resource_type="model", schema_name="s"),
+            Table(unique_id="model.x.a_s1_sat", name="a_s1_sat", resource_type="model", schema_name="s"),
+            Table(unique_id="model.x.stg_a", name="stg_a", resource_type="model", schema_name="s"),
+        )
+    }
+    project = Project(tables=tables, relations=(), lineage=(), groups={}, root=None)
+    data = universe_data(project, config)
+    by_name = {n.name: n for n in data.nodes}
+    assert by_name["a_s1_sat"].parent == "model.x.a_hub"  # an id, never an index
+    assert by_name["a_hub"].parent is None and by_name["stg_a"].parent is None
+    assert data.defaults.fold is False  # the config's choice; the page folds only when a node has a parent
+    nodes = json.loads(embedded_json(data))["nodes"]
+    assert all(list(n)[-1] == "parent" for n in nodes)
+    assert universe_data(project, merge_config(read_preset("data_vault"), {})).defaults.fold is True
+
+
+def test_a_project_without_roles_has_no_parent(shop: Project) -> None:
+    data = universe_data(shop, merge_config({}, {}))
+    assert all(n.parent is None for n in data.nodes)

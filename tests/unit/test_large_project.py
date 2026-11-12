@@ -99,5 +99,56 @@ def test_the_special_satellites(large: tuple[float, Any]) -> None:
     )
 
 
+def test_descriptive_tables_fold_into_their_parent(large: tuple[float, Any]) -> None:
+    nodes = large[1]["nodes"]
+    name_of = {n["id"]: n["name"] for n in nodes}
+    parent_of = {n["name"]: name_of[n["parent"]] for n in nodes if n["parent"]}
+    descriptive = {k["key"] for k in large[1]["kinds"] if k["role"] == "descriptive"}
+    fold = EXPECTED["fold"]
+    assert sum(n["kind"] in descriptive for n in nodes) == fold["folded"] + fold["descriptive_not_folded"]
+    assert len(parent_of) == fold["folded"] and len(set(parent_of.values())) == fold["entities_holding"]
+    assert parent_of[NO_RELATION_SAT] == "vehicle_e001_hub"  # by name, in its domain
+    assert parent_of[TWO_PARENT_SAT] == "vehicle_e002_hub"  # by name, among its two relations
+    other = next(n for n in nodes if n["name"] == OTHER_DOMAIN_SAT)
+    assert other["parent"] is None and other["domain"] == "claim"  # its parent is in another domain
+    pits = {name: hub for name, hub in parent_of.items() if name.endswith("_pit")}
+    assert len(pits) == 20 and all(n.removesuffix("_pit") == h.removesuffix("_hub") for n, h in pits.items())
+    stars = [n for n in nodes if n["layer"] == "raw_vault" and not n["parent"]]
+    assert len(stars) == fold["raw_vault_stars"] <= 400
+    roles = {k["key"]: k["role"] for k in large[1]["kinds"]}
+    assert sum(roles[n["kind"]] in ("core", "connector") for n in nodes) == fold["entities"]
+
+
+def test_every_satellite_with_one_declared_hub_is_folded_into_it(large: tuple[float, Any]) -> None:
+    universe = large[1]
+    nodes = universe["nodes"]
+    kind = {k["key"]: k["role"] for k in universe["kinds"]}
+    declared: dict[int, set[int]] = {}
+    for child, parent in universe["relations"]:
+        if kind[nodes[parent]["kind"]] in ("core", "connector"):
+            declared.setdefault(child, set()).add(parent)
+    single = {
+        c: next(iter(p))
+        for c, p in declared.items()
+        if len(p) == 1 and kind[nodes[c]["kind"]] == "descriptive"
+    }
+    assert len(single) > 400
+    wrong = [
+        nodes[c]["name"]
+        for c, p in single.items()
+        if nodes[c]["domain"] == nodes[p]["domain"] and nodes[c]["parent"] != nodes[p]["id"]
+    ]
+    assert wrong == []
+    cross = [c for c, p in single.items() if nodes[c]["domain"] != nodes[p]["domain"]]
+    assert [nodes[c]["name"] for c in cross] == [OTHER_DOMAIN_SAT]
+    assert all(nodes[c]["parent"] is None for c in cross)
+
+
+def test_the_summary_has_the_fold_row(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    page_of(write_large_project(tmp_path))
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[2] == "  fold:     " + EXPECTED["fold"]["summary"] and lines[1].startswith("  universe:")
+
+
 def test_the_page_builds_within_the_bound(large: tuple[float, Any]) -> None:
     assert large[0] < BUILD_BOUND_S

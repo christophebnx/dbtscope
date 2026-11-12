@@ -636,6 +636,22 @@ class Report:
     fallback: Fallback | None = None
 
 
+def _fold_row(universe: UniversePayload, folding: bool) -> str | None:
+    """`441 tables folded into 213 entities; 1 descriptive table not folded`; None with no such kind."""
+    descriptive = {k.key for k in universe.kinds if k.role == "descriptive"}
+    if not descriptive:
+        return None
+    folded = [n.parent for n in universe.nodes if n.parent is not None]
+    loose = sum(n.kind in descriptive and n.parent is None for n in universe.nodes)
+    text = f"{_count(len(folded), 'table')} folded"
+    if folded:
+        parents = len(set(folded))
+        text += f" into {parents:,} {'entity' if parents == 1 else 'entities'}"
+    if loose:
+        text += f"; {_count(loose, 'descriptive table')} not folded"
+    return text if folding else f"{text}; the page opens with them shown"
+
+
 def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -> str:
     """The success summary: the page path, then one aligned line per view, page, config, layout."""
     entities = detail.entities
@@ -646,6 +662,7 @@ def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -
     rows = {
         "universe": f"{_count(len(universe.nodes), 'table')} in {_count(len(universe.domains), 'domain')}, "
         f"{_count(len(universe.relations), 'relation')}, {_count(len(universe.lineage), 'lineage link')}",
+        **({"fold": fold} if (fold := _fold_row(universe, config.universe.fold)) else {}),
         "detail": f"{_count(len(entities), 'table')}{kinds}, {_count(len(detail.relations), 'relation')}",
         "page": f"opens on {config.view}, {config.language}, {libraries} ({_size(report.page_size)})",
         "config": f"{report.config_path or 'none (built-in defaults)'}"

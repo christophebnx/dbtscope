@@ -7,7 +7,8 @@ from collections.abc import Iterable
 from itertools import cycle
 
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import Config
+from dbtscope.domain.config import Config, KindRule
+from dbtscope.domain.fold import parents
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 from dbtscope.domain.payload import (
     UniverseDefaults,
@@ -112,19 +113,23 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
+    rules: dict[str, KindRule | None] = {uid: first_rule(tables[uid], config.kinds) for uid in ids}
+    domains = {uid: domain_of(tables[uid], config) for uid in ids}
+    folded = parents(tables, rules, domains, project.relations)
     nodes = []
     for uid in ids:
-        table = tables[uid]
-        kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
+        table, rule = tables[uid], rules[uid]
+        kind = rule or TYPE_KINDS.get(table.resource_type, OTHER)
         nodes.append(
             UniverseNode(
                 id=uid,
                 name=table.name,
-                domain=domain_of(table, config),
+                domain=domains[uid],
                 layer=_layer_of(table, config),
                 kind=kind.key,
                 desc=table.description[:DESCRIPTION_LIMIT],
                 cols=tuple((c.name, c.data_type, int(is_key(uid, c.name))) for c in table.columns),
+                parent=folded.get(uid),
             )
         )
 
@@ -144,5 +149,6 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
             detail=universe.detail,
             hidden_kinds=universe.hidden_kinds,
             constellations=universe.constellations,
+            fold=universe.fold,
         ),
     )

@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 from conftest import table
 
-from dbtscope.domain.selectors import FIELDS, SelectorError, field_value, glob, matches, matches_any
+from dbtscope.domain.selectors import (
+    FIELDS,
+    SelectorError,
+    field_value,
+    glob,
+    matches,
+    matches_any,
+    name_glob,
+)
 
 NODE = table(
     tags=("core", "daily"),
@@ -70,3 +78,21 @@ def test_step_selector_matches_the_step_of_the_default_layer(
 ) -> None:
     assert matches(table(folder=folder), selector) is expected
     assert matches(table(resource_type="source"), "step:source")
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("*_hub", "*_hub"),
+        ("name:*_hub", "*_hub"),
+        ("NAME: dim_* ", "dim_*"),
+        ("tag:x,*_hub", "*_hub"),
+        ("tag:x", None),
+        ("schema:y", None),
+        ("name:a*,name:*b", None),
+        ("a*,name:*b", None),
+        ("", None),
+    ],
+)
+def test_name_glob_is_the_single_name_part(selector: str, expected: str | None) -> None:
+    assert name_glob(selector) == expected

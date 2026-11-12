@@ -165,12 +165,16 @@ def write_manifest(project: Path, data: dict[str, Any] | bytes) -> None:
         path.write_text(json.dumps(data), encoding="utf-8")
 
 
-def write_example(folder: Path) -> Path:
+def write_example(folder: Path, fold: bool = True) -> Path:
     """Copy the example project into `folder` (which must not exist) with its committed manifest;
-    leftovers of a local run (`EXAMPLE_TOOL.LOCAL`) are not copied."""
+    leftovers of a local run (`EXAMPLE_TOOL.LOCAL`) are not copied. `fold=False` appends
+    `universe.fold: false` to its config: the page opens with every table drawn as a star (D-062)."""
     shutil.copytree(EXAMPLE, folder, ignore=shutil.ignore_patterns(*EXAMPLE_TOOL.LOCAL))
     (folder / "target").mkdir(exist_ok=True)
     write_manifest(folder, gzip.decompress(EXAMPLE_MANIFEST.read_bytes()))
+    if not fold:
+        config = folder / "dbt-erd.yml"
+        config.write_text(config.read_text(encoding="utf-8") + "universe:\n  fold: false\n", encoding="utf-8")
     return folder
 
 

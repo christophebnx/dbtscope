@@ -30,8 +30,9 @@ from conftest import (
 )
 
 from dbtscope import __version__
-from dbtscope.cli import EPILOG, _age, _count, _moment, _size, app, main
+from dbtscope.cli import EPILOG, _age, _count, _fold_row, _moment, _size, app, main
 from dbtscope.domain.config import View
+from dbtscope.domain.payload import UniversePayload
 from dbtscope.render.page import LIBRARIES
 from dbtscope.storage.project_files import CONFIG_HINT, PRESETS, preset_names
 
@@ -582,6 +583,64 @@ def test_stdout_holds_only_the_summary_with_the_absolute_page_path(
     ]
     data = page_data(page.read_text(encoding="utf-8"))
     assert data["view"] == "detail" and len(data["detail"]["entities"]) == 4
+
+
+def fold_universe(parents: list[bool], descriptive: bool = True) -> UniversePayload:
+    """A universe of one hub and one satellite per entry of `parents` (folded into the hub when true)."""
+    node = {"domain": "d", "layer": "l", "desc": "", "cols": []}
+    nodes = [
+        {"id": "m.hub", "name": "a_hub", "kind": "hub", **node},
+        {"id": "m.h2", "name": "b", "kind": "hub", **node},
+    ]
+    nodes += [
+        {
+            "id": f"m.s{i}",
+            "name": f"s{i}",
+            "kind": "sat",
+            "parent": ("m.hub" if i % 2 else "m.h2") if p else None,
+            **node,
+        }
+        for i, p in enumerate(parents)
+    ]
+    kinds = [{"key": "hub", "label": "Hub", "color": "#111111", "role": "core"}]
+    kinds.append(
+        {"key": "sat", "label": "Sat", "color": "#222222", "role": "descriptive" if descriptive else None}
+    )
+    return UniversePayload.model_validate(
+        {
+            "nodes": nodes, "relations": [], "lineage": [], "kinds": kinds, "layers": [],
+            "domains": [{"key": "d", "label": "D", "color": "#333333", "owner": ""}],
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+        }
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("parents", "folding", "expected"),
+    [
+        ([True, True, True], True, "3 tables folded into 2 entities"),
+        ([True], True, "1 table folded into 1 entity"),
+        ([True, False, False], True, "1 table folded into 1 entity; 2 descriptive tables not folded"),
+        ([True, True, False], True, "2 tables folded into 2 entities; 1 descriptive table not folded"),
+        ([False, False], True, "0 tables folded; 2 descriptive tables not folded"),
+        ([True, True], False, "2 tables folded into 2 entities; the page opens with them shown"),
+        ([False], False, "0 tables folded; 1 descriptive table not folded; the page opens with them shown"),
+    ],
+)
+def test_the_fold_row_counts_what_folds_and_what_does_not(
+    parents: list[bool], folding: bool, expected: str
+) -> None:
+    assert _fold_row(fold_universe(parents), folding) == expected
+
+
+def test_the_fold_row_is_omitted_without_a_descriptive_kind() -> None:
+    assert _fold_row(fold_universe([False, False], descriptive=False), True) is None
+
+
+def test_a_page_without_descriptive_tables_keeps_its_summary(dbt_project: Path, capsys: Capsys) -> None:
+    write_config(dbt_project, "preset: data_vault\n")
+    assert main(build(dbt_project)) == 0
+    assert not any(line.startswith("  fold:") for line in capsys.readouterr().out.splitlines())
 
 
 @pytest.mark.parametrize(

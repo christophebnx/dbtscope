@@ -395,12 +395,27 @@ def test_switching_keeps_the_trajectory_and_frames_it(acme: tuple[Page, dict[str
     )
 
 
-def test_flow_opens_and_closes_unchanged_in_layer_mode(acme: tuple[Page, dict[str, Any]]) -> None:
-    p, _ = acme
+def test_flow_opens_and_closes_unchanged_in_layer_mode(tmp_path: Path, open_page: Any) -> None:
+    p = open_page(example(tmp_path, extra="universe:\n  fold: false\n")[0])
     choose(p, "layers")
     g = without_time(geometry(p))
     s = open_flow(p, "fct_orders")
     assert s["open"]
+    p.page.click("#f-back")
+    assert not p.page.evaluate("flow.state().open")
+    assert without_time(geometry(p)) == g and checked(p) == "layers"
+
+
+def test_flow_opens_and_closes_unchanged_in_layer_mode_with_folded_tables(
+    acme: tuple[Page, dict[str, Any]],
+) -> None:
+    """Folded: the trajectory shows its folded tables on orbits, so compare from inside the trajectory."""
+    p, _ = acme
+    choose(p, "layers")
+    p.page.fill("#u-q", "fct_orders")
+    p.page.click("#u-traj")
+    g = without_time(geometry(p))
+    assert open_flow(p, "fct_orders")["open"]
     p.page.click("#f-back")
     assert not p.page.evaluate("flow.state().open")
     assert without_time(geometry(p)) == g and checked(p) == "layers"

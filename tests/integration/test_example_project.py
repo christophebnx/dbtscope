@@ -27,6 +27,7 @@ def _summary(project: Path) -> list[str]:
     return [
         f"  universe: {universe['tables']} tables in {universe['domains']} domains, "
         f"{universe['relations']} relations, {universe['lineage']} lineage links",
+        f"  fold:     {universe['summary']}",
         f"  detail:   {detail['tables']} tables ({kinds}), {detail['relations']} relations",
         f"  config:   {project / 'dbt-erd.yml'}, preset data_vault",
     ]
