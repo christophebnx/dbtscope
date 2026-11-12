@@ -42,6 +42,10 @@ NO_STORAGE = """for (const m of ['getItem', 'setItem', 'removeItem'])
   Storage.prototype[m] = () => { throw new DOMException('blocked', 'SecurityError'); };"""
 
 
+# the example opens folded (M8.2); these tests are about the shown drawing
+NO_FOLD = "universe:\n  fold: false\n"
+
+
 def example(tmp_path: Path, extra: str = "", lang: str = "en") -> tuple[Path, dict[str, Any]]:
     """The example page, its config in `lang` and with `extra` appended; return it and its payload."""
     project = write_example(tmp_path / "acme_retail")
@@ -78,7 +82,7 @@ def far_corner(c: dict[str, Any], t: dict[str, Any]) -> float:
 
 @pytest.fixture
 def acme(tmp_path: Path, open_page: Any) -> tuple[Page, dict[str, Any]]:
-    html, data = example(tmp_path)
+    html, data = example(tmp_path, NO_FOLD)
     return open_page(html), data
 
 

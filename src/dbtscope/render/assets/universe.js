@@ -19,6 +19,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
           fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
           clickTraj: 'Click: show its trajectory',
+          entitiesN: ['entity', 'entities'], foldedN: ['folded table', 'folded tables'], foldH: 'Entities',
+          foldRow: 'Fold', foldTitle: 'Draw these tables inside the table they describe', foldsInto: 'Folds into',
+          openedLive: (t, p) => `${t} is folded into ${p}: shown`,
+          foldLiveOn: n => `Descriptive tables folded: ${n}`, foldLiveOff: 'Descriptive tables shown',
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
           hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
               + 'click a table to see its trajectory (Esc to leave) · '
@@ -37,6 +41,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           fitTraj: 'Cadrer la trajectoire', flow: 'Flux',
           flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
           clickTraj: 'Clic\u00a0: afficher sa trajectoire',
+          entitiesN: ['entité', 'entités'], foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités',
+          foldRow: 'Replier', foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
+          foldsInto: 'Se replie dans',
+          openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
+          foldLiveOn: n => `Tables descriptives repliées\u00a0: ${n}`, foldLiveOff: 'Tables descriptives affichées',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
           hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
               + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
@@ -66,17 +75,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
-  // the viewer's last grouping, kept apart from the shared layout and never exported (D-048): stored only
-  // when it differs from the page default; without storage the choice lasts for the session
-  const byMemory = (() => {
-    const key = 'dbtscope-constellations:' + PAGE.title;
+  // a viewer choice, kept apart from the shared layout and never exported (D-048, D-063): stored only when it
+  // differs from the page default; without storage the choice lasts for the session
+  const memory = (name, values) => {
+    const key = name + ':' + PAGE.title;
     return {
-      get() { try { const v = localStorage.getItem(key); return v === 'domains' || v === 'layers' ? v : null; } catch (e) { return null; } },
+      get() { try { const v = localStorage.getItem(key); return values.includes(v) ? v : null; } catch (e) { return null; } },
       set(value, fallback) {
         try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* session only */ }
       },
     };
-  })();
+  };
+  const byMemory = memory('dbtscope-constellations', ['domains', 'layers']);
+  const foldMemory = memory('dbtscope-fold', ['folded', 'shown']);
+  // Entities (D-062, D-063): the parent of a descriptive table is computed in Python (`n.parent`, an id);
+  // PARENT[i] is its index or -1. Without any parent nothing below changes the page.
+  const ID = new Map(N.map(n => [n.id, n.i]));
+  const PARENT = N.map(n => (n.parent && ID.has(n.parent) ? ID.get(n.parent) : -1));
+  const CAN_FOLD = PARENT.some(p => p >= 0);
+  const isEntity = n => ['core', 'connector'].includes(KIND[n.kind].role);
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
   const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
@@ -86,12 +103,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
+    fold: CAN_FOLD && (foldMemory.get() ? foldMemory.get() === 'folded' : DATA.defaults.fold),
   };
+  const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
+  let opened = null;   // the entity opened by the last search: its folded tables are drawn (index), at most one
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
   let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
   const layoutCache = new Map();
   let drawn = [], fitCache = null;  // ids of the names drawn in the last frame (for the tests); the Fit names
-  let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
+  // pass: the tables that pass the three filters; visible: those drawn (pass minus the folded ones); edges: the
+  // links between drawn tables; HELD: entity index -> the indices folded into it now (in name order)
+  let P = [], B = [], REL = new Map(), labelHits = [], pass = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
+  let PASS = new Uint8Array(N.length), FOLDNOW = new Uint8Array(N.length), HELD = new Map(), linkCount = 0;
   let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0 };
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
   const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
@@ -112,8 +135,27 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('by').hidden = !CAN_BY;
   $u('by').querySelectorAll('input').forEach(radio => {
     radio.checked = radio.value === state.by;
-    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); relayout(); };
+    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); opened = null; relayout(); };
   });
+  // the fold control: one checkbox, labelled from the roles of the kinds that fold (never from names, D-059)
+  $u('fold').hidden = !CAN_FOLD;
+  if (CAN_FOLD) {
+    const foldKeys = new Set(N.filter(n => PARENT[n.i] >= 0).map(n => n.kind));
+    const names = DATA.kinds.filter(k => k.role === 'descriptive' && foldKeys.has(k.key)).map(labelOf);
+    const more = names.length > 3 ? ` + ${num(names.length - 3)}` : '';
+    $u('h-fold').textContent = T.foldH;
+    $u('fold-label').textContent = `${T.foldRow} ${names.slice(0, 3).join(' · ')}${more}`;
+    $u('fold-n').textContent = num(PARENT.filter(p => p >= 0).length);
+    $u('fold-row').title = T.foldTitle;
+    $u('fold-box').checked = state.fold;
+    $u('fold-box').onchange = ev => {
+      state.fold = ev.target.checked; opened = null;
+      foldMemory.set(state.fold ? 'folded' : 'shown', DATA.defaults.fold ? 'folded' : 'shown');
+      relayout();
+      const entities = visible.filter(isEntity).length;
+      $u('live').textContent = state.fold ? T.foldLiveOn(plural(entities, T.entitiesN)) : T.foldLiveOff;
+    };
+  }
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
   $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
@@ -142,22 +184,37 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('names').innerHTML = N.map(n => `<option value="${esc(n.name)}">`).join('');
   // a table by its exact name, case-insensitive (search box, Trajectory button)
   function findByName(text) { const q = String(text).trim().toLowerCase(); return N.find(n => n.name.toLowerCase() === q); }
-  // tick back on the domain, layer and type of every listed table that is filtered out; recompute once
-  // if anything changed; returns how many of the listed tables were hidden
+  // the three filters (domain, layer, type), read from the state
+  const passes = n => state.domains.has(n.domain) && state.layers.has(n.layer) && state.kinds.has(n.kind);
+  // tick back on the domain, layer and type of a table that is filtered out; true when it was hidden
+  function tick(i) {
+    const n = N[i];
+    if (passes(n)) return false;
+    state.domains.add(n.domain); state.layers.add(n.layer); state.kinds.add(n.kind);
+    return true;
+  }
+  // tick back on the filtered-out tables among `indices`; recompute once if anything changed; returns how
+  // many of the listed tables were hidden by the filters (a folded table is not: reveal never opens an entity)
   function reveal(indices) {
-    let hidden = 0;
-    indices.forEach(i => {
-      if (P[i]) return;
-      const n = N[i]; hidden++;
-      state.domains.add(n.domain); state.layers.add(n.layer); state.kinds.add(n.kind);
-    });
+    const hidden = indices.filter(tick).length;
     if (hidden) { refreshPanel(); relayout(); }
     return hidden;
   }
+  // would the fold draw table i inside its parent now? (the fold is on, the parent is drawn, its entity is not
+  // the one opened by the search); a trajectory member is never folded (D-063)
+  const wouldFold = i => state.fold && PARENT[i] >= 0 && PARENT[i] !== opened && passes(N[PARENT[i]]);
+  // the trajectory members the fold would otherwise hide: what makes entering or leaving a trajectory relayout
+  const unfoldedKey = () => trajMembers().filter(wouldFold).sort((a, b) => a - b).join();
   $u('q').onchange = ev => {
     const n = findByName(ev.target.value);
     if (!n) return;
-    reveal([n.i]);
+    // a folded table opens its entity (one at a time); any other table closes it
+    const before = opened, hidden = tick(n.i);
+    const inFold = CAN_FOLD && state.fold && PARENT[n.i] >= 0 && state.kinds.has(N[PARENT[n.i]].kind);
+    if (inFold) { if (!(traj && trajMembers().includes(n.i))) opened = PARENT[n.i]; } else opened = null;
+    if (hidden) refreshPanel();
+    if (hidden || opened !== before) relayout();
+    if (opened !== before && opened != null) $u('live').textContent = T.openedLive(n.name, N[opened].name);
     found = n.i;
     zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5));
   };
@@ -168,20 +225,29 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // box runs from the star top to the bottom of the label drawn below it (one or two lines, nameLines); the
   // label width is estimated (11 px, bold), never measured, so the placement does not depend on the fonts
   // installed (D-040).
+  // An entity holding tables reserves 6 px more on its top and right for its badge (D-063); its card also
+  // lists the tables folded into it under the columns (at most HELD_ROWS, then "+ N").
   function box(n) {
+    const held = HELD.get(n.i) || [];
     if (state.detail === 'names') {
-      const r = starR(n), lines = nameLines(n.name), longest = d3.max(lines, s => s.length);
-      return { w: Math.max(6 + longest * 6.2, 2 * r + 4), h: 2 * r + 4 + LINE_H * lines.length, oy: LINE_H / 2 * lines.length };
+      const r = starR(n), lines = nameLines(n.name), longest = d3.max(lines, s => s.length), up = held.length ? 6 : 0;
+      return { w: Math.max(6 + longest * 6.2, 2 * r + (up ? 16 : 4)), h: 2 * r + 4 + LINE_H * lines.length + up,
+               oy: LINE_H / 2 * lines.length - up / 2 };
     }
     const rows = state.detail === 'keys' ? n.cols.filter(c => c[2]) : n.cols, shown = rows.slice(0, 30);
-    const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8), 10);
-    return { w: 16 + chars * 5.6, h: 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0), oy: 0,
-             shown, more: rows.length - shown.length };
+    const folded = held.slice(0, HELD_ROWS).map(i => [N[i].name, labelOf(KIND[N[i].kind])]);
+    const chars = Math.max(n.name.length * 1.15, ...shown.map(r => r[0].length + 1 + r[1].length * 0.8),
+      ...folded.map(r => r[0].length + 1 + r[1].length * 0.8), 10);
+    const cw = 16 + chars * 5.6, extra = held.length ? 6 + 11 * (folded.length + (held.length > HELD_ROWS ? 1 : 0)) : 0;
+    const ch = 18 + shown.length * 11 + (rows.length > shown.length ? 11 : 0) + extra, pad = held.length ? 6 : 0;
+    return { w: cw + pad, h: ch + pad, cw, ch, oy: 0, shown, more: rows.length - shown.length, folded,
+             heldMore: held.length - folded.length };
   }
 
   // A table's name as drawn below its star: one line up to 14 characters, else two, split after the `__`
   // nearest the middle, else after the `_` nearest the middle (a name without `_` stays on one line)
   const LINE_H = 14;
+  const HELD_ROWS = 12;   // folded tables listed on a card, then "+ N"
   function nameLines(name) {
     if (name.length <= 14) return [name];
     const cut = sep => {
@@ -226,33 +292,49 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function layout() {
     layoutRuns++;
     const t0 = performance.now();
-    visible = N.filter(n => state.domains.has(n.domain) && state.layers.has(n.layer) && state.kinds.has(n.kind));
-    const vis = new Set(visible.map(n => n.i));
+    // the three sets (D-063): pass (the filters), folded now (inside an entity), visible = drawn = pass minus folded
+    pass = N.filter(passes);
+    PASS = new Uint8Array(N.length); pass.forEach(n => { PASS[n.i] = 1; });
+    const members = new Set(trajMembers());
+    FOLDNOW = new Uint8Array(N.length); HELD = new Map();
+    pass.forEach(n => {
+      if (!wouldFold(n.i) || members.has(n.i)) return;
+      FOLDNOW[n.i] = 1;
+      if (!HELD.has(PARENT[n.i])) HELD.set(PARENT[n.i], []);
+      HELD.get(PARENT[n.i]).push(n.i);
+    });
+    visible = pass.filter(n => !FOLDNOW[n.i]);
     B = []; visible.forEach(n => B[n.i] = box(n));
-    const seen = new Set(); edges = [];
+    // the links between tables that pass (counted, and the routes' weight); only those between drawn tables are drawn
+    const seen = new Set(), links = [];
     const add = list => list.forEach(([a, b]) => {
       const key = a < b ? a + ',' + b : b + ',' + a;
-      if (vis.has(a) && vis.has(b) && !seen.has(key)) { seen.add(key); edges.push([a, b]); }
+      if (PASS[a] && PASS[b] && !seen.has(key)) { seen.add(key); links.push([a, b]); }
     });
     if (state.links !== 'lineage') add(DATA.relations);
     if (state.links !== 'relations') add(DATA.lineage);
+    linkCount = links.length;
+    edges = links.filter(([a, b]) => !FOLDNOW[a] && !FOLDNOW[b]);
 
     const G = grouping(), local = new Map();
-    for (const [key, members] of d3.group(visible, G.of)) {
+    // a table's reserved box depends on what it holds: its held ids (cards) or whether it holds any (names)
+    const heldKey = n => state.detail === 'names' ? (HELD.has(n.i) ? 'h' : '') : (HELD.get(n.i) || []).join('.');
+    for (const [key, group] of d3.group(visible, G.of)) {
       // a constellation's inner layout only depends on the grouping, its own tables, links and detail level
-      const cached = [state.by, key, state.detail, state.links, members.map(n => n.i).join(',')].join('|');
-      if (!layoutCache.has(cached)) layoutCache.set(cached, layoutConstellation(key, members));
+      const cached = [state.by, key, state.detail, state.links, group.map(n => n.i + heldKey(n)).join(',')].join('|');
+      if (!layoutCache.has(cached)) layoutCache.set(cached, layoutConstellation(key, group));
       local.set(key, layoutCache.get(cached));
     }
 
-    // constellations: linked ones attract, ordered left to right along the flow, never overlapping
+    // constellations: linked ones attract, ordered left to right along the flow, never overlapping; the links
+    // of folded tables count (a parent shares its table's constellation)
     const agg = new Map(), flow = new Map();
-    edges.forEach(([a, b]) => {
+    links.forEach(([a, b]) => {
       const da = G.of(N[a]), db = G.of(N[b]);
       if (da !== db) { const k = da < db ? da + '|' + db : db + '|' + da; agg.set(k, (agg.get(k) || 0) + 1); }
     });
     DATA.lineage.forEach(([child, parent]) => {  // data flows from parent to child
-      if (!vis.has(child) || !vis.has(parent)) return;
+      if (!PASS[child] || !PASS[parent]) return;
       const from = G.of(N[parent]), to = G.of(N[child]);
       if (from === to) return;
       const k = from < to ? from + '|' + to : to + '|' + from;
@@ -263,9 +345,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const saved = savedLayout();
     REL = new Map();
     for (const [, dl] of local) placeAroundDragged(dl.ns, saved.nodes);
-    constellations = [...local].map(([k, v]) => ({ k, rank: v.rank, n: v.ns.length, bands: v.bands,
-      r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
-      mix: [...d3.rollup(v.ns, g => g.length, s => N[s.i].kind)].sort((a, b) => b[1] - a[1]) }));
+    // what a constellation holds is counted over the tables that pass, folded ones included (D-063)
+    const held = d3.group(pass, G.of);
+    constellations = [...local].map(([k, v]) => {
+      const all = held.get(k), bands = v.bands.map(b => ({ ...b }));
+      all.forEach(n => { if (FOLDNOW[n.i]) bands[v.bandOf.get(PARENT[n.i])].n++; });
+      return { k, rank: v.rank, n: all.length, bands, r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
+               mix: [...d3.rollup(all, g => g.length, n => n.kind)].sort((a, b) => b[1] - a[1]) };
+    });
     constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
@@ -325,9 +412,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const BY = {
     domains: { of: n => n.domain, band: layerPos, bandKey: pos => DATA.layers[pos].key,
                rank: (key, members) => d3.mean(members, n => LAYER[n.layer].rank), flowX: 0.06,
-               pins: 'domains', scope: () => state.detail },
+               pins: 'domains', scope: () => (folding() ? 'folded:' : '') + state.detail },
     layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DATA.domains[pos].key,
-              rank: key => LAYER[key].rank, flowX: 0.3, pins: 'layers', scope: () => 'layers:' + state.detail },
+              rank: key => LAYER[key].rank, flowX: 0.3, pins: 'layers',
+              scope: () => 'layers:' + (folding() ? 'folded:' : '') + state.detail },
   };
   const grouping = () => BY[state.by];
   const PACK = { PAD: 6, STRIP_GAP: 8, BAND_GAP: 20, TRIES: 24, REFINE: 6 };
@@ -358,7 +446,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       best = row;
     }
     const R = d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
-    return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R,
+    const bandOf = new Map(bands.flatMap((band, j) => band.tables.map(n => [n.i, j])));
+    return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R, bandOf,
              rank: grouping().rank(key, members),
              bands: bands.map((band, j) => ({ key: band.key, n: band.tables.length, x0: best.bands[j][0], x1: best.bands[j][1] })) };
   }
@@ -493,7 +582,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (onScreen) {
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
-      $u('meta').textContent = `${plural(visible.length, L.tables)} · ${plural(edges.length, T.linksN)} · ${groups}`;
+      // tables and links are counted over what passes the filters: a fold changes what is drawn, not what is counted
+      const entities = folding() ? [plural(visible.filter(isEntity).length, T.entitiesN)] : [];
+      $u('meta').textContent = [plural(pass.length, L.tables), ...entities, plural(linkCount, T.linksN), groups].join(' · ');
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -731,39 +822,64 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.stroke();
     ctx.setLineDash([]);
   }
+  // The badge of an entity holding `count` tables (D-063): a dark disc with a white outline, centred on
+  // (cx, cy), 4 screen px from afar (a dot), 7 px zoomed in with the count (99+ above 99)
+  function drawBadge(cx, cy, count, k) {
+    const near = k >= 0.6, rb = (near ? 7 : 4) / k;
+    ctx.fillStyle = C.text; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 / k;
+    ctx.beginPath(); ctx.arc(cx, cy, rb, 0, 7); ctx.fill(); ctx.stroke();
+    if (!near) return;
+    ctx.fillStyle = '#ffffff'; ctx.font = `700 ${9 / k}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(count > 99 ? '99+' : String(count), cx, cy + 0.5 / k);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
   function drawStar(n, p, col, mark, side, k) {
-    const far = k < 0.6, r = Math.max(starR(n), (side ? 3 : 2.5) / k);
+    const far = k < 0.6, r = Math.max(starR(n), (side ? 3 : 2.5) / k), held = HELD.get(n.i);
     const edge = CONTRAST.edge(col, C.bg);   // a star too light for the page is outlined (D-042)
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     ctx.strokeStyle = edge === col ? '#ffffff' : edge; ctx.lineWidth = 1 / k; ctx.stroke();
-    if (side === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); return; }
+    const badge = () => { if (held) drawBadge(p.x + r * Math.SQRT1_2, p.y - r * Math.SQRT1_2, held.length, k); };   // after the rings
+    if (side === 'start') { ring(p, r + 3 / k, C.text, 1.5 / k, false, k); ring(p, r + 6 / k, C.text, 1.5 / k, false, k); badge(); return; }
     let out = 4 / k;
     if (side) { out = (far ? 3 : 4) / k; ring(p, r + out, C[side], (far ? 1.5 : 2) / k, side === 'up', k); out += 3 / k; }
     if (mark) ring(p, r + out, C.text, 2 / k, false, k);
+    badge();
   }
   function drawCard(n, p, b, col, mark, side, k) {
-    const x = p.x - b.w / 2, y = p.y - b.h / 2, mk = Math.min(k, 1), edge = CONTRAST.edge(col, C.bg);   // D-042
-    ctx.fillStyle = C.card; ctx.fillRect(x, y, b.w, b.h);
+    const x = p.x - b.cw / 2, y = p.y - b.ch / 2, mk = Math.min(k, 1), edge = CONTRAST.edge(col, C.bg);   // D-042
+    ctx.fillStyle = C.card; ctx.fillRect(x, y, b.cw, b.ch);
     ctx.strokeStyle = side === 'start' ? C.text : side ? C[side] : mark ? C.text : edge;
     ctx.lineWidth = (side === 'start' ? 3 : side ? 2.5 : mark ? 2.5 : 1) / mk;
     ctx.setLineDash(side === 'up' ? [6 / mk, 3 / mk] : []);
-    ctx.strokeRect(x, y, b.w, b.h);
+    ctx.strokeRect(x, y, b.cw, b.ch);
     ctx.setLineDash([]);
     if (side === 'start' || (side && mark)) {  // outer rectangle 3 px outside
       const o = 3 / k + ctx.lineWidth / 2;
-      ctx.strokeStyle = C.text; ctx.lineWidth = 1.5 / mk; ctx.strokeRect(x - o, y - o, b.w + 2 * o, b.h + 2 * o);
+      ctx.strokeStyle = C.text; ctx.lineWidth = 1.5 / mk; ctx.strokeRect(x - o, y - o, b.cw + 2 * o, b.ch + 2 * o);
     }
-    ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
-    if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / mk; ctx.strokeRect(x, y, b.w, 16); }
+    ctx.fillStyle = col; ctx.fillRect(x, y, b.cw, 16);
+    if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / mk; ctx.strokeRect(x, y, b.cw, 16); }
     if (k > 0.6) {
       ctx.fillStyle = CONTRAST.textOn(col); ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
       ctx.font = `9px ${FONT}`;
       b.shown.forEach((r, j) => {
         ctx.fillStyle = r[2] ? C.text : C.muted; ctx.fillText(r[0], x + 5, y + 28 + j * 11);
-        ctx.fillStyle = C.muted; ctx.fillText(r[1], x + b.w - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
+        ctx.fillStyle = C.muted; ctx.fillText(r[1], x + b.cw - 5 - ctx.measureText(r[1]).width, y + 28 + j * 11);
       });
+      const below = y + 18 + (b.shown.length + (b.more > 0 ? 1 : 0)) * 11;   // where the folded tables start
       if (b.more > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.more)}`, x + 5, y + 28 + b.shown.length * 11); }
+      if (b.folded.length) {
+        ctx.strokeStyle = C.muted + '66'; ctx.lineWidth = 1 / mk;
+        ctx.beginPath(); ctx.moveTo(x + 4, below + 3); ctx.lineTo(x + b.cw - 4, below + 3); ctx.stroke();
+        b.folded.forEach(([name, kind], j) => {
+          ctx.fillStyle = C.text; ctx.fillText(name, x + 5, below + 16 + j * 11);
+          ctx.fillStyle = C.muted; ctx.fillText(kind, x + b.cw - 5 - ctx.measureText(kind).width, below + 16 + j * 11);
+        });
+        if (b.heldMore > 0) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.heldMore)}`, x + 5, below + 16 + b.folded.length * 11); }
+      }
     }
+    const held = HELD.get(n.i);
+    if (held) drawBadge(x + b.cw, y, held.length, k);
   }
   // the lineage edges of the trajectory, parent -> child, at every zoom and whatever the Links selector shows
   function drawTrajectoryEdges(k) {
@@ -870,6 +986,17 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       + (band ? `<div class="m">${T.domainOne}${L.colon}${esc(labelOf(DOM[band.key]))} · ${plural(band.n, L.tables)}</div>` : '')
       + `<div class="a">${T.frameC}</div>`;
   }
+  const TIP_FOLDED = 12;   // folded tables listed in an entity's tooltip before "+ N"
+  // the tooltip block of a table: the tables folded into it (an entity), or where it folds (a table with a parent)
+  function foldTip(n) {
+    const held = HELD.get(n.i);
+    if (held) {
+      const lines = held.slice(0, TIP_FOLDED).map(i => `<div>${esc(N[i].name)} <span class="m">· ${esc(labelOf(KIND[N[i].kind]))}</span></div>`);
+      const more = held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '';
+      return `<div class="held"><b>${plural(held.length, T.foldedN)}</b>${lines.join('')}${more}</div>`;
+    }
+    return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
+  }
   canvas.addEventListener('mousemove', ev => {
     const n = pick(ev), h = n ? n.i : null;
     if (h !== hover) { hover = h; draw(); }
@@ -880,7 +1007,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
       tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
-        `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
+        `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>` + foldTip(n);
     } else if (state.by === 'layers') {
       tip.innerHTML = layerTip(d, t.invert(d3.pointer(ev, canvas))[0]);
     } else {
@@ -897,8 +1024,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
   const FAR = 0.5;
   const frameText = () => (state.by === 'layers' ? T.frameC : T.frame);
+  // the table the last click entered the trajectory of: entering it may have unfolded tables and moved the
+  // table under the pointer, so a double-click that follows it still means that table
+  let lastClick = null;
   canvas.addEventListener('dblclick', ev => {
-    const n = t.k >= FAR ? pick(ev) : null;
+    const again = lastClick && ev.timeStamp - lastClick.at < 600 ? lastClick.n : null;
+    const n = t.k >= FAR ? pick(ev) || again : null;
     if (n) {
       if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
@@ -913,7 +1044,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   canvas.addEventListener('click', ev => {
     if (ev.detail > 1) return;   // the second click of a double-click
     const n = t.k >= FAR ? pick(ev) : null;
-    if (n) { enterTrajectory(n.i); return; }
+    if (n) { lastClick = { n, at: ev.timeStamp }; enterTrajectory(n.i); return; }
     if (traj && !labelAt(...d3.pointer(ev, canvas)) && !domainAt(ev)) leaveTrajectory(false);
   });
 
@@ -921,21 +1052,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const countsText = (u, d) => trajectoryCounts(trajOpts.direction, u, d);
   function enterTrajectory(i) {
     const { up, down } = trajectory(DATA.lineage, i, trajOpts.direction, trajOpts.depth);
+    const folded = unfoldedKey();   // the members the fold hid before: they are drawn while the mode is on
     traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
+    if (!traj.brought && unfoldedKey() !== folded) relayout();   // unfold its members (or fold the last ones back)
     const n = N[i], summary = renderBar();
     live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
     draw();
   }
   function leaveTrajectory(restoreFocus) {
     if (!traj) return;
-    const inBar = bar.contains(document.activeElement);
+    const inBar = bar.contains(document.activeElement), unfolded = unfoldedKey() !== '';
     traj = null; bar.hidden = true; $u('tj-counts').open = false;
     $u('fit').removeAttribute('title');
     live.textContent = T.closed;
     if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
-    draw();
+    if (unfolded) relayout();   // the members drawn by the mode fold back (the layout cache gives the same placement)
+    else draw();
   }
   // fills the bar from the current trajectory; returns the counts (or empty-state) text
   function renderBar() {
@@ -956,7 +1090,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('tj-counts').hidden = empty; $u('tj-empty').hidden = !empty;
     $u('tj-empty').textContent = empty ? emptyText : '';
     $u('tj-flow').disabled = empty;
-    const hidden = trajMembers().filter(j => !P[j]).length;
+    const hidden = trajMembers().filter(j => !PASS[j]).length;   // hidden by the filters; a folded member is drawn
     $u('tj-hidden').textContent = hidden ? plural(hidden, T.hiddenN) : '';
     $u('tj-back').textContent = traj.brought ? plural(traj.brought, T.brought) : '';
     $u('fit').title = T.fitTraj;
@@ -1023,11 +1157,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the placement in world coordinates (the grouping; tables at their point P, with their reserved box;
   // constellations with their bands) and the time of the last layout: read-only, for the browser tests
   function geometry() {
-    return { by: state.by, layoutMs: perf.layout,
+    return { by: state.by, fold: folding(), layoutMs: perf.layout, passing: pass.length, linkCount,
+      folded: N.filter(n => FOLDNOW[n.i]).map(n => n.id),
       tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
-                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: R[n.i] })),
-      constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
-                                   bands: d.bands.map(b => ({ key: b.key, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
+                                  w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: R[n.i],
+                                  held: (HELD.get(n.i) || []).map(i => N[i].id) })),
+      edges: edges.map(([a, b]) => [N[a].id, N[b].id]),
+      routes: routes.map(r => ({ a: r.source.k, b: r.target.k, c: r.c, dir: r.dir })),
+      constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r, n: d.n, mix: d.mix,
+                                   bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
@@ -1038,5 +1176,6 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => [...drawn] };
+  // Reset layout and an import call relayout: they close the entity a search opened
+  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, trajectoryState, image, camera, place, geometry, drawnNames: () => [...drawn] };
 }

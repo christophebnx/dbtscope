@@ -8,6 +8,7 @@
     "lineage": 110,
     "kinds": {"Hub": 13, "Link": 12, "Satellite": 13, "Fact": 8, "Dimension": 8, "Staging": 18, "Source": 18, "Seed": 3, "Snapshot": 2, "Other": 0}
   },
+  "fold": {"descriptive": 13, "folded": 13, "without_parent": 0, "entities": 41},
   "detail": {
     "tables": 54,
     "kinds": {"Hub": 13, "Link": 12, "Satellite": 13, "Dimension": 8, "Fact": 8},

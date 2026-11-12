@@ -41,6 +41,9 @@
       <label><input type="radio" name="u-by" value="domains"><span id="u-by-domains"></span><small id="u-by-domains-n"></small></label>
       <label><input type="radio" name="u-by" value="layers"><span id="u-by-layers"></span><small id="u-by-layers-n"></small></label>
     </fieldset>
+    <fieldset id="u-fold" hidden><legend id="u-h-fold"></legend>
+      <label id="u-fold-row"><input type="checkbox" id="u-fold-box"><span id="u-fold-label"></span><small id="u-fold-n"></small></label>
+    </fieldset>
     <h3 id="u-h-links"></h3>
     <select id="u-links" aria-labelledby="u-h-links"></select>
     <h3 id="u-h-detail"></h3>
@@ -81,6 +84,7 @@
         <button id="u-tj-leave" type="button"></button>
       </div>
       <span class="sr-only" id="u-tj-live" role="status" aria-live="polite"></span>
+      <span class="sr-only" id="u-live" role="status" aria-live="polite"></span>
       <canvas id="u-canvas"></canvas>
       <div class="tip" id="u-tip"></div>
     </div>

@@ -134,6 +134,10 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Where the page's assets and vendored libraries are read from (package resources) | `render/page.ASSETS`, `VENDOR` (also used by `tools/vendor_libraries.py`) |
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
+| Which tables are folded now, held by an entity, drawn (page, D-063) | `render/assets/universe.js` `PARENT`, `HELD`, `wouldFold`, the passing / folded-now / drawn sets (`pass`, `FOLDNOW`, `visible`) |
+| The viewer's fold choice, kept out of the layout (page) | `render/assets/universe.js` `foldMemory` (a second `memory(name, values)`, as `byMemory`) |
+| Folded-drawing layout scopes (page, D-064) | `render/assets/universe.js` `BY[*].scope` |
+| The `folded:` row of the CLI summary | `cli._folded_row` |
 | Escape untrusted text for `innerHTML` (page) | `render/assets/common.js esc` |
 | A count with plural agreement (page) | `render/assets/common.js plural` |
 | A number written for the page language (page) | `render/assets/common.js num` |
@@ -227,9 +231,13 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 
 | Concept | Word | Not | Notes |
 |---|---|---|---|
-| A model, seed, snapshot or source of the manifest | **table** (`Table`, `tables`) | node, entity, model (except dbt's resource type `model`) | Identified by its `unique_id` (invariant 11). |
+| A model, seed, snapshot or source of the manifest | **table** (`Table`, `tables`) | node, entity (the drawn core table of M8.2 is an **entity** only in that sense), model (except dbt's resource type `model`) | Identified by its `unique_id` (invariant 11). |
 | A table as an item of the universe payload | **node** only as the payload key `nodes` and `UniverseNode` | — | Protected key; Python variables holding `UniverseNode`s are `nodes`. "Node" also stays for dbt's manifest `nodes` and `NodeHeader`. |
-| A table as an item of the detail payload | **entity** only as the payload key `entities` and `DetailEntity` | — | Protected key; variables holding `DetailEntity`s are `entities`. |
+| A table as an item of the detail payload | **entity** only as the payload key `entities` and `DetailEntity` | — | Protected key; variables holding `DetailEntity`s are `entities`. In prose and in new code "entity" means only the next row. |
+| A drawn `core` or `connector` table with the descriptive tables folded into it (universe, M8.2, D-063) | **entity** (French UI: entité) | group, family, cluster | The detail payload's `entities` / `DetailEntity` keep their name (any table of the detail view). |
+| Drawing a descriptive table inside its parent's star instead of as its own star (M8.2, D-063) | **fold** (`fold`, `universe.fold`, `defaults.fold`, folded, folded now); the opposite is **show** | collapse, hide, nest | French UI: replier / afficher. |
+| The core or connector table a descriptive table folds into (M8.2, D-062) | **parent** (`UniverseNode.parent`, `fold.parents`) | owner, host | Same word as the referenced end of a relation (`Relation.parent`), which it is when a relation decides; say "the parent of a relation" for the other sense when both appear in one sentence. |
+| A table name without the fixed part of the name glob of its kind (M8.2, D-062) | **stem** (`fold.stem`) | root, base name | |
 | Business link declared by a `relationships` test or a `foreign_key` constraint | **relation** (`Relation`, `relations`) | relationship (except dbt's test name), FK link | |
 | `ref` / `source` dependency | **lineage** (`LineageEdge`, `lineage`); one item is a **lineage edge** | dependency, parent link | |
 | What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |

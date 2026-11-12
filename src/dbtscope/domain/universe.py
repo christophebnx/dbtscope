@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Iterable
 from itertools import cycle
 
+from dbtscope.domain import fold
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import Config
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
@@ -130,21 +131,29 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
-    nodes = []
+    nodes, members = [], []
     for uid in ids:
         table = tables[uid]
-        kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
+        rule = first_rule(table, config.kinds)
+        kind = rule or TYPE_KINDS.get(table.resource_type, OTHER)
+        domain, layer = domain_of(table, config), _layer_of(table, config)
+        role = kind.role or "none"
+        members.append(
+            fold.Member(id=uid, role=role, stem=fold.stem(table, rule), domain=domain, layer=layer)
+        )
         nodes.append(
             UniverseNode(
                 id=uid,
                 name=table.name,
-                domain=domain_of(table, config),
-                layer=_layer_of(table, config),
+                domain=domain,
+                layer=layer,
                 kind=kind.key,
                 desc=table.description[:DESCRIPTION_LIMIT],
                 cols=tuple((c.name, c.data_type, int(is_key(uid, c.name))) for c in table.columns),
             )
         )
+    parent_of = fold.parents(members, project.relations)
+    nodes = [n.model_copy(update={"parent": parent_of.get(n.id, "")}) for n in nodes]
 
     def pairs(edges: Iterable[Relation | LineageEdge]) -> tuple[tuple[int, int], ...]:
         found = {(index[e.child], index[e.parent]) for e in edges if e.child in index and e.parent in index}
@@ -162,5 +171,6 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
             detail=universe.detail,
             hidden_kinds=universe.hidden_kinds,
             constellations=universe.constellations,
+            fold=universe.fold,
         ),
     )

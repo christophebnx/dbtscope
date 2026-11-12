@@ -347,6 +347,8 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         elif t["text"] in domains and size >= 13:  # a domain name, on the page
             back = BG
             named.add(t["text"])
+        elif t["text"].isdigit() or t["text"] == "99+":  # the count of an entity's badge, on its dark disc
+            back = "#1f2933"
         elif size == 9:  # a card column, on the white card
             back = "#ffffff"
         else:  # a caption ("N tables"), a star label on its backdrop, the empty message

@@ -70,6 +70,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "detail": "names",
         "hiddenKinds": ["source"],
         "constellations": "domains",
+        "fold": True,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -90,9 +91,40 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))
-    assert list(data["defaults"])[-1] == "constellations"
+    assert list(data["defaults"])[-2:] == ["constellations", "fold"]
     assert data["defaults"]["constellations"] == "layers"
     assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
+
+
+def _folded(shop: Project, preset: str | None, file_config: dict[str, Any]) -> Any:
+    config = merge_config(read_preset(preset) if preset else {}, file_config)
+    return json.loads(embedded_json(universe_data(shop, config)))
+
+
+def test_a_node_carries_its_parent_last_and_a_page_without_roles_has_none(shop: Project) -> None:
+    data = _folded(shop, None, {})
+    assert {list(n)[-1] for n in data["nodes"]} == {"parent"}
+    assert {n["parent"] for n in data["nodes"]} == {""}
+    assert data["defaults"]["fold"] is True
+
+
+def test_a_descriptive_table_gets_the_parent_the_rule_finds(shop: Project) -> None:
+    kinds = [
+        {"key": "core", "label": "Core", "match": ["fct_orders"], "role": "core"},
+        {"key": "desc", "label": "Desc", "match": ["fct_returns"], "role": "descriptive"},
+    ]
+    data = _folded(shop, None, {"kinds": kinds})  # fct_returns -> fct_orders, a foreign key, same place
+    parents = {n["name"]: n["parent"] for n in data["nodes"]}
+    assert parents["fct_returns"] == "model.shop.fct_orders"
+    assert {name for name, parent in parents.items() if parent} == {"fct_returns"}
+    elsewhere = [{"key": "desc", "label": "Desc", "match": ["fct_returns"], "role": "descriptive"}]
+    domains = [{"key": "other_dom", "match": ["fct_orders"]}]
+    data = _folded(shop, None, {"kinds": [kinds[0], *elsewhere], "domains": domains})
+    assert {n["parent"] for n in data["nodes"]} == {""}  # the parent is in another domain
+
+
+def test_universe_fold_false_is_copied_to_the_defaults(shop: Project) -> None:
+    assert _folded(shop, None, {"universe": {"fold": False}})["defaults"]["fold"] is False
 
 
 def test_tables_without_domain_come_last(shop: Project) -> None:

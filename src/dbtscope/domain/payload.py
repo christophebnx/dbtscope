@@ -66,6 +66,9 @@ class UniverseNode(BaseModel):
     kind: str
     desc: str
     cols: tuple[tuple[str, str, int], ...]  # [name, type, is_key (1/0)]
+    parent: str = (
+        ""  # last key: the unique_id of the table this descriptive table folds into, "" for none (D-062)
+    )
 
 
 class UniverseDomain(BaseModel):
@@ -102,6 +105,9 @@ class UniverseDefaults(BaseModel):
     detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
     constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-048)
+    fold: bool = (
+        True  # last key: `universe.fold`, whether the page opens with descriptive tables folded (D-063)
+    )
 
 
 class UniversePayload(BaseModel):

@@ -32,6 +32,24 @@ def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.constellations == "layers"
 
 
+def test_fold_defaults_to_true_and_is_a_strict_boolean() -> None:
+    assert merge_config({}, {}).universe.fold is True
+    assert merge_config({}, {"universe": {"fold": False}}).universe.fold is False
+    preset = {"universe": {"fold": False}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.fold is False
+    assert merge_config(preset, {"universe": {"fold": True}}).universe.fold is True
+
+
+@pytest.mark.parametrize("value", ["maybe", 1, "yes", None])
+def test_a_non_boolean_fold_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"universe": {"fold": value}})
+    assert str(info.value).startswith("universe.fold: ") and "\n" not in str(info.value)
+    with pytest.raises(ConfigError, match=r"^universe\.fold: "):
+        check_preset({"universe": {"fold": value}})
+
+
 def test_file_overrides_preset_and_universe_is_merged() -> None:
     preset = {"title": "Preset", "group_by": "folder", "universe": {"detail": "keys"}}
     config = merge_config(preset, {"preset": "x", "title": "Mine", "universe": {"links": "lineage"}})

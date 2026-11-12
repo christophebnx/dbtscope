@@ -74,7 +74,10 @@ def overlapping(boxes: list[tuple[float, float, float, float]]) -> list[tuple[in
 @pytest.fixture
 def acme(tmp_path: Path, open_page: Any) -> tuple[Path, Opener]:
     """The example page and a way to open it (again)."""
-    html, _ = page_of(write_example(tmp_path / "acme_retail"))
+    project = write_example(tmp_path / "acme_retail")
+    config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
+    write_config(project, config + NO_FOLD)
+    html, _ = page_of(project)
     return html, lambda: open_page(html)
 
 
@@ -114,6 +117,8 @@ PARTIAL_LAYERS = """layers:
   - {key: source, label: Sources, match: ["type:source"]}
   - {key: gold, label: Gold, match: ["path:models/gold/*"]}
 """
+# the example opens folded (M8.2); these tests are about the shown drawing
+NO_FOLD = "universe:\n  fold: false\n"
 
 
 def band_of(domain: dict[str, Any], x: float) -> int:
@@ -123,7 +128,7 @@ def band_of(domain: dict[str, Any], x: float) -> int:
 def test_tables_without_a_layer_follow_their_parents(tmp_path: Path, open_page: Any) -> None:
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS)
+    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS + NO_FOLD)
     html, data = page_of(project)
     p = open_page(html)
     nodes = data["universe"]["nodes"]

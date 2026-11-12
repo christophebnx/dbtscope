@@ -12,8 +12,10 @@ import yaml
 from conftest import ROOT
 from large_project import LARGE_CONFIG, SPECIAL, large_manifest, write_large_project
 
+from dbtscope.domain.classify import first_rule
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.detail import detail_data, select
+from dbtscope.domain.fold import Member, parents, stem
 from dbtscope.domain.manifest import parse_manifest
 from dbtscope.domain.model import Project
 from dbtscope.domain.universe import universe_data
@@ -116,6 +118,87 @@ def test_the_special_satellites_have_the_relations_their_case_says() -> None:
     )
     parent = next(r.parent for r in project.relations if r.child == SPECIAL["effectivity_on_link"])
     assert names[parent].endswith("_link")
+
+
+def test_the_special_satellites_fold_as_the_rule_says() -> None:
+    nodes = {n["id"]: n for n in _payload()["nodes"]}
+    expected = EXPECTED["fold"]["parents"]
+    assert set(expected) == set(SPECIAL)
+    assert {case: nodes[uid]["parent"] for case, uid in SPECIAL.items()} == expected
+
+
+def test_fold_counts_equal_the_expected_file() -> None:
+    data = _payload()
+    roles = {k["key"]: k["role"] for k in data["kinds"]}
+    nodes = data["nodes"]
+    descriptive = [n for n in nodes if roles[n["kind"]] == "descriptive"]
+    fold = EXPECTED["fold"]
+    assert len(descriptive) == fold["descriptive"]
+    assert sum(bool(n["parent"]) for n in descriptive) == fold["folded"]
+    assert sum(not n["parent"] for n in descriptive) == fold["without_parent"]
+    assert sum(roles[n["kind"]] in ("core", "connector") for n in nodes) == fold["entities"]
+    assert not [n for n in nodes if n["parent"] and roles[n["kind"]] != "descriptive"]
+    vault = [n for n in nodes if n["layer"] == "vault" and not n["parent"]]
+    assert len(vault) == fold["raw_vault_stars_folded"] <= 400
+
+
+def test_every_parent_is_a_core_or_connector_table_of_the_same_place() -> None:
+    data = _payload()
+    roles = {k["key"]: k["role"] for k in data["kinds"]}
+    nodes = {n["id"]: n for n in data["nodes"]}
+    for node in nodes.values():
+        if not node["parent"]:
+            continue
+        parent = nodes[node["parent"]]
+        assert roles[parent["kind"]] in ("core", "connector")
+        assert (parent["domain"], parent["layer"]) == (node["domain"], node["layer"])
+
+
+def test_a_satellite_with_one_declared_relation_to_a_hub_in_its_place_folds_into_it() -> None:
+    project, data = _project(), _payload()
+    nodes = {n["id"]: n for n in data["nodes"]}
+    roles = {k["key"]: k["role"] for k in data["kinds"]}
+    related: dict[str, set[str]] = {}
+    for r in project.relations:
+        if r.child in nodes and r.parent in nodes and roles[nodes[r.parent]["kind"]] in ("core", "connector"):
+            related.setdefault(r.child, set()).add(r.parent)
+    checked = 0
+    for uid, targets in related.items():
+        node = nodes[uid]
+        if roles[node["kind"]] != "descriptive" or len(targets) != 1:
+            continue
+        (parent,) = targets
+        if (nodes[parent]["domain"], nodes[parent]["layer"]) == (node["domain"], node["layer"]):
+            assert node["parent"] == parent
+            checked += 1
+    assert checked > 400
+
+
+def test_the_parent_rule_is_fast_on_the_large_project() -> None:
+    config = merge_config(read_preset("data_vault"), yaml.safe_load(LARGE_CONFIG))
+    project = _project()
+    members = _members(project, config)
+    start = time.perf_counter()
+    parents(members, project.relations)
+    elapsed = time.perf_counter() - start
+    print(f"fold.parents, 1,419 tables: {elapsed * 1000:.0f} ms")
+    assert elapsed < 0.1
+
+
+def _members(project: Project, config: Any) -> list[Member]:
+    """The members `universe_data` builds, with the real stems (the same calls, to time `parents` alone)."""
+    payload = universe_data(project, config)
+    roles = {k.key: k.role for k in payload.kinds}
+    return [
+        Member(
+            id=n.id,
+            role=roles[n.kind],
+            stem=stem(project.tables[n.id], first_rule(project.tables[n.id], config.kinds)),
+            domain=n.domain,
+            layer=n.layer,
+        )
+        for n in payload.nodes
+    ]
 
 
 def test_payload_build_is_under_the_bound(tmp_path: Any) -> None:

@@ -584,6 +584,43 @@ def test_stdout_holds_only_the_summary_with_the_absolute_page_path(
     assert data["view"] == "detail" and len(data["detail"]["entities"]) == 4
 
 
+FOLD_KINDS = """\
+kinds:
+  - {key: core, label: Core, match: ["fct_orders"], role: core}
+  - {key: desc, label: Desc, match: ["fct_returns", "dim_*"], role: descriptive}
+"""
+
+
+@pytest.mark.parametrize(
+    ("config", "row"),
+    [
+        (FOLD_KINDS, "  folded:   1 descriptive table into their parent, 2 without a parent"),
+        (
+            FOLD_KINDS + "universe: {fold: false}\n",
+            "  folded:   1 descriptive table into their parent, 2 without a parent; "
+            "shown when the page opens (universe.fold: false)",
+        ),
+        (
+            FOLD_KINDS.replace("fct_orders", "nothing"),
+            "  folded:   0 descriptive tables into their parent, 3 without a parent",
+        ),
+    ],
+    ids=["folded", "fold-off", "none-folded"],
+)
+def test_the_summary_counts_the_folded_tables_after_the_universe_row(
+    dbt_project: Path, capsys: Capsys, config: str, row: str
+) -> None:
+    write_config(dbt_project, config)
+    assert main(build(dbt_project)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[2] == row and lines[1].startswith("  universe: ") and lines[3].startswith("  detail:")
+
+
+def test_the_summary_has_no_folded_row_without_a_descriptive_kind(dbt_project: Path, capsys: Capsys) -> None:
+    assert main(build(dbt_project)) == 0
+    assert not [line for line in capsys.readouterr().out.splitlines() if line.startswith("  folded:")]
+
+
 @pytest.mark.parametrize(
     ("text", "summary", "warning"),
     [

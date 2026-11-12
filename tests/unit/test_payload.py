@@ -49,11 +49,11 @@ UNIVERSE = UniversePayload(
         (ENTITY, ["id", "name", "group", "kind", "description", "columns"]),
         (DETAIL.relations[0], ["child", "parent", "column"]),
         (UNIVERSE, ["nodes", "relations", "lineage", "domains", "layers", "kinds", "defaults"]),
-        (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols"]),
+        (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols", "parent"]),
         (UNIVERSE.domains[0], ["key", "label", "color", "owner"]),
         (UNIVERSE.layers[0], ["key", "label"]),
         (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations"]),
+        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold"]),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -86,6 +86,12 @@ def test_constellations_default_to_domains_and_refuse_other_values() -> None:
     assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).constellations == "domains"
     with pytest.raises(ValidationError):
         UniverseDefaults(links="both", detail="names", hidden_kinds=(), constellations="rows")  # type: ignore[arg-type]
+
+
+def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
+    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).fold is True
+    assert NODE.parent == ""
+    assert '"parent":""' in embedded_json(UNIVERSE) and '"fold":true' in embedded_json(UNIVERSE)
 
 
 def test_payloads_are_closed_and_immutable() -> None:

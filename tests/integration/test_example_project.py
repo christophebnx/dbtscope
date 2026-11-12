@@ -22,11 +22,13 @@ MODEL = "model.acme_retail."
 
 def _summary(project: Path) -> list[str]:
     """The summary lines the CLI must print for the example (from `expected.json`)."""
-    universe, detail = EXPECTED["universe"], EXPECTED["detail"]
+    universe, detail, fold = EXPECTED["universe"], EXPECTED["detail"], EXPECTED["fold"]
     kinds = ", ".join(f"{count} {label}" for label, count in detail["kinds"].items())
     return [
         f"  universe: {universe['tables']} tables in {universe['domains']} domains, "
         f"{universe['relations']} relations, {universe['lineage']} lineage links",
+        f"  folded:   {fold['folded']} descriptive tables into their parent, "
+        f"{fold['without_parent']} without a parent",
         f"  detail:   {detail['tables']} tables ({kinds}), {detail['relations']} relations",
         f"  config:   {project / 'dbt-erd.yml'}, preset data_vault",
     ]
@@ -74,6 +76,20 @@ def test_example_kinds_come_from_the_preset_with_no_other(example_project: Path)
     ]
     assert "other" not in labels
     assert {kind["key"]: kind["role"] for kind in universe["kinds"]}["hub"] == "core"
+
+
+def test_example_folds_its_satellites_into_their_hubs_and_links(example_project: Path) -> None:
+    universe = page_of(example_project)[1]["universe"]
+    roles = {kind["key"]: kind["role"] for kind in universe["kinds"]}
+    nodes = {node["id"]: node for node in universe["nodes"]}
+    fold = EXPECTED["fold"]
+    descriptive = [n for n in nodes.values() if roles[n["kind"]] == "descriptive"]
+    assert len(descriptive) == fold["descriptive"]
+    assert sum(bool(n["parent"]) for n in descriptive) == fold["folded"]
+    assert sum(roles[n["kind"]] in ("core", "connector") for n in nodes.values()) == fold["entities"]
+    for node in descriptive:
+        assert roles[nodes[node["parent"]]["kind"]] in ("core", "connector")
+        assert nodes[node["parent"]]["domain"] == node["domain"]
 
 
 def test_example_layers_are_the_medallion(example_project: Path) -> None:

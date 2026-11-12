@@ -13,6 +13,17 @@
   },
   "relations": 978,
   "lineage": 1643,
+  "fold": {
+    "descriptive": 442, "folded": 440, "without_parent": 2, "entities": 428,
+    "raw_vault_stars_folded": 388,
+    "parents": {
+      "effectivity_on_link": "model.shop.belt_camera_registration_link",
+      "no_relation_by_name": "model.shop.car_hub",
+      "two_parents": "model.shop.van_hub",
+      "no_parent": "",
+      "other_domain": ""
+    }
+  },
   "special": {
     "effectivity_on_link": "model.shop.belt_camera_registration_effsat",
     "no_relation_by_name": "model.shop.car_unlinked_sat",

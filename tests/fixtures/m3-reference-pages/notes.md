@@ -26,3 +26,9 @@ Files:
 
 Checked by `tests/unit/test_reference_pages.py`. Regenerate (only when a page change is intended, in
 the same commit, and say so in the message): `uv run python tests/reference_pages.py`.
+
+M8.2 (entities, D-062, D-063): every case gains `"parent":""` on each universe node and `"fold":true` at the
+end of the universe defaults; the old and new payloads are equal once those two keys are removed (checked
+before regenerating), and no case has a descriptive table with a parent (the `shop` project has no hub or
+satellite), so every `parent` is empty. Every page changes by the script (`universe.js`), the markup of
+the fold control (`page.html`) and `page.css`.

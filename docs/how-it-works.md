@@ -109,6 +109,31 @@ flowchart TD
 - **Layer** (universe view). With `layers` in the config (the built-in presets bring default rules that group folders by pattern, such as `raw*`, `int*`, `dp*`, D-060), the first matching rule gives the layer, and a table no rule matches is in "Other". Without `layers`, a table's layer is the first folder under `models/` (sources, seeds and snapshots each form their own), and a model directly under `models/` is in the layer `models`. Layers are ordered along the usual data flow by the start of their name: `source`, then `raw` / `stg` / `staging` / `base`, then `seed` / `ref`, then `int` / `intermediate` / `vault` / `snapshot`, then `dp` / `mart` / `marts` / `product`, then any other name, then `report` / `expo`; layers of the same rank are sorted alphabetically. So the example project without its `layers` rules would show Sources, Seeds, Snapshots, its five `bronze_*` folders, then `gold` before `silver`: name layers that do not follow this order with `layers` rules.
 - **Group** (detail view only). The detail view shows one group at a time: the table's schema by default, or its database, package, folder, a tag, or nothing, as `group_by` says.
 
+## How a satellite finds its hub
+
+In the universe, a table whose kind has the role `descriptive` (a satellite, a PIT) is drawn inside the `core` or `connector` table it describes, its **parent** (decision D-062). The parent is computed once, when the page is built, from the manifest only; a table has at most one, and only in its own domain and layer (so that no constellation's count changes when tables are folded).
+
+```mermaid
+flowchart TD
+    D["a descriptive table"] --> R{"how many hubs or links does it point to, through relationships tests or foreign keys?"}
+    R -- "exactly one" --> F["that table is the found parent"]
+    R -- "none" --> N1["look by name among the hubs and links of its domain and layer"]
+    R -- "several" --> N2["look by name among those it points to"]
+    N1 --> M{"whose name is the start of the table name, up to a word boundary?"}
+    N2 --> M
+    M -- "one, the longest" --> F
+    M -- "none, or a tie" --> X["no parent: drawn as a star"]
+    F --> P{"same domain and layer?"}
+    P -- yes --> Y["folded into it"]
+    P -- no --> X
+```
+
+1. **By relation.** The distinct hubs and links the table points to. Exactly one: that is the parent. Lineage is not read: a satellite is built from stage models, not from its hub.
+2. **By name**, when the relations give none or several. Each hub or link has a **stem**, its name without the fixed part of the name pattern of its kind (`*_hub` takes `_hub` off `vehicle_hub`: `vehicle`); so does the descriptive table (`vehicle_status_sat` with `*_sat`: `vehicle_status`). A hub or link matches when its stem is the table's stem, or its start followed by a character that is neither a letter nor a digit (`car` matches `car_status`, never `carpet_status`). The longest stem wins; two with the same length are a tie.
+3. **Otherwise** no parent. A parent found in another domain or layer does not count either, and a relation always outranks a name: a table that points to one hub elsewhere is not then matched by name.
+
+The page draws each parent as an entity and folds its descriptive tables into it: [user guide § Entities](user-guide.md#entities-descriptive-tables-folded-into-their-parent).
+
 ## What the page contains
 
 ```mermaid
@@ -137,7 +162,7 @@ flowchart TD
 
 ## How each view is laid out
 
-- **Universe.** Each domain is a circle. Inside it, tables sit in **layer bands**, left to right along the data flow, and the circle is the smallest that holds them; names and cards never overlap. The domains themselves are placed by a force simulation with a fixed seed, so the same project gives the same picture at every generation (decision D-040). With the **Constellations** switch on **Layers**, each circle is a layer instead, placed along the data flow, and its tables sit in domain bands tinted in the domain's colour (decision D-048). The whole universe is drawn on a canvas, which stays fast with about 1,500 tables.
+- **Universe.** Each domain is a circle. Inside it, tables sit in **layer bands**, left to right along the data flow, and the circle is the smallest that holds them; names and cards never overlap. The domains themselves are placed by a force simulation with a fixed seed, so the same project gives the same picture at every generation (decision D-040). With the **Constellations** switch on **Layers**, each circle is a layer instead, placed along the data flow, and its tables sit in domain bands tinted in the domain's colour (decision D-048). Descriptive tables are drawn inside their parent (an entity, with a badge), so a large Data Vault shows its entities; every count still includes them (decision D-063). The whole universe is drawn on a canvas, which stays fast with about 1,500 tables.
 - **Detail.** Graphviz draws the entity-relationship diagram of the selected group: referenced tables on the left, the tables that point at them on the right (hubs, then links, then satellites; dimensions, then facts).
 - **Flow.** The flow of a trajectory is drawn by Graphviz from left to right. Its columns come from the lineage first, so every arrow points right; the layers are a floor, so sources, staging, vault and marts form bands where the lineage follows them. A flow holds at most 150 tables (decision D-036).
 

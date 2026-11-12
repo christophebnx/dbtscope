@@ -275,7 +275,7 @@ uv tool uninstall dbtscope      # A, B2 and C
 uv cache clean dbtscope         # optional: what uvx and uv keep in their cache
 ```
 
-For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page) and the last **Constellations** choice (`dbtscope-constellations:<title>`, which **Reset layout** keeps); the browser's site data clears both.
+For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page), the last **Constellations** choice (`dbtscope-constellations:<title>`) and the last fold choice (`dbtscope-fold:<title>`), which **Reset layout** keeps; the browser's site data clears all of them.
 
 ## Usage modes
 
@@ -319,12 +319,13 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 11:08:44  Performance info: /home/ana/code/dbtscope/examples/acme_retail/target/perf_info.json
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
+  folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (191 kB)
+  page:     opens on universe, en, libraries from CDNs (203 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
-The summary reads: the page path; how many tables, domains, relations and lineage links the universe shows; what the detail view holds, by kind; how the page opens and where its libraries come from, with its size; the config file and preset used (`none (built-in defaults)` without a `dbt-erd.yml`).
+The summary reads: the page path; how many tables, domains, relations and lineage links the universe shows; when a kind has the role `descriptive`, a `folded:` row says how many descriptive tables are drawn inside their parent and how many have none ([why a satellite has no parent](#why-is-this-satellite-not-folded)); what the detail view holds, by kind; how the page opens and where its libraries come from, with its size; the config file and preset used (`none (built-in defaults)` without a `dbt-erd.yml`).
 
 If dbt is not on `PATH`, cannot start, or `dbt parse` fails (often no profile), and `target/manifest.json` already exists, dbtscope maps that manifest and exits 0 instead of stopping. stderr gets a warning after dbt's own output (by default only dbt's errors; `--log-level warn|info|debug` for more):
 
@@ -444,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (194 kB)
+  page:     opens on universe, en, libraries from CDNs (206 kB)
   config:   none (built-in defaults)
 ```
 
@@ -525,7 +526,7 @@ view: detail          # the tab shown at opening: universe (default) or detail
 language: fr          # the page in French; en (default) or fr
 ```
 
-`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and what the browser keeps for the page: your arrangements (`dbt-erd-layout:<title>`) and your last **Constellations** choice (`dbtscope-constellations:<title>`). Changing the title starts from a fresh arrangement and from the configured grouping in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
+`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and what the browser keeps for the page: your arrangements (`dbt-erd-layout:<title>`) your last **Constellations** choice (`dbtscope-constellations:<title>`) and your last fold choice (`dbtscope-fold:<title>`). Changing the title starts from a fresh arrangement and from the configured grouping and fold in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
 
 ### Try it on the example project
 
@@ -545,8 +546,9 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
 ```text
 /home/ana/code/dbtscope/examples/acme_retail/erd_output/erd.html
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
+  folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (191 kB)
+  page:     opens on universe, en, libraries from CDNs (203 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -632,19 +634,20 @@ universe:
   detail: names               # names | keys | all
   hidden_kinds: []            # kinds unticked at opening (the page's Types boxes)
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
+  fold: true                  # true | false: descriptive tables drawn inside their parent at opening, switchable in the page
 ```
 
 `kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
 
 ### Roles
 
-A kind has a **role**, how much it matters in the structure: `core` (the business entities: hubs, dimensions, facts), `connector` (links and bridges), `descriptive` (satellites, PITs), `technical` (staging; sources, seeds and snapshots are technical by default) or `none` (no role). The role sets the size of the stars of the kind and which names the page shows first: [Reading the map](#reading-the-map). `role` belongs to `kinds` rules only (on a domain or layer rule, `dbt-erd.yml` ignores it and a preset refuses it). Empty or `null` means not set, which is the same as `none` on the page; any other value stops the run with one line: `config <path>: kinds[2].role: invalid role 'hubb' (core, connector, descriptive, technical or none); fix the file`.
+A kind has a **role**, how much it matters in the structure: `core` (the business entities: hubs, dimensions, facts), `connector` (links and bridges), `descriptive` (satellites, PITs), `technical` (staging; sources, seeds and snapshots are technical by default) or `none` (no role). The role sets the size of the stars of the kind, which names the page shows first ([Reading the map](#reading-the-map)) and which tables fold into which ([Entities](#entities-descriptive-tables-folded-into-their-parent)). `role` belongs to `kinds` rules only (on a domain or layer rule, `dbt-erd.yml` ignores it and a preset refuses it). Empty or `null` means not set, which is the same as `none` on the page; any other value stops the run with one line: `config <path>: kinds[2].role: invalid role 'hubb' (core, connector, descriptive, technical or none); fix the file`.
 
 A `kinds` list in `dbt-erd.yml` replaces the preset's list, but a rule of yours with the **same key** as a preset kind and no `role` takes that kind's role, so naming `hub` yourself keeps it core. Write `role: none` to remove it.
 
 ### Checks and errors
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages` and `offline` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline` and `universe.fold` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
 
 ### Walkthrough: the example's dbt-erd.yml
 
@@ -756,6 +759,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - **From afar**: the domains, their size, and the routes between them: one line per pair of domains, as thick as the number of links, with an arrow along the data flow when lineage says which way it goes. A bar under each domain name shows its mix of kinds.
 - **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
 - **Size and names by role**: stars of core tables (hubs, dimensions, facts) are the largest, connectors (links) medium, descriptive and technical tables (satellites, staging, sources, seeds, snapshots) the smallest; inside a role, the more links a table has, the larger its star. Names follow: core tables first. From afar, each constellation names only its three core tables with the most relations; zooming in names the others.
+- **Entities**: when the project has descriptive tables (satellites, PITs), each is drawn inside the hub or link it describes, so a large Data Vault reads as its entities: [Entities](#entities-descriptive-tables-folded-into-their-parent).
 - **The same picture every time**: the same project gives the same placement at every generation.
 
 ![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)
@@ -764,8 +768,23 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly. The opening choice is `universe.links` in the config.
 - **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser (`dbtscope-constellations:<title>`, kept by **Reset layout**, never exported), and keeps a separate manual arrangement for each grouping.
+- **Entities**: one checkbox, **Fold** and the descriptive kinds that fold (`Fold Satellite · PIT`), with the number of tables that have a parent. It sits under **Constellations** and only exists when at least one table has a parent. Ticked, descriptive tables are folded; unticked, every table is a star of its own. The default is `universe.fold`; the page remembers each viewer's last choice in the browser (`dbtscope-fold:<title>`, kept by **Reset layout**, never exported).
 - **Side panel**: tick **Layers**, **Types** (the kinds, core kinds first, then connectors, descriptive, technical and the others) and **Domains** on and off, with "all" and "none" for domains. All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
-- The count line above the map says how many tables, links and domains are shown.
+- The count line above the map says how many tables, links and domains are shown, and, while the descriptive tables are folded, how many entities. Folding never lowers a count: the tables, the links, the numbers under each domain name and the bars count every table that passes the filters, folded ones included.
+
+### Entities: descriptive tables folded into their parent
+
+A table whose kind has the role `descriptive` is drawn **inside** the `core` or `connector` table it describes (its **parent**), instead of as a star of its own. The parent, an **entity**, carries a small dark badge on its upper right: a dot from afar, the number of folded tables when you zoom in. In the example, 13 satellites fold into their hubs and links; on a 1,400-table Data Vault, about 440 satellites and PITs disappear from the Raw vault and its 828 stars become about 390.
+
+- **Which parent**: first by relation: the hub or link the table points to through a `relationships` test or a `foreign_key` constraint, when there is exactly one. Otherwise by name: the hub or link of the same domain and layer whose name is the table's name without its type part (`vehicle_status_sat` goes into `vehicle_hub`, `vehicle_auction_effsat` into `vehicle_auction_link`, the longest match winning). A table that finds none, or finds two equally good, stays a star ([why](#why-is-this-satellite-not-folded)). How, in detail: [How a satellite finds its hub](how-it-works.md#how-a-satellite-finds-its-hub).
+- **Hover** an entity: the tables folded into it, by name with their kind (12 first, then "+ N"). Hover a table that is shown although it has a parent: "Folds into: car_hub".
+- **Cards** (**Tables** set to keys or all fields): the folded tables are listed under the columns of their entity, one row each.
+- **Links**: the links of a folded table are not drawn inside its domain; the routes between domains still count them.
+- **Filters**: a folded table is a table like any other, counted in the filters. Unticking **Hub** draws the hubs' satellites as stars again; unticking **Satellite** removes them from the count and from the entities. A table is only folded while its parent passes the filters.
+- **Search** finds a folded table: its entity opens (its tables are drawn), the camera goes to the table and marks it, and a screen reader hears "x is folded into y: shown". Searching another table closes the entity; so do the **Fold** box, **Reset layout** and a change of **Constellations**.
+- **Trajectory**: the tables of a trajectory are always drawn, so entering one that goes through satellites unfolds them (and leaving folds them back, in the same places).
+- **Double-click** an entity opens it in the Detail tab, as any table.
+- **Arrangements**: the folded drawing keeps its own manual arrangement (the folded discs are smaller): what you drag while folded does not move the unfolded drawing, and the other way round. An arrangement made before this feature applies to the unfolded drawing. Both live in the same layout file (scopes `folded:names`… in the `universe` section).
 
 ### Detail levels
 
@@ -773,7 +792,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 
 ### Search and double-click
 
-- **Search** finds a table by name, even when filters hide it (its filters are ticked back on), and zooms on it.
+- **Search** finds a table by name, even when filters hide it (its filters are ticked back on) or it is folded into an entity (the entity opens), and zooms on it.
 - **Double-click** a constellation to zoom on it, then a table to open it in the Detail tab (or to zoom in, if the detail view does not include it).
 - Hover a table for its kind, domain, layer and description; hover a domain for its owner and layers.
 
@@ -834,7 +853,7 @@ The three drawings (universe, detail, flow) zoom and pan the same way.
 
 Both tabs let you drag things where you want them:
 
-- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. An arrangement is kept per grouping (Domains, Layers) and per **Tables** level (names, keys, all fields): a move at names does not carry over to keys.
+- **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. An arrangement is kept per grouping (Domains, Layers), per **Tables** level (names, keys, all fields) and per fold state (folded, shown): a move at names does not carry over to keys, nor a move made while the descriptive tables are folded to the unfolded drawing.
 - **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types.
 
 Every move is saved in the browser at once. To share an arrangement with the team:
@@ -873,6 +892,17 @@ columns:
 ```
 
 A `foreign_key` constraint in an enforced model contract works too. Lineage links need no declaration: they come from `ref` and `source`.
+
+### Why is this satellite not folded?
+
+The `folded:` row of the summary counts them (`2 without a parent`). A descriptive table stays a star when:
+
+- **It points to no hub or link and no name matches.** Its name must start with the name of a hub or link of the same domain and layer, up to a `_` (`car_status_sat` into `car_hub`; `carpet_colour_sat` does not). Declare the relation with a `relationships` test (see [A table shows up without links?](#a-table-shows-up-without-links)): a declared relation wins over the name.
+- **It matches several parents equally**, or points to several hubs and none of them matches its name. Declare the one relation that decides, or rename.
+- **Its parent is in another domain or another layer.** A table is folded only inside its own constellation, so that every count stays right. Give both the same domain and layer, or accept the star; its relation still shows as a link and in the route between the two domains.
+- **Its kind has no `role: descriptive`**, or the hub's has no `core` or `connector` role. Set the roles in `kinds` (the presets do).
+
+To draw every table as a star, untick **Fold** in the page, or set `universe.fold: false`.
 
 ### Error messages
 

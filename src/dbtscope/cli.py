@@ -636,6 +636,18 @@ class Report:
     fallback: Fallback | None = None
 
 
+def _folded_row(universe: UniversePayload) -> dict[str, str]:
+    """The `folded:` row, only when a kind has the role `descriptive` (D-062); else nothing."""
+    descriptive = {k.key for k in universe.kinds if k.role == "descriptive"}
+    if not descriptive:
+        return {}
+    tables = [n for n in universe.nodes if n.kind in descriptive]
+    held = sum(bool(n.parent) for n in tables)
+    shown = "" if universe.defaults.fold else "; shown when the page opens (universe.fold: false)"
+    text = f"{_count(held, 'descriptive table')} into their parent, {len(tables) - held} without a parent"
+    return {"folded": text + shown}
+
+
 def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -> str:
     """The success summary: the page path, then one aligned line per view, page, config, layout."""
     entities = detail.entities
@@ -646,6 +658,7 @@ def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -
     rows = {
         "universe": f"{_count(len(universe.nodes), 'table')} in {_count(len(universe.domains), 'domain')}, "
         f"{_count(len(universe.relations), 'relation')}, {_count(len(universe.lineage), 'lineage link')}",
+        **_folded_row(universe),
         "detail": f"{_count(len(entities), 'table')}{kinds}, {_count(len(detail.relations), 'relation')}",
         "page": f"opens on {config.view}, {config.language}, {libraries} ({_size(report.page_size)})",
         "config": f"{report.config_path or 'none (built-in defaults)'}"

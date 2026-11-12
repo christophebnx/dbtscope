@@ -23,5 +23,12 @@ relation, its name starts with an existing hub's stem), `no_parent` (no relation
 relation points to an `auction` hub) and `effectivity_on_link` (an effectivity satellite whose parent is
 a link).
 
+Fold counts (M8.2, `expected.json` `fold`, D-062): 442 descriptive tables (422 satellites including the
+effectivity satellites, 20 PITs), 440 folded, 2 without a parent (`orphan_ledger_sat`: no relation and no
+stem; `auction_vehicle_sat`: its parent is in another domain), 428 entities (175 hubs, 191 links, 31
+dimensions, 31 facts), 388 of the 828 Raw vault tables drawn as stars. Expected parent of each special
+satellite: `no_relation_by_name` into `car_hub` (by name), `two_parents` into `van_hub` (the relation
+to `bus_hub` loses to the name), `effectivity_on_link` into its link, `no_parent` and `other_domain` none.
+
 Used with `LARGE_CONFIG` (`preset: data_vault` and the five domain labels); the universe then has no
 "Other" table and four layers (Sources, Staging, Raw vault, Data products).
