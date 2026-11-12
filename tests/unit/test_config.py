@@ -440,3 +440,10 @@ def test_a_kinds_value_that_is_not_a_list_of_mappings_still_reaches_validation(k
 def test_a_preset_replaced_through_the_option_inherits_from_that_preset() -> None:
     other = _kinds({"key": "hub", "match": ["*"], "role": "descriptive"})
     assert merge_config(other, _kinds({"key": "hub", "match": ["h"]})).kinds[0].role == "descriptive"
+
+
+def test_a_file_kind_key_that_is_not_a_string_is_a_config_error() -> None:
+    """Role inheritance never hashes a non-string key: validation reports it (D-059)."""
+    preset = {"kinds": [{"key": "hub", "role": "core", "match": "x"}]}
+    with pytest.raises(ConfigError, match=r"kinds\[0\]\.key"):
+        merge_config(preset, {"kinds": [{"key": ["a"], "match": "x"}]})

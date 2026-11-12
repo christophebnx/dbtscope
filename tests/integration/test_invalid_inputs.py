@@ -99,6 +99,14 @@ def test_an_invalid_config_names_the_key(dbt_project: Path, capsys: pytest.Captu
     assert message == f"config {config}: {problem}"
 
 
+def test_a_kind_key_that_is_not_a_string_is_one_line_with_a_preset(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(dbt_project, "preset: star_schema\nkinds:\n  - {key: [a], match: [x]}\n")
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message.startswith(f"config {dbt_project / 'dbt-erd.yml'}: kinds[0].key: ")
+
+
 def test_an_invalid_config_wins_over_valid_command_line_overrides(
     dbt_project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

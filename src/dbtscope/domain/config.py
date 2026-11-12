@@ -286,15 +286,19 @@ def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any
 def _inherited_roles(preset: dict[str, Any], file_config: dict[str, Any]) -> Any:
     """The file's `kinds`, each rule without a role taking the role of the preset kind of the same key.
 
-    Only when both lists hold mappings; any other shape is passed on for validation (D-059).
+    Only for string keys, when both lists hold mappings; any other shape is passed on for validation (D-059).
     """
     kinds, given = preset.get("kinds"), file_config.get("kinds")
     if not isinstance(kinds, list | tuple) or not isinstance(given, list | tuple):
         return given
-    roles = {k["key"]: k["role"] for k in kinds if isinstance(k, dict) and k.get("role") and "key" in k}
+    roles = {
+        k["key"]: k["role"]
+        for k in kinds
+        if isinstance(k, dict) and k.get("role") and isinstance(k.get("key"), str)
+    }
     return [
         {**k, "role": roles[k["key"]]}
-        if isinstance(k, dict) and not k.get("role") and k.get("key") in roles
+        if isinstance(k, dict) and not k.get("role") and isinstance(k.get("key"), str) and k["key"] in roles
         else k
         for k in given
     ]
