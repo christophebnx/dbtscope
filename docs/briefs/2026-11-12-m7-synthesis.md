@@ -48,7 +48,7 @@ Five phases, each a sub-milestone run through `/feature M7.n`, in this order. Ea
 
 | Phase | Subject | Answers |
 |---|---|---|
-| M7.1 | Roles of kinds, complete presets, the large test project | 8, base of the rest |
+| M7.1 | Roles of kinds, complete presets, layers from folders, selector negation, the large test project | 8, base of the rest |
 | M7.2 | Entities: satellites folded into their hub or link | 1, 2 |
 | M7.3 | Summary cards at overview | 1 |
 | M7.4 | Source systems apart, readable routes | 3, 4 |
@@ -65,7 +65,7 @@ Five phases, each a sub-milestone run through `/feature M7.n`, in this order. Ea
 - **Performance budgets stay**: on the 1,500-table payload, page open ≤ 3 s, a filter change ≤ 1 s, trajectory and flow budgets as tested today. Add a budget wherever a phase adds a computation.
 - **UI rules stay** (`docs/ui-spec.md` § General): every string in English and French, WCAG AA text (D-037), 3:1 marks (D-042), plural agreement, 44 px touch targets, no horizontal scroll at 360 px, keyboard access, image export shows the view as it is on screen.
 - **Glossary** (D-027). New words (role, entity, fold, summary card, source system) enter the glossary of `docs/architecture.md` in the phase that introduces them, with their French UI wording. One word per concept.
-- **Decisions.** Each phase records its decisions in `docs/decisions.md` (next free number: D-054). M7.1 must record that star size now depends on the role: this supersedes "all stars have the same size" of `docs/brief-universe-view.md` § 3.
+- **Decisions.** Each phase records its decisions in `docs/decisions.md` (next free number: D-054). M7.1 must record the new rule for star size. Today the radius grows with the table's degree, every relation and lineage link counted (`universe.js` `starR`: 3 + 1.6 × √degree, at most 14 px), although `docs/brief-universe-view.md` § 3 still says "all stars have the same size". The decision states the rule with roles and supersedes that line of the brief.
 - **Git.** Feature branch, Conventional Commits with `Milestone: M7.1` (… `M7.5`). Talk to the user in French; write the repository in English.
 - **Out of scope**: § 3 "Out"; the roadmap's "Later" items other than those named in M7.3 and M7.4; multi-project.
 
@@ -85,7 +85,7 @@ A kind rule gains an optional `role`. The role says how much a kind matters in t
 
 - Config: `kinds: [{key: sat, …, role: descriptive}]`. A kind rule of `dbt-erd.yml` that overrides a preset kind by key keeps the preset's role unless it sets one. An unknown role is a one-line config error (as D-041 for colours).
 - Payload: each kind carries its role. No rule, no preset: every user kind has no role and the page behaves as before M7, apart from the built-in technical kinds.
-- Page, universe: `core` stars are larger than the others and their names are placed first; `descriptive` and `technical` stars are smaller. At Fit, the names offered are those of core tables with the most relations in their domain, never an arbitrary table (this takes the roadmap's "Later" item on overview labels). Sizes and thresholds: ui-designer.
+- Page, universe: `core` stars are larger than the others and their names are placed first; `descriptive` and `technical` stars are smaller. Whether the degree still varies the size inside a role: ui-designer, recorded in the decision. At Fit, the names offered are those of core tables with the most relations in their domain, never an arbitrary table (this takes the roadmap's "Later" item on overview labels). Sizes and thresholds: ui-designer.
 - Page, panels: the Types list is ordered by role (core, connector, descriptive, technical, none), then as today.
 
 ### Complete presets
@@ -96,16 +96,26 @@ A kind rule gains an optional `role`. The role says how much a kind matters in t
 - `examples/acme_retail/dbt-erd.yml` drops the kind rules the preset now provides; the example's counts in the docs and in `expected.json` are checked again.
 - `select` of the presets (what the detail view draws) is unchanged in this phase.
 
+### Layers from folders
+
+Found on the real Openlane manifest (1,453 tables, 2026-11-12). Its folders are `raw_<system>/` (11 of them), `ref_refdata/`, `int_cap/`, `int_dwh/<domain>/`, `dp_dwh/<domain>/`.
+
+- **Default layers merge folders of one prefix.** Without `layers` rules, the layer is the first folder under `models/` (`domain/universe.py` `_default_layer`), so Openlane gets 15 layers, one per `raw_*` folder. `FLOW_PREFIXES` already gives those folders the same rank. Folders whose name starts with the same known prefix followed by `_` (`raw_*`, `bronze_*`, `stg_*`…) now form one layer, keyed and labelled by the prefix ("Raw"). A folder of its own (`int_dwh`) is unchanged. This takes the roadmap's "Later" item on medallion folders. It changes the page of every project with no `layers` rules: record a decision, and check the effect on the reference pages and `acme_retail`.
+- **Negation in selectors.** A selector part that starts with `!` matches when the rest does not: `path:models/int_dwh/*,!vw_*` is a table of that folder whose name does not start with `vw_`. It applies wherever selectors do (`select`, `exclude`, every rule's `match`), through the one implementation of `domain/selectors.py`. A bare `!` or `!` followed by nothing is a one-line config error. Openlane needs it because one folder holds three layers: `int_dwh/` holds the datavault4dbt stage models (`stg_*`), the vault, and views built on the vault (`vw_*_sat`, `vw_*_ref`). Since the first rule that matches wins and rules are also the flow order, the vault can today only be written as a list of suffixes. In YAML a selector that starts with `!` must be quoted (`"!vw_*"`, `!` opens a tag): the user guide says so, and the config error for an unquoted one names the fix if the YAML loader lets it be detected.
+- Both points go into the user guide (Configuration, Layers) with the Openlane-shaped example.
+
 ### The large test project
 
-The audit used a throwaway generator. M7.1 adds it to the tests as the reference large Data Vault input (use `/add-fixture`; generated in code like `tests/unit/test_performance.big_manifest`, not a committed manifest), with the shape of § 2: 5 business domains of unequal size, 7 source systems of 36 sources and 36 staging models each, hubs with 1 to 4 satellites, links between two or three hubs (one in five across domains), effectivity satellites on some links, PITs, dimensions and facts, `relationships` tests from satellite to hub, link to hub, fact to dimension. Deterministic (seeded). It also holds the cases M7.2 needs: a satellite with no relation, a satellite with two parents, a satellite in another domain than its hub.
+The audit used a throwaway generator. M7.1 adds it to the tests as the reference large Data Vault input (use `/add-fixture`; generated in code like `tests/unit/test_performance.big_manifest`, not a committed manifest), with the shape of § 2: 5 business domains of unequal size, 7 source systems of 36 sources and 36 staging models each, hubs with 1 to 4 satellites, links between two or three hubs (one in five across domains), effectivity satellites on some links, PITs, dimensions and facts, `relationships` tests from satellite to hub, link to hub, fact to dimension. Deterministic (seeded). It also holds the cases M7.2 needs: a satellite with no relation, a satellite with two parents, a satellite in another domain than its hub. Its folders follow Openlane's shape: one `raw_<system>/` folder per source system, and stage models (`stg_*`) and views (`vw_*`) in the vault folder next to the vault tables.
 
 Done when:
 
 1. On the large project with `preset: data_vault` and only `domains` rules in the config, "Other" holds no table and the Layers list is Sources → Staging → Raw vault → Data products.
 2. The names shown at Fit are core tables.
-3. A config with no preset gives a page whose payload differs from today's only by the new keys.
-4. User guide, how it works, the config reference and both presets' documentation describe roles.
+3. A config with no preset and with `layers` rules gives a page whose payload differs from today's only by the new keys.
+4. Without `layers` rules, the large project's `raw_*` folders form one layer.
+5. On the large project, a `layers` rule written with negation (`path:<vault folder>/*,!vw_*,!stg_*`) separates stage, vault and views; the same rule list written with suffixes gives the same page.
+6. User guide, how it works, the config reference and both presets' documentation describe roles, merged default layers and negation.
 
 ## 6. M7.2 — Entities: descriptive tables folded into their parent
 
