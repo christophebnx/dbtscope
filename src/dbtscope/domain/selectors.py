@@ -11,6 +11,8 @@ Inside one selector, comma-separated parts must ALL match (intersection), as in 
     "package:my_package"       dbt package name
     "type:source"              resource type (model, source, seed, snapshot)
     "tag:DV_CORE,*_link"       both
+    "!vw_*"                    a part starting with `!` matches when the rest does not
+                               ("path:models/int/*,!vw_*"; quote it in YAML when it starts the selector)
 
 Matching is case-insensitive and uses shell-style globs (fnmatch).
 """
@@ -36,7 +38,7 @@ FIELDS = {*ATTRIBUTES, "tag"}
 
 
 class SelectorError(DomainError):
-    """A selector names an unknown field."""
+    """A selector names an unknown field or negates nothing."""
 
 
 def field_value(table: Table, field: str) -> str:
@@ -50,6 +52,13 @@ def glob(value: str, pattern: str) -> bool:
 
 
 def _part_matches(table: Table, part: str) -> bool:
+    if part.strip().startswith("!"):
+        rest = part.strip()[1:].strip()
+        if not rest:
+            raise SelectorError(
+                f"empty negation in {part.strip()!r} (write the selector after '!', such as '!vw_*')"
+            )
+        return not _part_matches(table, rest)
     field, sep, pattern = part.partition(":")
     if not sep:
         field, pattern = "name", part
