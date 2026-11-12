@@ -32,5 +32,11 @@ to `bus_hub` loses to the name), `effectivity_on_link` into its link, `no_parent
 
 Source systems (M8.4, D-068): the seven `raw_<system>` domains (`expected.json` `source_systems`), every table technical; the five business domains are not.
 
+Detail (M8.5, `expected.json` `detail`, D-072, D-073): with the preset's `select` (hubs, links, satellites; no
+dimension, fact or PIT) the detail holds 788 tables grouped by schema. The `vehicle` group has 263 own
+tables and 14 hubs of other groups its links point to (277 in its scope); 139 of them have their parent in
+the scope, so the skeleton draws 138 (72 hubs, 64 links, and the two satellites without a parent in the
+scope). The special satellites keep their universe parent in the detail when it is a detail table.
+
 Used with `LARGE_CONFIG` (`preset: data_vault` and the five domain labels); the universe then has no
 "Other" table and four layers (Sources, Staging, Raw vault, Data products).

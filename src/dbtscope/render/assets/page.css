@@ -41,7 +41,11 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel fieldset { border:0; margin:0; padding:0; min-width:0; }
 .panel legend { padding:0; margin-top:0; }
 .panel fieldset:not([hidden]) + fieldset { margin-top:16px; }
-#u-fold label span { white-space:normal; }
+#u-fold label span, #d-fold label span { white-space:normal; }
+#d-fold:not([hidden]) { margin-top:16px; }   /* the group select above has no bottom margin */
+#d-fold-warn { margin-top:6px; color:var(--fg); }
+#d-fold-warn:empty { margin:0; }
+#d-depth-note { margin-top:6px; }
 .panel h3[hidden], .panel label[hidden] { display:none; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
 .panel h3 a:hover { color:var(--accent); }

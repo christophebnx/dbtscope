@@ -28,6 +28,7 @@ from conftest import (
     write_manifest,
     write_preset,
 )
+from large_project import SPECIAL, write_large_project
 
 from dbtscope import __version__
 from dbtscope.cli import EPILOG, _age, _count, _moment, _size, app, main
@@ -614,6 +615,40 @@ def test_the_summary_counts_the_folded_tables_after_the_universe_row(
     assert main(build(dbt_project)) == 0
     lines = capsys.readouterr().out.splitlines()
     assert lines[2] == row and lines[1].startswith("  universe: ") and lines[3].startswith("  detail:")
+
+
+def _parents_of(page: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """The parent of every detail table, and of every universe table with one, from the embedded payload."""
+    data = page_data(page.read_text(encoding="utf-8"))
+    detail = {e["id"]: e["parent"] for e in data["detail"]["entities"]}
+    universe = {n["id"]: n["parent"] for n in data["universe"]["nodes"] if n["parent"]}
+    return detail, universe
+
+
+def test_the_detail_parents_are_the_universe_parents_of_the_detail_tables(dbt_project: Path) -> None:
+    write_config(dbt_project, FOLD_KINDS + "select: ['*']\n")
+    assert main(build(dbt_project)) == 0
+    detail, universe = _parents_of(dbt_project / "erd_output" / "erd.html")
+    assert universe
+    for uid, parent in detail.items():
+        wanted = universe.get(uid, "")
+        assert parent == (wanted if wanted in detail else "")
+    assert any(detail.values())
+
+
+def test_a_page_without_roles_has_no_detail_parent(dbt_project: Path) -> None:
+    assert main(build(dbt_project)) == 0
+    detail, universe = _parents_of(dbt_project / "erd_output" / "erd.html")
+    assert not universe and set(detail.values()) == {""}
+
+
+def test_the_large_project_detail_holds_the_vehicle_satellites_with_their_parent(tmp_path: Path) -> None:
+    folder = write_large_project(tmp_path / "large")
+    assert main(build(folder)) == 0
+    detail, universe = _parents_of(folder / "erd_output" / "erd.html")
+    folded = {i: p for i, p in detail.items() if p}
+    assert len(folded) > 400 and all(universe[i] == p for i, p in folded.items())
+    assert detail[SPECIAL["no_parent"]] == detail[SPECIAL["other_domain"]] == ""
 
 
 def test_the_summary_has_no_folded_row_without_a_descriptive_kind(dbt_project: Path, capsys: Capsys) -> None:

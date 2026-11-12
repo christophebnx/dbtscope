@@ -122,7 +122,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Which columns are keys | `domain/classify.key_columns` |
 | Light tint of a kind colour for a table body | `domain/classify.background` (`TINT`) |
 | Domain key of a table (order: D-015) | `domain/universe.domain_of` |
-| Parent of a descriptive table (relation, then stem; same domain and layer; D-062) | `domain/fold.parents`, `Member` |
+| Parent of a descriptive table (relation, then stem; same domain and layer; D-062), also carried to the detail payload by `detail_data(parents)` from the universe's result (D-072) | `domain/fold.parents`, `Member`; `domain/detail.detail_data`, built by `cli._views` |
 | Stem of a table's name from its kind's name glob | `domain/fold.stem` |
 | Order of the default layers along the data flow (no `layers` rules) | `domain/universe.flow_rank` (`FLOW_PREFIXES`, `UNRANKED`) |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
@@ -135,7 +135,11 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Which tables are folded now, held by an entity, drawn (page, D-063) | `render/assets/universe.js` `PARENT`, `HELD`, `wouldFold`, the passing / folded-now / drawn sets (`pass`, `FOLDNOW`, `visible`) |
-| The viewer's fold choice, kept out of the layout (page) | `render/assets/universe.js` `foldMemory` (a second `memory(name, values)`, as `byMemory`) |
+| A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
+| The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
+| Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
+| Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `sizeOf`, `SK` |
+| Neighbourhood of a focused table, connectors as passages (page, D-076) | `render/assets/detail.js` `visibleIds` |
 | Folded-drawing layout scopes (page, D-064) | `render/assets/universe.js` `BY[*].scope` |
 | The `folded:` row of the CLI summary | `cli._folded_row` |
 | Escape untrusted text for `innerHTML` (page) | `render/assets/common.js esc` |
@@ -252,6 +256,8 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | Drawing a descriptive table inside its parent's star instead of as its own star (M8.2, D-063) | **fold** (`fold`, `universe.fold`, `defaults.fold`, folded, folded now); the opposite is **show** | collapse, hide, nest | French UI: replier / afficher. |
 | The core or connector table a descriptive table folds into (M8.2, D-062) | **parent** (`UniverseNode.parent`, `fold.parents`) | owner, host | Same word as the referenced end of a relation (`Relation.parent`), which it is when a relation decides; say "the parent of a relation" for the other sense when both appear in one sentence. |
 | A table name without the fixed part of the name glob of its kind (M8.2, D-062) | **stem** (`fold.stem`) | root, base name | |
+| The detail drawing of a large group with its descriptive tables folded into their parents (M8.5, D-073) | **skeleton** (`skeleton()`, `SKELETON_MIN`) | summary, outline, overview | French UI: not shown as a word; the panel says "Entités" and the fold row. |
+| A connector table that the focus walk crosses without spending a level (M8.5, D-076) | **passage** | bridge, hop | Internal word, not in the UI. |
 | A constellation drawn at overview scale as its counts, rows and main tables instead of its stars (universe, M8.3, D-065) | **summary card** (`drawSummary`, `summaryOf`, `#u-summary`; French UI: fiche de synthèse) | tile, panel, badge | A table drawn at keys or all fields stays a **card**; say "summary card" whenever both could be meant. |
 | A core table of a constellation among those with the most relations; listed on its summary card, named at Fit (universe, M8.3) | **main table** (`mainTables`, `MAIN_MAX`; French UI: table principale) | top table, key table, hub | |
 | How much the summary cards are drawn at the current scale, from 0 (stars) to 1 (cards) (universe, M8.3) | **summary weight** (`summaryWeight`) | alpha, blend | Internal word; not in the UI. |

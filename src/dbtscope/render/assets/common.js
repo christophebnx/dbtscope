@@ -17,6 +17,8 @@ const STRINGS = {
         colon: ': ', imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
         exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
+        foldedN: ['folded table', 'folded tables'], foldH: 'Entities', foldRow: 'Fold',
+        foldTitle: 'Draw these tables inside the table they describe',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
@@ -30,6 +32,8 @@ const STRINGS = {
         colon: '\u00a0: ', imageSaved: f => `Image créée\u00a0: ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
         exportImage: 'Exporter l\'image', png: 'PNG', filters: 'Filtres', empty: 'Aucune table pour ces filtres.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
+        foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités', foldRow: 'Replier',
+        foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
@@ -147,6 +151,25 @@ function fillSelect(el, pairs, current) {
 // The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
+
+// The label of the fold row (D-063, D-073), shown by both views: "Fold Satellite · PIT", the descriptive kinds
+// that fold, the first three, then " + N".
+function foldLabel(kinds) {
+  const names = kinds.map(labelOf), more = names.length > 3 ? ` + ${num(names.length - 3)}` : '';
+  return `${L.foldRow} ${names.slice(0, 3).join(' · ')}${more}`;
+}
+
+// A viewer choice, kept apart from the shared layout and never exported (D-048, D-063, D-073): stored only when
+// it differs from the page default; without storage the choice lasts for the session.
+const viewerMemory = (name, values) => {
+  const key = name + ':' + PAGE.title;
+  return {
+    get() { try { const v = localStorage.getItem(key); return values.includes(v) ? v : null; } catch (e) { return null; } },
+    set(value, fallback) {
+      try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* session only */ }
+    },
+  };
+};
 
 // The name and meta lines of a table's tooltip (universe payload), escaped:
 // "<name>" then "domain · layer · kind · N columns". Each view appends its own lines.

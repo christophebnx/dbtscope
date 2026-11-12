@@ -688,7 +688,9 @@ def _views(parsed: Project, config: Config, label: str) -> tuple[DetailPayload, 
     """Both views; a selector error names the config it comes from."""
     try:
         tables, relations = select(parsed.tables, parsed.relations, config, parsed.root)
-        return detail_data(tables, relations, config), universe_data(parsed, config)
+        universe = universe_data(parsed, config)
+        parents = {n.id: n.parent for n in universe.nodes if n.parent}
+        return detail_data(tables, relations, config, parents), universe
     except SelectorError as error:
         raise SelectorError(f"{label}: {error}; {CONFIG_HINT}") from error
 

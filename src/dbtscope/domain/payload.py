@@ -22,6 +22,7 @@ class DetailKind(BaseModel):
     label: str | None  # null when a rule says `label: null`
     color: str
     bg: str  # light tint of `color`, for the table body
+    role: Role = "none"  # the kind's role (D-059, D-072); last key
 
 
 class DetailEntity(BaseModel):
@@ -33,6 +34,9 @@ class DetailEntity(BaseModel):
     kind: str
     description: str
     columns: tuple[tuple[str, str, bool, str], ...]  # [name, type, is_key (true/false), description]
+    parent: str = (
+        ""  # unique_id of the table it folds into, kept only if also a detail table (D-072); last key
+    )
 
 
 class DetailRelation(BaseModel):

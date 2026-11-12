@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (270 kB)
+  page:     opens on universe, en, libraries from CDNs (287 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (272 kB)
+  page:     opens on universe, en, libraries from CDNs (290 kB)
   config:   none (built-in defaults)
 ```
 
@@ -480,6 +480,8 @@ A preset is a ready-made set of conventions: what the detail view selects, the k
 dbtscope --preset data_vault
 dbtscope --preset star_schema
 ```
+
+The `data_vault` detail is the raw vault: dimensions and facts are not selected, so that a large vault stays one readable skeleton. To draw them in the same view, add them in your own `select`, as the [example project](#try-it-on-the-example-project) does: `select: ["*_hub", "*_link", "*_sat", "dim_*", "fct_*"]`.
 
 Each preset also sets the **layers** of the universe view by folder pattern, so a project in the usual folder layout needs no `layers` of its own. The first rule that matches a table gives its layer; a project's own `layers` replace these, and `layers: []` in `dbt-erd.yml` gives back one layer per first folder under `models/`.
 
@@ -548,7 +550,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (270 kB)
+  page:     opens on universe, en, libraries from CDNs (287 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -864,7 +866,9 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Layout**: referenced tables on the left, referencing tables on the right (hubs → links → satellites, dimensions → facts). When more than 12 tables are referenced by nothing else (links, satellites, facts), they are spread over three columns instead of one endless one.
 - **Group filter**: one schema, folder or tag at a time (`group_by`), or **All groups**. It opens on the largest group. It is hidden when there is only one group, or with `group_by: none`. The tables of other groups that the selected group points to stay visible with a dashed border, so cross-group links are not lost.
 - **Kind filters**: tick hubs, links, facts, dimensions… on and off. The layout is recomputed.
-- **Focus**: type a table name or double-click a table to show only its neighbourhood, 1 to 3 levels deep; **Show all** returns to the whole group.
+- **Focus**: type a table name or double-click a table to show only its neighbourhood, 1 to 3 levels deep; **Show all** returns to the whole group. A **connector** (a link of a Data Vault, or any kind with the role `connector`) costs no level: at "direct links" a hub shows its satellites, its links and the hubs across those links; the panel says "Passing through Link costs no level". A focus draws every table of its neighbourhood in full, with its columns, whatever the fold choice below.
+- **Large groups, folded**: when a group holds more than 60 tables and some descriptive tables have a parent ([why a satellite has no parent](#why-is-this-satellite-not-folded)), the detail opens as a **skeleton**: only the core and connector tables are drawn, hubs on the left and links on the right, laid out in as many columns as the drawing area asks for, so that the names stay readable at Fit. Each table that holds descriptive tables ends with one row, "+ 3 folded tables · Satellite" (or "+ 4 folded tables · Satellite 3 · PIT 1"); hover the table for the list of its folded tables and its column count. A skeleton draws no column rows, only the table's name and the folded row: a focus, or **All columns**, shows the columns. The meta line reads "136 / 271 tables · 135 folded · 214 relations": drawn tables out of the group's, folded tables, drawn relations (hover it for the split by kind). Type a name in **Highlight…** and the table that holds the match is lit.
+- **Entities**: the panel's **Entities** box, "Fold Satellite", shows only for such a group, with the number of tables it folds. Untick it to draw every table of the group; the page then warns "271 tables: the drawing will be hard to read". While a table is focused, the box is greyed (a focus draws every table); your choice applies again when you press **Show all**. The page remembers it in the browser (`dbtscope-detail-fold:<title>`, never exported); it is separate from the universe's **Fold**.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
 
@@ -889,7 +893,7 @@ The three drawings (universe, detail, flow) zoom and pan the same way.
 Both tabs let you drag things where you want them:
 
 - **Universe**: drag a table (once zoomed in enough to see the tables), or a whole constellation by its name. Once anything is moved, every constellation stays where it is, even when filters change. An arrangement is kept per grouping (Domains, Layers), per **Tables** level (names, keys, all fields) and per fold state (folded, shown): a move at names does not carry over to keys, nor a move made while the descriptive tables are folded to the unfolded drawing.
-- **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types.
+- **Detail**: drag a table; Graphviz then redraws the links around the new position. Arrangements are kept per drawing: group, focused table, columns and ticked types, and, for a skeleton, its own (the folded drawing and the shown one of the same group do not share positions; a table hidden by the fold keeps its position for when it is shown).
 
 Every move is saved in the browser at once. To share an arrangement with the team:
 
@@ -1029,6 +1033,9 @@ dbtscope writes the page (by default `erd_output/erd.html`) and nothing else. `d
 
 **Does it work with dbt Cloud or dbt Fusion?**
 With dbt Cloud, download the `manifest.json` of a job run and use it as in [Without dbt, from a copied manifest](#without-dbt-from-a-copied-manifest). The example project is written to be valid for dbt-core and dbt Fusion (decision D-033); dbtscope's own checks run with dbt-core.
+
+**Why does my group show only hubs and links?**
+It is a large group (more than 60 tables) drawn as a skeleton: its satellites and other descriptive tables are folded into the row at the bottom of their hub or link ("+ 3 folded tables · Satellite"). Untick **Entities** in the panel to draw them all, or double-click a table to see it with its satellites and columns. [Details](#the-detail-view).
 
 **How large a project can it show?**
 The page is checked on a project of about 1,500 tables: it opens in well under a second on a laptop, and filters respond at once.

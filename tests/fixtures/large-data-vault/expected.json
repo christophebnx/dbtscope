@@ -25,6 +25,11 @@
       "other_domain": ""
     }
   },
+  "detail": {
+    "tables": 788,
+    "group_by": "schema",
+    "vehicle": {"own": 263, "other_group": 14, "scope": 277, "with_parent": 139, "drawn": 138}
+  },
   "special": {
     "effectivity_on_link": "model.shop.belt_camera_registration_effsat",
     "no_relation_by_name": "model.shop.car_unlinked_sat",

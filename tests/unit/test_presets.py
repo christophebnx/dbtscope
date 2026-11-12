@@ -48,6 +48,12 @@ def test_the_roles_of_the_data_vault_kinds() -> None:
     }  # fmt: skip
 
 
+def test_the_data_vault_detail_select_stays_the_raw_vault() -> None:
+    """D-077: no `dim_*` / `fct_*` in the preset's select; a project adds them in its own `select`."""
+    select = merge_config(read_preset("data_vault"), {}).select
+    assert list(select) == ["*_hub", "*_link", "*_nhlink", "*_sal", "*_sat", "*_nhsat", "*_masat", "*_effsat"]
+
+
 def test_the_roles_of_the_star_schema_kinds() -> None:
     roles = {k.key: k.role for k in merge_config(read_preset("star_schema"), {}).kinds}
     assert roles == {"fact": "core", "dim": "core", "bridge": "connector", "stg": "technical"}

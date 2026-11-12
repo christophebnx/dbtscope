@@ -20,8 +20,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
           clickTraj: 'Click: show its trajectory',
           mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`, summaryH: 'Summary of the constellations',
-          entitiesN: ['entity', 'entities'], foldedN: ['folded table', 'folded tables'], foldH: 'Entities',
-          foldRow: 'Fold', foldTitle: 'Draw these tables inside the table they describe', foldsInto: 'Folds into',
+          entitiesN: ['entity', 'entities'], foldsInto: 'Folds into',
           openedLive: (t, p) => `${t} is folded into ${p}: shown`,
           foldLiveOn: n => `Descriptive tables folded: ${n}`, foldLiveOff: 'Descriptive tables shown',
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
@@ -53,9 +52,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           clickTraj: 'Clic\u00a0: afficher sa trajectoire',
           mainH: 'Tables principales', rowZoom: label => `Clic\u00a0: cadrer ${label}`,
           summaryH: 'Synthèse des constellations',
-          entitiesN: ['entité', 'entités'], foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités',
-          foldRow: 'Replier', foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
-          foldsInto: 'Se replie dans',
+          entitiesN: ['entité', 'entités'], foldsInto: 'Se replie dans',
           openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
           foldLiveOn: n => `Tables descriptives repliées\u00a0: ${n}`, foldLiveOff: 'Tables descriptives affichées',
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
@@ -106,19 +103,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
-  // a viewer choice, kept apart from the shared layout and never exported (D-048, D-063): stored only when it
-  // differs from the page default; without storage the choice lasts for the session
-  const memory = (name, values) => {
-    const key = name + ':' + PAGE.title;
-    return {
-      get() { try { const v = localStorage.getItem(key); return values.includes(v) ? v : null; } catch (e) { return null; } },
-      set(value, fallback) {
-        try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* session only */ }
-      },
-    };
-  };
-  const byMemory = memory('dbtscope-constellations', ['domains', 'layers']);
-  const foldMemory = memory('dbtscope-fold', ['folded', 'shown']);
+  const byMemory = viewerMemory('dbtscope-constellations', ['domains', 'layers']);
+  const foldMemory = viewerMemory('dbtscope-fold', ['folded', 'shown']);
   // Entities (D-062, D-063): the parent of a descriptive table is computed in Python (`n.parent`, an id);
   // PARENT[i] is its index or -1. Without any parent nothing below changes the page.
   const ID = new Map(N.map(n => [n.id, n.i]));
@@ -181,12 +167,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('fold').hidden = !CAN_FOLD;
   if (CAN_FOLD) {
     const foldKeys = new Set(N.filter(n => PARENT[n.i] >= 0).map(n => n.kind));
-    const names = DATA.kinds.filter(k => k.role === 'descriptive' && foldKeys.has(k.key)).map(labelOf);
-    const more = names.length > 3 ? ` + ${num(names.length - 3)}` : '';
-    $u('h-fold').textContent = T.foldH;
-    $u('fold-label').textContent = `${T.foldRow} ${names.slice(0, 3).join(' · ')}${more}`;
+    $u('h-fold').textContent = L.foldH;
+    $u('fold-label').textContent = foldLabel(DATA.kinds.filter(k => k.role === 'descriptive' && foldKeys.has(k.key)));
     $u('fold-n').textContent = num(PARENT.filter(p => p >= 0).length);
-    $u('fold-row').title = T.foldTitle;
+    $u('fold-row').title = L.foldTitle;
     $u('fold-box').checked = state.fold;
     $u('fold-box').onchange = ev => {
       state.fold = ev.target.checked; opened = null;
@@ -1824,7 +1808,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (held) {
       const lines = held.slice(0, TIP_FOLDED).map(i => `<div>${esc(N[i].name)} <span class="m">· ${esc(labelOf(KIND[N[i].kind]))}</span></div>`);
       const more = held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '';
-      return `<div class="held"><b>${plural(held.length, T.foldedN)}</b>${lines.join('')}${more}</div>`;
+      return `<div class="held"><b>${plural(held.length, L.foldedN)}</b>${lines.join('')}${more}</div>`;
     }
     return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
   }

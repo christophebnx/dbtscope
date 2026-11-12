@@ -32,3 +32,10 @@ end of the universe defaults; the old and new payloads are equal once those two 
 before regenerating), and no case has a descriptive table with a parent (the `shop` project has no hub or
 satellite), so every `parent` is empty. Every page changes by the script (`universe.js`), the markup of
 the fold control (`page.html`) and `page.css`.
+
+M8.5 (detail skeleton, D-072): every detail entity gains `"parent":""` (last key) and every detail kind
+`"role":"none"` (last key; the `data_vault` and `roles` cases have an empty detail). The old and new payloads
+are equal once those two keys are removed (checked before regenerating), and no case has a detail table whose
+universe parent is also a detail table (the `shop` project has no hub or satellite), so every `parent` is
+empty. Every page changes by the scripts (`common.js`, `detail.js`, `universe.js`) and the markup and style of
+the detail panel (`page.html`, `page.css`).

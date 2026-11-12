@@ -201,6 +201,41 @@ def _members(project: Project, config: Any) -> list[Member]:
     ]
 
 
+def _parents(universe: Any) -> dict[str, str]:
+    """The parent map `cli` hands to `detail_data`: the universe's, node by node."""
+    return {n.id: n.parent for n in universe.nodes if n.parent}
+
+
+def _detail() -> dict[str, Any]:
+    config = merge_config(read_preset("data_vault"), yaml.safe_load(LARGE_CONFIG))
+    project = _project()
+    tables, relations = select(project.tables, project.relations, config, project.root)
+    parent_of = _parents(universe_data(project, config))
+    return detail_data(tables, relations, config, parent_of).model_dump(mode="json", by_alias=True)
+
+
+def test_the_detail_of_the_vehicle_group_equals_the_expected_file() -> None:
+    expected = EXPECTED["detail"]
+    data = _detail()
+    entities = {e["id"]: e for e in data["entities"]}
+    assert len(entities) == expected["tables"]
+    scope = {i for i, e in entities.items() if e["group"] == "vehicle"}
+    own = len(scope)
+    scope |= {r["parent"] for r in data["relations"] if entities[r["child"]]["group"] == "vehicle"}
+    folded = [i for i in scope if entities[i]["parent"] in scope]
+    vehicle = expected["vehicle"]
+    assert (own, len(scope) - own, len(scope)) == (vehicle["own"], vehicle["other_group"], vehicle["scope"])
+    assert (len(folded), len(scope) - len(folded)) == (vehicle["with_parent"], vehicle["drawn"])
+    assert vehicle["drawn"] <= vehicle["scope"] // 2 + 1  # the skeleton is about half the group (M8.5)
+
+
+def test_the_special_satellites_have_their_parent_in_the_detail_too() -> None:
+    entities = {e["id"]: e for e in _detail()["entities"]}
+    parents = EXPECTED["fold"]["parents"]
+    assert {case: entities[uid]["parent"] for case, uid in SPECIAL.items()} == parents
+    assert entities[SPECIAL["no_parent"]]["parent"] == entities[SPECIAL["other_domain"]]["parent"] == ""
+
+
 def test_payload_build_is_under_the_bound(tmp_path: Any) -> None:
     write_large_project(tmp_path)
     manifest = large_manifest()
@@ -209,7 +244,7 @@ def test_payload_build_is_under_the_bound(tmp_path: Any) -> None:
     project = parse_manifest(manifest)
     universe_data(project, config)
     tables, relations = select(project.tables, project.relations, config, project.root)
-    detail_data(tables, relations, config)
+    detail_data(tables, relations, config, _parents(universe_data(project, config)))
     elapsed = time.perf_counter() - start
     print(f"parse + universe + detail, 1,419 tables: {elapsed * 1000:.0f} ms")
     assert elapsed < BOUND_S

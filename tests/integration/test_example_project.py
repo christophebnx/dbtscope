@@ -93,6 +93,23 @@ def test_example_folds_its_satellites_into_their_hubs_and_links(example_project:
         assert nodes[node["parent"]]["domain"] == node["domain"]
 
 
+def test_example_detail_groups_never_pass_the_skeleton_threshold_and_share_the_universe_parents(
+    example_project: Path,
+) -> None:
+    data = page_of(example_project)[1]
+    entities = {e["id"]: e for e in data["detail"]["entities"]}
+    group_of = {i: e["group"] for i, e in entities.items()}
+    for group in set(group_of.values()):  # the other-group parents of the group are drawn too
+        scope = {i for i, g in group_of.items() if g == group}
+        scope |= {r["parent"] for r in data["detail"]["relations"] if group_of[r["child"]] == group}
+        assert len(scope) <= 60, f"{group}: the skeleton would apply (D-073)"
+    universe = {n["id"]: n["parent"] for n in data["universe"]["nodes"]}
+    assert any(e["parent"] for e in entities.values())
+    for uid, entity in entities.items():
+        wanted = universe.get(uid, "")
+        assert entity["parent"] == (wanted if wanted in entities else "")
+
+
 def test_example_layers_are_the_medallion(example_project: Path) -> None:
     universe = page_of(example_project)[1]["universe"]
     layers = [(layer["key"], layer["label"]) for layer in universe["layers"]]

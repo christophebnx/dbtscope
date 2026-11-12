@@ -99,8 +99,13 @@
   <aside class="panel" id="d-panel">
     <h3 id="d-h-group"></h3>
     <select id="d-group" aria-labelledby="d-h-group"></select>
+    <fieldset id="d-fold" hidden><legend id="d-h-fold"></legend>
+      <label id="d-fold-row"><input type="checkbox" id="d-fold-box"><span id="d-fold-label"></span><small id="d-fold-n"></small></label>
+      <p class="hint" id="d-fold-warn" role="status"></p>
+    </fieldset>
     <h3 id="d-h-depth"></h3>
     <select id="d-depth" aria-labelledby="d-h-depth"></select>
+    <div class="hint" id="d-depth-note" hidden></div>
     <h3 id="d-h-cols"></h3>
     <button id="d-cols"></button>
     <h3 id="d-h-kinds"></h3>
@@ -120,6 +125,7 @@
       <span class="export" role="group" aria-labelledby="d-export-h"><span id="d-export-h"></span>
         <button id="d-export-png" type="button" disabled></button><button id="d-export-svg" type="button" disabled></button></span>
     </div>
+    <span class="sr-only" id="d-live" role="status" aria-live="polite"></span>
     <div class="canvas-box"><div id="d-graph"></div></div>
   </div>
 </section>
