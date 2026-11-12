@@ -186,7 +186,9 @@ def test_a_types_filter_change_takes_a_second_at_most(large_page: Any, open_page
     assert t <= 1000
 
 
-def test_at_fit_only_core_tables_are_named_at_most_three_per_domain(large_page: Any, open_page: Any) -> None:
+def test_on_stars_only_core_tables_are_named_at_most_three_per_domain(
+    large_page: Any, open_page: Any
+) -> None:
     p = opened_on_stars(large_page, open_page)
     nodes = {n["id"]: n for n in large_page[1]["universe"]["nodes"]}
     kinds = {k["key"]: k["role"] for k in large_page[1]["universe"]["kinds"]}
@@ -200,14 +202,14 @@ def test_at_fit_only_core_tables_are_named_at_most_three_per_domain(large_page: 
     assert max(per_domain.values()) <= 3, per_domain
 
 
-def test_a_trajectory_name_still_shows_at_fit(large_page: Any, open_page: Any) -> None:
+def test_a_trajectory_name_still_shows_on_stars(large_page: Any, open_page: Any) -> None:
     p = opened_on_stars(large_page, open_page)
     p.page.evaluate(ENTER, "orphan_ledger_sat")
     p.page.evaluate(NEXT_FRAME)
     assert "model.shop.orphan_ledger_sat" in p.page.evaluate(DRAWN)
 
 
-def test_a_hovered_name_still_shows_at_fit(large_page: Any, open_page: Any) -> None:
+def test_a_hovered_name_still_shows_on_stars(large_page: Any, open_page: Any) -> None:
     p = opened_on_stars(large_page, open_page)
     nodes = {n["id"]: n for n in large_page[1]["universe"]["nodes"]}
     kinds = {k["key"]: k["role"] for k in large_page[1]["universe"]["kinds"]}
