@@ -241,3 +241,19 @@ def test_empty_layers_restore_the_folder_default() -> None:
     data = _payload(_openlane(), {"layers": []}, read_preset("data_vault"))
     keys = [layer["key"] for layer in data["layers"]]
     assert keys[0] == "sources" and "staging" not in keys and "int_dwh" in keys and "other" not in keys
+
+
+def test_a_negation_that_excludes_everything_gives_an_empty_universe() -> None:
+    data = _payload(_openlane(), {"universe": {"select": ["!*"]}}, read_preset("data_vault"))
+    assert data["nodes"] == []
+
+
+def test_a_preset_selector_negation_keeps_the_other_tables() -> None:
+    data = _payload(_openlane(), {"universe": {"exclude": ["!stg_*"]}}, read_preset("data_vault"))
+    assert {n["name"] for n in data["nodes"]} == {"stg_crm__c", "stg_vehicle__car"}
+
+
+def test_models_outside_the_models_folder_are_other_with_a_preset_and_hubs_still_match_by_name() -> None:
+    project = _projects(_model("odd_hub", "analytics/x"), _model("plain", "analytics/x"))
+    layer = {n["name"]: n["layer"] for n in _payload(project, {}, read_preset("data_vault"))["nodes"]}
+    assert layer == {"odd_hub": "vault", "plain": "other"}
