@@ -264,6 +264,53 @@ def test_double_click_on_an_entity_still_opens_the_detail(acme: tuple[Page, dict
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
 
 
+def dim_with_folded_satellites(data: dict[str, Any]) -> dict[str, Any]:
+    nodes = data["universe"]["nodes"]
+    return nodes[
+        next(
+            child
+            for child, parent in data["universe"]["lineage"]
+            if nodes[parent]["parent"] and nodes[child]["name"].startswith("dim_")
+        )
+    ]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="M8.2 bug: the refit after the unfolding click drops k below FAR (0.5), so dblclick's "
+    "`t.k >= FAR ? pick || again : null` never reaches the lastClick fallback; the detail does not open",
+)
+def test_a_double_click_on_a_table_whose_trajectory_unfolds_still_opens_the_detail(
+    large_page: Any, open_page: Any
+) -> None:
+    from browser.test_trajectory import centre
+
+    p = open_large(large_page, open_page)
+    x, y = centre(p, dim_with_folded_satellites(large_page[1])["name"])
+    p.page.mouse.dblclick(x, y)  # the first click unfolds and relayouts, the second must still mean the table
+    p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="M8.2 usability: a click that unfolds trajectory members relayouts and refits the view "
+    "(k 1.5 -> 0.2): the clicked table leaves the pointer",
+)
+def test_a_click_that_unfolds_the_trajectory_keeps_the_table_under_the_pointer(
+    large_page: Any, open_page: Any
+) -> None:
+    from browser.test_trajectory import centre
+
+    p = open_large(large_page, open_page)
+    n = dim_with_folded_satellites(large_page[1])
+    x, y = centre(p, n["name"])
+    b = p.page.locator("#u-canvas").bounding_box()
+    p.page.mouse.click(x, y)
+    p.page.wait_for_timeout(300)
+    r = p.page.evaluate("id => views.universe.place(id)", n["id"])
+    assert r["x"] <= x - b["x"] <= r["x"] + r["w"] and r["y"] <= y - b["y"] <= r["y"] + r["h"]
+
+
 # ---------------------------------------------------------------- the control and the memory
 
 
