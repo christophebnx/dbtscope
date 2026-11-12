@@ -211,6 +211,16 @@ def test_page_has_the_flow_view() -> None:
     assert "{{FLOW_JS}}" not in page
 
 
+def test_page_has_the_text_summary_of_the_constellations_inside_the_stage_after_the_canvas() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    stage = page[page.index('id="u-stage"') : page.index('id="tab-detail"')]
+    assert stage.index('id="u-canvas"') < stage.index('id="u-summary"')
+    summary = re.search(r"<section[^>]*\bid=\"u-summary\"[^>]*>(.*?)</section>", stage, re.S)
+    assert summary is not None
+    assert 'class="sr-only"' in summary.group(0) and 'aria-labelledby="u-summary-h"' in summary.group(0)
+    assert re.search(r'<h2 id="u-summary-h">', summary.group(1))
+
+
 @pytest.mark.parametrize("offline", [False, True])
 def test_scripts_come_in_order_common_detail_universe_flow_boot(offline: bool) -> None:
     page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)

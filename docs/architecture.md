@@ -178,7 +178,15 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Rectangular de-overlap around dragged tables (page) | `render/assets/universe.js separate` (pinned), `placeAroundDragged` |
 | Save a file from the page (Blob download) | `render/assets/boot.js saveFile` |
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
-| Star radius and name priority by role; names offered at Fit (page, D-058) | `render/assets/universe.js starR`, `TIER`, `orderLabels`, `FIT_NAMES`, `fitNames` |
+| Star radius and name priority by role; names offered at Fit (page, D-058) | `render/assets/universe.js starR`, `TIER`, `orderLabels`, `FIT_NAMES`, `fitNames` (over `mainTables`) |
+| When the universe draws summary cards: weight from the drawn size of the reference star (page, D-065) | `render/assets/universe.js summaryWeight`, `referenceRadius` (`refR`), `S_STARS`, `S_CARDS`, `kStars`, `kCards`, `tablesLive` |
+| Content of a summary card: rows per layer or domain, kind split, counts, entities (page, D-066) | `render/assets/universe.js summaryOf` |
+| Main tables of a constellation, ranked by relations (page; summary cards and names at Fit) | `render/assets/universe.js mainTables` (`MAIN_MAX`) |
+| Draw a summary card and its row hit regions; what fits in its room (page) | `render/assets/universe.js drawSummary`, `planCard`, `summaryHits` |
+| The constellation under the pointer, disc or summary card; frame the band of a card row (page) | `render/assets/universe.js constellationAt`, `zoomOnRow` |
+| Straight route between two constellations, arrowhead in the gap (page; routes and trajectory arrows, reworked by M8.4) | `render/assets/universe.js routeLine`, `arrowAt` |
+| Trajectory seen from afar: counts per card, edges aggregated per pair of constellations (page, D-066) | `render/assets/universe.js trajSummary`, `cardMark`, `drawTrajectoryArrows` |
+| Text summary of the constellations for screen readers (page, D-066) | `render/assets/universe.js renderSummaryText`, `#u-summary` |
 | Order of the Types list by role (page, D-059) | `render/assets/universe.js ROLE_ORDER` |
 | Draw the universe (screen or image) | `render/assets/universe.js draw(target, scale)` |
 | Visible Graphviz diagram (detail, flow) as a standalone SVG / PNG (zoom layer transform removed) | `render/assets/common.js svgImage`, `svgFile`, `pngImage`; `INLINE` |
@@ -238,6 +246,9 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | Drawing a descriptive table inside its parent's star instead of as its own star (M8.2, D-063) | **fold** (`fold`, `universe.fold`, `defaults.fold`, folded, folded now); the opposite is **show** | collapse, hide, nest | French UI: replier / afficher. |
 | The core or connector table a descriptive table folds into (M8.2, D-062) | **parent** (`UniverseNode.parent`, `fold.parents`) | owner, host | Same word as the referenced end of a relation (`Relation.parent`), which it is when a relation decides; say "the parent of a relation" for the other sense when both appear in one sentence. |
 | A table name without the fixed part of the name glob of its kind (M8.2, D-062) | **stem** (`fold.stem`) | root, base name | |
+| A constellation drawn at overview scale as its counts, rows and main tables instead of its stars (universe, M8.3, D-065) | **summary card** (`drawSummary`, `summaryOf`, `#u-summary`; French UI: fiche de synthèse) | tile, panel, badge | A table drawn at keys or all fields stays a **card**; say "summary card" whenever both could be meant. |
+| A core table of a constellation among those with the most relations; listed on its summary card, named at Fit (universe, M8.3) | **main table** (`mainTables`, `MAIN_MAX`; French UI: table principale) | top table, key table, hub | |
+| How much the summary cards are drawn at the current scale, from 0 (stars) to 1 (cards) (universe, M8.3) | **summary weight** (`summaryWeight`) | alpha, blend | Internal word; not in the UI. |
 | Business link declared by a `relationships` test or a `foreign_key` constraint | **relation** (`Relation`, `relations`) | relationship (except dbt's test name), FK link | |
 | `ref` / `source` dependency | **lineage** (`LineageEdge`, `lineage`); one item is a **lineage edge** | dependency, parent link | |
 | What the page draws for a relation or a lineage edge | **link** | edge (in UI text) | User-facing only: config `universe.links`, the page, the CLI summary ("lineage links"). In code, "edge" only for a lineage edge or a drawn graph edge. |

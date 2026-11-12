@@ -157,6 +157,22 @@ def opened(large_page: tuple[Path, dict[str, Any]], open_page: Any) -> tuple[Any
     return p, time.perf_counter() - start
 
 
+# M8.3: the large project opens on summary cards, where no star or name is drawn; these tests read the names
+# at Fit, so they first zoom (about the stage centre) to the smallest scale that draws stars again
+AT_STARS = """() => {
+  const u = views.universe, c = u.camera(), s = u.geometry().summary, k = Math.max(c.k, s.kStars * 1.05);
+  const box = document.getElementById('u-stage'), w = box.clientWidth / 2, h = box.clientHeight / 2;
+  u.camera({ x: w - (w - c.x) * k / c.k, y: h - (h - c.y) * k / c.k, k });
+}"""
+
+
+def opened_on_stars(large_page: tuple[Path, dict[str, Any]], open_page: Any) -> Any:
+    p, _ = opened(large_page, open_page)
+    p.page.evaluate(AT_STARS)
+    p.page.evaluate(NEXT_FRAME)
+    return p
+
+
 def test_the_large_project_opens_in_three_seconds(large_page: Any, open_page: Any) -> None:
     _, seconds = opened(large_page, open_page)
     print(f"large project: page open to first frame {seconds:.2f} s, {large_page[0].stat().st_size} bytes")
@@ -171,7 +187,7 @@ def test_a_types_filter_change_takes_a_second_at_most(large_page: Any, open_page
 
 
 def test_at_fit_only_core_tables_are_named_at_most_three_per_domain(large_page: Any, open_page: Any) -> None:
-    p, _ = opened(large_page, open_page)
+    p = opened_on_stars(large_page, open_page)
     nodes = {n["id"]: n for n in large_page[1]["universe"]["nodes"]}
     kinds = {k["key"]: k["role"] for k in large_page[1]["universe"]["kinds"]}
     assert p.page.evaluate("views.universe.camera().k") < 0.6
@@ -185,14 +201,14 @@ def test_at_fit_only_core_tables_are_named_at_most_three_per_domain(large_page: 
 
 
 def test_a_trajectory_name_still_shows_at_fit(large_page: Any, open_page: Any) -> None:
-    p, _ = opened(large_page, open_page)
+    p = opened_on_stars(large_page, open_page)
     p.page.evaluate(ENTER, "orphan_ledger_sat")
     p.page.evaluate(NEXT_FRAME)
     assert "model.shop.orphan_ledger_sat" in p.page.evaluate(DRAWN)
 
 
 def test_a_hovered_name_still_shows_at_fit(large_page: Any, open_page: Any) -> None:
-    p, _ = opened(large_page, open_page)
+    p = opened_on_stars(large_page, open_page)
     nodes = {n["id"]: n for n in large_page[1]["universe"]["nodes"]}
     kinds = {k["key"]: k["role"] for k in large_page[1]["universe"]["kinds"]}
     camera = p.page.evaluate("views.universe.camera()")
