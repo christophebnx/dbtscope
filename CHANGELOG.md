@@ -6,6 +6,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Added
 
+- Roles of kinds, complete presets and selector negation (M8.1, D-058 to D-061). A `kinds` rule takes an optional `role` (`core`, `connector`, `descriptive`, `technical`, `none`); a rule of `dbt-erd.yml` with the key of a preset kind inherits its role. Stars follow the role (core largest, descriptive and technical smallest) and so do the names: from afar each constellation names its three core tables with the most relations; the Types list is in role order. `data_vault` gains Dimension, Fact, Staging and View kinds with roles; both presets set default layers by folder pattern (`layers: []` gives back one layer per first folder). A selector part starting with `!` negates (`path:models/int_dwh/*,!vw_*`; quote it in YAML when it starts the selector). Payload: each universe kind has a `role` key. Pages of projects using a preset change; a layer-mode arrangement stored for such a page no longer finds its layers. A generated large Data Vault project (1,419 tables) joins the tests.
 - Brief for M8, a synthetic view of large projects (`docs/briefs/2026-11-12-m8-synthesis.md`): roles of kinds and complete presets, satellites folded into their entity, summary cards at overview, source systems apart with readable routes, a detail skeleton for large groups; roadmap and progress list its five sub-milestones. No change to the tool.
 
 ## [0.3.0] - 2026-11-12
