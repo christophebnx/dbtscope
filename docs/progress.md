@@ -33,6 +33,11 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M7.2 Install from a wheel file | done | | Same note (D-055): user guide § Option C, `uv build --wheel` in CLAUDE.md. Live wheel test passed at the 0.3.0 release; installed and run by the user on Windows |
 | M7.3 Parse without a profile | rejected | | D-056, after the spike recorded in `docs/architecture/2026-11-12-parse-without-profile.md`; no code |
 | M7.4 dbt log level | done | | Built per `docs/architecture/2026-11-12-m7.4-dbt-log-level.md` (D-057): `--log-level` (default `error`), `dbt --log-level <level> parse`; usage error with `--no-parse` / `--manifest`; at `none` a failure says it hid dbt's messages. Pages byte-identical |
+| M8.1 Roles, complete presets, large test project | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 5 |
+| M8.2 Entities | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 6 |
+| M8.3 Summary cards | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 7 |
+| M8.4 Source systems apart, readable routes | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 8 |
+| M8.5 Detail skeleton | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 9 |
 
 ## Open points
 

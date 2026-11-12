@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Added
+
+- Brief for M8, a synthetic view of large projects (`docs/briefs/2026-11-12-m8-synthesis.md`): roles of kinds and complete presets, satellites folded into their entity, summary cards at overview, source systems apart with readable routes, a detail skeleton for large groups; roadmap and progress list its five sub-milestones. No change to the tool.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added
