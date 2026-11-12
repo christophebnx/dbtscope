@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Fixed
+
+- Audit fixes (M8.5, D-079, D-080). A `system` override rule after a domain's own rule no longer replaces its label and colour (the first rule of a key that sets each gives it); a focus on a hub draws the satellites folded into it by name only; the folded-tables tooltip lines and `foldLiveOff` are shared by both views.
+
 ### Added
 
 - Detail skeleton for large groups (M8.5, D-072 to D-077). A group of more than 60 tables, in which some descriptive tables have a parent, opens in the detail as a **skeleton**: core and connector tables only (hubs left, links right), each ending with one row "+ 3 folded tables · Satellite", laid out on a grid of columns chosen for the shape of the drawing area (hubs and their links in column pairs, relations as straight grey lines; on the large project's `vehicle` group: 138 of 277 tables, 2,253 × 1,368 pt, names 10.7 px after three wheel notches, 0.3 s). A new **Entities** control ("Fold Satellite") in the detail panel unfolds the group (with a warning) and is remembered in the browser (`dbtscope-detail-fold:<title>`, never exported); the table tooltip lists the folded tables and its column count; the meta line counts drawn, folded and scope tables; the highlight box lights the table that holds a match. A focus draws everything in full, and a connector (a Data Vault link) costs no level: at "direct links" a hub shows its satellites, its links and the hubs across them. A skeleton keeps its own arrangement (`…|fold` key of the layout's `detail` section; format, version and every other key unchanged); the shown tables of such a group (unfolded, over 60) are laid out on the same grid, under a `…|grid` key (D-078), and the warning offers a **Fold** button. Payload: `DetailEntity.parent` and `DetailKind.role`, last keys at their defaults. The `data_vault` preset's detail `select` is unchanged. Relations of a large drawing (over 5,000 tables × relations) are straight lines, which also keeps Viz.js from aborting. Pages of small groups draw as before.
