@@ -38,9 +38,11 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M8.3 Summary cards | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 7 |
 | M8.4 Source systems apart, readable routes | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 8 |
 | M8.5 Detail skeleton | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 9 |
+| M9.1 One-step install scripts | done | | Built per `docs/architecture/2026-11-12-m9.1-install-scripts.md` (D-058): `install/install.ps1`, `install/install.sh`, `tests/unit/test_install_scripts.py` (fakes, no network). Asked by the user on 2026-11-12. Manual checks to run: Windows without uv and git (PowerShell 5.1 then 7: same-window `dbtscope --version`, new Windows Terminal tab, no red uv text, second run, `-FromGitHub` without git); macOS (bash 3.2) and Linux without uv. Package and pages unchanged |
 
 ## Open points
 
+- M9.1 (install scripts): manual checks still to run, the tests skip PowerShell when `pwsh` is absent. Windows PowerShell 5.1 and PowerShell 7 each: (1) a machine without uv and git, wheel next to the script; (2) an existing profile (UTF-8 with and without BOM, ANSI) keeps its content around the block, a second run replaces the block, `-SkipProfile` leaves it alone; (3) a user name with non-ASCII characters (the bin folder is read from `uv tool dir --bin` as UTF-8 and the block stays ASCII); (4) no red uv text; (5) `-FromGitHub` without git, and without access.
 - M7.4: dbt Fusion's support of the global `--log-level` flag is unchecked.
 
 - M4.1: the export file-name fallback (a title that slugs to nothing) is covered only by browser tests, which do not run in CI.

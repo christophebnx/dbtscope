@@ -67,6 +67,52 @@ dbtscope never connects to your warehouse and the page holds no data: only names
 
 ## Install
 
+### Quick install (recommended)
+
+If someone shared a folder with a dbtscope wheel (`dbtscope-<version>-py3-none-any.whl`) and the files `install.ps1` and `install.sh`, one script does everything: it installs uv when missing, installs dbtscope from the wheel next to it and checks `dbtscope --version`. It needs no administrator rights, asks no question and does not need git or GitHub.
+
+Windows: open PowerShell in that folder, then run these two lines. The first only changes the policy for this window.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
+```
+
+macOS and Linux: open a terminal in that folder.
+
+```bash
+sh install.sh
+```
+
+Options (several wheels in the folder, or no wheel, is an error: name the one to install):
+
+| `install.ps1` | `install.sh` | Meaning |
+|---|---|---|
+| (none) | (none) | Install the single `dbtscope-*.whl` next to the script. |
+| `-Wheel <path>` (or the path alone) | `--wheel <path>` (or the path alone) | Install this wheel. |
+| `-FromGitHub` | `--from-github` | Install from `https://github.com/christophebnx/dbtscope`: needs git and [read access](#access-to-the-private-repository); the script never asks for or handles a token. |
+| `-Ref <tag or commit>` | `--ref <tag or commit>` | With `-FromGitHub` only: install this version. |
+| `-SkipProfile` | (none) | Windows: do not edit the PowerShell profile. |
+| `-Help` | `--help`, `-h` | Usage. |
+
+What the script changes on your machine:
+
+- uv, with its official per-user installer (on Windows, `winget` if that fails), when it is missing;
+- dbtscope, as a uv tool (`uv tool install --reinstall`), so running it again also upgrades;
+- your user `PATH`, through `uv tool update-shell`;
+- Windows only: a marked block in your PowerShell profile (the one of the PowerShell edition and host that ran the script; Windows PowerShell 5.1 and PowerShell 7 have separate profiles), so that terminals opened from an already running Windows Terminal or VS Code also find `dbtscope`. It is added only when the execution policy lets profiles run (`RemoteSigned`, `Unrestricted` or `Bypass`); the block is replaced, never duplicated, when you run the script again:
+
+  ```powershell
+  # >>> dbtscope install >>>
+  $dbtscopeBin = '<the folder printed by uv tool dir --bin>'
+  if ((Test-Path $dbtscopeBin) -and -not (($env:Path -split ';') -contains $dbtscopeBin)) { $env:Path = "$dbtscopeBin;$env:Path" }
+  # <<< dbtscope install <<<
+  ```
+
+At the end it says whether `dbtscope` works in this terminal or whether to open a new one (on Windows, close and reopen Windows Terminal or VS Code if it is still not found). It also says whether `dbt` is on `PATH`; it never runs or installs dbt. Exit codes: 0 installed, 1 a step failed, 2 usage error. Messages are in English.
+
+There is no web one-liner (`irm … | iex`, `curl … | sh`): the repository is private. Someone who can read it can use [option A](#option-a-install-the-command-from-github) directly.
+
 ### What you need
 
 - **uv**, the Python package manager that installs dbtscope. It brings its own Python (3.12 or later) and installs dbtscope's dependencies (PyYAML, pydantic v2, Typer) in an isolated environment, so a dbt project pinned to pydantic v1 is not affected.
@@ -159,7 +205,7 @@ uv tool install git+https://github.com/christophebnx/dbtscope@<commit or tag>
 
 ### Option C: from a wheel file
 
-Recommended when you have no GitHub access, for example on Windows without git. Someone with access to the repository builds a wheel and shares the file (network drive, SharePoint, chat). You need only uv, no git and no GitHub. The same lines work in PowerShell and bash:
+For when you have no GitHub access, for example on Windows without git. Someone with access to the repository builds a wheel and shares the file (network drive, SharePoint, chat). You need only uv, no git and no GitHub. The simplest way is the [install script](#quick-install-recommended) next to the wheel (it also installs uv). By hand, the same lines work in PowerShell and bash:
 
 ```bash
 uv tool install C:\Downloads\dbtscope-0.3.0-py3-none-any.whl     # or a path on any OS
@@ -169,7 +215,7 @@ dbtscope --version
 
 uv still needs access to PyPI (or your company's mirror, `UV_DEFAULT_INDEX`) to fetch Python and dbtscope's dependencies (pydantic, PyYAML, Typer). The wheel is pure Python: one file serves Windows, macOS and Linux.
 
-For whoever shares the wheel: from a clean checkout of a release tag, `uv build --wheel` writes `dist/dbtscope-<version>-py3-none-any.whl`, so that `dbtscope --version` names a real release.
+For whoever shares the wheel: from a clean checkout of a release tag, `uv build --wheel` writes `dist/dbtscope-<version>-py3-none-any.whl`, so that `dbtscope --version` names a real release. Copy the wheel and the two files of `install/` into the shared folder; the scripts hold no version, so any script works with any wheel.
 
 ### Option B: from a git clone
 
@@ -257,6 +303,7 @@ For live mode, also check dbt with `dbt --version`. Then make a first page from 
 |---|---|
 | A, `uv tool install git+…` | `uv tool upgrade dbtscope` (fetches the latest commit of the repository) |
 | A, at a given commit or tag | `uv tool install --force git+https://github.com/christophebnx/dbtscope@<commit or tag>`; to follow the latest commit again, the same without `@…` |
+| Quick install | Put the new wheel in the folder (remove the old one) and run the script again |
 | C, `uv tool install <wheel>` | `uv tool install --reinstall <new wheel>` (also for a rebuilt wheel of the same version; `--force` alone may keep the cached version) |
 | B1, `uv run` in the clone | `git pull`, then `uv sync` |
 | B2, `uv tool install .` | `git pull`, then `uv tool install --reinstall .` |
@@ -274,6 +321,8 @@ After an upgrade:
 uv tool uninstall dbtscope      # A, B2 and C
 uv cache clean dbtscope         # optional: what uvx and uv keep in their cache
 ```
+
+The install script (Windows) may have added a block to your PowerShell profile (`$PROFILE.CurrentUserCurrentHost`, in Windows PowerShell and in PowerShell 7 if you ran it in both). Open the profile and delete the lines from `# >>> dbtscope install >>>` to `# <<< dbtscope install <<<`, markers included. Leaving the block does no harm: it adds the folder to `PATH` only if that folder exists. uv itself stays installed; remove it as its documentation says.
 
 For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page) and the last **Constellations** choice (`dbtscope-constellations:<title>`, which **Reset layout** keeps); the browser's site data clears both.
 
@@ -923,6 +972,17 @@ Warnings (`dbtscope: warning: …`, exit code 0) say when `dbt parse` failed and
 - **`dbtscope` is not found after installing**: run `uv tool update-shell` and open a new terminal; `uv tool dir --bin` prints the folder that must be on `PATH`.
 - **uv asks for a password or says the repository is not found**: git cannot read the private repository; set up one of the [three ways](#access-to-the-private-repository) and check with `git ls-remote`.
 - **No GitHub access at all** (for example Windows without git): install from a wheel file, [option C](#option-c-from-a-wheel-file).
+
+Messages of the [install script](#quick-install-recommended) (`dbtscope install: error: …`):
+
+- **PowerShell says running scripts is disabled, or the file is blocked**: the script never changes the execution policy. Change it for this window only with `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`, then run `.\install.ps1`; or run `powershell -ExecutionPolicy Bypass -File .\install.ps1` (a separate process: open a new terminal afterwards).
+- **Red `NativeCommandError` lines in Windows PowerShell 5**: harmless noise from uv's progress text; the script prints its own error line if something fails.
+- **`no wheel found next to the script`**: put the wheel in the script's folder, or pass its path (`-Wheel` / `--wheel`). **Several wheels**: pass the one to install.
+- **`uv could not be installed`**: the usual cause is a company proxy or blocked download; install uv by hand ([Install uv](#install-uv)) and run the script again. **`neither curl nor wget found`** (macOS, Linux): same.
+- **`git not found`** or **`cannot read the repository`** (only with `-FromGitHub` / `--from-github`): install git, set up [access](#access-to-the-private-repository), or install from the wheel.
+- **`uv tool install failed`**: uv's own message is just above; a blocked PyPI (or its mirror, `UV_DEFAULT_INDEX`) is the usual cause.
+- **Installed, but `dbtscope` is not found**: open a new terminal; on Windows, close and reopen Windows Terminal or VS Code. When the execution policy is `Restricted` or `AllSigned`, the profile is not edited.
+- **`a dbtscope begin or end marker without its pair`**: fix the marker lines in the named profile (see [Uninstall](#uninstall)) and run the script again; nothing was changed.
 
 ## FAQ
 

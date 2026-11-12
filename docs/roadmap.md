@@ -265,6 +265,15 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
+## M9 — One-step install and page links
+
+Asked by the user on 2026-11-12, after a manual install on Windows failed (uv, git, stale `PATH`, PowerShell 5.1 error noise).
+
+- **M9.1 — One-step install scripts.** (Done.) (D-058.) `install/install.ps1` (Windows PowerShell 5.1 and 7) and `install/install.sh` (macOS, Linux) install uv when missing, then dbtscope from a wheel next to the script or from GitHub, make it reachable (PowerShell profile block) and report dbt's presence. User guide § Quick install. Design note `docs/architecture/2026-11-12-m9.1-install-scripts.md`. Manual checks on Windows, macOS and Linux remain to be run.
+- **M9.2 — A shareable link to a table.** (Planned.) Design note `docs/architecture/2026-11-12-m9.2-table-link.md`.
+- **M9.3 — Flow view: the paths between two tables.** (Planned.) Design note `docs/architecture/2026-11-12-m9.3-flow-paths.md`.
+- **M9.4 — Print the current view on one page.** (Planned.) Design note `docs/architecture/2026-11-12-m9.4-print.md`.
+
 ## Later (not scheduled)
 
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
