@@ -23,6 +23,11 @@ ROLES = ["none", "technical", "core", "descriptive", "connector"]  # payload ord
 GEOMETRY = "views.universe.geometry().tables.map(t => [t.id, t.r])"
 ROWS = "[...document.querySelectorAll('#u-kinds > *')].map(e => e.textContent.trim())"
 DRAWN = "views.universe.drawnNames()"
+EXPORT_WITH_HUGE_NAMES = """async () => {
+  const proto = CanvasRenderingContext2D.prototype, measure = proto.measureText;
+  proto.measureText = function (s) { return { width: 1e6 }; };
+  try { await views.universe.image(); } finally { proto.measureText = measure; }
+}"""
 NEXT_FRAME = "new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
 ENTER = """name => {
   const q = document.getElementById('u-q');
@@ -119,6 +124,16 @@ def test_types_rows_are_sorted_by_role_then_payload_order(tmp_path: Path, open_p
     rows = p.page.evaluate(ROWS)
     order = [int(r[len("Kind ")]) for r in rows]  # "Kind <i><count>"
     assert order == [2, 5, 4, 3, 1, 0]  # core (payload order), connector, descriptive, technical, none
+
+
+def test_an_image_export_leaves_the_drawn_names_unchanged(tmp_path: Path, open_page: Any) -> None:
+    p = open_roles(tmp_path, open_page, ROLES)
+    p.page.evaluate(NEXT_FRAME)
+    before = p.page.evaluate(DRAWN)
+    assert before  # the screen drew names
+    # oversized names fit nowhere, so an export that recorded its own names would record none
+    p.page.evaluate(EXPORT_WITH_HUGE_NAMES)
+    assert p.page.evaluate(DRAWN) == before
 
 
 # ---------------------------------------------------------------- the example and the large project

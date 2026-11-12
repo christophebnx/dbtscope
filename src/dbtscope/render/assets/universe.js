@@ -581,7 +581,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     });
     if (byLayers && k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
-    drawn = [];
+    if (onScreen) drawn = [];  // an exported image leaves the names of the screen as they are
     if (!cards) drawNames(orderLabels(labels, k), screen, free, taken, k);
     ctx.textAlign = 'left';
     if (!onScreen) return;
@@ -705,7 +705,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].every(([px, py]) => Math.hypot(px - cx, py - cy) <= r);
     };
     let shown = 0;
-    drawn = [];
+    const names = [];
     for (const n of labels) {
       if (shown >= 400) break;
       const side = sideOf(n.i);
@@ -715,13 +715,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + rad(n) + 2;
       if (!free(x, y, w, h)) continue;
       if (!side && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
-      taken.push([x, y, w, h]); shown++; drawn.push(n.id);
+      taken.push([x, y, w, h]); shown++; names.push(n.id);
       ctx.globalAlpha = traj && !side ? DIM : 1;
       ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(x, y, w, h);
       ctx.fillStyle = strong || side ? C.text : C.muted;
       lines.forEach((s, j) => ctx.fillText(s, sx, y + 11 + LINE_H * j));
     }
     ctx.globalAlpha = 1;
+    if (ctx === screenCtx) drawn = names;
   }
   // a ring around a star: dashed for upstream, as on the legend
   function ring(p, r, color, width, dashed, k) {
