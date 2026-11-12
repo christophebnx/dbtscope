@@ -57,7 +57,7 @@ All stars have the same size: the priority is a universe that **fits the screen 
 
 ### Three zoom levels (“semantic zoom”)
 
-1. **Universe**: on opening, the whole project is framed in the screen. Each domain is a compact constellation, named and surrounded by a coloured halo, with its number of tables. Routes between domains are visible.
+1. **Universe** *(superseded in part by D-065: on large projects the universe opens on summary cards, and the stars show when zooming in)*: on opening, the whole project is framed in the screen. Each domain is a compact constellation, named and surrounded by a coloured halo, with its number of tables. Routes between domains are visible.
 2. **Constellation**: when zooming in, or clicking a domain to frame it, the stars appear with their names. Hovering a star shows its dbt description and its links.
 3. **Detail**: at high zoom, or when double-clicking a star, tables show their columns according to the chosen level (below). You can also open the current ERD view (Graphviz) filtered on the domain or focused on the table.
 

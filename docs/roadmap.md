@@ -259,7 +259,7 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 
 - **M8.1 — Roles, complete presets, the large test project (done).** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers that group folders by pattern (`raw_*`); selectors may gain negation (`!vw_*`, optional); a generated large Data Vault project enters the tests.
 - **M8.2 — Entities (done).** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
-- **M8.3 — Summary cards.** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
+- **M8.3 — Summary cards (done).** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M8.4 — Source systems apart, readable routes.** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
 - **M8.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
 
