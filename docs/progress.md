@@ -33,14 +33,19 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 | M7.2 Install from a wheel file | done | | Same note (D-055): user guide § Option C, `uv build --wheel` in CLAUDE.md. Live wheel test passed at the 0.3.0 release; installed and run by the user on Windows |
 | M7.3 Parse without a profile | rejected | | D-056, after the spike recorded in `docs/architecture/2026-11-12-parse-without-profile.md`; no code |
 | M7.4 dbt log level | done | | Built per `docs/architecture/2026-11-12-m7.4-dbt-log-level.md` (D-057): `--log-level` (default `error`), `dbt --log-level <level> parse`; usage error with `--no-parse` / `--manifest`; at `none` a failure says it hid dbt's messages. Pages byte-identical |
-| M8.1 Roles, complete presets, large test project | in progress | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 5 |
-| M8.2 Entities | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 6 |
+| M8.1 Roles, complete presets, large test project | done | `ca3be2c` | Built per `docs/architecture/2026-11-12-m8.1-roles-presets.md` (D-058, D-059, D-060). **Measures on the large project** (preset `data_vault` + 12 `domains` rules): 1,374 tables; Hub 175, Link 191, Satellite 422, PIT 20, Dimension 32, Fact 30, Staging 252, Source 252, Other 0; layers Sources 252 → Staging 252 → Raw vault 808 → Data products 62; 892 relations, 1,360 lineage links; stars drawn 1,374 (no fold yet); names at Fit: 10, all core hubs, every business domain; page ready 0.6 s, layout 86 ms, a filter change 65 ms; page 816 kB. **Payloads**: `role` is the last key of every universe and detail kind. Reference pages regenerated once: the no-preset cases differ by the role keys only (+43 bytes of payload each, verified by stripping them, byte for byte); `kinds` +84; `star_schema` +62 and `data_vault` +128 (new kinds and layers: `stg_orders` other → staging, `dim_*` / `fct_*` kinds in `data_vault`, layers sources, staging, other); whole pages +3,058 to +3,143 bytes (assets are most of it). `columns()` in `universe.js`: a cap equal to a stack of boxes now holds it within 1e-6 (float rounding split the Silver band of Finance and Product at names level, so D-040's acceptance failed on acme with roles). Suites: default 802 passed / 4 skipped; browser 316 (304 before). **Points settled by the architect that the brief left open, to review**: relation counts for the main core tables computed in the browser from `DATA.relations`, not carried by the payload; `role` last key of the kinds, null for none, no role on nodes (the page reads `KIND[n.kind].role`); a file kind that repeats a preset kind with no `role` inherits it (`role: null` gives none), other lists still replace; default layers written in the presets with the new `step:` selector, `domain/steps.py` with the longest-prefix rule (`raw_vault`, `business_vault`, `data_product*` now rank 3 / 3 / 4); snapshots in Staging; a bridge is a connector in `star_schema`; `OVERVIEW_NAMES` = 3 core names per constellation below `OVERVIEW_K` 0.6; star factors core 1.35, descriptive and technical 0.75, floor 2.5 px; Types list sorted by role with a tooltip, no headings; new kind colours (staging `#a08497`, `data_vault` dimension `#0e9bbd`, fact `#8a1c5c`; the star-schema fact keeps `#d9822b`); the trajectory's `roleOf` renamed `sideOf`. |
+| M8.2 Entities | in progress | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 6 |
 | M8.3 Summary cards | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 7 |
 | M8.4 Source systems apart, readable routes | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 8 |
 | M8.5 Detail skeleton | todo | | Brief `docs/briefs/2026-11-12-m8-synthesis.md` § 9 |
 
+## Resume
+
+M8 was asked as "M7" and renumbered M8 (the user agreed on 2026-11-12). Next phase to run: **M8.2 Entities** (brief § 6), then M8.3 to M8.5 in order.
+
 ## Open points
 
+- M8.1: the screenshots of `docs/images/` (universe-overview, universe-domain, trajectory, small-screen) still show the pre-M8 page. They are retaken once at the close of M8 (brief § 10), because every phase changes the page and the user approves them.
 - M7.4: dbt Fusion's support of the global `--log-level` flag is unchecked.
 
 - M4.1: the export file-name fallback (a title that slugs to nothing) is covered only by browser tests, which do not run in CI.

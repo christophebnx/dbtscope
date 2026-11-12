@@ -4,8 +4,16 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Changed
+
+- Roles of kinds (M8.1, D-058): a kind rule of `dbt-erd.yml` or a preset takes an optional `role` (`core`, `connector`, `descriptive`, `technical`; another value is a one-line error). A kind you repeat from the preset with no `role` keeps the preset's role; `role: null` gives none. Sources, seeds and snapshots are `technical`. The universe draws a core star 1.35 times, a descriptive or technical star 0.75 times the size its links give it, orders the Types list by role (core, connector, descriptive, technical, none; a tooltip on each row names the role) and, from afar, names only the core tables with most relations (at most three per constellation). The page data gains `role`, the last key of every universe and detail kind (null for none); `dbt-erd-layout.json` and its keys are unchanged. Without roles, source, seed and snapshot stars are smaller and their names come last.
+- Complete presets (M8.1, D-059): `data_vault` and `star_schema` classify staging models (`stg_*`, technical), dimensions and facts (`data_vault` gains `dim_*` and `fct_*`), give every kind a role, and set default layers (Sources, Staging, Raw vault / Intermediate, Data products / Marts) with the new selector `step:<glob>` (`source`, `staging`, `reference`, `intermediate`, `product`, `report`: the step of a table's folder-name layer, usable in any `select`, `exclude` or `match`). Without `layers` rules, a `raw_vault` or `business_vault` folder ranks as intermediate and `data_product*` as a product (the longest folder-name prefix counts). The example `acme_retail/dbt-erd.yml` drops its kind rules (the preset provides them): its 18 staging models are Staging, not Other; with the `data_vault` preset, Fact changes from `#d9822b` to `#8a1c5c` and Dimension from `#8e5bb5` to `#0e9bbd` there. The reference pages are regenerated (role keys only for the cases with no preset).
+- Existing users of a preset (D-059): the preset's default layers now replace the layers read from folder names, unless your `dbt-erd.yml` has its own `layers`. A folder with no step (its name matches no known prefix) goes to an "Other" layer. To get the folder layers back, write `layers: []` in `dbt-erd.yml`.
+- Universe layout: a column cap equal to a stack of boxes within 1e-6 now holds it (a floating-point rounding could split a band for nothing).
+
 ### Added
 
+- A generated 1,374-table Data Vault project for the tests (M8.1, D-060): `tests/large_project.py`, fixture `large-data-vault`, browser fixture `large_page`.
 - Brief for M8, a synthetic view of large projects (`docs/briefs/2026-11-12-m8-synthesis.md`): roles of kinds and complete presets, satellites folded into their entity, summary cards at overview, source systems apart with readable routes, a detail skeleton for large groups; roadmap and progress list its five sub-milestones. No change to the tool.
 
 ## [0.3.0] - 2026-11-12
