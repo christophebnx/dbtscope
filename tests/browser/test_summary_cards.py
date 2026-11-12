@@ -1031,3 +1031,120 @@ def test_the_summary_and_the_frames_stay_inside_their_budgets(large_page: Any, o
     )
     assert at_fit <= 50 and middle <= 100
     assert VIEWPORT == {"width": 1280, "height": 800}
+
+
+# ---------------------------------------------------------------- edge cases and the card's room (M8.3 fixes)
+
+
+def sized_payload(*sizes: int) -> UniversePayload:
+    """One domain per size, each with that many tables of one core kind."""
+    nodes = [
+        {
+            "id": f"t.{d}.{i}",
+            "name": f"d{d}_t{i}",
+            "domain": f"d{d}",
+            "layer": "l0",
+            "kind": "k0",
+            "desc": "",
+            "cols": [],
+        }
+        for d, size in enumerate(sizes)
+        for i in range(size)
+    ]
+    return UniversePayload.model_validate(
+        {
+            "nodes": nodes,
+            "relations": [],
+            "lineage": [],
+            "domains": [
+                {"key": f"d{d}", "label": f"Land {d}", "color": "#1f77b4", "owner": ""}
+                for d in range(len(sizes))
+            ],
+            "layers": [{"key": "l0", "label": "Zero"}],
+            "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+        }
+    )
+
+
+def assert_cards_fit_their_footprint(p: Page) -> None:
+    """Every drawn card is at most as high as wide and says no "0 entities"."""
+    k = camera(p)["k"]
+    cards = {c["key"]: c for c in summary(p)["cards"]}
+    for c in hits(p)["cards"]:
+        assert 0 < c["h"] <= c["w"] + 1e-6, c
+        assert c["w"] == pytest.approx(1.8 * cards[c["k"]]["r"] * k, abs=1e-6)
+        assert not re.search(r"(^|·\s)0 entit", c["count"]), c
+
+
+def test_a_one_table_constellation_is_a_card_that_fits_its_footprint(tmp_path: Path, open_page: Any) -> None:
+    p = open_page(universe_page(tmp_path, sized_payload(1, 150, 150), view="universe"))
+    set_k(p, summary(p)["kCards"])
+    assert summary(p)["weight"] == 1
+    assert_cards_fit_their_footprint(p)
+    solo = card_of(summary(p), "d0")
+    assert solo["n"] == 1
+    drawn = first_card(p, "d0")
+    assert drawn["count"] in ("", "1") or drawn["count"].startswith("1 table")
+    assert drawn["names"] == 0 or drawn["heading"]  # a lone name is never a stray bullet without its heading
+    move_to(p, drawn["x"] + drawn["w"] / 2, drawn["y"] + drawn["h"] / 2)  # a tooltip on a tiny card works
+    assert "1 table" in tip(p)
+
+
+def test_a_resize_across_the_band_keeps_the_cards_consistent(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    for size in (NARROW, {"width": 1600, "height": 900}, VIEWPORT):
+        p.page.set_viewport_size(size)
+        p.page.evaluate(NEXT_FRAME)
+        s = summary(p)
+        assert 0 <= s["weight"] <= 1
+        set_k(p, s["kCards"])  # in the cards, whatever the size
+        assert_cards_fit_their_footprint(p)
+        assert len(hits(p)["cards"]) == len(s["cards"]) and all(
+            c["named"] for c in hits(p)["cards"] if c["w"] >= 24
+        )
+        assert scroll_width(p) <= size["width"]
+
+
+def test_the_fold_toggled_at_card_scale_redraws_the_counts(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    for _ in range(2):
+        for checked in (False, True):
+            p.page.set_checked("#u-fold-box", checked)
+            p.page.evaluate(NEXT_FRAME)
+            assert summary(p)["weight"] == 1
+            assert_cards_fit_their_footprint(p)
+            vehicle, want = first_card(p, "vehicle"), card_of(summary(p), "vehicle")
+            assert ("entities" in vehicle["count"]) == (checked and bool(want["entities"]))
+            assert vehicle["count"].startswith(f"{want['n']} tables")
+
+
+def test_a_card_is_as_high_as_its_content_and_stays_centred_on_the_constellation(
+    large_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_page[0])
+    s = summary(p)
+    k, cam = camera(p)["k"], camera(p)
+    shorter = 0
+    for c in hits(p)["cards"]:
+        world = card_of(s, c["k"])
+        assert c["y"] + c["h"] / 2 == pytest.approx(world["y"] * k + cam["y"], abs=1e-6)  # centred
+        shorter += c["h"] < c["w"] - 1
+    assert shorter >= 1  # the roomy cards are cut to their rows, the footprint (width) is unchanged
+
+
+def test_mid_crossfade_the_surface_is_opaque_before_the_text(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    s = summary(p)
+    set_k(p, s["kCards"] * (s["kStars"] / s["kCards"]) ** 0.75)  # weight 0.25
+    p.page.evaluate(RECORD_MARKS)
+    p.page.evaluate(RECORD_CARD)
+    p.page.evaluate("window.__marks = []; window.__texts = []")
+    p.page.evaluate("views.universe.shown()")
+    assert summary(p)["weight"] == pytest.approx(0.25, abs=1e-6)
+    surfaces = [
+        m["alpha"] for m in p.page.evaluate("window.__marks") if m["op"] == "fill" and m["fill"] == "#ffffff"
+    ]
+    texts = [t["alpha"] for t in p.page.evaluate("window.__texts")]
+    assert surfaces and max(surfaces) == pytest.approx(0.5, abs=1e-6)  # min(1, 2a)
+    assert any(a == pytest.approx(0.25, abs=1e-6) for a in texts)  # the content at a

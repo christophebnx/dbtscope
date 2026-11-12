@@ -100,6 +100,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const CAN_FOLD = PARENT.some(p => p >= 0);
   // the roles of a parent: the copy of domain/fold.PARENT_ROLES (the payload does not carry them)
   const isEntity = n => ['core', 'connector'].includes(KIND[n.kind].role);
+  // the entities among `tables`, as drawn: a table folded into another is no entity of its own (counts, meta line, cards)
+  const entitiesIn = tables => tables.filter(n => !FOLDNOW[n.i] && isEntity(n)).length;
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
   const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
@@ -161,8 +163,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       state.fold = ev.target.checked; opened = null;
       foldMemory.set(state.fold ? 'folded' : 'shown', DATA.defaults.fold ? 'folded' : 'shown');
       relayout();
-      const entities = visible.filter(isEntity).length;
-      $u('live').textContent = state.fold ? T.foldLiveOn(plural(entities, T.entitiesN)) : T.foldLiveOff;
+      $u('live').textContent = state.fold ? T.foldLiveOn(plural(entitiesIn(visible), T.entitiesN)) : T.foldLiveOff;
     };
   }
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
@@ -609,7 +610,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
       // tables and links are counted over what passes the filters: a fold changes what is drawn, not what is counted
-      const entities = folding() ? [plural(visible.filter(isEntity).length, T.entitiesN)] : [];
+      const entities = folding() ? [plural(entitiesIn(visible), T.entitiesN)] : [];
       $u('meta').textContent = [plural(pass.length, L.tables), ...entities, plural(linkCount, T.linksN), groups].join(' · ');
     }
     if (!visible.length) {
@@ -829,7 +830,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const rows = [...d3.group(all, n => (byLayers ? n.domain : n.layer))]
       .map(([key, ns]) => ({ key, n: ns.length, kinds: [...d3.rollup(ns, v => v.length, n => n.kind)].sort((a, b) => KIND_POS.get(a[0]) - KIND_POS.get(b[0])) }))
       .sort((a, b) => pos(a.key) - pos(b.key));
-    return { rows, entities: folding() ? all.filter(n => !FOLDNOW[n.i] && isEntity(n)).length : null,
+    return { rows, entities: folding() ? entitiesIn(all) : null,
              main: (mainTables().get(d.k) || []).map(n => n.i) };
   }
   const rowLabel = key => labelOf(state.by === 'layers' ? DOM[key] : LAYER[key]);
@@ -884,31 +885,44 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // the corner radius in screen px: 0.4 r, but at most max(28 px, 0.24 r), so that the corners stay within 1.18 r of the
   // centre (the collision radius of the layout) at every zoom and the text can be inset from them
-  const cardRadius = (d, w) => Math.min(0.4 * w / 1.8, Math.max(28, 0.24 * w / 1.8));
-  function planCard(d, w, trajText) {
+  const cardRadius = w => Math.min(0.4 * w / 1.8, Math.max(28, 0.24 * w / 1.8));
+  // the trajectory line of a card, from the longest wording to the shortest that fits `inner` px: the counts in words,
+  // then with arrow marks; a direction without table is left out unless both are empty
+  function trajLine(mark, inner) {
+    if (!mark || !mark.text) return '';
+    const dir = trajOpts.direction, parts = [['up', mark.up], ['down', mark.down]].filter(([k]) => dir === 'both' || k === dir);
+    const kept = parts.filter(([, n]) => n > 0), use = kept.length ? kept : parts;
+    const words = use.map(([k, n]) => (k === 'up' ? L.countUp : L.countDown)(num(n))).join(' · ');
+    const marks = use.map(([k, n]) => `${k === 'up' ? '↑' : '↓'} ${num(n)}`).join(' · ');
+    return [words, marks].find(c => textW(c, `600 11px ${FONT}`) <= inner) || ellipsis(marks, inner, `600 11px ${FONT}`);
+  }
+  // The height is the content's, at most the width (the card stays centred on its constellation): `plan.h`.
+  function planCard(d, w, mark) {
     const h = w, { PAD, HEAD, LINE, GAP, ROW } = CARD, byLayers = state.by === 'layers', rows = d.sum.rows;
-    const padX = Math.max(PAD, Math.round(0.34 * cardRadius(d, w))), inner = w - 2 * padX;
-    const plan = { padX, name: '', size: 13, count: '', traj: '', rows: [], more: '', mainY: 0, heading: false, names: [] };
+    const padX = Math.max(PAD, Math.round(0.34 * cardRadius(w))), inner = w - 2 * padX;
+    const plan = { padX, h, name: '', size: 13, count: '', traj: '', rows: [], more: '', mainY: 0, heading: false, names: [] };
     if (w < 24) return plan;
     const name = constellationLabel(d.k);
     plan.size = textW(name, `600 13px ${FONT}`) <= inner ? 13 : 11;
     plan.name = ellipsis(name, inner, `600 ${plan.size}px ${FONT}`);
     let y = PAD + HEAD;
     if (y + LINE > h - 2) return plan;
-    plan.count = [countLine(d.n, d.sum.entities), plural(d.n, L.tables), num(d.n)].find(c => textW(c, `11px ${FONT}`) <= inner) || '';
+    // a card never says "0 entities" (the text summary does)
+    plan.count = [d.sum.entities ? countLine(d.n, d.sum.entities) : '', plural(d.n, L.tables), num(d.n)].find(c => c && textW(c, `11px ${FONT}`) <= inner) || '';
     y += LINE;
-    if (trajText && y + LINE <= h - PAD) { plan.traj = ellipsis(trajText, inner, `600 11px ${FONT}`); y += LINE; }
+    if (mark && mark.text && y + LINE <= h - PAD) { plan.traj = trajLine(mark, inner); y += LINE; }
     y += GAP;
     plan.rowsY = y;
     const fits = Math.floor((h - PAD - y) / ROW);
     if (inner >= 56 && fits >= 1) {
       const shown = fits < rows.length ? Math.max(0, fits - 1) : rows.length, dot = byLayers ? CARD.DOT + 4 : 0;
       const counts = rows.map(r => num(r.n)), countW = d3.max(counts, c => textW(c, `11px ${FONT}`));
-      const wide = dot + d3.max(rows, r => textW(rowLabel(r.key), `11px ${FONT}`));
-      const labelW = Math.max(36, Math.min(wide, inner - countW - 8 - CARD.BAR_MIN - 4));   // the labels first, the bar keeps at least BAR_MIN
-      const bar = inner - labelW - countW - 8 >= CARD.BAR_MIN;
+      const wide = dot + d3.max(rows.slice(0, shown), r => textW(rowLabel(r.key), `11px ${FONT}`));
+      // the label column is as wide as the widest label; the bar takes the rest when that leaves BAR_MIN, else the bar goes
+      // and the label takes up to what is left
+      const bar = wide <= inner - countW - 8 - CARD.BAR_MIN;
       plan.rows = rows.slice(0, shown).map(r => ({ r, label: '' }));
-      plan.labelW = bar ? labelW : inner - countW - 4; plan.countW = countW; plan.bar = bar; plan.dot = dot;
+      plan.labelW = bar ? wide : Math.min(wide, inner - countW - 4); plan.countW = countW; plan.bar = bar; plan.dot = dot;
       plan.rows.forEach(row => { row.label = ellipsis(rowLabel(row.r.key), plan.labelW - dot, `11px ${FONT}`); });
       if (shown < rows.length) {
         const more = rows.length - shown;
@@ -919,9 +933,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const names = d.sum.main, left = h - PAD - y;
     if (names.length && !plan.more && left >= 3 + LINE) {
       const withHead = Math.floor((left - 3 - LINE) / LINE), without = Math.floor((left - 3) / LINE);
-      plan.mainY = y; plan.heading = withHead >= Math.min(3, names.length) && withHead >= 1;
-      plan.names = names.slice(0, plan.heading ? withHead : without);
+      // at least two names (one when there is only one, under its heading), else no block: a lone bullet reads as a stray row
+      const need = Math.min(2, names.length);
+      plan.mainY = y; plan.heading = withHead >= need && withHead >= 1;
+      if (plan.heading) plan.names = names.slice(0, withHead);
+      else if (names.length >= 2 && without >= 2) plan.names = names.slice(0, without);
+      if (plan.names.length) y += 3 + (plan.heading ? LINE : 0) + plan.names.length * LINE;
     }
+    plan.h = Math.min(w, Math.ceil(y + PAD));
     return plan;
   }
   const cardRect = (d, k = t.k) => { const half = 0.9 * d.r * k; return { x: d.x * k + t.x - half, y: d.y * k + t.y - half, w: 2 * half }; };
@@ -937,18 +956,26 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, y, ws[j] - gap, CARD.BAR); bx += ws[j];
     });
   }
+  // a colour dot of a card, outlined in `CONTRAST.edge` when its colour falls short of 3:1 (D-042)
+  function cardDot(col, cx, cy, r) {
+    const edge = CONTRAST.edge(col, C.bg);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+    if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+  }
   // a summary card at alpha `alpha`, in screen space, over the constellation's disc; fills `cardInfo` and, while the
   // cards are live (weight >= 0.5), `summaryHits` and the header rectangle `hits` that drags the constellation
   function drawSummary(d, alpha, a, onScreen, hits) {
-    const { PAD, HEAD, LINE, ROW } = CARD, { x, y, w } = cardRect(d), byLayers = state.by === 'layers';
-    const mark = cardMark(d.k), hot = onScreen && hoverCard === d.k, radius = cardRadius(d, w);
-    const plan = planCard(d, w, mark && mark.text), px = plan.padX, inner = w - 2 * px, border = byLayers ? C.muted : CONTRAST.edge(DOM[d.k].color, C.bg);
-    const path = (grow = 0) => { ctx.beginPath(); ctx.roundRect(x - grow, y - grow, w + 2 * grow, w + 2 * grow, radius + grow); };
-    ctx.globalAlpha = alpha * a; ctx.textAlign = 'left';
+    const { PAD, HEAD, LINE, ROW } = CARD, sq = cardRect(d), w = sq.w, byLayers = state.by === 'layers';
+    const mark = cardMark(d.k), hot = onScreen && hoverCard === d.k, radius = cardRadius(w);
+    const plan = planCard(d, w, mark), px = plan.padX, inner = w - 2 * px, border = byLayers ? C.muted : CONTRAST.edge(DOM[d.k].color, C.bg);
+    const x = sq.x, h = plan.h, y = sq.y + (w - h) / 2;
+    const path = (grow = 0) => { ctx.beginPath(); ctx.roundRect(x - grow, y - grow, w + 2 * grow, h + 2 * grow, radius + grow); };
+    // the surface turns opaque twice as fast as the content, so that the stars' names never show through the text
+    ctx.globalAlpha = alpha * Math.min(1, 2 * a); ctx.textAlign = 'left';
     ctx.fillStyle = C.card; path(); ctx.fill();
     ctx.strokeStyle = mark ? C.text : border; ctx.lineWidth = mark || hot ? 2 : 1.5; path(); ctx.stroke();
     if (mark && mark.start) { ctx.strokeStyle = C.text; ctx.lineWidth = 1.5; path(4.5); ctx.stroke(); }
-    ctx.save(); path(); ctx.clip();
+    ctx.save(); path(); ctx.clip(); ctx.globalAlpha = alpha * a;
     ctx.fillStyle = byLayers ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg); ctx.font = `600 ${plan.size}px ${FONT}`;
     ctx.fillText(plan.name, x + px, y + PAD + 11);
     ctx.fillStyle = C.muted; ctx.font = `11px ${FONT}`;
@@ -956,15 +983,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (plan.traj) { ctx.fillStyle = C.text; ctx.font = `600 11px ${FONT}`; ctx.fillText(plan.traj, x + px, y + PAD + HEAD + LINE + 9); }
     const maxRow = d3.max(d.sum.rows, r => r.n), live = a >= 0.5, info = { k: d.k, rows: plan.rows.length, names: plan.names.length, heading: plan.heading,
       more: !!plan.more, named: plan.name !== '', count: plan.count, traj: plan.traj,
-      barW: plan.bar ? inner - plan.labelW - plan.countW - 8 : 0, x, y, w, header: { x: x + px, y: y + PAD, w: inner, h: HEAD + LINE } };
+      barW: plan.bar ? inner - plan.labelW - plan.countW - 8 : 0, x, y, w, h, header: { x: x + px, y: y + PAD, w: inner, h: HEAD + LINE } };
     plan.rows.forEach(({ r, label }, j) => {
       const ry = y + plan.rowsY + j * ROW, rx = x + px;
       if (onScreen && hoverCard === d.k && hoverRow === r.key) { ctx.fillStyle = HOVER_TINT; ctx.beginPath(); ctx.roundRect(rx, ry, inner, ROW, 3); ctx.fill(); }
-      if (plan.dot) {
-        const col = DOM[r.key].color, edge = CONTRAST.edge(col, C.bg);
-        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(rx + CARD.DOT / 2, ry + ROW / 2, CARD.DOT / 2, 0, 7); ctx.fill();
-        if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
-      }
+      if (plan.dot) cardDot(DOM[r.key].color, rx + CARD.DOT / 2, ry + ROW / 2, CARD.DOT / 2);
       ctx.fillStyle = C.text; ctx.font = `11px ${FONT}`; ctx.fillText(label, rx + plan.dot, ry + ROW / 2 + 4);
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(num(r.n), x + w - px, ry + ROW / 2 + 4); ctx.textAlign = 'left';
       if (plan.bar) drawBar(r, rx + plan.labelW + 4, ry + (ROW - CARD.BAR) / 2, (inner - plan.labelW - plan.countW - 8) * r.n / maxRow);
@@ -979,9 +1002,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       my += 3;
       if (plan.heading) { ctx.fillStyle = C.muted; ctx.font = `600 11px ${FONT}`; ctx.fillText(ellipsis(T.mainH, inner, `600 11px ${FONT}`), x + px, my + 9); my += LINE; }
       plan.names.forEach((i, j) => {
-        const col = KIND[N[i].kind].color, edge = CONTRAST.edge(col, C.bg), ny = my + j * LINE;
-        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + px + 2.5, ny + 6, 2.5, 0, 7); ctx.fill();
-        if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+        const ny = my + j * LINE;
+        cardDot(KIND[N[i].kind].color, x + px + 2.5, ny + 6, 2.5);
         ctx.fillStyle = C.text; ctx.font = `11px ${FONT}`; ctx.fillText(ellipsis(N[i].name, inner - 11, `11px ${FONT}`), x + px + 11, ny + 9);
       });
       info.main = { x: x + px, y: y + plan.mainY, w: inner, h: 3 + (plan.heading ? LINE : 0) + plan.names.length * LINE };
@@ -995,7 +1017,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!traj) return null;
     const m = trajSummary().per.get(key);
     if (!m) return null;
-    return { start: m.start, text: m.up + m.down ? trajectoryCounts(trajOpts.direction, m.up, m.down) : '' };
+    return { start: m.start, up: m.up, down: m.down, text: m.up + m.down ? trajectoryCounts(trajOpts.direction, m.up, m.down) : '' };
   }
   // the aggregated lineage arrows between cards (one per ordered pair and side), under the cards, in world space
   function drawTrajectoryArrows(k) {
@@ -1224,7 +1246,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the constellation under the pointer, if any: its summary card while the cards are live, else its disc
   function constellationAt(ev) {
     const [px, py] = d3.pointer(ev, canvas);
-    if (!tablesLive()) return constellations.find(d => { const c = cardRect(d); return px >= c.x && px <= c.x + c.w && py >= c.y && py <= c.y + c.w; });
+    if (!tablesLive()) return constellations.find(d => {
+      const c = cardRect(d), i = cardInfo.find(q => q.k === d.k), h = i ? i.h : c.w;   // the drawn height, centred on the square
+      return px >= c.x && px <= c.x + c.w && py >= c.y + (c.w - h) / 2 && py <= c.y + (c.w + h) / 2;
+    });
     const [wx, wy] = t.invert([px, py]);
     return constellations.find(d => Math.hypot(wx - d.x, wy - d.y) < d.r);
   }
