@@ -1,5 +1,5 @@
 # Install uv (when missing) and dbtscope for the current user.
-# Windows PowerShell 5.1 and PowerShell 7. Design: docs/architecture/2026-11-12-m8.1-install-scripts.md (D-058).
+# Windows PowerShell 5.1 and PowerShell 7. Design: docs/architecture/2026-11-12-m9.1-install-scripts.md (D-058).
 #
 # Run it in a PowerShell window opened in the folder that holds the wheel (docs/user-guide.md, Quick install).
 param(

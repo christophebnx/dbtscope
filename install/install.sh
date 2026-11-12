@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install uv (when missing) and dbtscope for the current user. macOS and Linux, POSIX sh.
 # Usage: sh install.sh [--wheel FILE | FILE | --from-github [--ref REF]] [--help]
-# Design: docs/architecture/2026-11-12-m8.1-install-scripts.md (D-058).
+# Design: docs/architecture/2026-11-12-m9.1-install-scripts.md (D-058).
 set -eu
 
 GITHUB_URL="https://github.com/christophebnx/dbtscope"

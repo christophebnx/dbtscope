@@ -1,4 +1,4 @@
-"""The install scripts (`install/install.sh`, `install/install.ps1`, D-058, design note M8.1).
+"""The install scripts (`install/install.sh`, `install/install.ps1`, D-058, design note M9.1).
 
 Static rules run everywhere. Behaviour runs the real scripts against fakes (uv, git, curl, dbt written with
 `conftest.fake_executable`) in a temporary folder: no network, no real uv, nothing outside `tmp_path`
