@@ -4,9 +4,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
-### Changed
-
-- dbt's info and warnings are hidden by default (M7.4, D-057): dbtscope runs `dbt --log-level error parse`. Scripts reading dbt's output use `--log-level info`.
+## [0.3.0] - 2026-11-12
 
 ### Added
 
@@ -35,6 +33,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Changed
 
+- dbt's info and warnings are hidden by default (M7.4, D-057): dbtscope runs `dbt --log-level error parse`. Scripts reading dbt's output use `--log-level info`.
 - A failing `dbt parse` with an earlier manifest present now exits 0 with a warning instead of exit 1 (D-054). Scripts that relied on the failure add `--strict-parse`. The failure wording is now `dbt parse failed (exit code N, see above)`; strict-mode hints no longer mention `--no-parse`; with no manifest the error is `<reason>, and there is no earlier manifest <path>; fix dbt, or pass --manifest <file>`. The dbt lookup now happens after the config is read.
 
 - Documentation audit (M6.2), no change to dbtscope: every user, tracking and contributor doc checked against the code. The user guide gives the example's real summaries (page 188 kB; without a config 18 domains and 191 kB), says that arrangements are kept per grouping and per **Tables** level, that the **Constellations** choice has its own browser key (`dbtscope-constellations:<title>`, kept by **Reset layout**), that the Group filter offers **All groups** and is hidden with one group or `group_by: none`, that `name:` matches any table, that a kind without `color` is `#777777` and a rule without `label` shows its key; how it works gives the full default layer order. The README names the three CI platforms; roadmap, progress, the universe brief and design-note statuses are brought up to date; refined decisions point to the decisions that refine them; the responsibility map and the package module tables list every public name. `tests/unit/test_docs.py` now checks the guide's summary blocks against a real run of the example, its detail group counts, the default layer order in how it works and `docs/images/README.md`.
