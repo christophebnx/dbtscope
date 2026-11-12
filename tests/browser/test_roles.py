@@ -8,7 +8,7 @@ generated 1,374-table Data Vault project (D-060). Radii and drawn names are read
 from __future__ import annotations
 
 import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from typing import Any
 
 import pytest
@@ -192,12 +192,14 @@ def test_the_large_project_panel_has_no_other_and_ordered_layers(
 
 def test_a_filter_change_on_the_large_project_is_fast(large_page: tuple[Page, dict[str, Any]]) -> None:
     p, _ = large_page
+    drawn = "views.universe.geometry().tables.length"
+    before = p.page.evaluate(drawn)
     ms = p.page.evaluate(
         "() => { const t0 = performance.now(); document.querySelector('#u-kinds input').click(); "
         "return performance.now() - t0; }"
     )
     assert ms < FILTER_S * 1000
-    assert Counter(p.page.evaluate("views.universe.geometry().tables.map(t => t.domain)"))
+    assert 0 < p.page.evaluate(drawn) < before
 
 
 def test_at_fit_the_example_shows_core_names_in_the_most_related_first_order(
