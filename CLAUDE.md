@@ -24,6 +24,8 @@ uv run pytest -q -n auto -m "not live and not browser"   # tests in parallel; dr
 uv run --group browser pytest -q -m browser tests/browser   # page tests in headless Chromium (D-019)
 uv run ruff check . && uv run ruff format --check .
 uv run pylint --disable=all --enable=duplicate-code src
+uv build --wheel                          # the wheel to share with users without GitHub access (D-055)
+uv run pytest -q -m live tests/integration/test_wheel.py   # the wheel holds presets, assets, vendored libraries (needs uv and PyPI)
 uv run dbtscope --version                 # the CLI
 uv run dbtscope --help                    # options by panel, examples, streams and exit codes (D-026, D-029)
 uv run dbtscope --project-dir <dbt project> --no-parse --no-open   # build a page from an existing manifest

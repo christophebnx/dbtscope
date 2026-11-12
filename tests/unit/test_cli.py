@@ -9,6 +9,7 @@ import subprocess
 import sys
 import webbrowser
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, get_args
 
@@ -29,7 +30,7 @@ from conftest import (
 )
 
 from dbtscope import __version__
-from dbtscope.cli import EPILOG, _count, _size, app, main
+from dbtscope.cli import EPILOG, _age, _count, _moment, _size, app, main
 from dbtscope.domain.config import View
 from dbtscope.render.page import LIBRARIES
 from dbtscope.storage.project_files import CONFIG_HINT, PRESETS, preset_names
@@ -270,7 +271,7 @@ def test_dbt_runs_in_the_project_with_its_output_on_stderr(
     fake = fake_dbt()
     assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
     [(command, kwargs)] = fake.calls
-    assert command == [found_dbt(), "parse"]
+    assert command == [found_dbt(), "--log-level", "error", "parse"]
     assert kwargs["cwd"] == dbt_project and kwargs["stdout"] == 2
     assert kwargs["env"]["DBT_USE_COLORS"] == "false"
     assert capsys.readouterr().err == f"Running dbt parse in {dbt_project}...\n"
@@ -293,8 +294,8 @@ def test_a_relative_dbt_path_runs_as_an_absolute_path(
 def test_dbt_not_found(dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys) -> None:
     monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: None)
     args = ["--project-dir", str(dbt_project), "--no-open"]
-    assert fails(args, capsys) == (
-        "dbt not found on PATH; install dbt, pass --dbt <path>, or use --no-parse with an existing manifest"
+    assert fails([*args, "--strict-parse"], capsys) == (
+        "dbt not found on PATH; install dbt with your project's adapter, or pass --dbt <path>"
     )
     assert fails([*args, "--dbt", "dbt-x"], capsys) == (
         "--dbt dbt-x not found on PATH; check the name or pass its path"
@@ -323,8 +324,7 @@ def test_a_dbt_file_that_is_not_executable(dbt_project: Path, capsys: Capsys) ->
         (
             FakeRun(code=2),
             1,
-            "dbt parse failed with exit code 2 (see its messages above); "
-            "fix the project, or pass --no-parse to map the existing manifest",
+            "dbt parse failed (exit code 2, see above); fix the dbt project or its profile",
         ),
         (FakeRun(error=KeyboardInterrupt()), 130, "interrupted"),
     ],
@@ -340,9 +340,9 @@ def test_dbt_failures(
 ) -> None:
     monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr("dbtscope.cli.subprocess.run", fake)
-    assert fails(["--project-dir", str(dbt_project), "--no-open"], capsys, code) == expected.format(
-        dbt=found_dbt()
-    )
+    assert fails(
+        ["--project-dir", str(dbt_project), "--no-open", "--strict-parse"], capsys, code
+    ) == expected.format(dbt=found_dbt())
     assert not (dbt_project / "erd_output").exists()
 
 
@@ -353,7 +353,7 @@ def test_a_dbt_script_whose_interpreter_is_missing(
     script.write_text("#!/nowhere/python\n", encoding="utf-8")
     monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: str(script))
     monkeypatch.setattr("dbtscope.cli.subprocess.run", FakeRun(error=FileNotFoundError(errno.ENOENT, "x")))
-    assert fails(["--project-dir", str(dbt_project), "--no-open"], capsys) == (
+    assert fails(["--project-dir", str(dbt_project), "--no-open", "--strict-parse"], capsys) == (
         f"cannot run {script}: its interpreter was not found (check its first line); check --dbt"
     )
 
@@ -859,3 +859,348 @@ def test_a_preset_file_that_is_a_folder_fails(dbt_project: Path, capsys: Capsys)
 def test_a_wrong_preset_points_at_preset_file(value: str, capsys: Capsys) -> None:
     message = fails(["--preset", value, "--no-open"], capsys, code=2)
     assert message.endswith(f" (or use --preset-file for a preset file){USAGE}")
+
+
+# --- fallback to the earlier manifest (D-054) -----------------------------------------------
+
+NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
+FAILURES = {
+    "fails": (FakeRun(code=2), "dbt parse failed (exit code 2, see above)"),
+    "cannot-run": (
+        FakeRun(error=FileNotFoundError(errno.ENOENT, "No such file or directory")),
+        "cannot run {dbt}: no such file or directory",
+    ),
+    "not-found": (None, "dbt not found on PATH"),
+}
+NO_MANIFEST_HINT = "fix dbt, or pass --manifest <file>"
+
+
+def break_dbt(case: str, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Make dbt fail as `case` says; return the reason (`{dbt}` filled)."""
+    fake, reason = FAILURES[case]
+    monkeypatch.setattr(
+        "dbtscope.cli.shutil.which", lambda name: None if fake is None else f"/usr/bin/{name}"
+    )
+    monkeypatch.setattr("dbtscope.cli.subprocess.run", fake)  # None: never called
+    return reason.format(dbt=found_dbt())
+
+
+@pytest.mark.parametrize("case", FAILURES)
+def test_a_failing_dbt_falls_back_to_the_earlier_manifest(
+    case: str, dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    reason = break_dbt(case, monkeypatch)
+    manifest = dbt_project / "target" / "manifest.json"
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    captured = capsys.readouterr()
+    err = captured.err.splitlines()
+    [first] = [line for line in err if line.startswith("dbtscope: warning: ")]
+    at = err.index(first)
+    assert err[at:] == [
+        f"dbtscope: warning: {reason}; mapping the earlier manifest, which may be out of date",
+        f"  manifest: {manifest}, last modified {err[at + 1].split('last modified ')[1]}",
+        err[at + 2],
+    ]
+    assert err[at + 1].endswith(")") and err[at + 2].startswith("  next: ")
+    assert len(first) < 140
+    assert "dbtscope: error" not in captured.err
+    lines = captured.out.splitlines()
+    assert lines[0] == str(dbt_project.resolve() / "erd_output" / "erd.html")
+    [row] = [line for line in lines if line.strip().startswith("manifest:")]
+    assert row.endswith(f"{manifest}, last modified less than a minute ago (earlier run; dbt parse failed)")
+    assert row[:12] == "  manifest: " and row[12] != " "
+    labels = [line.split(":")[0].strip() for line in lines[1:]]
+    assert labels.index("config") < labels.index("manifest")
+    assert (dbt_project / "erd_output" / "erd.html").is_file()
+
+
+@pytest.mark.parametrize("case", FAILURES)
+def test_a_failing_dbt_without_a_manifest_is_an_error_naming_the_missing_manifest(
+    case: str, dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    reason = break_dbt(case, monkeypatch)
+    manifest = dbt_project / "target" / "manifest.json"
+    manifest.unlink()
+    message = fails(["--project-dir", str(dbt_project), "--no-open"], capsys)
+    assert message == f"{reason}, and there is no earlier manifest {manifest}; {NO_MANIFEST_HINT}"
+    assert "--no-parse" not in message
+    assert not (dbt_project / "erd_output").exists()
+
+
+@pytest.mark.parametrize("case", FAILURES)
+def test_strict_parse_turns_a_fallback_into_the_error(
+    case: str, dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    reason = break_dbt(case, monkeypatch)
+    message = fails(["--project-dir", str(dbt_project), "--no-open", "--strict-parse"], capsys)
+    assert message.startswith(f"{reason}; ")
+    assert "earlier manifest" not in message and "--no-parse" not in message
+    assert not (dbt_project / "erd_output").exists()
+
+
+@pytest.mark.parametrize("case", FAILURES)
+def test_strict_parse_without_a_manifest_gives_the_strict_error(
+    case: str, dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    reason = break_dbt(case, monkeypatch)
+    (dbt_project / "target" / "manifest.json").unlink()
+    message = fails(["--project-dir", str(dbt_project), "--no-open", "--strict-parse"], capsys)
+    assert message.startswith(f"{reason}; ")
+    assert "earlier manifest" not in message and "--manifest" not in message
+
+
+def test_a_manifest_that_is_a_folder_is_no_fallback(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt(code=2)
+    manifest = dbt_project / "target" / "manifest.json"
+    manifest.unlink()
+    manifest.mkdir()
+    message = fails(["--project-dir", str(dbt_project), "--no-open"], capsys)
+    assert f"there is no earlier manifest {manifest}; " in message
+
+
+@pytest.mark.parametrize(("other", "flag"), [("--no-parse", None), ("--manifest", "m.json")])
+def test_strict_parse_with_no_parse_or_manifest_is_a_usage_error(
+    other: str, flag: str | None, dbt_project: Path, capsys: Capsys
+) -> None:
+    args = ["--project-dir", str(dbt_project), "--no-open", "--strict-parse", other]
+    if flag:
+        args.append(str(dbt_project / "target" / "manifest.json"))
+    assert fails(args, capsys, code=2) == (
+        f"invalid value for '--strict-parse': cannot be used together with {other}{USAGE}"
+    )
+
+
+def test_a_strict_successful_parse_is_unchanged(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open", "--strict-parse"]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == f"Running dbt parse in {dbt_project}...\n"
+    assert "manifest:" not in captured.out
+
+
+def test_a_successful_parse_has_no_warning_and_no_manifest_row(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    captured = capsys.readouterr()
+    assert "warning" not in captured.err and "manifest:" not in captured.out
+
+
+def test_no_parse_never_prints_a_fallback_row(dbt_project: Path, capsys: Capsys) -> None:
+    assert main(build(dbt_project)) == 0
+    assert "manifest:" not in capsys.readouterr().out
+
+
+def test_an_explicit_dbt_that_does_not_resolve_never_falls_back(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: None)
+    message = fails(["--project-dir", str(dbt_project), "--no-open", "--dbt", "dbt-x"], capsys)
+    assert message == "--dbt dbt-x not found on PATH; check the name or pass its path"
+    missing = dbt_project / "nope" / "dbt"
+    assert fails(["--project-dir", str(dbt_project), "--no-open", "--dbt", str(missing)], capsys) == (
+        f"--dbt {missing} does not exist or is not executable; check the path"
+    )
+
+
+def test_a_failing_explicit_dbt_that_resolves_falls_back(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    dbt = fake_dbt_executable(dbt_project / "bin")
+    monkeypatch.setattr("dbtscope.cli.subprocess.run", FakeRun(code=3))
+    assert main(["--project-dir", str(dbt_project), "--no-open", "--dbt", str(dbt)]) == 0
+    assert "warning: dbt parse failed (exit code 3, see above)" in capsys.readouterr().err
+
+
+def test_ctrl_c_during_parse_is_not_a_fallback(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt(error=KeyboardInterrupt())
+    assert fails(["--project-dir", str(dbt_project), "--no-open"], capsys, 130) == "interrupted"
+    assert "warning" not in capsys.readouterr().err
+    assert not (dbt_project / "erd_output").exists()
+
+
+def test_the_fallback_tells_the_manifest_age_and_moment(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt(code=2)
+    manifest = dbt_project / "target" / "manifest.json"
+    written = datetime.now(UTC) - timedelta(days=3, hours=1)
+    os.utime(manifest, (written.timestamp(), written.timestamp()))
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    captured = capsys.readouterr()
+    assert f"  manifest: {manifest}, last modified 3 days ago ({_moment(written)})\n" in captured.err
+    assert f"{manifest}, last modified 3 days ago (earlier run; dbt parse failed)" in captured.out
+
+
+def test_a_missing_profile_hint_names_both_locations(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake_dbt(code=2)
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    err = capsys.readouterr().err
+    assert "connects to nothing" not in err
+    assert "dbt still needs a profiles.yml to read the project" in err
+    assert "project folder or in ~/.dbt, on Windows %USERPROFILE%\\.dbt" in err
+
+
+def test_a_manifest_written_by_the_failed_run_is_not_called_earlier(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    manifest = dbt_project / "target" / "manifest.json"
+    stale = FakeRun(code=2)
+
+    def run(*args: object, **kwargs: object) -> object:
+        future = datetime.now(UTC) + timedelta(minutes=1)
+        os.utime(manifest, (future.timestamp(), future.timestamp()))  # as if dbt wrote it now
+        return stale(*args, **kwargs)
+
+    monkeypatch.setattr("dbtscope.cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("dbtscope.cli.subprocess.run", run)
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    captured = capsys.readouterr()
+    assert "mapping the manifest dbt wrote before failing, which may be incomplete" in captured.err
+    assert "earlier" not in captured.err and "out of date" not in captured.err
+    assert (
+        f"{manifest}, last modified less than a minute ago (written by this run; dbt parse failed)"
+        in captured.out
+    )
+
+
+def test_a_manifest_that_cannot_be_read_is_a_manifest_error(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    fake_dbt(code=2)
+    manifest = dbt_project / "target" / "manifest.json"
+    original = Path.stat
+
+    def stat(self: Path, **kwargs: object) -> os.stat_result:
+        if self == manifest:
+            raise PermissionError(errno.EACCES, "Permission denied")
+        return original(self, **kwargs)
+
+    monkeypatch.setattr("dbtscope.cli._has_manifest", lambda path: True)
+    monkeypatch.setattr(Path, "stat", stat)
+    message = fails(["--project-dir", str(dbt_project), "--no-open"], capsys)
+    assert message.startswith(f"cannot read manifest {manifest}: ")
+    assert message.endswith("check its permissions")
+    assert "installation" not in message
+
+
+def test_a_fallback_on_a_config_error_shows_the_config_error_first(
+    dbt_project: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    break_dbt("not-found", monkeypatch)
+    write_config(dbt_project, "title: [unclosed\n")
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 1
+    err = capsys.readouterr().err
+    assert "dbt not found" not in err
+    assert err.splitlines()[-1].startswith("dbtscope: error: config ") and "is not valid YAML" in err
+
+
+@pytest.mark.parametrize(
+    ("delta", "expected"),
+    [
+        (timedelta(0), "less than a minute ago"),
+        (timedelta(seconds=59), "less than a minute ago"),
+        (timedelta(seconds=-30), "less than a minute ago"),
+        (timedelta(days=-5), "less than a minute ago"),
+        (timedelta(seconds=60), "1 minute ago"),
+        (timedelta(minutes=59, seconds=59), "59 minutes ago"),
+        (timedelta(hours=1), "1 hour ago"),
+        (timedelta(hours=23, minutes=59), "23 hours ago"),
+        (timedelta(days=1), "1 day ago"),
+        (timedelta(days=2, hours=23), "2 days ago"),
+        (timedelta(days=400), "400 days ago"),
+    ],
+)
+def test_age_is_told_in_the_largest_unit(delta: timedelta, expected: str) -> None:
+    assert _age(NOW - delta, NOW) == expected
+
+
+def test_age_accepts_a_timezone_other_than_utc() -> None:
+    plus_two = datetime(2026, 11, 12, 13, 0, tzinfo=UTC).astimezone(timezone_plus(2))
+    assert _age(plus_two - timedelta(hours=3), NOW) == "2 hours ago"
+
+
+def timezone_plus(hours: int) -> timezone:
+    return timezone(timedelta(hours=hours))
+
+
+def test_moment_converts_aware_datetimes_to_utc_and_takes_naive_ones_as_utc() -> None:
+    assert _moment(datetime(2026, 11, 9, 16, 2, tzinfo=timezone_plus(2))) == "2026-11-09 14:02 UTC"
+    assert _moment(datetime(2026, 11, 9, 14, 2)) == "2026-11-09 14:02 UTC"
+
+
+@pytest.mark.parametrize("level", ["debug", "info", "warn", "error", "none"])
+def test_log_level_is_passed_to_dbt_before_the_subcommand(
+    level: str, dbt_project: Path, fake_dbt: Callable[..., FakeRun], capsys: Capsys
+) -> None:
+    fake = fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open", "--log-level", level]) == 0
+    assert fake.calls[0][0] == [found_dbt(), "--log-level", level, "parse"]
+    assert capsys.readouterr().err.startswith(f"Running dbt parse in {dbt_project}...")
+
+
+def test_dbt_log_level_of_the_environment_does_not_change_the_argv(
+    dbt_project: Path, fake_dbt: Callable[..., FakeRun], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DBT_LOG_LEVEL", "info")
+    fake = fake_dbt()
+    assert main(["--project-dir", str(dbt_project), "--no-open"]) == 0
+    assert fake.calls[0][0] == [found_dbt(), "--log-level", "error", "parse"]
+
+
+@pytest.mark.parametrize("value", ["verbose", "ERROR"])
+def test_a_bad_log_level_is_a_usage_error(value: str, dbt_project: Path, capsys: Capsys) -> None:
+    message = fails(["--project-dir", str(dbt_project), "--no-open", "--log-level", value], capsys, code=2)
+    assert message.startswith("invalid value for '--log-level'")
+    assert "debug" in message and "none" in message
+
+
+@pytest.mark.parametrize(("other", "flag"), [("--no-parse", None), ("--manifest", "m.json")])
+def test_log_level_with_no_parse_or_manifest_is_a_usage_error(
+    other: str, flag: str | None, dbt_project: Path, capsys: Capsys
+) -> None:
+    args = ["--project-dir", str(dbt_project), "--no-open", "--log-level", "info", other]
+    if flag:
+        args.append(str(dbt_project / "target" / "manifest.json"))
+    assert fails(args, capsys, code=2) == (
+        f"invalid value for '--log-level': cannot be used together with {other}{USAGE}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("args", "reason"),
+    [
+        ([], "dbt parse failed (exit code 2, see above)"),
+        (["--log-level", "info"], "dbt parse failed (exit code 2, see above)"),
+        (["--log-level", "none"], "dbt parse failed (exit code 2; --log-level none hid dbt's messages)"),
+    ],
+    ids=["default", "info", "none"],
+)
+def test_the_failure_reason_follows_the_log_level(
+    args: list[str],
+    reason: str,
+    dbt_project: Path,
+    fake_dbt: Callable[..., FakeRun],
+    capsys: Capsys,
+) -> None:
+    fake_dbt(code=2)
+    base = ["--project-dir", str(dbt_project), "--no-open", *args]
+    hint = (
+        "run again with --log-level error to see why"
+        if "none" in args
+        else "fix the dbt project or its profile"
+    )
+    assert fails([*base, "--strict-parse"], capsys) == f"{reason}; {hint}"
+    assert main(base) == 0
+    err = capsys.readouterr().err
+    assert reason in err
+    assert ("--log-level error to see why" in err) == ("none" in args)

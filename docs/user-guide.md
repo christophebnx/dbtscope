@@ -11,6 +11,7 @@ Contents
   - [Install uv](#install-uv)
   - [Access to the private repository](#access-to-the-private-repository)
   - [Option A: install the command from GitHub](#option-a-install-the-command-from-github)
+  - [Option C: from a wheel file](#option-c-from-a-wheel-file)
   - [Option B: from a git clone](#option-b-from-a-git-clone)
   - [Run once without installing (uvx)](#run-once-without-installing-uvx)
   - [Check the installation](#check-the-installation)
@@ -69,8 +70,8 @@ dbtscope never connects to your warehouse and the page holds no data: only names
 ### What you need
 
 - **uv**, the Python package manager that installs dbtscope. It brings its own Python (3.12 or later) and installs dbtscope's dependencies (PyYAML, pydantic v2, Typer) in an isolated environment, so a dbt project pinned to pydantic v1 is not affected.
-- **git**: uv uses it to fetch dbtscope from GitHub.
-- **dbt**, with your project's adapter and profile, only to run `dbt parse` in [live mode](#live-in-the-project-folder). Not needed when you map an existing manifest (`--no-parse` or `--manifest`).
+- **git**, only for options A and B: uv uses it to fetch dbtscope from GitHub. [Option C](#option-c-from-a-wheel-file) needs neither git nor GitHub.
+- **dbt**, with your project's adapter and profile, only to run `dbt parse` in [live mode](#live-in-the-project-folder). Not needed when you map an existing manifest (`--no-parse` or `--manifest`). If dbt cannot run or `dbt parse` fails, the manifest already in `target/` is mapped, with a warning ([details](#live-in-the-project-folder)).
 
 ### Install uv
 
@@ -156,6 +157,20 @@ To install a given version, add a commit or a tag after `@`:
 uv tool install git+https://github.com/christophebnx/dbtscope@<commit or tag>
 ```
 
+### Option C: from a wheel file
+
+Recommended when you have no GitHub access, for example on Windows without git. Someone with access to the repository builds a wheel and shares the file (network drive, SharePoint, chat). You need only uv, no git and no GitHub. The same lines work in PowerShell and bash:
+
+```bash
+uv tool install C:\Downloads\dbtscope-0.3.0-py3-none-any.whl     # or a path on any OS
+uv tool update-shell
+dbtscope --version
+```
+
+uv still needs access to PyPI (or your company's mirror, `UV_DEFAULT_INDEX`) to fetch Python and dbtscope's dependencies (pydantic, PyYAML, Typer). The wheel is pure Python: one file serves Windows, macOS and Linux.
+
+For whoever shares the wheel: from a clean checkout of a release tag, `uv build --wheel` writes `dist/dbtscope-<version>-py3-none-any.whl`, so that `dbtscope --version` names a real release.
+
 ### Option B: from a git clone
 
 A clone is useful to try a branch, to install on a machine that will later have no network, or to contribute.
@@ -196,7 +211,7 @@ uv tool install .              # a copy of the clone as it is now
 uv tool install --editable .   # or: follows the clone, so git pull updates the command
 ```
 
-Which to choose: **A** for most users. **B** to try a branch (`git checkout <branch>` before installing), to keep a copy that installs again without access to GitHub, or to work on dbtscope itself.
+Which to choose: **A** for most users. **C** when you cannot read the GitHub repository. **B** to try a branch (`git checkout <branch>` before installing), to keep a copy that installs again without access to GitHub, or to work on dbtscope itself.
 
 ### Run once without installing (uvx)
 
@@ -229,8 +244,8 @@ Get-Command dbtscope     # Windows: where the command is
 The output looks like this:
 
 ```text
-dbtscope 0.2.0
-dbtscope v0.2.0
+dbtscope 0.3.0
+dbtscope v0.3.0
 - dbtscope
 ```
 
@@ -242,6 +257,7 @@ For live mode, also check dbt with `dbt --version`. Then make a first page from 
 |---|---|
 | A, `uv tool install git+…` | `uv tool upgrade dbtscope` (fetches the latest commit of the repository) |
 | A, at a given commit or tag | `uv tool install --force git+https://github.com/christophebnx/dbtscope@<commit or tag>`; to follow the latest commit again, the same without `@…` |
+| C, `uv tool install <wheel>` | `uv tool install --reinstall <new wheel>` (also for a rebuilt wheel of the same version; `--force` alone may keep the cached version) |
 | B1, `uv run` in the clone | `git pull`, then `uv sync` |
 | B2, `uv tool install .` | `git pull`, then `uv tool install --reinstall .` |
 | B2, `uv tool install --editable .` | `git pull`; if dbtscope's dependencies changed, also `uv tool install --reinstall --editable .` |
@@ -255,7 +271,7 @@ After an upgrade:
 ### Uninstall
 
 ```bash
-uv tool uninstall dbtscope      # A and B2
+uv tool uninstall dbtscope      # A, B2 and C
 uv cache clean dbtscope         # optional: what uvx and uv keep in their cache
 ```
 
@@ -293,7 +309,7 @@ What happens: dbtscope runs `dbt parse` (no warehouse connection), reads `target
 dbtscope --preset data_vault
 ```
 
-A real run on the example project, with `dbt parse`'s own output (stderr) followed by the summary (stdout); on your machine the paths are your own:
+A real run on the example project with `--log-level info`, showing `dbt parse`'s own output (stderr) followed by the summary (stdout); by default only dbt's errors are printed, so the dbt lines are absent. On your machine the paths are your own:
 
 ```text
 Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
@@ -309,6 +325,16 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
 ```
 
 The summary reads: the page path; how many tables, domains, relations and lineage links the universe shows; what the detail view holds, by kind; how the page opens and where its libraries come from, with its size; the config file and preset used (`none (built-in defaults)` without a `dbt-erd.yml`).
+
+If dbt is not on `PATH`, cannot start, or `dbt parse` fails (often no profile), and `target/manifest.json` already exists, dbtscope maps that manifest and exits 0 instead of stopping. stderr gets a warning after dbt's own output (by default only dbt's errors; `--log-level warn|info|debug` for more):
+
+```text
+dbtscope: warning: dbt parse failed (exit code 2, see above); mapping the earlier manifest, which may be out of date
+  manifest: /home/ana/code/shop/target/manifest.json, last modified 3 days ago (2026-11-09 14:02 UTC)
+  next: fix what dbt reports (often a missing profile: dbt still needs a profiles.yml to read the project, in the project folder or in ~/.dbt, on Windows %USERPROFILE%\.dbt), or pass --no-parse to skip dbt parse
+```
+
+The summary gets one more row, after `config`: `manifest: <path>, last modified 3 days ago (earlier run; dbt parse failed)`. If the manifest was written by the failed run itself, the warning says "the manifest dbt wrote before failing, which may be incomplete" and the row says `(written by this run; dbt parse failed)`. Without a manifest, the run stops (exit 1) and says so. `--strict-parse` always stops, even with a manifest. A mistyped `--dbt`, a parse that writes no manifest at `target/manifest.json`, and Ctrl-C still stop the run.
 
 ### A project in another folder
 
@@ -329,7 +355,7 @@ Relative paths given as options are read from the current folder, not from `--pr
 When: a script or a CI job builds the page, with no browser.
 
 ```bash
-dbtscope --no-open -o ../maps/shop.html                       # no browser, page elsewhere
+dbtscope --strict-parse --no-open -o ../maps/shop.html        # no browser, page elsewhere; fail if dbt parse fails
 dbtscope --no-parse --no-open                                  # reuse target/manifest.json
 dbtscope --manifest ci-artifacts/manifest.json --no-open       # a manifest from another job
 dbtscope --no-open --offline -o shop-map.html                  # one file that works with no network, to share or archive
@@ -338,13 +364,15 @@ dbtscope --no-open --offline -o shop-map.html                  # one file that w
 The first line of the summary is the absolute path of the page. To keep it in a variable, in bash:
 
 ```bash
-page=$(dbtscope --no-open 2>/dev/null | head -1)
+page=$(dbtscope --strict-parse --no-open 2>/dev/null | head -1)
 ```
+
+`2>/dev/null` hides the stale-map warning (stderr). Without `--strict-parse`, check the `manifest:` row of the summary (stdout), which appears only when an earlier manifest was mapped.
 
 In PowerShell:
 
 ```powershell
-$page = dbtscope --no-open 2>$null | Select-Object -First 1
+$page = dbtscope --strict-parse --no-open 2>$null | Select-Object -First 1
 ```
 
 A GitHub Actions workflow of your dbt repository (for example `.github/workflows/dbt-map.yml`) that publishes the page as an artifact:
@@ -373,7 +401,7 @@ jobs:
       - name: Build the map
         env:
           DBT_PROFILES_DIR: ${{ github.workspace }}/ci   # a profiles.yml for dbt parse; no connection is made
-        run: dbtscope --no-open --offline -o erd_output/erd.html
+        run: dbtscope --strict-parse --no-open --offline -o erd_output/erd.html
       - uses: actions/upload-artifact@v4
         with:
           name: dbt-map
@@ -381,6 +409,8 @@ jobs:
 ```
 
 The token is a fine-grained personal access token (resource owner `christophebnx`, only the `dbtscope` repository, Contents read-only, with an expiry date), stored as the secret `DBTSCOPE_TOKEN` of your dbt repository. `actions/checkout` sets its credentials only in the checked-out repository, so it does not interfere.
+
+Add `--strict-parse` in CI: without it, a failing `dbt parse` maps an older `target/manifest.json` when one survives (persistent runner, cached `target/`) and exits 0, so a stale map could be published unnoticed. With the flag the job fails (exit 1). A fresh checkout has no `target/`, so it fails there either way.
 
 If a dbt job already produces `target/manifest.json`, skip the dbt install and pass that file with `--manifest`. A `profiles.yml` whose values come from `env_var()` needs those variables set, or a default, even for `dbt parse`.
 
@@ -403,6 +433,8 @@ Copy-Item C:\somewhere\manifest.json shop-map\target\manifest.json
 New-Item -ItemType File shop-map\dbt_project.yml   # must exist; its content is not read
 cd shop-map; dbtscope --no-parse
 ```
+
+A plain `dbtscope` in such a folder works too when `target/manifest.json` exists and dbt is missing: the manifest is mapped with a [warning](#live-in-the-project-folder). `--no-parse` skips the warning.
 
 The file must be `dbt_project.yml`: a `dbt_project.yaml` is refused with a rename hint. `--manifest <file>` works too, but still needs a folder with `dbt_project.yml`, because the config and the layout are read from there. Add `dbt-erd.yml` and `dbt-erd-layout.json` next to it if you have them.
 
@@ -524,6 +556,8 @@ In the panels of `dbtscope --help`, where `--version` and `-h, --help` are liste
 | `--no-parse` | do not run `dbt parse`; read `target/manifest.json` in the project folder |
 | `--manifest FILE` | read this `manifest.json` instead of running `dbt parse` |
 | `--dbt PATH` | dbt executable, a name on `PATH` or a path (default: `dbt`) |
+| `--strict-parse` | stop with an error when `dbt parse` cannot run or fails, instead of mapping the earlier manifest (for CI); cannot be used with `--no-parse` or `--manifest` |
+| `--log-level LEVEL` | dbt's console log level, passed to `dbt parse`: `debug`, `info`, `warn`, `error`, `none`. Default: `error`, dbt's errors only; `warn` (warnings) or `info` show more. Cannot be used with `--no-parse` or `--manifest` |
 | **Output** | |
 | `-o, --output FILE` | HTML page to write (default: `output` in the config, else `erd_output/erd.html` in the project folder) |
 | `--no-open` | do not open the page in the browser (CI) |
@@ -534,7 +568,7 @@ In the panels of `dbtscope --help`, where `--version` and `-h, --help` are liste
 | `--version` | show the version and exit |
 | `-h, --help` | show this help and exit |
 
-The page path and a summary go to stdout (the first line is the absolute path of the page); progress, `dbt parse`'s own output, warnings and errors go to stderr.
+The page path and a summary go to stdout (the first line is the absolute path of the page); progress, `dbt parse`'s own output, warnings and errors go to stderr. By default only dbt's errors appear there (`--log-level error`); use `--log-level warn`, `info` or `debug` for more.
 
 ## Configuration
 
@@ -834,10 +868,12 @@ Exit code 1 unless the row says otherwise.
 | `no dbt_project.yml in …` | run from the dbt project folder or pass `--project-dir`; dbt reads `dbt_project.yml` only, rename a `dbt_project.yaml` |
 | `got unexpected extra argument` | the project folder is given with `--project-dir`, never as an argument (exit code 2) |
 | **dbt** | |
-| `dbt not found on PATH` | install dbt, pass `--dbt <path>`, or use `--no-parse` with an existing manifest |
+| `dbt not found on PATH, and there is no earlier manifest …` / `dbt parse failed (exit code …, see above), and there is no earlier manifest …` / `cannot run …, and there is no earlier manifest …` | dbt failed and `target/manifest.json` does not exist, so there is nothing to map: fix dbt (see the rows below), or pass `--manifest <file>` with a manifest made elsewhere |
+| `dbt not found on PATH; install dbt …` (with `--strict-parse`) | install dbt with your project's adapter, or pass `--dbt <path>`; without `--strict-parse` an existing manifest is mapped with a warning |
 | `--dbt … does not exist or is not executable` / `--dbt … not found on PATH` | check the path or the name given to `--dbt` |
 | `cannot run …` | dbt could not start (for example its first line names a Python that is gone): check `--dbt` or reinstall dbt |
-| `dbt parse failed with exit code …` | dbt's own messages are printed right above. Common causes: no profile (`profiles.yml` in the project folder or `~/.dbt`), the adapter is not installed, a broken model. Fix the project, or pass `--no-parse` to map the existing manifest |
+| `dbt parse failed (exit code …, see above)` | dbt's own messages are printed right above (its warnings are hidden by default: add `--log-level warn` (warnings) or `info` to see them; with `--log-level none` the reason reads `--log-level none hid dbt's messages` and dbt prints nothing). Common causes: no profile (dbt still needs a `profiles.yml` to read the project, in the project folder or in `~/.dbt`, on Windows `%USERPROFILE%\.dbt`), the adapter is not installed, a broken model. As an error (exit 1) it comes with `--strict-parse`: fix the dbt project or its profile. Otherwise it is a warning and the earlier manifest is mapped |
+| `dbtscope: warning: dbt parse failed …; mapping the earlier manifest` | not an error (exit 0): the page shows the project as of the manifest's last modification. Fix what dbt reports to refresh it, or pass `--no-parse` to skip `dbt parse` |
 | `dbt parse did not write …` | `dbt_project.yml` sets another `target-path`: pass `--manifest <that folder>/manifest.json` |
 | **Manifest** | |
 | `manifest … not found` | run without `--no-parse` so that `dbt parse` writes it, or check `--manifest` |
@@ -876,16 +912,17 @@ Exit code 1 unless the row says otherwise.
 | **Other** | |
 | `invalid value for …` / `no such option` / `requires an argument` / `must not be empty` | check the option against [Options](#options) (exit code 2) |
 | `interrupted` | the run was stopped with Ctrl-C (exit code 130); the page is never left half-written |
-| `…; check the installation` | the system refused something unexpected: reinstall dbtscope (`uv tool install --reinstall git+https://github.com/christophebnx/dbtscope`) |
+| `…; check the installation` | the system refused something unexpected: reinstall dbtscope (`uv tool install --reinstall git+https://github.com/christophebnx/dbtscope`, or `uv tool install --reinstall <wheel>` for option C) |
 | `internal error …` | a bug: please report it with the command you ran |
 | a file or folder named `~` not found | dbtscope does not expand `~`; the shell does, only when it is unquoted and starts a word (write `~/x`, not `"~/x"` or `--opt=~/x`). PowerShell 5.1 does not expand it for programs such as dbtscope: write `$HOME\x` |
 
-Warnings (`dbtscope: warning: …`, exit code 0) say when the browser could not be opened (the page's `file://` address is printed) or when one view of the page is empty (check `select` and `exclude`, or `universe.select` and `universe.exclude`).
+Warnings (`dbtscope: warning: …`, exit code 0) say when `dbt parse` failed and an earlier manifest is mapped instead (see [Live](#live-in-the-project-folder); the page may be out of date), when the browser could not be opened (the page's `file://` address is printed) or when one view of the page is empty (check `select` and `exclude`, or `universe.select` and `universe.exclude`).
 
 ### Installation problems
 
 - **`dbtscope` is not found after installing**: run `uv tool update-shell` and open a new terminal; `uv tool dir --bin` prints the folder that must be on `PATH`.
 - **uv asks for a password or says the repository is not found**: git cannot read the private repository; set up one of the [three ways](#access-to-the-private-repository) and check with `git ls-remote`.
+- **No GitHub access at all** (for example Windows without git): install from a wheel file, [option C](#option-c-from-a-wheel-file).
 
 ## FAQ
 
