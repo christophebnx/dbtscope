@@ -63,7 +63,7 @@ The page's libraries are vendored in `src/dbtscope/render/vendor/`, never edited
 - For any feature or change, use the `/feature` skill: architect → ui-designer (UI changes only) → developer → tester → reviewer (+ ui-designer review for UI changes) → documentation.
 - For a small, local fix (no new module, format, interface or decision), use `/fix`: failing test first, then developer → tester → reviewer. It hands over to `/feature` when the change is not small.
 - Run `/audit` before a release or after a long autonomous run: whole-tree check for duplicated responsibilities, layering leaks and docs drift. `tools/doc_consistency.py` (also a test) keeps package module tables and the responsibility map true.
-- To bring in improvements of the `template_python` template this project was created from, use `/sync-template` (`.claude/template.json` says what the template owns).
+- To bring in improvements of the `template_claude_core` template (formerly `template_python`) this project was created from, use `/sync-template` (`.claude/template.json` says what the template owns).
 - Agents run on the model set in their front matter (`model:`, D-049): change it there, not per call.
 - To build the roadmap autonomously, or resume it, use `/build-roadmap`. Progress and blocking questions live in `docs/progress.md`.
 - Each agent returns at most ten lines. Details go into `docs/`, not into the conversation.

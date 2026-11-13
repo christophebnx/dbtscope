@@ -6,6 +6,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Added
 
+- The template is renamed `template_claude_core` (formerly `template_python`): `.claude/template.json` points to the new URL.
 - Synced with template `acbf7f4`: `tools/doc_consistency.py` resolves responsibility-map references by file, in any language (JavaScript modules, short module names, file names), as found on a larger map; its test reads the package name instead of assuming `app`.
 - The CI runs locally (D-053, template D-017): `tools/ci.py` (`ruff check`, default tests) runs before every push through a new pre-push hook; the GitHub workflow runs the same script, only when started by hand, on Ubuntu. Windows and macOS jobs and `ruff format --check` leave the CI; any other CI trigger or step needs an explicit request (`tests/unit/test_ci.py`). Synced with template `7c4f4c1`.
 - Synced with template `657d64c` (template_python, first sync, D-049 to D-052): skills `/fix` (light fix chain, failing test first), `/audit` (whole-tree health check) and `/sync-template`; `tools/doc_consistency.py` checks package module tables and the responsibility map in the test suite; the suite fails while a `TODO(project):` marker is left; agents run on a fixed model (opus for architect and reviewer, sonnet for the others); hooks about 8× faster, protected paths in `.claude/guard.json`. `tests/conftest.load_script` now registers the module it loads (the guard hook uses a dataclass).
