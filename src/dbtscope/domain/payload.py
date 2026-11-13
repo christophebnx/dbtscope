@@ -34,6 +34,7 @@ class DetailEntity(BaseModel):
     kind: str
     description: str
     columns: tuple[tuple[str, str, bool, str], ...]  # [name, type, is_key (true/false), description]
+    parent: str | None = None  # the entity this descriptive table folds into, a unique_id (D-068)
 
 
 class DetailRelation(BaseModel):

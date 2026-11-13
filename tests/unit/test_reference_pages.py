@@ -38,6 +38,15 @@ NO_PRESET_BEFORE_M8 = {  # sha256 of the payloads of M3, before the `role` keys 
 ROLE_KEY = re.compile(rb',"role":(?:null|"(?:core|connector|descriptive|technical)")')
 FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true')  # M8.2: a node's parent, the universe's fold default
 SYSTEM_KEY = re.compile(rb',"system":(?:false|true)')  # M8.4: a domain's source-system flag (D-065)
+ENTITY_PARENT = b',"parent":null'  # M8.5: a detail entity's parent, the last key of an entity (D-068)
+
+
+def without_entity_parents(payload: bytes) -> bytes:
+    """The payload without the `parent` key of its detail entities (the detail comes before the universe)."""
+    detail, universe, rest = payload.partition(b'"universe":{')
+    return detail.replace(ENTITY_PARENT, b"") + universe + rest
+
+
 NO_FOLD_BEFORE_M8_2 = {  # sha256 of the payloads before M8.2 (D-061, D-062), every case
     "none": "d439c123da7c57b36298627d7ac690174dcd1f216fef33f4039a30e9e49e9638",
     "star_schema": "44547a0b8f835b6bc0314c62a64d36bdbec2fb1d34d98c03b810230c5a7c9b4a",
@@ -88,8 +97,33 @@ SYSTEMS_OF = {
 def test_a_page_differs_from_the_pre_m8_4_one_only_by_the_system_key(case: str) -> None:
     payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
     assert payload.count(b',"system":') == len(json.loads(payload)["universe"]["domains"])
-    assert hashlib.sha256(SYSTEM_KEY.sub(b"", payload)).hexdigest() == NO_SYSTEM_BEFORE_M8_4[case]
+    pre_m8_5 = without_entity_parents(payload)
+    assert hashlib.sha256(SYSTEM_KEY.sub(b"", pre_m8_5)).hexdigest() == NO_SYSTEM_BEFORE_M8_4[case]
     domains = json.loads(payload)["universe"]["domains"]
     assert [d["key"] for d in domains if d["system"]] == SYSTEMS_OF.get(
         case, []
     )  # no role-giving kind, no system
+
+
+NO_ENTITY_PARENT_BEFORE_M8_5 = {  # sha256 of the committed payloads before M8.5 (D-068), every case
+    "none": "2163e88efea37d1522b5f94c6504a4fd242c3de6d747b922c7b7b77084b66087",
+    "star_schema": "1ae12643e1b71a01cc252b63e934fb2b1af0eff7256bc4c53444960341fc1c9e",
+    "data_vault": "edd01cd503a4a6aea640b0ef70bea78ba76ebd0010281126eaa39d04de976305",
+    "fr": "cdc04f1b07f3699bd0065fb086a0785964be0f94ebc3fcf52660008953d521fa",
+    "layers_domains": "0e17a5721897f5dca8affa20e7f074038acd29bfbc9def5f410e1ec1981a5158",
+    "kinds": "862a24d48a2efaf5b2bf639c3bc31199f3867dfdffb88bf1dd716c0b05803f20",
+    "edge": "85885c353afed82c8f3f31314f1f04cf408cc5fe85b46a74a2a9fcb560efb595",
+}
+
+
+@pytest.mark.parametrize("case", list(NO_ENTITY_PARENT_BEFORE_M8_5))
+def test_a_page_differs_from_the_pre_m8_5_one_only_by_the_parent_of_its_detail_entities(case: str) -> None:
+    payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
+    detail = json.loads(payload)["detail"]["entities"]
+    assert payload.count(ENTITY_PARENT) == len(detail) + payload.count(
+        b',"parent":null', payload.index(b'"universe":{')
+    )
+    assert all(
+        list(e)[-1] == "parent" and e["parent"] is None for e in detail
+    )  # no descriptive table in the shop
+    assert hashlib.sha256(without_entity_parents(payload)).hexdigest() == NO_ENTITY_PARENT_BEFORE_M8_5[case]

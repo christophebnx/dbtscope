@@ -18,6 +18,7 @@ const STRINGS = {
         exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
         kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
+        fold: 'Fold descriptive tables into their entity', foldedN: ['folded table', 'folded tables'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
         countUp: n => `${n} upstream`, countDown: n => `${n} downstream`,
@@ -32,6 +33,7 @@ const STRINGS = {
         kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
+        fold: 'Replier les tables descriptives dans leur entité', foldedN: ['table repliée', 'tables repliées'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
         d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
         countUp: n => `${n} en amont`, countDown: n => `${n} en aval`,
@@ -275,15 +277,18 @@ const dotStr = s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replac
 const dotText = s => esc(s).replace(/\\/g, '\\\\');
 
 // One Viz.js instance for the page, created on first use and recreated after a failed render
-// (a failed Viz instance stays broken). render(dot, options) -> Promise<SVGElement>.
+// (a failed Viz instance stays broken). Its heap is fixed at 16 MB and a big drawing leaves it too full for the
+// next one: that one failure ("Cannot enlarge memory") is retried once on a fresh instance.
+// render(dot, options) -> Promise<SVGElement>.
 const GRAPHVIZ = (() => {
   let viz = null;
+  const attempt = (dot, options) => {
+    if (!viz) viz = new Viz();
+    const used = viz;
+    return used.renderSVGElement(dot, options).catch(err => { if (viz === used) viz = null; throw err; });
+  };
   return {
-    render(dot, options) {
-      if (!viz) viz = new Viz();
-      const used = viz;
-      return used.renderSVGElement(dot, options).catch(err => { if (viz === used) viz = null; throw err; });
-    },
+    render: (dot, options) => attempt(dot, options).catch(err => (/enlarge memory/.test(String(err)) ? attempt(dot, options) : Promise.reject(err))),
   };
 })();
 

@@ -53,3 +53,33 @@ def test_detail_kinds_carry_their_role_last_and_other_has_none(shop: Project) ->
     )
     assert [(k["key"], k["role"]) for k in data["kinds"]] == [("fact", "core"), ("other", None)]
     assert list(data["kinds"][0])[-1] == "role"
+
+
+def _parents(shop: Project, group_by: str, parents: dict[str, str] | None) -> dict[str, str | None]:
+    """{table name: parent id} of the detail payload of every shop table, `parents` being the universe's."""
+    config = merge_config(read_preset("star_schema"), {"select": ["*"], "group_by": group_by})
+    data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config, parents).model_dump(
+        mode="json"
+    )
+    assert all(list(e)[-1] == "parent" for e in data["entities"])  # the last key of an entity
+    return {e["name"]: e["parent"] for e in data["entities"]}
+
+
+def test_detail_entity_takes_the_universe_parent_in_the_same_group(shop: Project) -> None:
+    orders, product = "model.shop.fct_orders", "model.shop.dim_product"
+    got = _parents(shop, "none", {"model.shop.fct_returns": orders, product: orders})
+    assert got["fct_returns"] == orders and got["dim_product"] == orders
+    assert got["fct_orders"] is None  # a table the universe gave no parent
+
+
+def test_detail_parent_is_null_across_groups_and_outside_the_payload(shop: Project) -> None:
+    orders = "model.shop.fct_orders"
+    in_other_group = _parents(shop, "schema", {"model.shop.dim_product": orders})
+    assert shop.tables["model.shop.dim_product"].schema_name != shop.tables[orders].schema_name
+    assert in_other_group["dim_product"] is None
+    outside = _parents(shop, "none", {"model.shop.fct_returns": "model.shop.not_in_the_detail"})
+    assert outside["fct_returns"] is None
+
+
+def test_detail_parents_default_to_none_for_every_entity(shop: Project) -> None:
+    assert set(_parents(shop, "none", None).values()) == {None}

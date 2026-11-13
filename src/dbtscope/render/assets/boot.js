@@ -71,6 +71,23 @@ const EXPORT = (() => {
   };
 })();
 
+// The viewer's fold choice, shared by both views (D-069): the localStorage key `dbtscope-fold:<title>`, kept apart from
+// the layout and never exported; written only when it differs from the default `universe.fold` (D-062).
+const FOLD = (() => {
+  const key = 'dbtscope-fold:' + PAGE.title, listeners = [];
+  const stored = () => { try { const v = localStorage.getItem(key); return v === 'folded' ? true : v === 'shown' ? false : null; } catch (e) { return null; } };
+  const fallback = PAGE.universe.defaults.fold;
+  return {
+    on: () => stored() ?? fallback,
+    // `from` is the listener of the view that made the change: it already follows
+    set(on, from) {
+      try { if (on === fallback) localStorage.removeItem(key); else localStorage.setItem(key, on ? 'folded' : 'shown'); } catch (e) { /* session only */ }
+      listeners.forEach(fn => { if (fn !== from) fn(on); });
+    },
+    listen: fn => listeners.push(fn),
+  };
+})();
+
 const views = {};
 let current = null;
 let flow = null;   // the flow view (D-036), started on first use; an overlay of the Universe tab, not a view of `views`
@@ -78,8 +95,8 @@ function showTab(name) {
   current = name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
-  if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT)
-    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
+  if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, FOLD)
+    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow, FOLD);
   else if (views[name].shown) views[name].shown();
 }
 function openInDetail(id) {

@@ -49,7 +49,11 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel label span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .panel label small { color:var(--muted); margin-left:auto; font-variant-numeric:tabular-nums; }
 /* the fold control: a checkbox row whose text wraps, with a muted second line */
-.panel #u-fold { margin-bottom:12px; }
+.panel #u-fold, .panel #d-fold { margin-bottom:12px; }
+#d-fold { margin-top:12px; }
+#d-fold[hidden] + h3 { margin-top:16px; }   /* the heading keeps its space above while the control is hidden */
+.panel .warn { color:var(--fg); font-size:12px; line-height:1.4; margin:2px 0 0 20px; }
+.panel .warn:empty { display:none; }
 .panel label.fold { align-items:flex-start; }
 .panel label.fold input { margin-top:3px; }
 .panel label.fold span { flex:1; min-width:0; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }

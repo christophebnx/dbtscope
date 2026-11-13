@@ -96,6 +96,7 @@
   <aside class="panel" id="d-panel">
     <h3 id="d-h-group"></h3>
     <select id="d-group" aria-labelledby="d-h-group"></select>
+    <fieldset id="d-fold" hidden><label class="fold"><input type="checkbox" id="d-fold-on" aria-describedby="d-fold-kinds"><span><span id="d-fold-t"></span><span class="sub" id="d-fold-kinds"></span></span><small id="d-fold-n"></small></label><div class="warn" id="d-fold-warn" role="status"></div></fieldset>
     <h3 id="d-h-depth"></h3>
     <select id="d-depth" aria-labelledby="d-h-depth"></select>
     <h3 id="d-h-cols"></h3>
@@ -109,6 +110,7 @@
       <button id="d-toggle" type="button" aria-controls="d-panel" aria-expanded="true">☰</button>
       <span class="meta" id="d-meta"></span>
       <span class="focus-info" id="d-focus-info"></span>
+      <span class="sr-only" id="d-live" role="status" aria-live="polite"></span>
       <span class="grow"></span>
       <input id="d-focus" list="d-tables" autocomplete="off"><datalist id="d-tables"></datalist>
       <button id="d-clear"></button>

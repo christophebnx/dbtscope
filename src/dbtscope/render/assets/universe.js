@@ -4,7 +4,7 @@
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
+function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, FOLD) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
     en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
@@ -24,9 +24,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
               + 'click a table to see its trajectory (Esc to leave) · '
               + 'double-click a constellation to zoom in, a table to open its detail',
-          fold: 'Fold descriptive tables into their entity',
           foldTitle: 'Draw each descriptive table inside its entity. Search or a trajectory shows it around its entity.',
-          foldedN: ['folded table', 'folded tables'], entitiesN: ['entity', 'entities'],
+          entitiesN: ['entity', 'entities'],
           entity: 'Entity', entityHidden: ' (filtered out)', entityLayer: ' (other layer)',
           foldOn: n => `Descriptive tables folded into ${plural(n, T.entitiesN)}`, foldOff: 'Descriptive tables shown',
           foundFolded: (n, p) => `${n} is folded into ${p}; shown around it.`, shownAround: 'Shown around their entity',
@@ -63,9 +62,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
               + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
               + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail',
-          fold: 'Replier les tables descriptives dans leur entité',
           foldTitle: 'Dessiner chaque table descriptive dans son entité. La recherche ou une trajectoire l\'affiche autour de son entité.',
-          foldedN: ['table repliée', 'tables repliées'], entitiesN: ['entité', 'entités'],
+          entitiesN: ['entité', 'entités'],
           entity: 'Entité', entityHidden: ' (masquée par les filtres)', entityLayer: ' (autre couche)',
           foldOn: n => `Tables descriptives repliées dans ${plural(n, T.entitiesN)}`, foldOff: 'Tables descriptives affichées',
           foundFolded: (n, p) => `${n} est repliée dans ${p}\u202f; affichée autour d\'elle.`, shownAround: 'Affichées autour de leur entité',
@@ -158,16 +156,6 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
   const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
-  // the viewer's last fold choice, kept apart from the layout like the grouping and never exported (D-062)
-  const foldMemory = (() => {
-    const key = 'dbtscope-fold:' + PAGE.title;
-    return {
-      get() { try { const v = localStorage.getItem(key); return v === 'folded' ? true : v === 'shown' ? false : null; } catch (e) { return null; } },
-      set(value, fallback) {
-        try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value ? 'folded' : 'shown'); } catch (e) { /* session only */ }
-      },
-    };
-  })();
   // the parent of each table (a node index, null for none): Python decides it, the page never guesses from names (D-061)
   const IDX = new Map(N.map(n => [n.id, n.i]));
   const PARENT = N.map(n => (n.parent == null ? null : IDX.get(n.parent) ?? null));
@@ -178,7 +166,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
-    fold: FOLDABLE ? foldMemory.get() ?? DATA.defaults.fold : false,
+    fold: FOLDABLE && FOLD.on(),
     allRoutes: false,   // exploration, not a lasting choice: never stored nor exported
   };
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
@@ -223,18 +211,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // descriptive kinds that fold here, as written in the config
   $u('fold').hidden = !FOLDABLE;
   const foldKinds = DATA.kinds.filter(k => k.role === 'descriptive' && N.some(n => n.kind === k.key && PARENT[n.i] != null)).map(labelOf);
-  $u('fold-t').textContent = T.fold;
+  $u('fold-t').textContent = L.fold;
   $u('fold-kinds').textContent = foldKinds.slice(0, KIND_LIST).join(', ') + (foldKinds.length > KIND_LIST ? ` + ${num(foldKinds.length - KIND_LIST)}` : '');
   $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
   $u('fold').querySelector('label').title = T.foldTitle;
   $u('fold-on').checked = state.fold;
   const hintText = () => T.hint + (state.fold ? T.hintFold : '') + T.hintCards + T.hintRoutes;
   $u('fold-on').onchange = ev => {
-    state.fold = ev.target.checked; foldMemory.set(state.fold, DATA.defaults.fold);
-    $u('hint').textContent = hintText();
-    relayout();
+    FOLD.set(ev.target.checked, applyFold);
+    applyFold(ev.target.checked);
     live.textContent = state.fold ? T.foldOn(entityCount) : T.foldOff;
   };
+  // the choice changed (here, or in the detail view, D-069): follow it; a hidden tab lays out when shown
+  let foldStale = false;
+  function applyFold(on) {
+    state.fold = FOLDABLE && on; $u('fold-on').checked = state.fold;
+    $u('hint').textContent = hintText();
+    if (document.getElementById('tab-universe').classList.contains('on')) relayout(); else foldStale = true;
+  }
+  FOLD.listen(applyFold);
   const BUSINESS = DOMAIN_ORDER.filter(d => !d.system), SYSTEMS = DOMAIN_ORDER.filter(d => d.system);
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
@@ -1121,7 +1116,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / Math.min(k, 1);
     ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + b.w, top); ctx.stroke();
     if (k <= 0.6) return;
-    ctx.fillStyle = C.text; ctx.font = `600 9px ${FONT}`; ctx.fillText(plural(b.held.length, T.foldedN), x + 5, top + 11);
+    ctx.fillStyle = C.text; ctx.font = `600 9px ${FONT}`; ctx.fillText(plural(b.held.length, L.foldedN), x + 5, top + 11);
     ctx.font = `9px ${FONT}`;
     b.held.slice(0, FOLD_ROWS).forEach((i, j) => {
       const n = N[i], col = KIND[n.kind].color, edge = CONTRAST.edge(col, C.bg), base = top + FOLD_HEAD + 9 + j * 11, label = labelOf(KIND[n.kind]);
@@ -2129,7 +2124,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       text += `<div class="m">${T.entity}${L.colon}${esc(N[p].name)}${why}</div>`;
     }
     if (!held.length) return text;
-    text += `<div class="m"><b>${plural(held.length, T.foldedN)}</b></div>`
+    text += `<div class="m"><b>${plural(held.length, L.foldedN)}</b></div>`
       + held.slice(0, TIP_FOLDED).map(i => `<div class="m">${esc(N[i].name)} · ${esc(labelOf(KIND[N[i].kind]))}</div>`).join('');
     return text + (held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '');
   }
@@ -2375,7 +2370,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     routes: routeSeen.list.map(e => ({ source: e.sp.r.source, target: e.sp.r.target, bundled: e.sp.bundle, c: e.sp.r.c, rel: e.sp.r.rel, lin: e.sp.r.lin,
       dir: e.sp.r.dir, alpha: e.sp.alpha, dashed: !e.sp.r.lin, blocked: e.sp.blocked, hi: e.sp.hi, arrow: e.arrow, samples: e.pts })),
     obstacles: routeSeen.obstacles.map(o => (o.shape === 'disc' ? { key: o.key, kind: 'disc', x: o.x, y: o.y, r: o.r } : { key: o.key, kind: 'card', x: o.x, y: o.y, w: o.w, h: o.h })) });
-  return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames, placeMs: () => perf.place,
+  return { shown: () => { resize(); if (foldStale) { foldStale = false; relayout(); } }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames, placeMs: () => perf.place,
     summariesDrawn, cardsMs: () => perf.cards, layoutCardsMs: () => perf.cardLayout, drawMs: () => perf.draw, routesDrawn, routesMs: () => perf.routes,
     focus: key => { focusByMouse = false; focusOn(key ?? null); } };
 }

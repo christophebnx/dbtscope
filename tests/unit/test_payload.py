@@ -46,7 +46,7 @@ UNIVERSE = UniversePayload(
     [
         (DETAIL, ["title", "lang", "grouped", "kinds", "entities", "relations"]),
         (DETAIL.kinds[0], ["key", "label", "color", "bg", "role"]),
-        (ENTITY, ["id", "name", "group", "kind", "description", "columns"]),
+        (ENTITY, ["id", "name", "group", "kind", "description", "columns", "parent"]),
         (DETAIL.relations[0], ["child", "parent", "column"]),
         (UNIVERSE, ["nodes", "relations", "lineage", "domains", "layers", "kinds", "defaults"]),
         (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols", "parent"]),

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from dbtscope.domain.classify import OTHER, background, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import Config
@@ -18,22 +18,34 @@ def select(
     return picked, [r for r in relations if r.child in picked and r.parent in picked]
 
 
-def detail_data(tables: dict[str, Table], relations: list[Relation], config: Config) -> DetailPayload:
-    """The payload of the detail view for the tables and relations returned by `select`."""
+def detail_data(
+    tables: dict[str, Table],
+    relations: list[Relation],
+    config: Config,
+    parents: Mapping[str, str] | None = None,
+) -> DetailPayload:
+    """The payload of the detail view for the tables and relations returned by `select`.
+
+    `parents` is the universe's `{child id: parent id}` (`fold.parents`): a detail table takes its
+    parent only when that parent is in the payload and in the same group (D-068).
+    """
     is_key = key_columns(config, relations)
+    groups = {uid: group_of(t, config.group_by) for uid, t in tables.items()}
     entities = []
     for uid, table in sorted(tables.items(), key=lambda kv: kv[1].name):
         kind = first_rule(table, config.kinds)
+        parent = (parents or {}).get(uid)
         entities.append(
             DetailEntity(
                 id=uid,
                 name=table.name,
-                group=group_of(table, config.group_by),
+                group=groups[uid],
                 kind=kind.key if kind else OTHER.key,
                 description=table.description,
                 columns=tuple(
                     (c.name, c.data_type, is_key(uid, c.name), c.description) for c in table.columns
                 ),
+                parent=parent if parent in groups and groups[parent] == groups[uid] else None,
             )
         )
 

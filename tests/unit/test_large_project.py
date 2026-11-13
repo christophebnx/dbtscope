@@ -29,6 +29,12 @@ BUILD_BOUND_S = 5
 
 
 @pytest.fixture(scope="module")
+def large_detail(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """The detail payload of the page of the large project."""
+    return page_of(write_large_project(tmp_path_factory.mktemp("large-detail")))[1]["detail"]
+
+
+@pytest.fixture(scope="module")
 def large(tmp_path_factory: pytest.TempPathFactory) -> tuple[float, dict[str, Any]]:
     """The seconds the page took to build, and its universe payload."""
     project = write_large_project(tmp_path_factory.mktemp("large"))
@@ -180,3 +186,31 @@ def test_business_domains_read_one_another_along_the_flow(large: tuple[float, An
     assert all(
         order.index(u) < order.index(r) for r, u in expected
     )  # acyclic: every read goes down the order
+
+
+def test_the_detail_entities_carry_the_parent_of_their_group(large_detail: dict[str, Any]) -> None:
+    expected = EXPECTED["detail"]
+    entities = {e["id"]: e for e in large_detail["entities"]}
+    assert len(entities) == expected["tables"]
+    assert Counter(e["group"] for e in entities.values()) == expected["groups"]
+    held = [e for e in entities.values() if e["parent"]]
+    assert len(held) == expected["with_parent"]
+    assert all(entities[e["parent"]]["group"] == e["group"] for e in held)  # never a parent of another group
+    assert all(list(e)[-1] == "parent" for e in entities.values())
+    other = next(e for e in entities.values() if e["name"] == OTHER_DOMAIN_SAT)
+    assert other["group"] == "claim" and other["parent"] is None  # its hub is in `vehicle`: not folded
+
+
+def test_the_vehicle_group_skeleton_counts(large_detail: dict[str, Any]) -> None:
+    expected = EXPECTED["detail"]["vehicle"]
+    entities = {e["id"]: e for e in large_detail["entities"]}
+    own = {i for i, e in entities.items() if e["group"] == "vehicle"}
+    pulled = {
+        r["parent"] for r in large_detail["relations"] if r["child"] in own
+    } - own  # dashed, other groups
+    folded = {i for i in own if entities[i]["parent"]}
+    assert (len(own), len(pulled), len(folded)) == (expected["own"], expected["foreign"], expected["folded"])
+    assert len(own) - len(folded) == expected["skeleton_own"]
+    assert len(own) - len(folded) + len(pulled) == expected["drawn"]
+    assert all(entities[i]["parent"] is None for i in pulled)  # foreign hubs fold nothing
+    assert len(entities) - EXPECTED["detail"]["with_parent"] == EXPECTED["detail"]["all_groups_skeleton"]

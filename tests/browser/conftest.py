@@ -12,16 +12,23 @@ tests need no network (D-022).
 from __future__ import annotations
 
 import os
+import random
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import empty_detail, page_of, write_config, write_example
+from conftest import empty_detail, empty_universe, page_of, write_config, write_example
 from large_project import write_large_project
 
 from dbtscope.domain.config import merge_config
-from dbtscope.domain.payload import UniversePayload
+from dbtscope.domain.payload import (
+    DetailEntity,
+    DetailKind,
+    DetailPayload,
+    DetailRelation,
+    UniversePayload,
+)
 from dbtscope.render.page import LIBRARIES, VENDOR, render_page
 
 try:
@@ -123,6 +130,81 @@ def universe_page(
     settings = merge_config({}, {"view": "universe", "title": "perf", **config})
     html.write_text(render_page(empty_detail("perf"), universe, settings, layout), encoding="utf-8")
     return html
+
+
+def detail_page(
+    folder: Path, detail: DetailPayload, layout: dict[str, Any] | None = None, **config: Any
+) -> Path:
+    """Write the page of a synthetic detail payload (empty universe, optional layout) into `folder`."""
+    html = folder / "erd.html"
+    settings = merge_config({}, {"view": "universe", "title": detail.title, **config})
+    html.write_text(render_page(detail, empty_universe(), settings, layout), encoding="utf-8")
+    return html
+
+
+def synthetic_detail(
+    hubs: int, links: int, sats: int, seed: int = 1500, title: str = "synth"
+) -> DetailPayload:
+    """One detail group of `hubs` hubs, `links` links of 2 or 3 hubs and `sats` satellites, each folding into
+    one hub or link (1 to 5 per parent where the count allows), from `random.Random(seed)`: the worst case of
+    the skeleton's budget (300 / 300 / 900 is 1,500 tables, 600 of them drawn)."""
+    rng = random.Random(seed)
+    kinds = (
+        DetailKind(key="hub", label="Hub", color="#2f6fb5", bg="#e3ecf7", role="core"),
+        DetailKind(key="link", label="Link", color="#2e8b57", bg="#e2f1e8", role="connector"),
+        DetailKind(key="sat", label="Satellite", color="#b8902f", bg="#f6efdc", role="descriptive"),
+    )
+    columns = (
+        ("hk", "varchar", True, ""),
+        ("load_date", "timestamp", False, ""),
+        ("source", "varchar", False, ""),
+    )
+    ids = {
+        "hub": [f"model.s.h{i:04d}_hub" for i in range(hubs)],
+        "link": [f"model.s.l{i:04d}_link" for i in range(links)],
+    }
+    parents = ids["hub"] + ids["link"]
+    counts = dict.fromkeys(
+        rng.sample(parents, min(sats, len(parents))), 1
+    )  # every parent first, then at random
+    while sum(counts.values()) < min(sats, 5 * len(parents)):
+        parent = rng.choice(parents)
+        counts[parent] = min(5, counts.get(parent, 0) + 1)
+    owner = [parent for parent, n in counts.items() for _ in range(n)]
+    entities, relations = [], []
+    for kind in ("hub", "link"):
+        for uid in ids[kind]:
+            entities.append(
+                DetailEntity(
+                    id=uid, name=uid.rsplit(".", 1)[1], group="g", kind=kind, description="", columns=columns
+                )
+            )
+    for i, parent in enumerate(owner):
+        uid = f"model.s.s{i:04d}_sat"
+        entities.append(
+            DetailEntity(
+                id=uid,
+                name=uid.rsplit(".", 1)[1],
+                group="g",
+                kind="sat",
+                description="",
+                columns=columns,
+                parent=parent,
+            )
+        )
+        relations.append(DetailRelation(child=uid, parent=parent, column="hk"))
+    for uid in ids["link"]:
+        for hub in rng.sample(ids["hub"], rng.choice((2, 3))):
+            relations.append(DetailRelation(child=uid, parent=hub, column="hk"))
+    entities.sort(key=lambda e: e.name)
+    return DetailPayload(
+        title=title,
+        lang="en",
+        grouped=False,
+        kinds=kinds,
+        entities=tuple(entities),
+        relations=tuple(relations),
+    )
 
 
 def wait_flow(p: Page) -> None:

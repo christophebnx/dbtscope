@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   fold:     13 tables folded into 13 entities
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (293 kB)
+  page:     opens on universe, en, libraries from CDNs (309 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (296 kB)
+  page:     opens on universe, en, libraries from CDNs (311 kB)
   config:   none (built-in defaults)
 ```
 
@@ -528,7 +528,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   fold:     13 tables folded into 13 entities
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (293 kB)
+  page:     opens on universe, en, libraries from CDNs (309 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -801,6 +801,7 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Focus**: type a table name or double-click a table to show only its neighbourhood, 1 to 3 levels deep; **Show all** returns to the whole group.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
+- **Large groups**: when more than 60 tables would be drawn and the kinds have roles ([presets](#conventions-presets-and-preset-files)), each descriptive table (a satellite) is drawn as the last row of its entity: "+ 3 folded tables · Satellite". The drawing keeps the hubs, links and other tables, in rows that fit the drawing area, and shows what it folded in the meta line. The panel's **Fold descriptive tables into their entity** checkbox (shown only for such a group) is the same choice as the universe's: changing it in one view changes the other, the browser remembers it, and `universe.fold` in `dbt-erd.yml` sets how both open. With it off the full drawing is shown and a line warns that it will be hard to read. Double-click a table to draw it with its folded tables; from a hub, **direct links** shows its satellites, its links and the hubs across those links (a link is a passage, not a stop). Groups of 60 tables or fewer are drawn as before. Positions you drag in this drawing are saved apart from the full drawing's.
 
 ![The detail view of the sales group with facts and dimensions unticked: hubs on the left (the customer and product hubs of other groups dashed), their links and satellites on the right](images/detail-vault.png)
 

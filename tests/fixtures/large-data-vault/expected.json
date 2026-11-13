@@ -40,5 +40,12 @@
     "vehicle_e001_s5_sat": {"domain": "vehicle", "parents": []},
     "vehicle_e002_s5_sat": {"domain": "vehicle", "parents": ["vehicle_e002_hub", "vehicle_e003_hub"]},
     "vehicle_e004_s5_sat": {"domain": "claim", "parents": ["vehicle_e004_hub"]}
+  },
+  "detail": {
+    "tables": 788,
+    "groups": {"vehicle": 271, "auction": 199, "account": 154, "claim": 87, "activity": 77},
+    "with_parent": 421,
+    "vehicle": {"own": 271, "foreign": 12, "folded": 135, "skeleton_own": 136, "drawn": 148},
+    "all_groups_skeleton": 367
   }
 }

@@ -220,3 +220,13 @@ def test_the_example_folds_its_satellites_into_their_hubs(tmp_path: Path) -> Non
     assert all(
         nodes[n["parent"]]["kind"] == "hub" and nodes[n["parent"]]["domain"] == n["domain"] for n in folded
     )
+
+
+def test_the_detail_of_the_example_takes_the_universe_parents(tmp_path: Path) -> None:
+    """`cli._views` hands the universe's parents to the detail: one parent rule, two views (D-068)."""
+    data = page_of(write_example(tmp_path / "acme_retail"))[1]
+    universe = {n["id"]: n["parent"] for n in data["universe"]["nodes"] if n["parent"]}
+    detail = {e["id"]: e["parent"] for e in data["detail"]["entities"] if e["parent"]}
+    assert detail and detail.items() <= universe.items()
+    groups = {e["id"]: e["group"] for e in data["detail"]["entities"]}
+    assert all(groups[child] == groups[parent] for child, parent in detail.items())
