@@ -55,9 +55,12 @@ def test_detail_kinds_carry_their_role_last_and_other_has_none(shop: Project) ->
     assert list(data["kinds"][0])[-1] == "role"
 
 
-def _parents(shop: Project, group_by: str, parents: dict[str, str] | None) -> dict[str, str | None]:
-    """{table name: parent id} of the detail payload of every shop table, `parents` being the universe's."""
-    config = merge_config(read_preset("star_schema"), {"select": ["*"], "group_by": group_by})
+def _parents(
+    shop: Project, group_by: str, parents: dict[str, str] | None, chosen: tuple[str, ...] = ("*",)
+) -> dict[str, str | None]:
+    """{table name: parent id} of the detail payload of the shop tables `chosen` selects, `parents` being the
+    universe's."""
+    config = merge_config(read_preset("star_schema"), {"select": list(chosen), "group_by": group_by})
     data = detail_data(*select(shop.tables, shop.relations, config, shop.root), config, parents).model_dump(
         mode="json"
     )
@@ -79,6 +82,26 @@ def test_detail_parent_is_null_across_groups_and_outside_the_payload(shop: Proje
     assert in_other_group["dim_product"] is None
     outside = _parents(shop, "none", {"model.shop.fct_returns": "model.shop.not_in_the_detail"})
     assert outside["fct_returns"] is None
+
+
+def test_detail_parent_is_null_when_the_parent_is_a_table_the_select_leaves_out(shop: Project) -> None:
+    orders, product = "model.shop.fct_orders", "model.shop.dim_product"
+    parents = {"model.shop.fct_returns": orders, "model.shop.fct_orders": product}
+    got = _parents(shop, "none", parents, chosen=("fct_*",))
+    assert set(got) == {"fct_orders", "fct_returns"}  # dim_product is a real table, outside the detail scope
+    assert got == {"fct_orders": None, "fct_returns": orders}
+
+
+def test_detail_parent_is_null_for_a_table_the_universe_gave_no_parent_in_a_shared_group(
+    shop: Project,
+) -> None:
+    orders = "model.shop.fct_orders"
+    got = _parents(
+        shop, "schema", {orders: "model.shop.dim_customer"}
+    )  # same schema: kept; the others: absent
+    assert shop.tables[orders].schema_name == shop.tables["model.shop.dim_customer"].schema_name
+    assert got["fct_orders"] == "model.shop.dim_customer"
+    assert {name for name, parent in got.items() if parent} == {"fct_orders"}
 
 
 def test_detail_parents_default_to_none_for_every_entity(shop: Project) -> None:

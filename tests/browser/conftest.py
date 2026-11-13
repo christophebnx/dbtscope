@@ -122,6 +122,78 @@ def show_detail(p: Page, exportable: bool = True) -> None:
         wait_exportable(p)
 
 
+def dstate(p: Page) -> dict[str, Any]:
+    return p.page.evaluate("views.detail.state()")
+
+
+def name_px(p: Page) -> float:
+    """The size on screen of a 16 pt table name: 16 x the zoom scale x the scale Graphviz put on its graph."""
+    return p.page.evaluate(
+        """() => {
+          const scale = el => +(/scale\\(([-\\d.e]+)/.exec(el.getAttribute('transform') || '') || [0, 1])[1];
+          const svg = document.querySelector('#d-graph svg');
+          return 16 * scale(svg.querySelector(':scope > g')) * scale(svg.querySelector('g.graph'));
+        }"""
+    )
+
+
+def entities(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {e["id"]: e for e in data["detail"]["entities"]}
+
+
+def wait_drawn(p: Page) -> None:
+    """Wait for the next drawing of the detail (its export buttons come back on)."""
+    wait_exportable(p)
+    p.page.wait_for_function("views.detail.state().layoutMs > 0")
+
+
+def double_click(p: Page, table_id: str) -> None:
+    p.page.evaluate(
+        "id => document.getElementById(id).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))",
+        table_id,
+    )
+    wait_drawn(p)
+
+
+def tooltip(p: Page, table_id: str) -> str:
+    return p.page.evaluate(
+        """id => [...document.getElementById(id).querySelectorAll('*')]
+          .map(e => e.getAttributeNS('http://www.w3.org/1999/xlink', 'title')).find(Boolean)""",
+        table_id,
+    )
+
+
+def vehicle_hub(data: dict[str, Any], links: int = 2) -> str:
+    """A `vehicle` hub with at least `links` links of the group and one folded satellite."""
+    by_id = entities(data)
+    count: dict[str, int] = {}
+    for r in data["detail"]["relations"]:
+        if by_id[r["child"]]["kind"] == "link" and by_id[r["child"]]["group"] == "vehicle":
+            count[r["parent"]] = count.get(r["parent"], 0) + 1
+    held = {e["parent"] for e in by_id.values() if e["parent"]}
+    return next(
+        i for i in sorted(count) if count[i] >= links and i in held and by_id[i]["group"] == "vehicle"
+    )
+
+
+def untick(p: Page, label: str) -> None:
+    p.page.locator("#d-types label", has_text=label).locator("input").click()
+    wait_drawn(p)
+
+
+def centre(p: Page, table_id: str) -> tuple[float, float]:
+    """The centre of a drawn table, from its polygons, in Graphviz points."""
+    return p.page.evaluate(
+        """id => {
+          const pts = [...document.getElementById(id).querySelectorAll('polygon')]
+            .flatMap(q => q.getAttribute('points').trim().split(/\\s+/).map(t => t.split(',').map(Number)));
+          const xs = pts.map(t => t[0]), ys = pts.map(t => t[1]);
+          return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+        }""",
+        table_id,
+    )
+
+
 def universe_page(
     folder: Path, universe: UniversePayload, layout: dict[str, Any] | None = None, **config: Any
 ) -> Path:
@@ -203,6 +275,49 @@ def synthetic_detail(
         grouped=False,
         kinds=kinds,
         entities=tuple(entities),
+        relations=tuple(relations),
+    )
+
+
+def fan_detail(
+    fans: list[list[str]], lang: str = "en", title: str = "fan", extra_hubs: int = 0
+) -> DetailPayload:
+    """One detail group of hubs, each with its folded tables: `fans[i]` lists the kind keys (`sat`, `pit`,
+    `ref`: descriptive; `ref` is labelled "Ref sat") of the tables folding into hub `i`, and `extra_hubs` hubs
+    have none. A builder for the rows, tooltip and threshold tests."""
+    kinds = (
+        DetailKind(key="hub", label="Hub", color="#2f6fb5", bg="#e3ecf7", role="core"),
+        DetailKind(key="sat", label="Satellite", color="#b8902f", bg="#f6efdc", role="descriptive"),
+        DetailKind(key="pit", label="PIT", color="#8a5fb5", bg="#eee6f7", role="descriptive"),
+        DetailKind(key="ref", label="Ref sat", color="#b5602f", bg="#f7e9e0", role="descriptive"),
+    )
+    columns = (("hk", "varchar", True, ""), ("load_date", "timestamp", False, ""))
+    entities, relations = [], []
+    for i in range(len(fans) + extra_hubs):
+        hub = f"model.s.h{i:03d}_hub"
+        entities.append(
+            DetailEntity(id=hub, name=f"h{i:03d}_hub", group="g", kind="hub", description="", columns=columns)
+        )
+        for j, kind in enumerate(fans[i] if i < len(fans) else []):
+            uid = f"model.s.h{i:03d}_{kind}{j:04d}"
+            entities.append(
+                DetailEntity(
+                    id=uid,
+                    name=uid.rsplit(".", 1)[1],
+                    group="g",
+                    kind=kind,
+                    description="",
+                    columns=columns,
+                    parent=hub,
+                )
+            )
+            relations.append(DetailRelation(child=uid, parent=hub, column="hk"))
+    return DetailPayload(
+        title=title,
+        lang=lang,
+        grouped=False,
+        kinds=kinds,
+        entities=tuple(sorted(entities, key=lambda e: e.name)),
         relations=tuple(relations),
     )
 

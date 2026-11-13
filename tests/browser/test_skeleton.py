@@ -18,7 +18,21 @@ import pytest
 from conftest import page_of, write_example, write_layout
 from large_project import write_large_project
 
-from browser.conftest import Page, detail_page, show_detail, synthetic_detail, wait_exportable
+from browser.conftest import (
+    Page,
+    centre,
+    detail_page,
+    double_click,
+    dstate,
+    entities,
+    name_px,
+    show_detail,
+    synthetic_detail,
+    tooltip,
+    untick,
+    vehicle_hub,
+    wait_drawn,
+)
 from dbtscope.domain.layout import check_layout
 
 pytestmark = pytest.mark.browser
@@ -32,60 +46,6 @@ DOTS = Path(__file__).parents[1] / "fixtures" / "acme_retail" / "detail-dot"
 SKELETON_MIN = 60
 COLD_BUDGET_MS, WORST_CASE_MS = 5_000, 15_000  # D-071
 FIT_FLOOR_PX, NOTCHES_FLOOR_PX, DOUBLE_CLICK_PX = 4, 6, 10  # the measured outcome of D-071: 4.4 and 6.7 px
-
-
-def dstate(p: Page) -> dict[str, Any]:
-    return p.page.evaluate("views.detail.state()")
-
-
-def name_px(p: Page) -> float:
-    """The size on screen of a 16 pt table name: 16 x the zoom scale x the scale Graphviz put on its graph."""
-    return p.page.evaluate(
-        """() => {
-          const scale = el => +(/scale\\(([-\\d.e]+)/.exec(el.getAttribute('transform') || '') || [0, 1])[1];
-          const svg = document.querySelector('#d-graph svg');
-          return 16 * scale(svg.querySelector(':scope > g')) * scale(svg.querySelector('g.graph'));
-        }"""
-    )
-
-
-def entities(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {e["id"]: e for e in data["detail"]["entities"]}
-
-
-def wait_drawn(p: Page) -> None:
-    """Wait for the next drawing of the detail (its export buttons come back on)."""
-    wait_exportable(p)
-    p.page.wait_for_function("views.detail.state().layoutMs > 0")
-
-
-def double_click(p: Page, table_id: str) -> None:
-    p.page.evaluate(
-        "id => document.getElementById(id).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))",
-        table_id,
-    )
-    wait_drawn(p)
-
-
-def tooltip(p: Page, table_id: str) -> str:
-    return p.page.evaluate(
-        """id => [...document.getElementById(id).querySelectorAll('*')]
-          .map(e => e.getAttributeNS('http://www.w3.org/1999/xlink', 'title')).find(Boolean)""",
-        table_id,
-    )
-
-
-def vehicle_hub(data: dict[str, Any], links: int = 2) -> str:
-    """A `vehicle` hub with at least `links` links of the group and one folded satellite."""
-    by_id = entities(data)
-    count: dict[str, int] = {}
-    for r in data["detail"]["relations"]:
-        if by_id[r["child"]]["kind"] == "link" and by_id[r["child"]]["group"] == "vehicle":
-            count[r["parent"]] = count.get(r["parent"], 0) + 1
-    held = {e["parent"] for e in by_id.values() if e["parent"]}
-    return next(
-        i for i in sorted(count) if count[i] >= links and i in held and by_id[i]["group"] == "vehicle"
-    )
 
 
 @pytest.fixture
@@ -267,11 +227,6 @@ def test_the_control_is_hidden_when_the_scope_is_under_the_threshold(
 # ---------------------------------------------------------------- filters, search
 
 
-def untick(p: Page, label: str) -> None:
-    p.page.locator("#d-types label", has_text=label).locator("input").click()
-    wait_drawn(p)
-
-
 def test_unticking_satellites_removes_the_rows_and_the_skeleton(large_detail: Large) -> None:
     p, _ = large_detail
     before = set(dstate(p)["drawn"])
@@ -391,19 +346,6 @@ def test_a_table_dragged_in_the_skeleton_is_saved_under_the_skeleton_key(large_d
     exported = p.page.evaluate("LAYOUT.dump()")
     assert (exported["format"], exported["version"]) == ("dbt-erd-layout", 1)
     assert check_layout(exported, "exported layout") == exported  # format v1, readable by the CLI
-
-
-def centre(p: Page, table_id: str) -> tuple[float, float]:
-    """The centre of a drawn table, from its polygons, in Graphviz points."""
-    return p.page.evaluate(
-        """id => {
-          const pts = [...document.getElementById(id).querySelectorAll('polygon')]
-            .flatMap(q => q.getAttribute('points').trim().split(/\\s+/).map(t => t.split(',').map(Number)));
-          const xs = pts.map(t => t[0]), ys = pts.map(t => t[1]);
-          return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
-        }""",
-        table_id,
-    )
 
 
 def test_a_position_saved_before_the_skeleton_applies_to_a_folded_table_drawn_in_full(

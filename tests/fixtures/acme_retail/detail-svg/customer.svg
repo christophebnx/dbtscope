@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="991" height="680" viewBox="-2.842170943040401e-14 -46.37891387939453 466.0000305175781 319.75785064697266" preserveAspectRatio="xMidYMid meet"><rect x="-2.842170943040401e-14" y="-46.37891387939453" width="466.0000305175781" height="319.75785064697266" fill="rgb(245, 246, 248)"/><g>
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 223)">
+
+<!-- model.acme_retail.customer_hub -->
+<g id="model.acme_retail.customer_hub" class="node">
+
+<g id="a_model.acme_retail.customer_hub"><a>
+<polygon fill="#e6eef6" stroke="transparent" points="2,-1 2,-84 175,-84 175,-1 2,-1"/>
+<polygon fill="#2f6fb5" stroke="transparent" points="3.5,-53.5 3.5,-82.5 174.5,-82.5 174.5,-53.5 3.5,-53.5"/>
+<text text-anchor="start" x="38.32" y="-64.1" font-family="Arial" font-weight="bold" font-size="16.00" fill="#ffffff">customer_hub</text>
+<text text-anchor="start" x="8.1108" y="-36.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">hk_customer</text>
+<text text-anchor="start" x="88.2356" y="-36.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<text text-anchor="start" x="123.1655" y="-35.9" font-family="Arial" font-size="14.00" fill="#5f6774">varchar</text>
+<text text-anchor="start" x="8.5" y="-10.9" font-family="Arial" font-style="italic" font-size="14.00" fill="#5f6774">+ 1 column</text>
+<polygon fill="none" stroke="#2f6fb5" points="2,-1 2,-84 175,-84 175,-1 2,-1"/>
+</a>
+</g>
+</g>
+<!-- model.acme_retail.customer_sat -->
+<g id="model.acme_retail.customer_sat" class="node">
+
+<g id="a_model.acme_retail.customer_sat"><a>
+<polygon fill="#f9f4e5" stroke="transparent" points="281,0 281,-85 455,-85 455,0 281,0"/>
+<polygon fill="#c9a227" stroke="transparent" points="282,-52.5 282,-83.5 454,-83.5 454,-52.5 282,-52.5"/>
+<polygon fill="none" stroke="#aa8921" points="282,-52.5 282,-83.5 454,-83.5 454,-52.5 282,-52.5"/>
+<text text-anchor="start" x="319.9912" y="-64.1" font-family="Arial" font-weight="bold" font-size="16.00" fill="#000000">customer_sat</text>
+<text text-anchor="start" x="287" y="-35.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">hk_customer</text>
+<text text-anchor="start" x="367.1248" y="-35.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<text text-anchor="start" x="402.6655" y="-34.9" font-family="Arial" font-size="14.00" fill="#5f6774">varchar</text>
+<text text-anchor="start" x="286.7195" y="-9.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">hd_customer</text>
+<text text-anchor="start" x="367.6269" y="-9.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<polygon fill="none" stroke="#aa8921" points="281,0 281,-85 455,-85 455,0 281,0"/>
+</a>
+</g>
+</g>
+<!-- model.acme_retail.customer_hub&#45;&gt;model.acme_retail.customer_sat -->
+<g id="edge2" class="edge">
+
+<g id="a_edge2"><a>
+<path fill="none" stroke="#8a8f98" stroke-width="1.4" d="M183.3995,-42.5C214.9761,-42.5 249.97,-42.5 280.9248,-42.5"/>
+<polygon fill="#8a8f98" stroke="#8a8f98" stroke-width="1.4" points="183.0214,-42.5001 175.0215,-38.9 179.0214,-42.5 175.0214,-42.5 175.0214,-42.5 175.0214,-42.5 179.0214,-42.5 175.0214,-46.1 183.0214,-42.5001 183.0214,-42.5001"/>
+</a>
+</g>
+</g>
+<!-- model.acme_retail.dim_country -->
+<g id="model.acme_retail.dim_country" class="node">
+
+<g id="a_model.acme_retail.dim_country"><a>
+<polygon fill="#e2f3f7" stroke="transparent" points="0,-123 0,-206 177,-206 177,-123 0,-123"/>
+<polygon fill="#0e9bbd" stroke="transparent" points="1.5,-175.5 1.5,-204.5 176.5,-204.5 176.5,-175.5 1.5,-175.5"/>
+<text text-anchor="start" x="45.4392" y="-186.1" font-family="Arial" font-weight="bold" font-size="16.00" fill="#000000">dim_country</text>
+<text text-anchor="start" x="6.1585" y="-158.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">country_code</text>
+<text text-anchor="start" x="90.1879" y="-158.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<text text-anchor="start" x="125.1655" y="-157.9" font-family="Arial" font-size="14.00" fill="#5f6774">varchar</text>
+<text text-anchor="start" x="6.5" y="-132.9" font-family="Arial" font-style="italic" font-size="14.00" fill="#5f6774">+ 2 columns</text>
+<polygon fill="none" stroke="#0e9bbd" points="0,-123 0,-206 177,-206 177,-123 0,-123"/>
+</a>
+</g>
+</g>
+<!-- model.acme_retail.dim_customer -->
+<g id="model.acme_retail.dim_customer" class="node">
+
+<g id="a_model.acme_retail.dim_customer"><a>
+<polygon fill="#e2f3f7" stroke="transparent" points="278,-110 278,-219 458,-219 458,-110 278,-110"/>
+<polygon fill="#0e9bbd" stroke="transparent" points="279,-188.5 279,-217.5 457,-217.5 457,-188.5 279,-188.5"/>
+<text text-anchor="start" x="317.776" y="-199.1" font-family="Arial" font-weight="bold" font-size="16.00" fill="#000000">dim_customer</text>
+<text text-anchor="start" x="283.6108" y="-171.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">customer_key</text>
+<text text-anchor="start" x="370.7356" y="-171.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<text text-anchor="start" x="405.6655" y="-170.9" font-family="Arial" font-size="14.00" fill="#5f6774">varchar</text>
+<text text-anchor="start" x="284" y="-145.9" font-family="Arial" font-weight="bold" font-size="14.00" fill="#000000">country_code</text>
+<text text-anchor="start" x="368.0294" y="-145.9" font-family="Arial" font-size="14.00" fill="#000000">   </text>
+<text text-anchor="start" x="405.6655" y="-144.9" font-family="Arial" font-size="14.00" fill="#5f6774">varchar</text>
+<text text-anchor="start" x="284" y="-119.9" font-family="Arial" font-style="italic" font-size="14.00" fill="#5f6774">+ 3 columns</text>
+<polygon fill="none" stroke="#0e9bbd" points="278,-110 278,-219 458,-219 458,-110 278,-110"/>
+</a>
+</g>
+</g>
+<!-- model.acme_retail.dim_country&#45;&gt;model.acme_retail.dim_customer -->
+<g id="edge1" class="edge">
+
+<g id="a_edge1"><a>
+<path fill="none" stroke="#8a8f98" stroke-width="1.4" d="M185.6899,-164.5C215.6562,-164.5 248.5088,-164.5 277.971,-164.5"/>
+<polygon fill="#8a8f98" stroke="#8a8f98" stroke-width="1.4" points="185.3196,-164.5001 177.3196,-160.9 181.3196,-164.5 177.3196,-164.5 177.3196,-164.5 177.3196,-164.5 181.3196,-164.5 177.3195,-168.1 185.3196,-164.5001 185.3196,-164.5001"/>
+</a>
+</g>
+</g>
+</g>
+</g></svg>
