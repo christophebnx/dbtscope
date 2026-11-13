@@ -36,7 +36,7 @@ from browser.test_summary import (
     settle,
     summary,
 )
-from browser.test_trajectory_perf import universe_payload
+from browser.test_trajectory_perf import median, universe_payload
 
 pytestmark = pytest.mark.browser
 
@@ -166,20 +166,6 @@ def test_at_360_px_every_crossing_of_all_routes_is_flagged_blocked(tmp_path: Pat
     blocked = {(r["source"], r["target"]) for r in drawn["routes"] if r["blocked"]}
     assert len(drawn["routes"]) == 15  # every route of the bundled graph (5 bundled + 10 business)
     assert {(a, b) for a, b, _ in crossings(drawn)} <= blocked
-
-
-def test_at_360_px_every_crossing_route_of_all_routes_is_flagged_blocked(
-    tmp_path: Path, open_page: Any
-) -> None:
-    """D-067: where no way round exists (360 px, every route) a route that crosses an outline says `blocked`
-    (the hook's own count of the routes it could not clear), and is still drawn."""
-    p = open_narrow(tmp_path, open_page)
-    all_routes(p, True)
-    drawn = routes_drawn(p)
-    crossing = {(a, b) for a, b, _ in crossings(drawn)}
-    blocked = {(r["source"], r["target"]) for r in drawn["routes"] if r["blocked"]}
-    assert crossing and crossing <= blocked
-    assert len(drawn["routes"]) == 15  # every route of the bundled graph is drawn, blocked or not
 
 
 def test_blocked_routes_of_the_1500_table_payload_are_flagged_and_still_drawn(
@@ -437,7 +423,7 @@ def test_a_filter_change_and_the_page_open_stay_within_budget_on_the_large_proje
     ):  # one sample is cold and at the mercy of the machine: the best of five, as test_routes
         set_scale(p, summary(p)["scale"] * 0.9 * (1 + 0.001 * step))
         times.append(p.page.evaluate(f"{U}.routesMs()"))
-    assert min(times) <= 5, times
+    assert median(times) <= 5, times
 
 
 def test_a_filter_change_with_every_route_stays_within_a_second_on_the_1500_table_payload(

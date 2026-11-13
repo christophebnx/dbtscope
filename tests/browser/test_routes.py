@@ -29,7 +29,7 @@ from browser.test_summary import (
     summary,
 )
 from browser.test_summary_acceptance import from_to, outline_gap
-from browser.test_trajectory_perf import universe_payload
+from browser.test_trajectory_perf import median, universe_payload
 
 pytestmark = pytest.mark.browser
 
@@ -273,16 +273,16 @@ def test_the_routes_are_laid_out_within_budget(large_page: Opened) -> None:
     for all_routes in (False, True):
         p.page.locator("#u-routes").set_checked(all_routes)
         times = []
-        for step in range(1, 6):  # the cold first run is noisy: the best of five
+        for step in range(1, 8):  # the cold first run is noisy: the median of seven
             set_scale(p, summary(p)["scale"] * 0.9 * (1 + 0.001 * step))
             times.append(p.page.evaluate(f"{U}.routesMs()"))
-        assert min(times) <= 5, (all_routes, times)
+        assert median(times) <= 5, (all_routes, times)
     times = []
-    for step in range(1, 6):
+    for step in range(1, 8):
         at_stars(p)
         set_scale(p, summary(p)["stars"] * (1 + 0.001 * step))
         times.append(p.page.evaluate(f"{U}.routesMs()"))
-    assert min(times) <= 5, times
+    assert median(times) <= 5, times
 
 
 def test_the_1500_table_payload_lays_out_every_route_within_budget(tmp_path: Path, open_page: Any) -> None:
@@ -290,10 +290,10 @@ def test_the_1500_table_payload_lays_out_every_route_within_budget(tmp_path: Pat
     if p.page.is_visible("#u-routes-row"):
         p.page.check("#u-routes")
     times = []
-    for step in range(1, 6):
+    for step in range(1, 8):
         set_scale(p, 0.2 + 0.001 * step)
         times.append(p.page.evaluate(f"{U}.routesMs()"))
-    assert min(times) <= 30, times
+    assert median(times) <= 30, times
 
 
 @pytest.mark.parametrize("all_routes", [False, True])
