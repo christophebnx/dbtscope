@@ -267,6 +267,7 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 
 ## Later (not scheduled)
 
+- Documentation round after M8 (user, 2026-11-13): retake the screenshots of `docs/images/` for roles, entities, summary cards, source systems and routes, and the detail skeleton (acme_retail and the large generated project), with the user's approval; a pass over the user guide and how it works.
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
 - Default layers for medallion folders, from M5.12: covered by the built-in presets' default layers (M8.1, D-060); still no rank without rules (`bronze*`, `silver` and `gold` sort alphabetically when a project sets neither a preset nor `layers`).
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).

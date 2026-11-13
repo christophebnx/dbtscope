@@ -41,6 +41,8 @@ Maintained by the `/build-roadmap` skill. Branch: a feature branch per session, 
 
 ## Open points
 
+- M8 close (user, 2026-11-13): M8 is merged into `main` without retaking the screenshots of `docs/images/`; they are retaken, with the user's approval, in a later documentation round (roadmap "Later"). The M8.1 to M8.5 points below about screenshots refer to that round.
+
 - M8.5: the `select` of `data_vault` stays the raw vault (D-077): dimensions and facts are not drawn by the preset's detail; a project adds `dim_*` / `fct_*` in its own `select`. A question for the user at the M8 close.
 - M8.5: the screenshots of `docs/images/` change again (the detail of a large group as a skeleton, the focus, acme_retail's note under the depth select); taken at 1280 × 800 for review in the session scratchpad (`m8.5/vehicle-fit.png`, `vehicle-zoom.png`, `focus-hub.png`, `acme-detail.png`); to be retaken at the M8 close with the user's approval of the before / after (brief § 10); the phase stays "done" until then.
 - M8.5: the note's dot-based layout (imposed columns) was replaced by a grid pinned in neato after the measure (D-074); after the first review the grid became column pairs [hubs | links] (the first grid was a tangle), neato routes the relations as splines up to 5,000 tables × relations and draws straight lines above (the vehicle skeleton: 2,253 × 1,368 pt, 0.3 s, names 10.7 px after three notches), which also fixes the pinned pass of a very large unfolded drawing (277 tables aborted with a Viz.js out-of-memory `Render error`); the shown 277 tables use the grid too (D-078).
