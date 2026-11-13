@@ -150,6 +150,15 @@ function fillSelect(el, pairs, current) {
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
 
+// Folded tables (D-062, D-069), worded alike in both views: the fold control lists at most KIND_LIST kind labels, a
+// tooltip TIP_FOLDED folded tables.
+const KIND_LIST = 3, TIP_FOLDED = 8;
+// the control's kinds line: the first KIND_LIST labels, then " + N"
+const foldKindsText = labels => labels.slice(0, KIND_LIST).join(', ') + (labels.length > KIND_LIST ? ` + ${num(labels.length - KIND_LIST)}` : '');
+// the tooltip lines of folded tables, `pairs`: [name, kind label] in order: `name · Label`, TIP_FOLDED at most, then "+ N"
+const foldedLines = pairs => pairs.slice(0, TIP_FOLDED).map(([name, label]) => `${name} · ${label}`)
+  .concat(pairs.length > TIP_FOLDED ? [`+ ${num(pairs.length - TIP_FOLDED)}`] : []);
+
 // The name and meta lines of a table's tooltip (universe payload), escaped:
 // "<name>" then "domain · layer · kind · N columns". Each view appends its own lines.
 function tableTip(DATA, n) {

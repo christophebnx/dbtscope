@@ -42,16 +42,18 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
 
   // the skeleton (D-069): above SKELETON_MIN tables to draw, each descriptive table with its parent drawn
   // becomes the last row of its entity. A row and the meta line list at most FOLD_KINDS kinds, the control
-  // KIND_LIST, a tooltip TIP_FOLDED folded tables
-  const SKELETON_MIN = 60, KIND_LIST = 3, FOLD_KINDS = 2, TIP_FOLDED = 8;
+  // KIND_LIST, a tooltip TIP_FOLDED folded tables (both in common.js, shared with the universe)
+  const SKELETON_MIN = 60, FOLD_KINDS = 2;
   const ROLE = id => KIND[byId.get(id).kind].role;
   const PASSAGES = DATA.kinds.some(k => k.role === 'connector');   // the focus walk needs a connector kind (D-070)
   const DETAIL_FOLDABLE = DATA.entities.some(e => e.parent != null);
+  const CHILDREN = new Map();   // parent id -> the ids of the tables that fold into it, from the payload's `parent` (D-068)
+  DATA.entities.forEach(e => { if (e.parent != null) CHILDREN.set(e.parent, [...(CHILDREN.get(e.parent) || []), e.id]); });
   let foldOn = DETAIL_FOLDABLE && FOLD.on();
   const state = { group: '', kinds: new Set(DATA.kinds.map(k => k.key)), allColumns: false, focus: null, depth: 1 };
   const box = $d('graph');
   let zv = null, renderSeq = 0;
-  let skeleton = false, last = {}, stale = false, wasSkeleton = false;   // what the last render drew (state(), the view key)
+  let skeleton = false, scopeFoldable = false, last = {}, stale = false, wasSkeleton = false;   // what the last render drew (state(), the view key)
 
   // --- group scope ----------------------------------------------------------
   // A group shows its own tables plus the other-group parents its tables point to.
@@ -104,7 +106,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     const s = v.trim().toLowerCase();
     return DATA.entities.find(e => scope.has(e.id) && (titleOf(e).toLowerCase() === s || e.name.toLowerCase() === s));
   }
-  function submitFocus() { const e = findEntity(focusInput.value); if (e) setFocus(e.id); }
+  function submitFocus() { const e = findEntity(focusInput.value); if (e && e.id !== state.focus) setFocus(e.id); }
   focusInput.addEventListener('change', submitFocus);
   focusInput.addEventListener('keydown', ev => { if (ev.key === 'Enter') submitFocus(); });
   $d('depth').onchange = ev => { state.depth = +ev.target.value; if (state.focus) render(); };
@@ -147,9 +149,9 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
   // the fold control exists while it can act: more than SKELETON_MIN tables in the scope, one with its parent there
   function refreshFold() {
     const held = DATA.entities.filter(e => scope.has(e.id) && e.parent != null && scope.has(e.parent));
-    $d('fold').hidden = !(scope.size > SKELETON_MIN && held.length);
-    const kinds = DATA.kinds.filter(k => k.role === 'descriptive' && held.some(e => e.kind === k.key)).map(labelOf);
-    $d('fold-kinds').textContent = kinds.slice(0, KIND_LIST).join(', ') + (kinds.length > KIND_LIST ? ` + ${num(kinds.length - KIND_LIST)}` : '');
+    scopeFoldable = held.length > 0;
+    $d('fold').hidden = !(scope.size > SKELETON_MIN && scopeFoldable);
+    $d('fold-kinds').textContent = foldKindsText(DATA.kinds.filter(k => k.role === 'descriptive' && held.some(e => e.kind === k.key)).map(labelOf));
     $d('fold-n').textContent = num(held.length);
     $d('hint').textContent = hintText();
   }
@@ -182,9 +184,15 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
         frontier = next;
       }
     }
+    if (state.focus) {   // the focus draws its folded tables in full, related or not, and its own parent (D-070)
+      const parent = byId.get(state.focus).parent;
+      (CHILDREN.get(state.focus) || []).concat(parent != null ? [parent] : []).forEach(id => { if (scope.has(id)) ids.add(id); });
+    }
     return new Set([...ids].filter(id => id === state.focus || state.kinds.has(byId.get(id).kind)));
   }
 
+  // ids by table name, then id: the one order of folded tables and of the skeleton's walk
+  const byName = (a, b) => (byId.get(a).name < byId.get(b).name ? -1 : byId.get(a).name > byId.get(b).name ? 1 : a < b ? -1 : a > b ? 1 : 0);
   // The tables of `ids` that fold into a parent that is drawn too: Map(parent id -> its folded entities, in name order).
   // The focus and the focus's own folded tables are never folded (D-069).
   function foldedOf(ids) {
@@ -194,7 +202,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
       if (!out.has(e.parent)) out.set(e.parent, []);
       out.get(e.parent).push(e);
     });
-    out.forEach(list => list.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : 1)));
+    out.forEach(list => list.sort((a, b) => byName(a.id, b.id)));
     return out;
   }
   // `Label n` pairs of a list of entities, in payload kind order: the first FOLD_KINDS, then ", + N" other kinds
@@ -206,10 +214,9 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     const pairs = kindPairs(list);
     return `+ ${plural(list.length, L.foldedN)} · ${pairs.length === 1 ? labelOf(pairs[0][0]) : kindsText(pairs)}`;
   }
-  // the tooltip lines of the folded tables: a title, then `name · Label`, TIP_FOLDED at most, then "+ N"
-  const foldTip = list => `${plural(list.length, L.foldedN)}${L.colon.trimEnd()}\n`
-    + list.slice(0, TIP_FOLDED).map(e => `${e.name} · ${labelOf(KIND[e.kind])}`).join('\n')
-    + (list.length > TIP_FOLDED ? `\n+ ${num(list.length - TIP_FOLDED)}` : '');
+  // the tooltip text of the folded tables: a title, then the lines of `foldedLines`
+  const foldTip = list => [`${plural(list.length, L.foldedN)}${L.colon.trimEnd()}`,
+    ...foldedLines(list.map(e => [e.name, labelOf(KIND[e.kind])]))].join('\n');
 
   // `folded`: parent id -> its folded entities, drawn as the parent's last row (skeleton only)
   function nodeDot(e, pos, folded) {
@@ -266,7 +273,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
   // the brief). The shape was chosen by measurement (D-071, option O2): dot with the rows imposed by us, as flow.js
   // imposes its columns. The tables are ordered (components of the drawn relations, largest first, each breadth-first
   // from its core table with the most relations; isolated tables last), cut into rows of `c` tables with `rank=same`,
-  // the rows chained by invisible edges (removed after rendering, so highlight and export never see them) and the
+  // the rows chained by invisible edges (invisible: Graphviz never emits them, so highlight and export never see them) and the
   // real edges `constraint=false`, which still order the tables inside a row. `c` aims at the area's own aspect.
   const SKEL_NODESEP = 0.3, SKEL_RANKSEP = 0.6;   // inches
   const areaAspect = () => (box.clientWidth && box.clientHeight ? Math.min(3, Math.max(0.5, box.clientWidth / box.clientHeight)) : 1.5);
@@ -277,7 +284,6 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     const w = Math.max(titleOf(e).length * 9.4 + 20, ...keys.map(c => c[0].length * 8.4 + (c[1] || '').length * 7.4 + 34), held ? 190 : 0);
     return [w, 31 + 21 * rows];
   }
-  const byName = (a, b) => (byId.get(a).name < byId.get(b).name ? -1 : byId.get(a).name > byId.get(b).name ? 1 : a < b ? -1 : a > b ? 1 : 0);
   function skeletonOrder(ids, rels) {
     const near = new Map([...ids].map(id => [id, new Set()]));
     rels.forEach(r => { near.get(r.child).add(r.parent); near.get(r.parent).add(r.child); });
@@ -314,9 +320,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     rels.forEach(r => out.push(`${edgeDot(r)}];`));
     out.push('}');
     cur.dot = out.join('\n');
-    const svg = await GRAPHVIZ.render(cur.dot);
-    svg.querySelectorAll('g.edge[id^="skel-chain-"]').forEach(g => g.remove());
-    return svg;
+    return GRAPHVIZ.render(cur.dot);
   }
 
   // --- manual arrangement -----------------------------------------------------
@@ -366,13 +370,13 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     canExport(false);
     const t0 = tStart ?? performance.now(); tStart = null;
     const ids = visibleIds(), folded = foldedOf(ids);
-    const nFolded = [...folded.values()].reduce((n, list) => n + list.length, 0), heavy = ids.size > SKELETON_MIN && nFolded > 0;
+    const heavy = ids.size > SKELETON_MIN && scopeFoldable;   // some table of the scope can fold, whatever the kind filters
     skeleton = foldOn && heavy;
     const rows = skeleton ? folded : new Map(), foldedList = [...rows.values()].flat();
     const gone = new Set(foldedList.map(e => e.id)), drawn = skeleton ? new Set([...ids].filter(id => !gone.has(id))) : ids;
     const { dot, relCount } = skeleton ? { dot: null, relCount: relsAmong(drawn).length } : buildDot(drawn, null, rows);
     const meta = skeleton
-      ? `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(foldedList.length, L.foldedN)} (${kindsText(kindPairs(foldedList))}) · ${plural(relCount, T.rels)}`
+      ? `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(foldedList.length, L.foldedN)}${foldedList.length ? ` (${kindsText(kindPairs(foldedList))})` : ''} · ${plural(relCount, T.rels)}`
       : `${num(ids.size)} / ${plural(scope.size, L.tables)} · ${plural(relCount, T.rels)}`;
     $d('meta').textContent = meta + (state.group ? ` · ${T.foreign}` : '');
     const warn = !foldOn && heavy ? T.heavy(ids.size) : '';
@@ -413,7 +417,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     const live = $d('live');
     if (isSkeleton) live.textContent = T.live(drawn, total, folded);
     else if (wasSkeleton && !warn) live.textContent = T.liveFull;
-    else if (!warn) live.textContent = '';
+    else live.textContent = '';
     wasSkeleton = isSkeleton;
   }
 

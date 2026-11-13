@@ -100,8 +100,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const ORBIT_GAP = 18;                 // world px between an entity's star and its first orbit
   const ORBIT_RING = 16, ORBIT_STEP = 16;  // most shown tables per orbit; world px between two orbits
   const ORBIT_ROOM = 10;                // world px added to a shown star's radius when spacing neighbours (room for ring + search mark)
-  const FOLD_ROWS = 12, FOLD_HEAD = 15, TIP_FOLDED = 8;  // folded rows on a card; heading row height; folded names in a tooltip
-  const KIND_LIST = 3;                  // kind labels written under the panel control before "+ N"
+  const FOLD_ROWS = 12, FOLD_HEAD = 15;  // folded rows on a card; heading row height
   // summary cards (M8.3, D-063, D-064): a star "can be told apart" above SUMMARY_CELL screen px of room (the star cell);
   // cards fade into stars over a zoom ratio of SUMMARY_FADE; at most SUMMARY_NAMES main tables on a card
   const SUMMARY_CELL = 14, SUMMARY_FADE = 1.3, SUMMARY_NAMES = 5;
@@ -212,7 +211,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   $u('fold').hidden = !FOLDABLE;
   const foldKinds = DATA.kinds.filter(k => k.role === 'descriptive' && N.some(n => n.kind === k.key && PARENT[n.i] != null)).map(labelOf);
   $u('fold-t').textContent = L.fold;
-  $u('fold-kinds').textContent = foldKinds.slice(0, KIND_LIST).join(', ') + (foldKinds.length > KIND_LIST ? ` + ${num(foldKinds.length - KIND_LIST)}` : '');
+  $u('fold-kinds').textContent = foldKindsText(foldKinds);
   $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
   $u('fold').querySelector('label').title = T.foldTitle;
   $u('fold-on').checked = state.fold;
@@ -2125,8 +2124,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     }
     if (!held.length) return text;
     text += `<div class="m"><b>${plural(held.length, L.foldedN)}</b></div>`
-      + held.slice(0, TIP_FOLDED).map(i => `<div class="m">${esc(N[i].name)} · ${esc(labelOf(KIND[N[i].kind]))}</div>`).join('');
-    return text + (held.length > TIP_FOLDED ? `<div class="m">+ ${num(held.length - TIP_FOLDED)}</div>` : '');
+      + foldedLines(held.map(i => [N[i].name, labelOf(KIND[N[i].kind])])).map(l => `<div class="m">${esc(l)}</div>`).join('');
+    return text;
   }
   const sameCard = (a, b) => (a && a.key) === (b && b.key) && (a && a.row) === (b && b.row);
   canvas.addEventListener('mousemove', ev => {

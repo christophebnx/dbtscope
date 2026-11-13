@@ -444,3 +444,34 @@ def test_a_synthetic_group_of_1500_tables_draws_its_skeleton_with_rows(
     assert len(s["drawn"]) == 600 and sum(len(v) for v in s["folded"].values()) == 900
     assert s["meta"].startswith("1,500 / 1,500 tables · 900 folded tables (Satellite 900)")
     assert 0.5 <= s["size"][0] / s["size"][1] <= 3
+
+
+def test_unticking_the_last_folding_kind_keeps_the_skeleton_shape_with_no_row(large_detail: Large) -> None:
+    p, _ = large_detail
+    types = p.page.inner_text("#d-types")
+    untick(p, "Satellite")
+    s = dstate(p)
+    assert s["skeleton"] is True and p.page.is_checked("#d-fold-on") and not p.page.is_hidden("#d-fold")
+    assert s["folded"] == {} and s["rows"] == {}
+    assert 0.5 <= s["size"][0] / s["size"][1] <= 3  # not the old strip
+    assert p.page.inner_text("#d-types") == types  # counts unchanged
+    assert s["meta"].startswith("148 / 283 tables · 0 folded tables · ")  # the scope still counts 283
+
+
+def test_the_focus_box_announces_once_and_the_warning_replaces_the_live_text(large_detail: Large) -> None:
+    p, data = large_detail
+    live = "document.getElementById('d-live').textContent"
+    hub = entities(data)["model.shop.vehicle_e001_hub"]["name"]
+    assert "tables drawn" in p.page.evaluate(live)
+    p.page.fill("#d-focus", hub)
+    p.page.press("#d-focus", "Enter")  # Enter focuses; the change event on blur must not render again
+    p.page.dispatch_event("#d-focus", "change")
+    wait_drawn(p)
+    p.page.wait_for_timeout(300)
+    assert p.page.evaluate(live) == "All tables drawn"
+    p.page.click("#d-clear")
+    wait_drawn(p)
+    assert "tables drawn" in p.page.evaluate(live)
+    p.page.click("#d-fold-on")  # fold off: the full drawing is hard to read
+    wait_drawn(p)
+    assert dstate(p)["warn"] != "" and p.page.evaluate(live) == ""

@@ -28,6 +28,17 @@ What it covers, as dbt really writes it:
 `expected.json` holds the counts the tests check (`tests/integration/test_example_project.py`).
 Its `dbt-erd.yml` writes no `kinds`: the `data_vault` preset gives Hub, Link, Satellite, Fact, Dimension and Staging with their roles (M8.1), so the universe has `universe.kinds` Staging 18, Source 18, Seed 3, Snapshot 2, Hub 13, Link 12, Satellite 13, Fact 8, Dimension 8, and no Other.
 
+`detail-dot/<group>.dot` and `detail-svg/<group>.svg` (`__all` is "All groups") freeze the detail view as it was drawn
+before M8.5 (commit `fe05527`, the parent of the skeleton): the DOT sent to Graphviz for every group (`detail-dot/`, six
+groups and `__all`) and the SVG exported by `views.detail.svgImage(1)` for `customer`, `logistics` and `__all`
+(`detail-svg/`). `tests/browser/test_skeleton.py` and `test_skeleton_done.py` compare the current page to them: below
+60 tables nothing may change. Never regenerate them from a newer page: that would hide a change. To regenerate after a
+change of the example or a deliberate change of the drawing: build the page of the example project from the committed
+manifest with the code to be frozen (`uv run dbtscope --project-dir <example> --no-parse --no-open`), open it in
+Chromium, show the Detail tab, select each group in `#d-group` (value `''` for "All groups"), wait until the drawing is
+mounted and write the DOT (`buildDot(visibleIds())` of the code then; `views.detail.state().dot` once it exists) and
+`views.detail.svgImage(1)` to those files, unchanged.
+
 Regenerate after any change to `examples/acme_retail/` (then update `expected.json` if a count
 changes, and understand why):
 

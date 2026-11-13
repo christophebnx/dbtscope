@@ -55,6 +55,10 @@ def walk(data: dict[str, Any], focus: str, depth: int, passages: bool | None = N
                             seen.add(m)
                             level.append(m)
         frontier = level
+    # the focus's own folded tables are drawn in full, related or not, and its parent when in scope (D-070)
+    seen |= {i for i, e in by_id.items() if e["parent"] == focus and i in scope}
+    if by_id[focus]["parent"] in scope:
+        seen.add(by_id[focus]["parent"])
     return seen
 
 
@@ -259,12 +263,6 @@ def test_the_example_hub_in_focus_draws_the_hubs_across_its_links(
     )  # the passage adds tables
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="defect: a folded table with no relation to its parent (parent by name stem) is never reached "
-    "by the walk, so the focus on its hub does not draw it although the hub's row counted it "
-    "(detail.js visibleIds)",
-)
 def test_a_focused_hub_draws_every_folded_table_even_one_with_no_relation(large_detail: Large) -> None:
     p, data = large_detail
     hub = "model.shop.vehicle_e001_hub"
@@ -276,3 +274,10 @@ def test_a_focused_hub_draws_every_folded_table_even_one_with_no_relation(large_
     assert lone in dstate(p)["folded"][hub]  # the row counts it
     got = focus_all(p, [hub])
     assert lone in got[hub]["drawn"]
+
+
+def test_a_focused_folded_table_with_no_relation_draws_its_parent(large_detail: Large) -> None:
+    p, _ = large_detail
+    lone, hub = "model.shop.vehicle_e001_s5_sat", "model.shop.vehicle_e001_hub"
+    got = focus_all(p, [lone])
+    assert hub in got[lone]["drawn"]
