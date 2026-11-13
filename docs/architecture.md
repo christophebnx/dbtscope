@@ -128,7 +128,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Star size and name priority by role (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `NAME_ORDER`, `nameOrder`, `OVERVIEW_K`, `orderLabels` |
 | The Types-list order of kinds (panel, cards) | `render/assets/universe.js kindOrder` (`ROLE_ORDER`) |
 | Main core tables of a constellation, by relations (page; names at overview and summary cards) | `render/assets/universe.js mainTables` |
-| The overview order of a constellation's names (names at overview, a card's main tables) | `render/assets/universe.js overviewOrder` |
+| The order of a constellation's main tables (a card's main tables; names at overview share `nameOrder` and filter by `MAIN` rank in `orderLabels`) | `render/assets/universe.js overviewOrder` |
 | When the universe is drawn as summary cards: the star cell, the two scales, the cross-fade (page, D-063) | `render/assets/universe.js summarise` (`CELL`, `summaryScale`, `starsScale`), `summaryAlpha`, `SUMMARY_CELL`, `SUMMARY_FADE` |
 | Content of a summary card: counts, rows by own layer or domain, bars by kind, main tables (page, D-064) | `render/assets/universe.js summarise` (`SUMMARIES`) |
 | Where a summary card is placed on screen: anchor on its disc, levels, the push (page, D-063) | `render/assets/universe.js cardLayout` (`settleCards`, `relaxCards`, `cardSize`, `CARD`) |

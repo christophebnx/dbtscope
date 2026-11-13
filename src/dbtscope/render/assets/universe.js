@@ -92,6 +92,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const SUMMARY_CELL = 14, SUMMARY_FADE = 1.3, SUMMARY_NAMES = 5;
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
   const roleOf = n => KIND[n.kind].role ?? null;
+  const isEntity = n => roleOf(n) === 'core' || roleOf(n) === 'connector';   // what the meta line and a card count as an entity
   const HAS_CORE = DATA.kinds.some(k => k.role === 'core');
   const starR = n => Math.max(STAR_MIN, Math.min(STAR_MAX, 3 + 1.6 * Math.sqrt(DEG[n.i])) * (ROLE_STAR[roleOf(n)] ?? 1));
   // business relations of each table, both ends, whatever the Links selector says: ranks the main tables
@@ -112,9 +113,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // name priority: by role (NAME_ORDER; core by rank in its constellation), then by score
   const nameOrder = (a, b) => NAME_ORDER.indexOf(roleOf(a)) - NAME_ORDER.indexOf(roleOf(b))
     || (roleOf(a) === 'core' ? (MAIN.get(a.i) ?? Infinity) - (MAIN.get(b.i) ?? Infinity) : 0) || labelScore(b) - labelScore(a);
-  // the names of a constellation's tables at overview, first the main ones (D-058): on a page with a core kind its core
-  // tables by rank (none for a constellation without any), else all by role then score. Names at overview and the main
-  // tables of a summary card (D-064) read it.
+  // the main tables of a constellation, first the main ones (D-058): on a page with a core kind its core tables by rank
+  // (none for a constellation without any), else all by role then score. The summary cards' main tables (D-064) read it;
+  // names at overview (orderLabels) share nameOrder and offer the first OVERVIEW_NAMES of the tables on screen.
   const overviewOrder = members => members.filter(n => !HAS_CORE || roleOf(n) === 'core').sort(nameOrder);
   const DOM = Object.fromEntries(DATA.domains.map(d => [d.key, d]));
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
@@ -343,7 +344,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       });
     }
     drawn = visible.filter(n => !foldedSet.has(n.i));
-    entityCount = visible.filter(n => roleOf(n) === 'core' || roleOf(n) === 'connector').length;
+    entityCount = visible.filter(isEntity).length;
     B = []; drawn.forEach(n => B[n.i] = box(n));
     const seen = new Set(); edges = [];
     const add = list => list.forEach(([a, b]) => {
@@ -707,23 +708,27 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const taken = [], hits = [];
     const free = (x, y, w, h) => !taken.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
     ctx.textAlign = 'center';
-    if (LA > 0) constellations.forEach(d => {
+    // the name, count and composition bar above a disc. A constellation whose card is at level `count` or `frame` has no name
+    // on it, so this label stays at full alpha and replaces it (drawn after the cards, below); the others fade with the stars
+    const placed = a > 0 ? cardLayout(k) : null, bare = d => !!placed && placed.byKey.get(d.k).lv >= 4;
+    const discLabel = (d, alpha, counts = plural(d.n, L.tables)) => {
       const [sx, rim] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const sy = rim - (byLayers ? NAME_LIFT : 0);
       const name = constellationLabel(d.k);
-      setA(ctxAlpha(d));
+      ctx.globalAlpha = alpha; ctx.textAlign = 'center';
       // a domain name in its colour, readable on the page (D-037); a layer name in the text colour
       ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
       ctx.fillText(name, sx, sy - 22);
       const w = Math.max(ctx.measureText(name).width, 80) + 8;
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
-      ctx.fillText(plural(d.n, L.tables), sx, sy - 8);
+      ctx.fillText(counts, sx, sy - 8);
       // composition by type, readable before any single star is
       let bx = sx - 40;
       d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
       taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
-      hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
-    });
+      return { d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 };
+    };
+    if (LA > 0) constellations.forEach(d => { if (!bare(d)) hits.push(discLabel(d, ctxAlpha(d) * LA)); });
     // a badge's pill is an obstacle for every name below: its number is never hidden (the far arc has no digits and
     // is no obstacle: from afar names are rare and the arc is a mark on the star's rim)
     if (k >= OVERVIEW_K && LA > 0) badges.forEach(([p, r, held]) => {
@@ -735,12 +740,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const around = SP.size && LA > 0 ? drawShownNames(screen, taken, k) : [];
     const named = LA > 0 ? [...around, ...(cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k))] : [];
     // the summary cards, over everything: drawn at alpha a, their headers are the drag handles while cards are on
-    const drawnCards = a > 0 ? cardLayout(k).items.map(e => drawSummary(e, a, onScreen ? overCard : null)) : [];
+    const drawnCards = placed ? placed.items.map(e => drawSummary(e, a, onScreen ? overCard : null)) : [];
+    const bareHits = constellations.filter(bare).map(d => discLabel(d, ctxAlpha(d), SUMMARIES.get(d.k).counts));
     ctx.globalAlpha = 1; ctx.textAlign = 'left';
     if (!onScreen) return;
     drawnNames = named;
     summaryHits = drawnCards;
-    labelHits = a >= 0.5 ? drawnCards.map(c => ({ d: c.d, ...c.header })) : hits;
+    labelHits = a >= 0.5 ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits] : [...hits, ...bareHits];
     perf.draw = performance.now() - t0;
   }
   // the view as shown (filters, zoom, detail level, search mark, trajectory) as a PNG at 2 x the screen
@@ -1010,7 +1016,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     summaryScale = SUMMARY_CELL / CELL; starsScale = summaryScale * SUMMARY_FADE;
     SUMMARIES = new Map();
     for (const [key, members] of d3.group(visible, G.of)) {
-      const ents = members.filter(n => roleOf(n) === 'core' || roleOf(n) === 'connector').length;
+      const ents = members.filter(isEntity).length;
       const rows = [...d3.group(members, G.rowOf)].sort((a, b) => rank.get(a[0]) - rank.get(b[0])).map(([rk, ms]) => ({
         key: rk, label: labelOf(G.rowList[rank.get(rk)]), n: ms.length,
         kinds: [...d3.rollup(ms, v => v.length, n => n.kind)].sort((a, b) => kr.get(a[0]) - kr.get(b[0])) }));
@@ -1031,7 +1037,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // Card geometry, in screen px at constant text size (13 px name, 11 px otherwise). A card's content has levels, from most
   // to least: 0 rows and main tables, 1 rows, 2 one bar by kind, 3 name and tables, 4 the count, 5 a frame (D-063).
   const CARD = { PAD_X: 8, PAD_Y: 6, NAME: 16, LINE: 14, SEC: 4, ROW: 22, BAR: 6, BAR_MIN: 6, SEG_MIN: 2, W_MIN: 112, W_MAX: 176,
-                 NAMES_MIN: 3, RADIUS: 6, BORDER: 2, BORDER_HOVER: 3, GAP: 2, TRAJ_ROOM: 8, ITER: 40, DAMP: 0.6, ROUNDS: 30 };
+                 NAMES_MIN: 3, RADIUS: 6, BORDER: 2, BORDER_HOVER: 3, GAP: 2, TRAJ_ROOM: 8, ITER: 40, DAMP: 0.6, ROUNDS: 30, WORK: 600 };
   const LEVELS = ['rows', 'rows', 'bar', 'name', 'count', 'frame'];
   const F_NAME = `600 13px ${FONT}`, F_TEXT = `11px ${FONT}`;
   const TW = new Map();   // widths of texts by font: asked for every card in every frame
@@ -1087,17 +1093,22 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const room = e.tj ? CARD.TRAJ_ROOM : 0;
       e.bw = e.w + 2 * room; e.bh = e.h + 2 * room; e.px = e.ax; e.py = e.ay;
     });
-    const n = items.length, mv = new Float64Array(2 * n);
+    const n = items.length, mv = new Float64Array(2 * n), order = items.map((_, i) => i);
     for (let it = 0; it < CARD.ITER; it++) {
       mv.fill(0);
       let any = false;
-      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-        const a = items[i], b = items[j];
+      // sweep by left edge: the candidates of a card are the cards that start before it ends, so a pass costs about
+      // O(n log n) when the cards are spread out, not O(n^2) (about 50 domains)
+      order.sort((p, q) => (items[p].px - items[p].bw / 2) - (items[q].px - items[q].bw / 2) || p - q);
+      for (let oi = 0; oi < n; oi++) for (let oj = oi + 1; oj < n; oj++) {
+        const first = items[order[oi]];
+        if (items[order[oj]].px - items[order[oj]].bw / 2 >= first.px + first.bw / 2 + CARD.GAP) break;
+        const i = Math.min(order[oi], order[oj]), j = Math.max(order[oi], order[oj]), a = items[i], b = items[j];
         let dx = b.px - a.px; const dy = b.py - a.py;
         const sx = (a.bw + b.bw) / 2 + CARD.GAP, sy = (a.bh + b.bh) / 2 + CARD.GAP;
         if (sx - Math.abs(dx) <= 0 || sy - Math.abs(dy) <= 0) continue;
         any = true;
-        if (!dx && !dy) dx = 1e-3;   // two cards on one point: the later one goes right
+        if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) dx = 1e-3;   // two cards on one point: the later one goes right
         const dist = Math.hypot(dx, dy), ux = dx / dist, uy = dy / dist;
         const s = Math.min(Math.abs(dx) > 1e-6 ? sx / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-6 ? sy / Math.abs(dy) : Infinity);
         const push = (s - 1) * dist, wa = b.w * b.h / (a.w * a.h + b.w * b.h);
@@ -1115,14 +1126,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // A card stays on its constellation: its centre within the disc's screen radius and clear of every other card. While one
   // is not, the worst offender (shift over radius, an overlap weighing 10) drops one level and the push restarts, at most
-  // CARD.ROUNDS times, then every offender goes to its frame.
+  // CARD.ROUNDS times (fewer with many constellations: a round costs about n^2, so CARD.WORK / n rounds keep the total
+  // about linear in n), then every offender goes to its frame.
   function settleCards(items) {
+    const rounds = Math.max(1, Math.min(CARD.ROUNDS, Math.floor(CARD.WORK / items.length)));
     for (let round = 1; ; round++) {
       relaxCards(items);
       const score = e => e.disp / e.r + 10 * e.over;
       const bad = items.filter(e => e.lv < 5 && (e.disp > e.r || e.over)).sort((a, b) => score(b) - score(a));
       if (!bad.length) return;
-      if (round >= CARD.ROUNDS) { bad.forEach(e => { e.lv = 5; }); relaxCards(items); return; }
+      if (round >= rounds) { bad.forEach(e => { e.lv = 5; }); relaxCards(items); return; }
       bad[0].lv++;
     }
   }
@@ -1206,17 +1219,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const ix = x + CARD.PAD_X, iw = e.w - 2 * CARD.PAD_X, hov = over && over.key === e.key;
     const rec = { key: e.key, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: LEVELS[lv], name: null, counts: null, rows: [], main: [],
       traj: null, fonts: [null, null], header: { x, y, w: e.w, h: lv <= 2 ? CARD.PAD_Y + CARD.NAME : e.h }, rowHits: [] };
+    if (lv >= 4) {   // no room for the name: the label above the disc stays instead (paint), so a bare pill is drawn only to carry a frame
+      rec.label = true; rec.name = s.label; rec.counts = s.counts; rec.fonts = [13, 12];
+      if (!e.tj) return rec;
+    }
     ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1);
     if (e.tj) drawCardFrames(e.tj, x, y, e.w, e.h);
     ctx.fillStyle = C.card; ctx.strokeStyle = mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
     roundedRect(x, y, e.w, e.h, CARD.RADIUS); ctx.fill(); ctx.stroke();
-    if (lv === 5) return rec;
+    if (lv >= 4) return rec;
     ctx.textAlign = 'left'; ctx.fillStyle = ink; ctx.font = F_NAME;
-    if (lv === 4) {
-      ctx.textAlign = 'center'; ctx.fillText(rec.counts = num(s.n), x + e.w / 2, y + e.h / 2 + 5); ctx.textAlign = 'left';
-      rec.fonts = [13, null];
-      return rec;
-    }
     let ty = y + CARD.PAD_Y;
     ctx.fillText(rec.name = cutText(F_NAME, s.label, iw), ix, ty + 12); ty += CARD.NAME;
     ctx.font = F_TEXT; ctx.fillStyle = C.muted;
@@ -1643,7 +1655,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // what the last screen frame drew of each card, in screen px (kept out of geometry() so geometries compare equal)
   const summariesDrawn = () => summaryHits.map(c => ({ key: c.key, x: c.x, y: c.y, w: c.w, h: c.h, shift: c.shift, level: c.level, name: c.name,
-    counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts }));
+    counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts, label: !!c.label }));
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
   function camera(to) {

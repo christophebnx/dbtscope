@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -42,10 +43,11 @@ from browser.test_summary import (
 from browser.test_trajectory_perf import universe_payload
 from browser.test_universe_layout import without_time
 from dbtscope.domain.payload import UniversePayload
+from dbtscope.storage.files import atomic_write
 
 pytestmark = pytest.mark.browser
 
-GOLDEN = Path(__file__).parents[1] / "fixtures" / "acme-retail-stars-at-fit.json"
+GOLDEN = Path(__file__).parents[1] / "fixtures" / "acme-retail-stars-at-fit" / "expected.json"
 FIRST_ROW = 6 + 16 + 14 + 4  # y of a `rows` card's first row (padding, name, counts, gap); a row is 22 px
 
 
@@ -326,10 +328,33 @@ def test_routes_move_from_the_disc_centres_to_the_card_edges_with_the_alpha(larg
 # ---------------- done when 2: acme_retail as before
 
 
+def record_golden(p: Page) -> None:
+    """Rewrite the fixture from the page as it is now (DBTSCOPE_RECORD_GOLDEN=1)."""
+    g = geometry(p)
+    keep = ("key", "x", "y", "r", "n")
+    gold = {
+        "format": 1,
+        "synthetic": True,
+        "camera": camera(p),
+        "constellations": [
+            {
+                **{k: c[k] for k in keep},
+                "bands": [{k: b[k] for k in ("key", "n", "x0", "x1")} for b in c["bands"]],
+            }
+            for c in g["constellations"]
+        ],
+        "tables": [{k: t[k] for k in ("id", "x", "y", "w", "h", "oy", "r")} for t in g["tables"]],
+        "routes": [{k: r[k] for k in ("source", "target", "c", "dir")} for r in g["routes"]],
+    }
+    atomic_write(GOLDEN, (json.dumps(gold, indent=1, ensure_ascii=False) + "\n").encode("utf-8"))
+
+
 def test_acme_retail_opens_on_stars_with_the_geometry_it_had_before_the_cards(example_page: Opened) -> None:
     """Stars at Fit, no card: the camera, the constellations (discs, bands) and every table's position and box
     are the ones recorded on the page of M8.2 (regenerate the fixture only when the layout changes, M8.4)."""
     p, _ = example_page
+    if os.environ.get("DBTSCOPE_RECORD_GOLDEN"):  # regeneration path, see the fixture's notes.md
+        record_golden(p)
     gold = json.loads(GOLDEN.read_text(encoding="utf-8"))
     g = geometry(p)
     assert summary(p)["alpha"] == 0 and cards(p) == []

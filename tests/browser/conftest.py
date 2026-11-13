@@ -115,11 +115,13 @@ def show_detail(p: Page, exportable: bool = True) -> None:
         wait_exportable(p)
 
 
-def universe_page(folder: Path, universe: UniversePayload, **config: Any) -> Path:
-    """Write the page of a synthetic universe payload (empty detail view) into `folder`; return it."""
+def universe_page(
+    folder: Path, universe: UniversePayload, layout: dict[str, Any] | None = None, **config: Any
+) -> Path:
+    """Write the page of a synthetic universe payload (empty detail view, optional layout) into `folder`."""
     html = folder / "erd.html"
     settings = merge_config({}, {"view": "universe", "title": "perf", **config})
-    html.write_text(render_page(empty_detail("perf"), universe, settings), encoding="utf-8")
+    html.write_text(render_page(empty_detail("perf"), universe, settings, layout), encoding="utf-8")
     return html
 
 
