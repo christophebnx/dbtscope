@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from colours import ciede2000, contrast
 
@@ -287,3 +288,108 @@ def test_no_domain_is_never_a_source_system() -> None:
     domains = {"": ["source"], "core": ["hub"]}
     forced = {**ROLES, "domains": [{"key": "", "match": [], "system": True}]}
     assert _systems(domains, ROLES) == frozenset() and _systems(domains, forced) == frozenset()
+
+
+# --- source systems through universe_data (M8.4, D-065): the real kinds, scope, resolution of the domain ---
+
+
+def _flagged(tables: list[Table], config: dict[str, Any], preset: str = "data_vault") -> dict[str, bool]:
+    project = Project(tables={t.unique_id: t for t in tables}, relations=(), lineage=(), groups={}, root=None)
+    data = universe_data(project, merge_config(read_preset(preset) if preset else {}, config))
+    return {d.key: d.system for d in data.domains}
+
+
+def _t(name: str, resource: str = "model", **fields: Any) -> Table:
+    return Table(
+        **{
+            "unique_id": f"{resource}.x.{name}",
+            "name": name,
+            "resource_type": resource,
+            "schema_name": "s",
+            **fields,
+        }
+    )
+
+
+def test_seeds_snapshots_and_sources_are_technical_for_the_automatic_rule() -> None:
+    tables = [
+        _t("raw_seed", "seed", meta={"domain": "raw"}),
+        _t("raw_snap", "snapshot", meta={"domain": "raw"}),
+        _t("raw_src", "source", meta={"domain": "raw"}),
+        _t("a_hub", meta={"domain": "core"}),
+    ]
+    assert _flagged(tables, {}) == {"raw": True, "core": False}
+
+
+def test_one_modelled_table_keeps_a_domain_of_sources_a_business_domain() -> None:
+    tables = [_t("raw_src", "source", meta={"domain": "raw"}), _t("a_hub", meta={"domain": "raw"})]
+    tables.append(_t("b_hub", meta={"domain": "core"}))
+    assert _flagged(tables, {}) == {"raw": False, "core": False}
+
+
+def test_tables_outside_the_universe_scope_do_not_count() -> None:
+    """The page filters never reach Python; the scope (`universe.exclude`) does."""
+    tables = [
+        _t("raw_src", "source", meta={"domain": "raw"}),
+        _t("a_hub", meta={"domain": "raw"}),
+        _t("b_hub", meta={"domain": "core"}),
+    ]
+    assert _flagged(tables, {})["raw"] is False
+    assert _flagged(tables, {"universe": {"exclude": ["a_hub"]}})["raw"] is True
+
+
+def test_hidden_kinds_never_change_the_flag() -> None:
+    tables = [
+        _t("raw_src", "source", meta={"domain": "raw"}),
+        _t("a_hub", meta={"domain": "raw"}),
+        _t("b_hub", meta={"domain": "core"}),
+    ]
+    assert _flagged(tables, {"universe": {"hidden_kinds": ["hub"]}})["raw"] is False
+
+
+def test_a_rule_overrides_a_domain_resolved_from_a_dbt_group_a_meta_or_group_by() -> None:
+    tables = [
+        _t("g_hub", group="from_group"),
+        _t("m_hub", meta={"domain": "from_meta"}),
+        _t("s_hub", schema_name="x"),  # group_by schema: domain "x"
+        _t("c_hub", meta={"domain": "core"}),
+    ]
+    rules = [{"key": k, "match": [], "system": True} for k in ("from_group", "from_meta", "x")]
+    flags = _flagged(tables, {"domains": rules})
+    assert flags == {"from_group": True, "from_meta": True, "x": True, "core": False}
+    off = [{"key": "raw", "match": [], "system": False}]
+    only_src = [_t("r_src", "source", meta={"domain": "raw"}), _t("c_hub", meta={"domain": "core"})]
+    assert _flagged(only_src, {"domains": off})["raw"] is False
+
+
+def test_an_override_works_without_any_role_on_the_page() -> None:
+    tables = [_t("r_src", "source", meta={"domain": "raw"}), _t("c", "seed", meta={"domain": "core"})]
+    assert _flagged(tables, {}, preset="") == {"raw": False, "core": False}  # no role given: nothing changes
+    rule = {"domains": [{"key": "raw", "match": [], "system": True}]}
+    assert _flagged(tables, rule, preset="") == {"raw": True, "core": False}
+
+
+def test_the_star_schema_preset_flags_its_staging_domain() -> None:
+    tables = [
+        _t("stg_a", meta={"domain": "staging"}),
+        _t("src", "source", meta={"domain": "staging"}),
+        _t("fct_a", meta={"domain": "sales"}),
+    ]
+    assert _flagged(tables, {}, preset="star_schema") == {"staging": True, "sales": False}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="defect: source_systems guard (universe.py:79) ignores that No domain is a business domain",
+)
+def test_a_catch_all_domain_with_modelled_tables_is_the_business_domain_the_guard_needs() -> None:
+    """D-065 rule 4: the guard keeps one business domain; "No domain" (never a system) is one."""
+    domains = {"raw": ["source"], "": ["hub"]}
+    assert _systems(domains, ROLES) == {"raw"}
+
+
+def test_the_flag_is_the_last_key_of_a_domain_in_the_page_payload() -> None:
+    tables = [_t("a_hub", meta={"domain": "core"})]
+    project = Project(tables={t.unique_id: t for t in tables}, relations=(), lineage=(), groups={}, root=None)
+    data = json.loads(embedded_json(universe_data(project, merge_config({}, {}))))
+    assert list(data["domains"][0])[-1] == "system" and data["domains"][0]["system"] is False

@@ -1278,3 +1278,12 @@ def test_the_failure_reason_follows_the_log_level(
     err = capsys.readouterr().err
     assert reason in err
     assert ("--log-level error to see why" in err) == ("none" in args)
+
+
+def test_the_universe_row_pluralises_source_systems(dbt_project: Path, capsys: Capsys) -> None:
+    write_config(dbt_project, "preset: star_schema\ndomains:\n  - {key: products, match: [], system: true}\n")
+    assert main(build(dbt_project)) == 0
+    assert "6 tables in 4 domains (2 source systems), 4 relations" in capsys.readouterr().out
+    write_config(dbt_project, "domains:\n  - {key: staging, match: [], system: false}\npreset: star_schema\n")
+    assert main(build(dbt_project)) == 0
+    assert "source system" not in capsys.readouterr().out.splitlines()[1]
