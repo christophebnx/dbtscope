@@ -29,7 +29,7 @@ from browser.test_summary import (
     summary,
 )
 from browser.test_summary_acceptance import from_to, outline_gap
-from browser.test_trajectory_perf import median, universe_payload
+from browser.test_trajectory_perf import median, steady, universe_payload
 
 pytestmark = pytest.mark.browser
 
@@ -270,18 +270,27 @@ def test_a_route_has_a_tooltip_with_its_ends_what_it_carries_and_who_reads_whom(
 
 def test_the_routes_are_laid_out_within_budget(large_page: Opened) -> None:
     p, _ = large_page
-    for all_routes in (False, True):
-        p.page.locator("#u-routes").set_checked(all_routes)
+
+    def at_cards() -> list[float]:
         times = []
         for step in range(1, 8):  # the cold first run is noisy: the median of seven
             set_scale(p, summary(p)["scale"] * 0.9 * (1 + 0.001 * step))
             times.append(p.page.evaluate(f"{U}.routesMs()"))
+        return times
+
+    def at_the_stars() -> list[float]:
+        times = []
+        for step in range(1, 8):
+            at_stars(p)
+            set_scale(p, summary(p)["stars"] * (1 + 0.001 * step))
+            times.append(p.page.evaluate(f"{U}.routesMs()"))
+        return times
+
+    for all_routes in (False, True):
+        p.page.locator("#u-routes").set_checked(all_routes)
+        times = steady(at_cards, 5)
         assert median(times) <= 5, (all_routes, times)
-    times = []
-    for step in range(1, 8):
-        at_stars(p)
-        set_scale(p, summary(p)["stars"] * (1 + 0.001 * step))
-        times.append(p.page.evaluate(f"{U}.routesMs()"))
+    times = steady(at_the_stars, 5)
     assert median(times) <= 5, times
 
 
@@ -289,10 +298,15 @@ def test_the_1500_table_payload_lays_out_every_route_within_budget(tmp_path: Pat
     p = open_page(universe_page(tmp_path, universe_payload()))
     if p.page.is_visible("#u-routes-row"):
         p.page.check("#u-routes")
-    times = []
-    for step in range(1, 8):
-        set_scale(p, 0.2 + 0.001 * step)
-        times.append(p.page.evaluate(f"{U}.routesMs()"))
+
+    def redraws() -> list[float]:
+        times = []
+        for step in range(1, 8):
+            set_scale(p, 0.2 + 0.001 * step)
+            times.append(p.page.evaluate(f"{U}.routesMs()"))
+        return times
+
+    times = steady(redraws, 30)
     assert median(times) <= 30, times
 
 

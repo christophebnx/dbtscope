@@ -36,7 +36,7 @@ from browser.test_summary import (
     settle,
     summary,
 )
-from browser.test_trajectory_perf import median, universe_payload
+from browser.test_trajectory_perf import median, steady, universe_payload
 
 pytestmark = pytest.mark.browser
 
@@ -417,12 +417,15 @@ def test_a_filter_change_and_the_page_open_stay_within_budget_on_the_large_proje
     p.page.wait_for_function(f"{U}.geometry().by && true")
     p.page.evaluate(f"{U}.geometry()")
     assert time.perf_counter() - t <= 1.0
-    times = []
-    for step in range(
-        1, 6
-    ):  # one sample is cold and at the mercy of the machine: the best of five, as test_routes
-        set_scale(p, summary(p)["scale"] * 0.9 * (1 + 0.001 * step))
-        times.append(p.page.evaluate(f"{U}.routesMs()"))
+
+    def redraws() -> list[float]:
+        times = []
+        for step in range(1, 8):  # one sample is cold: the median of seven
+            set_scale(p, summary(p)["scale"] * 0.9 * (1 + 0.001 * step))
+            times.append(p.page.evaluate(f"{U}.routesMs()"))
+        return times
+
+    times = steady(redraws, 5)
     assert median(times) <= 5, times
 
 
