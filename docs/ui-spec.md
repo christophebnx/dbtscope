@@ -120,6 +120,21 @@ Design: `docs/architecture/2026-11-12-m8.3-summary-cards.md` § UI design. The g
 - **Hint** gains "from afar each constellation is a summary card: double-click it, or click one of its rows, to see its tables".
 - **Known limit.** At 360 px on the large project only the three largest domains keep their rows and main tables; the others show their name and count, or fall back to the label above their disc (the text summary lists everything); a card at the stage's edge can be cut by about 10 to 15 px.
 
+## Universe view — source systems and routes (M8.4, D-065..D-067)
+
+Design: `docs/architecture/2026-11-12-m8.4-source-systems-routes.md` § UI design (exact constants, wireframe, mocks). The user approves the before / after screenshots at the close of M8.
+
+- **Purpose.** See the business domains, their sizes and their main dependencies at a glance, with the raw systems set apart upstream; then ask of one domain what it touches.
+- **Source systems.** A domain made only of technical tables (when the config gives roles) or flagged `system: true` in `dbt-erd.yml` is drawn neutral (grey halo, ring and card border, grey 13 px name), stacked in columns on the left of the business domains, each near the domains it feeds. Business domains are placed along the data flow where lineage says so (a domain read by others sits left of them). Pinned domains stay; **Reset layout** gives the new placement; saved arrangements load unchanged. A page with no source system (acme_retail, a page without a preset) is unchanged but for routes.
+- **Group card.** At overview (cards on, two or more systems visible) the systems are one card: "Source systems", "7 systems · 504 tables" (« Systèmes sources », « 7 systèmes · 504 tables »), one row per system with its count (8 rows, then "+ N"). Click a row: zoom on that system; double-click the card: frame the systems; drag its header: move them together. Zooming in cross-fades to the seven neutral constellations, each with its own card.
+- **Domains panel.** "Domains" then "Source systems" (« Systèmes sources »), each with its own all / none; hidden when there is no system.
+- **Routes.** One thin curved line per pair of constellations, from outline to outline (disc edge from afar of cards, card edge while cards are drawn), bending around the other constellations; 1 to 3 px by weight, neutral grey (3:1 on the page); an arrowhead at the reader's end when lineage gives a direction; dashed when the route carries relations only. Drawn under cards, stars and names.
+- **Density.** Each constellation keeps its two heaviest routes (ties included); a route is drawn when it is among the strongest of either end; the systems' routes are bundled through the group card while it is drawn. The meta line says "… · 9 of 15 routes" (« 9 routes sur 15 ») while routes are drawn and some are left out. **All routes** (« Toutes les routes »), a checkbox under Links, draws them all; hidden when none is left out; not stored.
+- **Hover and keyboard focus.** Hovering a constellation, or focusing its Domains row or its summary section, draws all its routes in dark ink, keeps its neighbours lit and dims the rest (routes 15 %, constellations 45 %); the live region says "Vehicle: 9 routes shown". Hovering a route gives its two ends (upstream → reader), "36 lineage links · 4 relations" and "Vehicle reads Raw CRM" (mouse only). The text summary lists each constellation's routes.
+- **Trajectory** keeps its own edges and dimming; **export** shows the route set, the bundling and the cross-fade as on screen, without hover or focus; **layer mode** keeps routes (between layer cards) but no group card or neutral treatment.
+- **Hint** gains "hover a constellation to see all its routes, a route for the links it carries".
+- **Small screens.** At 360 px the group card drops its rows first (name and counts only); no route tooltip on touch; 44 px rows on coarse pointers; no horizontal scroll.
+
 ## Top bar — layout buttons
 
 - **Reset layout**, **Export layout**, **Import layout** (fr since M2: "Réinitialiser la disposition", "Exporter la disposition", "Importer une disposition") act on the manual arrangement of the page (D-013). They never export an image.
