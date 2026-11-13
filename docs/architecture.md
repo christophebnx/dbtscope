@@ -101,6 +101,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Match a table against selectors | `domain/selectors.matches`, `matches_any` |
 | Value of a selector field on a table (also used by `group_of`) | `domain/selectors.field_value` |
 | Case-insensitive wildcard match of a value (selectors, `tag:` and `group_by: tag:<glob>`) | `domain/selectors.glob` |
+| Split a selector part into field and pattern (one parser for `matches` and `name_glob`) | `domain/selectors._split` |
 | The name glob of a selector (its single name part, else none) | `domain/selectors.name_glob` |
 | Extract tables, relations, lineage, groups from a manifest | `domain/manifest.parse_manifest` |
 | Shape of the manifest fields dbtscope reads | `domain/manifest_schema` |

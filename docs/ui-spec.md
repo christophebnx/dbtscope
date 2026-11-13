@@ -99,7 +99,7 @@ Design: `docs/architecture/2026-11-12-m8.2-entities.md` § UI design.
 - **Tooltip of an entity.** "N folded tables" then up to 8 lines "name · Kind", then "+ N". **Cards** (keys, all fields) list them under the columns: a heading "N folded tables", up to 12 rows (kind dot, name, kind), then "+ N".
 - **Reaching a folded table.** Search, or a trajectory (start included), shows the table on a dashed orbit around its entity, with its name; the table found has the search ring. Nothing else moves; the orbit is cleared by the next search, the control, a filter change or a click on the background. Orbit tables answer to hover, click (trajectory) and double-click (detail) but cannot be dragged. A polite message names the entity.
 - **Filters.** A table whose entity is filtered out (or, in layer mode, lies in another layer) is drawn as an ordinary star; its tooltip says "Entity: X (filtered out)" or "(other layer)".
-- **Meta line.** With folding on: "1,374 tables · 428 entities · 2,285 links · 12 domains" ("1 374 tables · 428 entités · …"); entities are the visible core and connector tables. Counts of tables, links and rows never change with the fold.
+- **Meta line.** With folding on: "1,374 tables · 428 entities · 2,232 links · 12 domains" ("1 374 tables · 428 entités · …"); entities are the visible core and connector tables. Counts of tables, links and rows never change with the fold.
 - **Hint.** Gains "a number on a star: tables folded into it…" while folding is on.
 - Counts, saved arrangements, the flow view and the detail view: as before M8.2.
 
