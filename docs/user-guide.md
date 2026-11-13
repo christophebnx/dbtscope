@@ -745,6 +745,8 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
   - **For keyboards and screen readers**: the last section of the side panel, **Summary** ("Synthèse"), is closed by default; open it for every card as text, in left-to-right order, with a **Zoom** ("Cadrer") button per domain and one button per row, which zoom like a double-click and a row click.
 - **The same picture every time**: the same project gives the same placement at every generation.
 
+![A large Data Vault project at Fit: five business domains as summary cards, the seven source systems as one Source systems card, and the routes between them](images/large-overview.png)
+
 ![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)
 
 ### Filters and links
@@ -802,6 +804,8 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Columns**: key columns only by default (columns matching `key_columns`, plus every column used by a relation, in bold), with **All columns** for every column. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
 - **Large groups**: when more than 60 tables would be drawn and the kinds have roles ([presets](#conventions-presets-and-preset-files)), each descriptive table (a satellite) is drawn as the last row of its entity: "+ 3 folded tables · Satellite". The drawing keeps the hubs, links and other tables, in rows that fit the drawing area, and shows what it folded in the meta line. The panel's **Fold descriptive tables into their entity** checkbox (shown only for such a group) is the same choice as the universe's: changing it in one view changes the other, the browser remembers it, and `universe.fold` in `dbt-erd.yml` sets how both open. With it off the full drawing is shown and a line warns that it will be hard to read. Double-click a table to draw it with its folded tables; from a hub, **direct links** shows its satellites, its links and the hubs across those links (a link is a passage, not a stop). Groups of 60 tables or fewer are drawn as before. Positions you drag in this drawing are saved apart from the full drawing's.
+
+![A group of 283 tables on opening: the skeleton, hubs and links with their satellites folded into a last row](images/large-detail-skeleton.png)
 
 ![The detail view of the sales group with facts and dimensions unticked: hubs on the left (the customer and product hubs of other groups dashed), their links and satellites on the right](images/detail-vault.png)
 
