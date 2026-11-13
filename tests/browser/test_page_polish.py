@@ -17,6 +17,7 @@ from browser.conftest import (
     CENTRE_WAIT_MS,
     NARROW,
     Page,
+    meta,
     scroll_width,
     show_detail,
     universe_page,
@@ -39,10 +40,6 @@ def page_in(build_page: Any, open_page: Any, lang: str, **options: Any) -> Page:
 
 def domain_box(p: Page, label: str) -> Any:
     return p.page.locator("#u-domains label", has_text=label).locator("input")
-
-
-def meta(p: Page) -> str:
-    return p.page.inner_text("#u-meta")
 
 
 # ---------------------------------------------------------------- the plural helper

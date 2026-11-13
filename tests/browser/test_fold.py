@@ -16,9 +16,10 @@ from typing import Any
 
 import pytest
 from conftest import page_of, write_example, write_layout
+from large_project import EXPECTED as LARGE
 from large_project import NO_RELATION_SAT, OTHER_DOMAIN_SAT, TWO_PARENT_SAT
 
-from browser.conftest import Page, Shop, summary, universe_page
+from browser.conftest import Page, Shop, geometry, meta, search, set_config, summary, universe_page
 from dbtscope.domain.payload import UniversePayload
 
 pytestmark = pytest.mark.browser
@@ -26,13 +27,7 @@ pytestmark = pytest.mark.browser
 Large = tuple[Page, dict[str, Any]]
 OPEN_S, FILTER_S, TOGGLE_S, PLACE_MS = 3, 1, 1, 50  # budgets (note § 5)
 FOLD_HEAD, FOLD_ROWS = 15, 12  # universe.js
-EXPECTED = json.loads(
-    (Path(__file__).parents[1] / "fixtures" / "large-data-vault" / "expected.json").read_text("utf-8")
-)["fold"]
-
-
-def geometry(p: Page) -> dict[str, Any]:
-    return p.page.evaluate("views.universe.geometry()")
+EXPECTED = LARGE["fold"]
 
 
 def toggle(p: Page) -> float:
@@ -43,22 +38,12 @@ def toggle(p: Page) -> float:
     )
 
 
-def meta(p: Page) -> str:
-    return p.page.inner_text("#u-meta")
-
-
 def by_id(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {n["id"]: n for n in data["universe"]["nodes"]}
 
 
 def uid(data: dict[str, Any], name: str) -> str:
     return next(n["id"] for n in data["universe"]["nodes"] if n["name"] == name)
-
-
-def search(p: Page, name: str) -> None:
-    p.page.fill("#u-q", name)
-    p.page.dispatch_event("#u-q", "change")
-    p.page.wait_for_timeout(700)  # zoomTo animates for 600 ms
 
 
 def hover(p: Page, table_id: str) -> str:
@@ -90,7 +75,7 @@ def test_the_raw_vault_draws_its_hubs_and_links_not_its_satellites(large: Large)
     assert not with_parent & {t["id"] for t in g["tables"]}
     assert all(nodes[t["id"]]["parent"] == t["parent"] for t in g["tables"])
     assert g["fold"] == {"available": True, "on": True}
-    assert meta(p).startswith(f"1,374 tables · {EXPECTED['entities']} entities · ")
+    assert meta(p).startswith(f"{LARGE['tables']:,} tables · {EXPECTED['entities']} entities · ")
 
 
 def test_every_entity_marks_how_many_tables_it_holds(large: Large) -> None:
@@ -99,7 +84,7 @@ def test_every_entity_marks_how_many_tables_it_holds(large: Large) -> None:
     for n in data["universe"]["nodes"]:
         if n["parent"]:
             held[n["parent"]] = held.get(n["parent"], 0) + 1
-    assert len(held) == EXPECTED["entities_holding"]
+    assert len(held) == EXPECTED["parents"]
     assert {t["id"]: t["held"] for t in geometry(p)["tables"] if t["held"]} == held
 
 
@@ -238,7 +223,7 @@ def test_unticking_the_satellites_only_lowers_the_marks_and_the_counts(large: La
         t["id"] for t in before["tables"]
     } - {t["id"] for t in before["tables"] if t["id"].endswith("." + OTHER_DOMAIN_SAT)}
     assert sum(t["held"] for t in g["tables"]) < sum(t["held"] for t in before["tables"])
-    assert meta(p).startswith(f"{1374 - 422:,} tables")
+    assert meta(p).startswith(f"{LARGE['tables'] - LARGE['kinds']['Satellite']:,} tables")
     assert p.page.inner_text("#u-kinds label:has-text('Satellite') small") == "422"  # the panel counts stay
 
 
@@ -265,7 +250,7 @@ def test_every_count_is_the_same_folded_and_shown(large: Large) -> None:
         "[...document.querySelectorAll('#u-panel label small')].map(s => s.textContent)"
     )
     assert folded_counts == shown_counts
-    assert meta(p).startswith("1,374 tables · 2,") and "entities" not in meta(p)
+    assert meta(p).startswith(f"{LARGE['tables']:,} tables · 2,") and "entities" not in meta(p)
 
 
 BAND_TIPS = """() => {
@@ -312,12 +297,12 @@ def test_the_control_toggles_and_remembers_the_choice_per_viewer(large: Large) -
     assert p.page.evaluate("k => localStorage.getItem(k)", key) is None
     toggle(p)
     g = geometry(p)
-    assert len(g["tables"]) == 1374 and g["folded"] == [] and g["fold"]["on"] is False
+    assert len(g["tables"]) == LARGE["tables"] and g["folded"] == [] and g["fold"]["on"] is False
     assert p.page.evaluate("k => localStorage.getItem(k)", key) == "shown"
     assert p.page.inner_text("#u-tj-live") == "Descriptive tables shown"
     p.page.reload()
     p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
-    assert not p.page.is_checked("#u-fold-on") and len(geometry(p)["tables"]) == 1374
+    assert not p.page.is_checked("#u-fold-on") and len(geometry(p)["tables"]) == LARGE["tables"]
     toggle(p)
     assert p.page.evaluate("k => localStorage.getItem(k)", key) is None
     assert len(geometry(p)["folded"]) == EXPECTED["folded"]
@@ -356,9 +341,7 @@ def test_the_page_opens_shown_when_the_config_says_so(tmp_path: Path, open_page:
 
 
 def test_the_french_page_says_it_in_french(tmp_path: Path, open_page: Any) -> None:
-    project = write_example(tmp_path / "acme_retail")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text("utf-8").replace("language: en", "language: fr"), "utf-8")
+    project = set_config(write_example(tmp_path / "acme_retail"), language="fr")
     p = open_page(page_of(project)[0])
     assert (
         "entités" in meta(p)
@@ -491,7 +474,7 @@ def test_the_page_opens_within_budget_when_the_viewer_chose_shown(
     p.page.reload()
     p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
     assert time.perf_counter() - start < 2 * OPEN_S
-    assert len(geometry(p)["tables"]) == 1374 and geometry(p)["layoutMs"] < OPEN_S * 1000
+    assert len(geometry(p)["tables"]) == LARGE["tables"] and geometry(p)["layoutMs"] < OPEN_S * 1000
 
 
 def test_a_filter_change_is_fast_in_both_states(large: Large) -> None:
@@ -653,9 +636,7 @@ def test_the_entity_tooltip_lists_its_folded_tables(large: Large) -> None:
 def test_the_french_page_announces_a_found_folded_table_and_the_control_in_french(
     tmp_path: Path, open_page: Any
 ) -> None:
-    project = write_example(tmp_path / "acme_retail")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text("utf-8").replace("language: en", "language: fr"), "utf-8")
+    project = set_config(write_example(tmp_path / "acme_retail"), language="fr")
     html, data = page_of(project)
     p = open_page(html)
     sat = next(n for n in data["universe"]["nodes"] if n["parent"])
@@ -675,10 +656,10 @@ def test_the_french_page_announces_a_found_folded_table_and_the_control_in_frenc
 def test_the_french_large_meta_uses_a_narrow_space_in_the_numbers(
     tmp_path: Path, open_page: Any, large_project: Path
 ) -> None:
-    config = large_project / "dbt-erd.yml"
-    config.write_text(config.read_text("utf-8") + "language: fr\n", "utf-8")
-    p = open_page(page_of(large_project)[0])
-    assert meta(p).startswith(f"1\u202f374 tables · {EXPECTED['entities']} entités · ")
+    p = open_page(page_of(set_config(large_project, language="fr"))[0])
+    assert meta(p).startswith(
+        f"{LARGE['tables']:,} tables · {EXPECTED['entities']} entités · ".replace(",", "\u202f")
+    )
 
 
 def test_the_page_has_no_horizontal_scroll_at_360_px_with_the_fold_control(
@@ -687,9 +668,7 @@ def test_the_page_has_no_horizontal_scroll_at_360_px_with_the_fold_control(
     from browser.conftest import NARROW, scroll_width
 
     for lang in ("en", "fr"):
-        project = write_example(tmp_path / f"acme_{lang}")
-        config = project / "dbt-erd.yml"
-        config.write_text(config.read_text("utf-8").replace("language: en", f"language: {lang}"), "utf-8")
+        project = set_config(write_example(tmp_path / f"acme_{lang}"), language=lang)
         p = open_page(page_of(project)[0], viewport=NARROW)
         p.page.click("#u-toggle")
         assert p.page.is_visible("#u-fold-on") and scroll_width(p) <= NARROW["width"], lang

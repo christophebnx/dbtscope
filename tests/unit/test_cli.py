@@ -618,12 +618,12 @@ def fold_universe(parents: list[bool], descriptive: bool = True) -> UniversePayl
 @pytest.mark.parametrize(
     ("parents", "folding", "expected"),
     [
-        ([True, True, True], True, "3 tables folded into 2 entities"),
-        ([True], True, "1 table folded into 1 entity"),
-        ([True, False, False], True, "1 table folded into 1 entity; 2 descriptive tables not folded"),
-        ([True, True, False], True, "2 tables folded into 2 entities; 1 descriptive table not folded"),
+        ([True, True, True], True, "3 tables folded into 2 parents"),
+        ([True], True, "1 table folded into 1 parent"),
+        ([True, False, False], True, "1 table folded into 1 parent; 2 descriptive tables not folded"),
+        ([True, True, False], True, "2 tables folded into 2 parents; 1 descriptive table not folded"),
         ([False, False], True, "0 tables folded; 2 descriptive tables not folded"),
-        ([True, True], False, "2 tables folded into 2 entities; the page opens with them shown"),
+        ([True, True], False, "2 tables folded into 2 parents; the page opens with them shown"),
         ([False], False, "0 tables folded; 1 descriptive table not folded; the page opens with them shown"),
     ],
 )

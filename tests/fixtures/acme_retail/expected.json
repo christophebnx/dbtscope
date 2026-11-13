@@ -9,8 +9,8 @@
     "lineage": 110,
     "kinds": {"Staging": 18, "Source": 18, "Seed": 3, "Snapshot": 2, "Hub": 13, "Link": 12, "Satellite": 13, "Fact": 8, "Dimension": 8},
     "folded": 13,
-    "entities_holding": 13,
-    "summary": "13 tables folded into 13 entities"
+    "parents": 13,
+    "summary": "13 tables folded into 13 parents"
   },
   "detail": {
     "tables": 54,

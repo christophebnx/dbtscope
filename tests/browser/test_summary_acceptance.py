@@ -18,8 +18,9 @@ from typing import Any
 
 import pytest
 from conftest import page_of
+from large_project import EXPECTED
 
-from browser.conftest import NARROW, Page, scroll_width, summary, universe_page
+from browser.conftest import NARROW, Page, geometry, scroll_width, summary, universe_page
 from browser.test_summary import (
     BUSINESS,
     GROUP,
@@ -33,7 +34,6 @@ from browser.test_summary import (
     cards,
     counts_text,
     disc_radii,
-    geometry,
     kind_order,
     labels,
     main_ids,
@@ -191,7 +191,7 @@ def test_every_card_gives_the_counts_of_its_constellation_computed_from_the_payl
         for r in s["rows"]:
             assert r["n"] == own[(c["key"], r["key"])], "a table counts in its own layer"
             assert sum(n for _, n in r["kinds"]) == r["n"], "the bar's kinds add up to its row"
-    assert sum(parse_n(c["counts"]) for c in cards(p)) == len(nodes_of(data)) == 1374
+    assert sum(parse_n(c["counts"]) for c in cards(p)) == len(nodes_of(data)) == EXPECTED["tables"]
 
 
 def test_the_cards_give_the_size_of_every_domain_in_numbers_though_the_discs_do_not_follow_it(

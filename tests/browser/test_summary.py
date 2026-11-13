@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from conftest import page_of, write_example
 
-from browser.conftest import NARROW, Page, Shop, summary, universe_page
+from browser.conftest import NARROW, Page, Shop, geometry, summary, universe_page
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_roles import main_rank
 from browser.test_trajectory_perf import universe_payload
@@ -47,10 +47,6 @@ Opened = tuple[Page, dict[str, Any]]
 
 def cards(p: Page) -> list[dict[str, Any]]:
     return p.page.evaluate(f"{U}.summariesDrawn()")
-
-
-def geometry(p: Page) -> dict[str, Any]:
-    return p.page.evaluate(f"{U}.geometry()")
 
 
 def camera(p: Page) -> dict[str, float]:

@@ -20,7 +20,7 @@ import pytest
 from conftest import page_of, write_example
 from large_project import write_large_project
 
-from browser.conftest import NARROW, Page, universe_page
+from browser.conftest import NARROW, Page, geometry, set_config, universe_page
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_routes import at_stars, crossings, lit, routes_drawn, strongest
 from browser.test_summary import (
@@ -30,7 +30,6 @@ from browser.test_summary import (
     Opened,
     card,
     cards,
-    geometry,
     page_xy,
     set_scale,
     settle,
@@ -364,9 +363,7 @@ def test_a_route_tooltip_is_worded_in_the_page_language_with_plural_agreement(
     tmp_path: Path, open_page: Any
 ) -> None:
     project = write_large_project(tmp_path / "p")
-    cfg = project / "dbt-erd.yml"
-    cfg.write_text(cfg.read_text(encoding="utf-8") + "language: fr\n", encoding="utf-8")
-    html, _ = page_of(project)
+    html, _ = page_of(set_config(project, language="fr"))
     p = open_page(html)
     assert p.page.text_content("#u-routes-t") == "Toutes les routes"
     assert p.page.text_content("#u-meta").endswith(" · 9 routes sur 15")
@@ -493,8 +490,7 @@ def test_the_toolbar_does_not_change_height_whatever_the_meta_says(
     """The meta line gains `9 of 15 routes` at some zooms and loses it at others: the toolbar must not wrap
     differently, or the stage resizes and the page refits (the developer's ellipsis on `#u-meta`)."""
     project = write_large_project(tmp_path / "p")
-    cfg = project / "dbt-erd.yml"
-    cfg.write_text(cfg.read_text(encoding="utf-8") + f"language: {language}\n", encoding="utf-8")
+    set_config(project, language=language)
     p = open_page(page_of(project)[0], viewport={"width": width, "height": 800})
     probe = (
         "[document.getElementById('u-meta').getBoundingClientRect().height,"

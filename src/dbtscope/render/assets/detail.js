@@ -31,7 +31,8 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
           heavy: n => `${plural(n, L.tables)}${L.colon}le schéma sera difficile à lire`,
           hintFold: ' · une dernière ligne «\u00a0+ N\u00a0»\u00a0: double-cliquer la table pour les dessiner',
           hintFoldTouch: ' · une dernière ligne «\u00a0+ N\u00a0»\u00a0: cibler la table pour les dessiner',
-          live: (n, total, folded) => `${num(n)} tables dessinées sur ${num(total)}, ${plural(folded, L.foldedN)} en lignes`,
+          drawnOf: ['table dessinée', 'tables dessinées'],
+          live: (n, total, folded) => `${plural(n, T.drawnOf)} sur ${num(total)}, ${plural(folded, L.foldedN)} en lignes`,
           liveFull: 'Toutes les tables sont dessinées' },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
@@ -137,7 +138,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
   // type checkboxes and the focus autocomplete follow the selected group
   function refreshControls() {
     const inScope = DATA.entities.filter(e => scope.has(e.id));
-    const shown = DATA.kinds.map(k => [k, inScope.filter(e => e.kind === k.key).length]).filter(([, n]) => n);
+    const shown = kindPairs(inScope);
     typesEl.replaceChildren(...shown.map(([k, n]) => filterRow(
       { label: k.label, color: k.color, count: n, checked: state.kinds.has(k.key) },
       on => { on ? state.kinds.add(k.key) : state.kinds.delete(k.key); render(); })));
@@ -151,7 +152,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     const held = DATA.entities.filter(e => scope.has(e.id) && e.parent != null && scope.has(e.parent));
     scopeFoldable = held.length > 0;
     $d('fold').hidden = !(scope.size > SKELETON_MIN && scopeFoldable);
-    $d('fold-kinds').textContent = foldKindsText(DATA.kinds.filter(k => k.role === 'descriptive' && held.some(e => e.kind === k.key)).map(labelOf));
+    $d('fold-kinds').textContent = foldKindsText(foldKindLabels(DATA.kinds, held));
     $d('fold-n').textContent = num(held.length);
     $d('hint').textContent = hintText();
   }
@@ -192,7 +193,7 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
   }
 
   // ids by table name, then id: the one order of folded tables and of the skeleton's walk
-  const byName = (a, b) => (byId.get(a).name < byId.get(b).name ? -1 : byId.get(a).name > byId.get(b).name ? 1 : a < b ? -1 : a > b ? 1 : 0);
+  const byName = (a, b) => byNameThenId(byId.get(a), byId.get(b));
   // The tables of `ids` that fold into a parent that is drawn too: Map(parent id -> its folded entities, in name order).
   // The focus and the focus's own folded tables are never folded (D-069).
   function foldedOf(ids) {
@@ -205,10 +206,11 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
     out.forEach(list => list.sort((a, b) => byName(a.id, b.id)));
     return out;
   }
-  // `Label n` pairs of a list of entities, in payload kind order: the first FOLD_KINDS, then ", + N" other kinds
-  const kindPairs = list => DATA.kinds.map(k => [k, list.filter(e => e.kind === k.key).length]).filter(([, n]) => n);
-  const kindsText = pairs => pairs.slice(0, FOLD_KINDS).map(([k, n]) => `${labelOf(k)} ${num(n)}`).join(', ')
-    + (pairs.length > FOLD_KINDS ? `, + ${num(pairs.length - FOLD_KINDS)}` : '');
+  // [kind, n] pairs of a list of entities, in the Types-list order (role, then payload; common.js): the Types list and a
+  // folded row; a row shows the first FOLD_KINDS as `Label n`, then ", + N" other kinds
+  const KIND_ORDER = kindsByRole(DATA.kinds);
+  const kindPairs = list => kindCounts(KIND_ORDER, list);
+  const kindsText = pairs => pairs.slice(0, FOLD_KINDS).map(([k, n]) => `${labelOf(k)} ${num(n)}`).join(', ') + overflow(pairs.length, FOLD_KINDS, ', ');
   // the last row of an entity: "+ 3 folded tables · Satellite", or with several kinds "· Satellite 3, PIT 1"
   function foldText(list) {
     const pairs = kindPairs(list);

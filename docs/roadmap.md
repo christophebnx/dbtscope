@@ -274,5 +274,5 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
 - Universe interaction: curved routes and neighbours lit on hover taken by M8.4 (D-067); a shareable link to a table (`erd.html#table=…`).
 - Flow view: the paths between two chosen tables.
-- Code, from M8.3: `render/assets/universe.js` holds the whole universe view in one closure (about 1,550 lines after the summary cards). Splitting it needs a rule for view modules first (`render/CLAUDE.md`: only `common.js` declares globals, a view never does), recorded as a decision.
+- Code, from M8.3: `render/assets/universe.js` holds the whole universe view in one closure (about 2,370 lines at the end of M8). Splitting it needs a rule for view modules first (`render/CLAUDE.md`: only `common.js` declares globals, a view never does), recorded as a decision.
 - Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).

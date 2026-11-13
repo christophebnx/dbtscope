@@ -95,13 +95,6 @@ def check_sets(data: dict[str, Any], got: dict[str, dict[str, Any]], depth: int)
         assert own <= set(s["drawn"]), focus  # the focus's folded tables are drawn in full, whatever the fold
 
 
-@pytest.fixture
-def large_detail(large_page: Large) -> Large:
-    p, data = large_page
-    show_detail(p)
-    return p, data
-
-
 def of_group(data: dict[str, Any], kind: str) -> list[str]:
     return sorted(i for i, e in entities(data).items() if e["kind"] == kind and e["group"] == "vehicle")
 

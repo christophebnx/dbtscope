@@ -11,9 +11,9 @@ import pytest
 from conftest import page_of, write_example
 from large_project import write_large_project
 
-from browser.conftest import NARROW, Page
+from browser.conftest import NARROW, Page, geometry, set_config
 from browser.test_routes import at_stars, lit, routes_drawn
-from browser.test_summary import SYSTEMS, Opened, cards, geometry
+from browser.test_summary import SYSTEMS, Opened, cards
 
 pytestmark = pytest.mark.browser
 
@@ -96,8 +96,7 @@ def test_the_meta_line_is_whole_not_clipped(
 ) -> None:
     project = write_large_project(tmp_path / "large")
     if language == "fr":
-        config = project / "dbt-erd.yml"
-        config.write_text(config.read_text(encoding="utf-8") + "language: fr\n", encoding="utf-8")
+        set_config(project, language="fr")
     html, _ = page_of(project)
     p = open_page(html, viewport={"width": width, "height": 800})
     meta = p.page.evaluate(

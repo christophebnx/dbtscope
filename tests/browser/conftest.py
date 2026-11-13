@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -366,6 +367,40 @@ def to_stars(p: Page, key: str | None = None, wait_ms: int = 300) -> None:
     p.page.wait_for_timeout(wait_ms)
 
 
+def geometry(p: Page, level: str | None = None) -> dict[str, Any]:
+    """The universe's `geometry()` hook, after selecting the detail `level` (names, keys, all) if given."""
+    if level:
+        p.page.select_option("#u-detail", level)
+    return p.page.evaluate("views.universe.geometry()")
+
+
+def search(p: Page, name: str) -> None:
+    """Find `name` with the universe's search box: it centres the table at a scale of at least 1.5."""
+    p.page.fill("#u-q", name)
+    p.page.dispatch_event("#u-q", "change")
+    p.page.wait_for_timeout(CENTRE_WAIT_MS)
+
+
+def meta(p: Page) -> str:
+    """The universe's meta line."""
+    return p.page.inner_text("#u-meta")
+
+
+def set_config(project: Path, *, language: str | None = None, fold: bool | None = None) -> Path:
+    """Rewrite the project's `dbt-erd.yml` for the page language and / or the `universe.fold` default; return
+    the project. An existing `language:` line is replaced, else one is appended; `fold` appends a `universe:`
+    block."""
+    path = project / "dbt-erd.yml"
+    text = path.read_text(encoding="utf-8")
+    if language is not None:
+        text, found = re.subn(r"^language: .*$", f"language: {language}", text, flags=re.MULTILINE)
+        text += "" if found else f"language: {language}\n"
+    if fold is not None:
+        text += f"universe:\n  fold: {str(fold).lower()}\n"
+    path.write_text(text, encoding="utf-8")
+    return project
+
+
 def scroll_width(p: Page) -> int:
     return p.page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
 
@@ -461,10 +496,7 @@ def large_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, di
 @pytest.fixture
 def large_page_shown(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, dict[str, Any]]:
     """The large project's page with `universe.fold: false`: every table drawn, as before M8.2 (D-062)."""
-    project = write_large_project(tmp_path / "large")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text(encoding="utf-8") + "universe:\n  fold: false\n", encoding="utf-8")
-    html, data = page_of(project)
+    html, data = page_of(set_config(write_large_project(tmp_path / "large"), fold=False))
     return open_page(html), data
 
 
@@ -472,6 +504,14 @@ def large_page_shown(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Pa
 def large(large_page: tuple[Page, dict[str, Any]]) -> tuple[Page, dict[str, Any]]:
     """The folded large page (the default state), under the short name the fold tests use."""
     return large_page
+
+
+@pytest.fixture
+def large_detail(large_page: tuple[Page, dict[str, Any]]) -> tuple[Page, dict[str, Any]]:
+    """The large project's page with the detail tab shown (it opens on the `vehicle` skeleton, D-071)."""
+    p, data = large_page
+    show_detail(p)
+    return p, data
 
 
 @pytest.fixture

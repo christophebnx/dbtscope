@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from collections import Counter
 from pathlib import Path
@@ -12,6 +11,7 @@ import pytest
 from conftest import page_of
 from large_project import (
     DOMAINS,
+    EXPECTED,
     NO_RELATION_SAT,
     OTHER_DOMAIN_SAT,
     SYSTEMS,
@@ -22,9 +22,6 @@ from large_project import (
 
 from dbtscope.domain.manifest import parse_manifest
 
-EXPECTED: dict[str, Any] = json.loads(
-    (Path(__file__).parents[1] / "fixtures" / "large-data-vault" / "expected.json").read_text("utf-8")
-)
 BUILD_BOUND_S = 5
 
 
@@ -112,7 +109,7 @@ def test_descriptive_tables_fold_into_their_parent(large: tuple[float, Any]) -> 
     descriptive = {k["key"] for k in large[1]["kinds"] if k["role"] == "descriptive"}
     fold = EXPECTED["fold"]
     assert sum(n["kind"] in descriptive for n in nodes) == fold["folded"] + fold["descriptive_not_folded"]
-    assert len(parent_of) == fold["folded"] and len(set(parent_of.values())) == fold["entities_holding"]
+    assert len(parent_of) == fold["folded"] and len(set(parent_of.values())) == fold["parents"]
     assert parent_of[NO_RELATION_SAT] == "vehicle_e001_hub"  # by name, in its domain
     assert parent_of[TWO_PARENT_SAT] == "vehicle_e002_hub"  # by name, among its two relations
     other = next(n for n in nodes if n["name"] == OTHER_DOMAIN_SAT)

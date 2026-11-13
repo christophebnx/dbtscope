@@ -153,11 +153,28 @@ const labelOf = item => item.label ?? item.key;
 // Folded tables (D-062, D-069), worded alike in both views: the fold control lists at most KIND_LIST kind labels, a
 // tooltip TIP_FOLDED folded tables.
 const KIND_LIST = 3, TIP_FOLDED = 8;
+// The one "+ N" of a list cut after `max` items: `sep` + "+ N" when `total` exceeds `max`, else ''. The caller says how
+// the cut list is joined and where the "+ N" goes (a separator, or '' for a line of its own).
+const overflow = (total, max, sep = '') => (total > max ? `${sep}+ ${num(total - max)}` : '');
 // the control's kinds line: the first KIND_LIST labels, then " + N"
-const foldKindsText = labels => labels.slice(0, KIND_LIST).join(', ') + (labels.length > KIND_LIST ? ` + ${num(labels.length - KIND_LIST)}` : '');
+const foldKindsText = labels => labels.slice(0, KIND_LIST).join(', ') + overflow(labels.length, KIND_LIST, ' ');
+// the kind labels of the fold control: the descriptive kinds (payload order) of which `held` (the tables that have a parent
+// in the scope, each with a `kind` key) holds a table
+const foldKindLabels = (kinds, held) => kinds.filter(k => k.role === 'descriptive' && held.some(e => e.kind === k.key)).map(labelOf);
 // the tooltip lines of folded tables, `pairs`: [name, kind label] in order: `name · Label`, TIP_FOLDED at most, then "+ N"
-const foldedLines = pairs => pairs.slice(0, TIP_FOLDED).map(([name, label]) => `${name} · ${label}`)
-  .concat(pairs.length > TIP_FOLDED ? [`+ ${num(pairs.length - TIP_FOLDED)}`] : []);
+function foldedLines(pairs) {
+  const more = overflow(pairs.length, TIP_FOLDED);
+  return pairs.slice(0, TIP_FOLDED).map(([name, label]) => `${name} · ${label}`).concat(more ? [more] : []);
+}
+
+// The order of the Types list (D-058): by role, then as in the payload. The panels, the summary cards' bars and the detail
+// follow it.
+const ROLE_ORDER = ['core', 'connector', 'descriptive', 'technical', null];
+const kindsByRole = kinds => [...kinds].sort((a, b) => ROLE_ORDER.indexOf(a.role ?? null) - ROLE_ORDER.indexOf(b.role ?? null));
+// [[kind, n]]: the kinds of `order` that `items` (each with a `kind` key) hold, with their counts, in the order given
+const kindCounts = (order, items) => order.map(k => [k, items.filter(e => e.kind === k.key).length]).filter(([, n]) => n);
+// the one order of tables of the page: by name, then id (`name` and `id` of a payload table or entity)
+const byNameThenId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 // The name and meta lines of a table's tooltip (universe payload), escaped:
 // "<name>" then "domain · layer · kind · N columns". Each view appends its own lines.

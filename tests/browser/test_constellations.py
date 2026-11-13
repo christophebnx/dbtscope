@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import page_of, write_config, write_example
 
-from browser.conftest import NARROW, Page, close_panel, open_flow, scroll_width, universe_page
+from browser.conftest import NARROW, Page, close_panel, geometry, open_flow, scroll_width, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 from browser.test_universe_layout import (
     HOVER,
@@ -24,7 +24,6 @@ from browser.test_universe_layout import (
     OLD_ACME,
     assert_saved_layout_wins,
     frame,
-    geometry,
     overlapping,
     rect,
     without_time,

@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 from conftest import page_of, write_example, write_layout
+from large_project import EXPECTED as LARGE
 from large_project import write_large_project
 
 from browser.conftest import (
@@ -26,6 +27,7 @@ from browser.conftest import (
     dstate,
     entities,
     name_px,
+    set_config,
     show_detail,
     synthetic_detail,
     tooltip,
@@ -39,20 +41,11 @@ pytestmark = pytest.mark.browser
 
 Large = tuple[Page, dict[str, Any]]
 OpenPage = Callable[..., Page]
-EXPECTED = json.loads(
-    (Path(__file__).parents[1] / "fixtures" / "large-data-vault" / "expected.json").read_text("utf-8")
-)["detail"]["vehicle"]
+EXPECTED = LARGE["detail"]["vehicle"]
 DOTS = Path(__file__).parents[1] / "fixtures" / "acme_retail" / "detail-dot"
 SKELETON_MIN = 60
 COLD_BUDGET_MS, WORST_CASE_MS = 5_000, 15_000  # D-071
 FIT_FLOOR_PX, NOTCHES_FLOOR_PX, DOUBLE_CLICK_PX = 4, 6, 10  # the measured outcome of D-071: 4.4 and 6.7 px
-
-
-@pytest.fixture
-def large_detail(large_page: Large) -> Large:
-    p, data = large_page
-    show_detail(p)
-    return p, data
 
 
 # ---------------------------------------------------------------- Done-when 1: the vehicle skeleton
@@ -122,8 +115,7 @@ def test_an_entity_ends_with_its_folded_tables_row_and_lists_them_in_its_tooltip
 
 def test_the_row_and_the_meta_line_in_french(tmp_path: Path, open_page: OpenPage) -> None:
     project = write_large_project(tmp_path / "large")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text(encoding="utf-8") + "language: fr\n", encoding="utf-8")
+    set_config(project, language="fr")
     html, data = page_of(project)
     p = open_page(html)
     show_detail(p)

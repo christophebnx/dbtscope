@@ -16,7 +16,7 @@ import pytest
 from colours import channels, contrast
 from conftest import SHOP, model, page_of, shop_manifest, write_config, write_example, write_manifest
 
-from browser.conftest import CENTRE_WAIT_MS, Page, open_flow, show_detail
+from browser.conftest import CENTRE_WAIT_MS, Page, open_flow, search, show_detail
 from dbtscope.domain.config import DEFAULT_KIND_COLOR
 from dbtscope.domain.universe import NO_DOMAIN_COLOR, PALETTE, TYPE_KINDS
 
@@ -314,13 +314,6 @@ RECORD = """() => {
     return draw.call(this, text, ...rest);
   };
 }"""
-
-
-def search(p: Page, name: str) -> None:
-    """Find `name` with the search box: the universe centres it at a scale of at least 1.5."""
-    p.page.fill("#u-q", name)
-    p.page.dispatch_event("#u-q", "change")
-    p.page.wait_for_timeout(CENTRE_WAIT_MS)
 
 
 def check_universe(p: Page, data: dict[str, Any]) -> None:

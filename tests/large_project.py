@@ -18,12 +18,16 @@ system), `models/raw_vault/<domain>/` and `models/data_products/<domain>/` (sche
 
 from __future__ import annotations
 
+import json
 import random
 from pathlib import Path
 from typing import Any, NamedTuple
 
 from conftest import SHOP, model, relationships_test, source, write_config, write_project
 
+EXPECTED: dict[str, Any] = json.loads(
+    (Path(__file__).parent / "fixtures" / "large-data-vault" / "expected.json").read_text("utf-8")
+)  # the counts the tests assert, loaded once for every test of the large project
 SEED = 1374
 SYSTEMS = (
     "raw_dealer", "raw_auction_house", "raw_crm", "raw_billing", "raw_telematics", "raw_claims", "raw_web",

@@ -23,7 +23,7 @@ from conftest import SHOP, page_of, write_config, write_example
 from reference_pages import LAYOUT as EDGE_LAYOUT
 from reference_pages import build_page as reference_page
 
-from browser.conftest import Page, universe_page
+from browser.conftest import Page, geometry, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 
 pytestmark = pytest.mark.browser
@@ -33,12 +33,6 @@ CATCH_ALL = "other"  # domain/classify.OTHER, the last layer of configured layer
 LINE_H = 14  # universe.js LINE_H, the height of a line of a table name
 Geometry = dict[str, Any]
 Opener = Callable[[], Page]
-
-
-def geometry(p: Page, level: str | None = None) -> Geometry:
-    if level:
-        p.page.select_option("#u-detail", level)
-    return p.page.evaluate("views.universe.geometry()")
 
 
 def layer_keys(p: Page) -> list[str]:

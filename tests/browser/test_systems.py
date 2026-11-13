@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import page_of
 
-from browser.conftest import NARROW, Page
+from browser.conftest import NARROW, Page, geometry
 from browser.test_summary import (
     BUSINESS,
     GROUP,
@@ -26,7 +26,6 @@ from browser.test_summary import (
     card,
     card_keys,
     cards,
-    geometry,
     page_xy,
     settle,
     summary,

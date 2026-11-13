@@ -4,7 +4,7 @@
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, FOLD) {
+function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, FOLD, GROUPING) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
     en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
@@ -88,11 +88,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   [...DATA.relations, ...DATA.lineage].forEach(([a, b]) => { DEG[a]++; DEG[b]++; });
   // role of a kind (D-058): core, connector, descriptive, technical, or none. It sizes the star, orders the names
   // and the Types list; Python decides it, the page only reads it
-  const ROLE_ORDER = ['core', 'connector', 'descriptive', 'technical', null];   // Types list
   const NAME_ORDER = ['core', 'connector', null, 'descriptive', 'technical'];   // name priority
   const ROLE_STAR = { core: 1.35, descriptive: 0.75, technical: 0.75 };          // connector and none: 1
   const STAR_MAX = 14, STAR_MIN = 2.5;   // degree radius cap before the factor; floor after it (world px)
   const OVERVIEW_K = 0.6;                // = the `far` threshold of drawStar, routes and band markers
+  const TABLE_K = 0.35;                  // below it a table is a star whatever the detail level, and no link is drawn; above, a card
+  const CARDS_ALPHA = 0.5;               // the card layer's alpha from which the cards are the ones in play (interactions, routes)
   const OVERVIEW_NAMES = 3;              // core names offered per constellation below OVERVIEW_K
   // folded tables (M8.2, D-062)
   const BADGE_H = 15, BADGE_MAX = 26;   // entity badge, screen px: height; widest (3 characters "99+")
@@ -114,7 +115,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   DATA.relations.forEach(([a, b]) => { RELN[a]++; RELN[b]++; });
   // the core tables of a constellation, the most related first (relations, then links of any kind, then name, then id)
   const mainTables = members => members.filter(n => roleOf(n) === 'core')
-    .sort((a, b) => RELN[b.i] - RELN[a.i] || DEG[b.i] - DEG[a.i] || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.id < b.id ? -1 : 1));
+    .sort((a, b) => RELN[b.i] - RELN[a.i] || DEG[b.i] - DEG[a.i] || byNameThenId(a, b));
   let MAIN = new Map();   // table -> its rank in its constellation (0 = main), set by layout()
   // summary cards (D-063): set by summarise() at the end of layout(); CELL = the star cell (world px)
   let SUMMARIES = new Map(), CELL = 1, summaryScale = 1, starsScale = 1;
@@ -123,7 +124,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const KIND_RANK = Object.fromEntries(DATA.kinds.map((k, i) => [k.key, i]));
   const labelScore = n => (DEG[n.i] + 1) * (1 - 0.7 * KIND_RANK[n.kind] / Math.max(1, DATA.kinds.length - 1));
   // the order of the Types list: by role, then as in the payload (the panel, the bars of the summary cards)
-  const kindOrder = [...DATA.kinds].sort((a, b) => ROLE_ORDER.indexOf(a.role ?? null) - ROLE_ORDER.indexOf(b.role ?? null));
+  const kindOrder = kindsByRole(DATA.kinds);
   // name priority: by role (NAME_ORDER; core by rank in its constellation), then by score
   const nameOrder = (a, b) => NAME_ORDER.indexOf(roleOf(a)) - NAME_ORDER.indexOf(roleOf(b))
     || (roleOf(a) === 'core' ? (MAIN.get(a.i) ?? Infinity) - (MAIN.get(b.i) ?? Infinity) : 0) || labelScore(b) - labelScore(a);
@@ -137,21 +138,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // mode's bands and card rows); without a system it is the payload order
   const SYSTEM = new Set(DATA.domains.filter(d => d.system).map(d => d.key));
   const DOMAIN_ORDER = [...DATA.domains.filter(d => !d.system), ...DATA.domains.filter(d => d.system)];
+  const isSystem = key => state.by === 'domains' && SYSTEM.has(key);   // a source system's constellation: only in domain mode
   const NEUTRAL = '#8a94a6', GROUP = '\u0000systems';   // a source system's colour (drawn through CONTRAST.edge); the group card's key
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
-  const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
-  // the viewer's last grouping, kept apart from the shared layout and never exported (D-048): stored only
-  // when it differs from the page default; without storage the choice lasts for the session
-  const byMemory = (() => {
-    const key = 'dbtscope-constellations:' + PAGE.title;
-    return {
-      get() { try { const v = localStorage.getItem(key); return v === 'domains' || v === 'layers' ? v : null; } catch (e) { return null; } },
-      set(value, fallback) {
-        try { if (value === fallback) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* session only */ }
-      },
-    };
-  })();
+  const COUNT = { domain: countByDomain(N, N.keys()), layer: counts('layer'), kind: counts('kind') };
+  // the viewer's last grouping: GROUPING (boot.js, key `dbtscope-constellations:<title>`), kept apart from the shared layout and
+  // never exported (D-048); stored only when it differs from the page default
+  const BY_WORDS = ['domains', 'layers'];
   // the switch exists from two rows of the Layers list; below, the page stays in domains
   const CAN_BY = DATA.layers.length >= 2;
   const DEFAULT_BY = DATA.defaults.constellations === 'layers' ? 'layers' : 'domains';
@@ -164,7 +158,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     layers: new Set(DATA.layers.map(l => l.key)),
     kinds: new Set(DATA.kinds.map(k => k.key).filter(k => !DATA.defaults.hiddenKinds.includes(k))),
     links: DATA.defaults.links, detail: DATA.defaults.detail,
-    by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
+    by: CAN_BY ? GROUPING.get(BY_WORDS) || DEFAULT_BY : 'domains',
     fold: FOLDABLE && FOLD.on(),
     allRoutes: false,   // exploration, not a lasting choice: never stored nor exported
   };
@@ -204,14 +198,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   $u('by').hidden = !CAN_BY;
   $u('by').querySelectorAll('input').forEach(radio => {
     radio.checked = radio.value === state.by;
-    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); relayout(); };
+    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; GROUPING.set(state.by, DEFAULT_BY); relayout(); };
   });
   // the fold control (D-062): one checkbox, shown only when some table has a parent; its second line names the
   // descriptive kinds that fold here, as written in the config
   $u('fold').hidden = !FOLDABLE;
-  const foldKinds = DATA.kinds.filter(k => k.role === 'descriptive' && N.some(n => n.kind === k.key && PARENT[n.i] != null)).map(labelOf);
   $u('fold-t').textContent = L.fold;
-  $u('fold-kinds').textContent = foldKindsText(foldKinds);
+  $u('fold-kinds').textContent = foldKindsText(foldKindLabels(DATA.kinds, N.filter(n => PARENT[n.i] != null)));
   $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
   $u('fold').querySelector('label').title = T.foldTitle;
   $u('fold-on').checked = state.fold;
@@ -434,9 +427,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     REL = new Map();
     for (const [, dl] of local) placeAroundDragged(dl.ns, saved.nodes);
     constellations = [...local].map(([k, v]) => ({ k, rank: v.rank, n: whole.get(k).length, bands: v.bands,
-      r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))),
-      mix: [...d3.rollup([...v.ns.map(s => N[s.i]), ...whole.get(k).filter(n => foldedSet.has(n.i))], g => g.length, s => s.kind)]
-        .sort((a, b) => b[1] - a[1]) }));
+      r: Math.max(v.R, d3.max(v.ns, s => reach(s.i))) }));
     constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
@@ -449,7 +440,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     BUNDLE = null;
     // source systems stay out of the simulation: they are stacked upstream afterwards (stackSystems). Business domains are
     // placed along the data flow: their x target is their rank over the business-domain graph (domainRanks)
-    const byKey = new Map(constellations.map(d => [d.k, d])), isSys = d => state.by === 'domains' && SYSTEM.has(d.k);
+    const byKey = new Map(constellations.map(d => [d.k, d])), isSys = d => isSystem(d.k);
     const business = constellations.filter(d => !isSys(d)), systems = constellations.filter(isSys);
     FLOWRANK = new Map();
     if (state.by === 'domains') {
@@ -474,7 +465,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     for (let k = 0; k < 100; k++) sim.tick();
     stackSystems(systems, business, byKey);
     GROUPED = systems.length >= 2 ? systems : [];
-    if (GROUPED.length) groupBox();
+    if (GROUPED.length) placeGroup();
     // the control for every route: only when some are left out, evaluated per layout so it never flickers while zooming
     const all = routes.every(r => r.strong);
     $u('routes-row').hidden = all;
@@ -507,6 +498,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // the columns (the first nearest the business box), each column keeping every disc as close to that y as the room between two
   // discs allows (an isotonic fit, pool-adjacent-violators). A pinned system stays at its pin; a free one steps over it.
   const STACK_GAP = 30;
+  const stackOrder = (a, b) => a.y - b.y || b.x - a.x;   // the order of the source systems, top to bottom (the stack, the group card, the text summary)
   // The direction of a route (the one threshold): the sign of its net lineage flow when that exceeds 20 % of its weight. `flow` is
   // that, whatever Links shows (it places the business domains along the data flow); `dir`, what is drawn and said (arrowhead,
   // "reads"), is `flow` only while the route carries lineage on screen
@@ -677,8 +669,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
         const pos = [...nb.get(n.i)].filter(j => order.has(j)).map(j => order.get(j));
         return [n.i, pos.length ? d3.mean(pos) : 0.5];
       }));
-      band.tables.sort((a, b) => rank.get(a.i) - rank.get(b.i) || bary.get(a.i) - bary.get(b.i)
-        || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      band.tables.sort((a, b) => rank.get(a.i) - rank.get(b.i) || bary.get(a.i) - bary.get(b.i) || byNameThenId(a, b));
       band.tables.forEach((n, j) => order.set(n.i, band.tables.length > 1 ? j / (band.tables.length - 1) : 0.5));
     });
     return ranges.map(b => ({ key: b.key, tables: b.tables }));
@@ -810,7 +801,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
     constellations.forEach(d => {
       // a source system's halo is neutral (D-066), at half strength while the group card stands for it
-      const sys = !byLayers && SYSTEM.has(d.k);
+      const sys = isSystem(d.k);
       ctx.globalAlpha = ctxAlpha(d) * (sys && GROUPED.length ? 1 - a / 2 : 1);
       if (byLayers) { drawDomainBands(d, k); return; }
       const c = CONTRAST.edge(sys ? NEUTRAL : DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
@@ -818,7 +809,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
       ctx.strokeStyle = c + (sys ? '80' : '66'); ctx.lineWidth = 1.5 / k; ctx.stroke();
     });
-    if (k >= 0.6 && LA > 0) constellations.forEach(d => { setA(ctxAlpha(d)); drawBandMarkers(d, k); });
+    if (k >= OVERVIEW_K && LA > 0) constellations.forEach(d => { setA(ctxAlpha(d)); drawBandMarkers(d, k); });
     ctx.globalAlpha = traj ? DIM : 1;
 
     if (rs) {  // from afar: the routes, outline to outline around the other constellations (D-067), in screen px
@@ -833,13 +824,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (LA > 0) edges.forEach(([p, q]) => {
       if (!P[p] || !P[q]) return;   // an end is folded into its entity: not drawn inside the constellation
       const hl = near && (p === hover || q === hover), cross = G.of(N[p]) !== G.of(N[q]);
-      if (!hl && (k < 0.35 || (k < 0.6 && cross))) return;
+      if (!hl && (k < TABLE_K || (k < OVERVIEW_K && cross))) return;
       setA(traj ? DIM : 1);
       ctx.strokeStyle = hl ? C.hl : cross ? C.cross : C.edge;
       ctx.beginPath(); ctx.moveTo(P[p].x, P[p].y); ctx.lineTo(P[q].x, P[q].y); ctx.stroke();
     });
 
-    const cards = state.detail !== 'names' && k > 0.35;
+    const cards = state.detail !== 'names' && k > TABLE_K;
     const labels = [], badges = [];
     const drawTable = n => {
       const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
@@ -877,10 +868,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     // first whole, then compact (name and count, no bar), the first that is free of cards and of the names already placed; it is skipped only when
     // none is (`labelShown: false` in the hook): the name stays in the Domains list, the
     // tooltip and the text summary
-    const cardBoxes = placed && a >= 0.5 ? placed.items.filter(e => e.lv <= 3).map(e => [e.px - e.w / 2 + t.x, e.py - e.h / 2 + t.y, e.w, e.h, e.key]) : [];
+    const cardBoxes = placed && cardsOnAt(a) ? placed.items.filter(e => e.lv <= 3).map(e => [e.px - e.w / 2 + t.x, e.py - e.h / 2 + t.y, e.w, e.h, e.key]) : [];
     const onCard = (x, y, w, h, key) => cardBoxes.some(r => r[4] !== key && x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
     const discLabel = (d, alpha, counts = plural(d.n, L.tables), avoid = false) => {
-      const sys = !byLayers && SYSTEM.has(d.k);   // a source system: 13 px, neutral (D-066)
+      const sys = isSystem(d.k);   // a source system: 13 px, neutral (D-066)
       const [cx0, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`;
       const sizeOf = compact => (compact ? [Math.max(textW(font, name), textW(`12px ${FONT}`, counts)) + 8, fs + 16] : [Math.max(textW(font, name), 80) + 8, fs + 22]);
@@ -907,9 +898,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       ctx.fillText(name, sx, sy - 22 + up);
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
       ctx.fillText(counts, sx, sy - 8 + up);
-      // composition by type, readable before any single star is
+      // composition by type in the Types-list order (D-064: the cards' bar, `SUMMARIES` kinds), readable before any single star is
       let bx = sx - 40;
-      if (!compact) d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
+      if (!compact) SUMMARIES.get(d.k).kinds.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
       taken.push([sx - w / 2, sy - bh, w, bh]);
       return { d, x: sx - w / 2, y: sy - bh, w, h: bh };
     };
@@ -920,7 +911,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       const [bx, by] = screen(p.x + 0.71 * r, p.y - 0.71 * r);
       taken.push([bx, by - BADGE_H, badgeWidth(held), BADGE_H]);
     });
-    if (byLayers && k >= 0.6 && LA > 0) constellations.forEach(d => { setA(ctxAlpha(d)); drawBandNames(d, screen, free, taken, k); });
+    if (byLayers && k >= OVERVIEW_K && LA > 0) constellations.forEach(d => { setA(ctxAlpha(d)); drawBandNames(d, screen, free, taken, k); });
     setA(1);
     const around = SP.size && LA > 0 ? drawShownNames(screen, taken, k) : [];
     const named = LA > 0 ? [...around, ...(cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k))] : [];
@@ -935,7 +926,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (!onScreen) return;
     drawnNames = named;
     summaryAll = drawnCards; summaryHits = drawnCards.filter(c => c.drawn);   // a card at level count / frame is not drawn: no hit either
-    labelHits = a >= 0.5 ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits.filter(Boolean)] : [...hits, ...bareHits.filter(Boolean)];
+    labelHits = cardsOnAt(a) ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits.filter(Boolean)] : [...hits, ...bareHits.filter(Boolean)];
     perf.draw = performance.now() - t0;
   }
   // the view as shown (filters, zoom, detail level, search mark, trajectory) as a PNG at 2 x the screen
@@ -1097,7 +1088,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     }
     ctx.fillStyle = col; ctx.fillRect(x, y, b.w, 16);
     if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / mk; ctx.strokeRect(x, y, b.w, 16); }
-    if (k > 0.6) {
+    if (k > OVERVIEW_K) {
       ctx.fillStyle = CONTRAST.textOn(col); ctx.font = `600 10px ${FONT}`; ctx.fillText(n.name, x + 5, y + 12);
       ctx.font = `9px ${FONT}`;
       b.shown.forEach((r, j) => {
@@ -1109,22 +1100,22 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (b.held.length) drawFolded(b, x, y, k);
   }
   // the folded tables of an entity on its card, under its columns: a separator, a heading, then a kind dot, name and
-  // kind per table (FOLD_ROWS rows, then "+ N"); below scale 0.6 only the separator is drawn
+  // kind per table (FOLD_ROWS rows, then "+ N"); below OVERVIEW_K only the separator is drawn
   function drawFolded(b, x, y, k) {
     const top = y + b.top;
     ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / Math.min(k, 1);
     ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + b.w, top); ctx.stroke();
-    if (k <= 0.6) return;
+    if (k <= OVERVIEW_K) return;
     ctx.fillStyle = C.text; ctx.font = `600 9px ${FONT}`; ctx.fillText(plural(b.held.length, L.foldedN), x + 5, top + 11);
     ctx.font = `9px ${FONT}`;
     b.held.slice(0, FOLD_ROWS).forEach((i, j) => {
-      const n = N[i], col = KIND[n.kind].color, edge = CONTRAST.edge(col, C.bg), base = top + FOLD_HEAD + 9 + j * 11, label = labelOf(KIND[n.kind]);
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 8, base - 3, 2.5, 0, 7); ctx.fill();
-      if (edge !== col) { ctx.strokeStyle = edge; ctx.lineWidth = 1 / k; ctx.stroke(); }
+      const n = N[i], base = top + FOLD_HEAD + 9 + j * 11, label = labelOf(KIND[n.kind]);
+      cardDot(x + 8, base - 3, KIND[n.kind].color, 2.5, 1 / k);
       ctx.fillStyle = C.text; ctx.fillText(n.name, x + 14, base);
       ctx.fillStyle = C.muted; ctx.fillText(label, x + b.w - 5 - ctx.measureText(label).width, base);
     });
-    if (b.held.length > FOLD_ROWS) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.held.length - FOLD_ROWS)}`, x + 5, top + FOLD_HEAD + 9 + FOLD_ROWS * 11); }
+    const more = overflow(b.held.length, FOLD_ROWS);
+    if (more) { ctx.fillStyle = C.muted; ctx.fillText(more, x + 5, top + FOLD_HEAD + 9 + FOLD_ROWS * 11); }
   }
   // the count badge of an entity (names level): a dark pill with the number at the upper right of its star, sized in
   // screen pixels; from afar a short dark arc on the star's north-east rim, so the star's colour stays visible.
@@ -1181,7 +1172,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   }
   // the lineage edges of the trajectory, parent -> child, at every zoom and whatever the Links selector shows
   function drawTrajectoryEdges(k) {
-    const far = k < 0.6, lw = (far ? 1.5 : 2) / k, head = (far ? 7 : 8) / k;
+    const far = k < OVERVIEW_K, lw = (far ? 1.5 : 2) / k, head = (far ? 7 : 8) / k;
     traj.edges.forEach(([c, p, dir]) => {
       const a = posOf(p), b = posOf(c);
       if (!a || !b) return;   // hidden by a filter changed in the mode
@@ -1197,10 +1188,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // Content, decided here from the payload: per constellation its table count (folded tables included: never reduced),
   // its entities, one row per layer (layer mode: per domain) holding the tables whose own layer (domain) it is, the kinds
   // of each row in the Types-list order, and its main tables. Also the star cell and the two scales of the cross-fade.
+  // the composition by kind of some tables, [[kind key, count]] in the Types-list order (`kindOrder`): the one computation, read
+  // by a card's rows and bar (level 2) and by the bar above a disc (`discLabel`)
+  const kindMix = list => kindCounts(kindOrder, list).map(([k, n]) => [k.key, n]);
   const cardCounts = s => plural(s.n, L.tables) + (s.entities ? ` · ${plural(s.entities, T.entitiesN)}` : '');
   function summarise() {
     const t0 = performance.now(), G = grouping();
-    const rank = new Map(G.rowList.map((it, i) => [it.key, i])), kr = new Map(kindOrder.map((k, i) => [k.key, i]));
+    const rank = new Map(G.rowList.map((it, i) => [it.key, i]));
     CELL = d3.median(drawn, n => Math.sqrt(B[n.i].w * B[n.i].h)) || 1;
     summaryScale = SUMMARY_CELL / CELL; starsScale = summaryScale * SUMMARY_FADE;
     SUMMARIES = new Map();
@@ -1208,13 +1202,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       const ents = members.filter(isEntity).length;
       const rows = [...d3.group(members, G.rowOf)].sort((a, b) => rank.get(a[0]) - rank.get(b[0])).map(([rk, ms]) => ({
         key: rk, label: labelOf(G.rowList[rank.get(rk)]), n: ms.length,
-        kinds: [...d3.rollup(ms, v => v.length, n => n.kind)].sort((a, b) => kr.get(a[0]) - kr.get(b[0])) }));
-      const s = { key, label: constellationLabel(key), n: members.length, entities: state.fold && ents ? ents : null, rows,
+        kinds: kindMix(ms) }));
+      const s = { key, label: constellationLabel(key), n: members.length, kinds: kindMix(members), entities: state.fold && ents ? ents : null, rows,
         main: overviewOrder(members.filter(n => !foldedSet.has(n.i))).slice(0, SUMMARY_NAMES).map(n => n.i) };
       SUMMARIES.set(key, { ...s, counts: cardCounts(s) });
     }
     if (GROUPED.length) {   // the one card of every source system (D-066): a row per system, in stack order, top to bottom
-      const rows = [...GROUPED].sort((a, b) => a.y - b.y || b.x - a.x).map(d => ({ key: d.k, label: constellationLabel(d.k), n: SUMMARIES.get(d.k).n }));
+      const rows = [...GROUPED].sort(stackOrder).map(d => ({ key: d.k, label: constellationLabel(d.k), n: SUMMARIES.get(d.k).n }));
       const n = d3.sum(rows, r => r.n);
       SUMMARIES.set(GROUP, { key: GROUP, label: T.systems, n, rows, main: [], entities: null, g: true,
         counts: `${plural(rows.length, T.systemsN)} · ${plural(n, L.tables)}` });
@@ -1227,7 +1221,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // the card layer's opacity at scale k: 1 up to summaryScale, 0 from starsScale, linear in log k between. A pure function
   // of the zoom: no timer, no state, the same image zooming in and out
   const summaryAlpha = k => Math.max(0, Math.min(1, Math.log(starsScale / k) / Math.log(SUMMARY_FADE)));
-  const cardsOn = () => summaryAlpha(t.k) >= 0.5;   // the card interactions; below 0.5 the stars' ones
+  const cardsOnAt = a => a >= CARDS_ALPHA;   // at card alpha a, the cards are the ones in play
+  const cardsOn = () => cardsOnAt(summaryAlpha(t.k));   // the card interactions; below CARDS_ALPHA the stars' ones
 
   // Card geometry, in screen px at constant text size (13 px name, 11 px otherwise). A card's content has levels, from most
   // to least: 0 rows and main tables, 1 rows, 2 one bar by kind, 3 name and tables, 4 the count, 5 a frame (D-063).
@@ -1374,7 +1369,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const items = constellations.filter(d => !grouped.has(d.k)).map(d => item(d, {}));
     let group = null;
     if (GROUPED.length) {   // the group card: anchored on the middle of the systems' box, "on" it within half its diagonal
-      groupBox();
+      placeGroup();
       const parts = GROUPED.map(d => holds.get(d.k)).filter(Boolean);
       holds.set(GROUP, parts.length ? { start: parts.some(h => h.start), up: d3.sum(parts, h => h.up), down: d3.sum(parts, h => h.down) } : undefined);
       group = item(GROUPD, { g: true, lv: 0 });
@@ -1388,10 +1383,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     return cardCache;
   }
   // the group's pseudo constellation: the bounding circle of its members (world), refreshed whenever one moves
-  function groupBox() {
-    const x0 = d3.min(GROUPED, d => d.x - d.r), x1 = d3.max(GROUPED, d => d.x + d.r), y0 = d3.min(GROUPED, d => d.y - d.r), y1 = d3.max(GROUPED, d => d.y + d.r);
-    Object.assign(GROUPD, { members: GROUPED, x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: Math.hypot(x1 - x0, y1 - y0) / 2, box: [x0, y0, x1, y1] });
+  // the bounding box of some constellations' discs, `box` ([x0, y0, x1, y1]), and its circle (`x`, `y`, `r`): the group's, or the one the
+  // text summary's Zoom on the source systems frames
+  function groupBox(members) {
+    const x0 = d3.min(members, d => d.x - d.r), x1 = d3.max(members, d => d.x + d.r), y0 = d3.min(members, d => d.y - d.r), y1 = d3.max(members, d => d.y + d.r);
+    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: Math.hypot(x1 - x0, y1 - y0) / 2, box: [x0, y0, x1, y1] };
   }
+  const placeGroup = () => Object.assign(GROUPD, { members: GROUPED, ...groupBox(GROUPED) });
   // the world rectangle ({x, y, w, h}, top left) of d's card as cardLayout places it now: the one place that says where a
   // constellation's outline is (the routes' ends, the obstacles of a route and the group card build on it). A source system
   // standing in the group card has the group card's rectangle.
@@ -1449,7 +1447,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     BUNDLE.bundles.forEach(b => { b.strong = BUNDLE.strong.has(b); });
     return BUNDLE;
   }
-  const groupShown = a => GROUPED.length > 0 && a >= 0.5;   // the bundled graph is the one in play
+  const groupShown = a => GROUPED.length > 0 && cardsOnAt(a);   // the bundled graph is the one in play
   // how many routes the default set holds, of how many (the meta line): the bundled graph while the group card is on
   function routeCounts(a) {
     const list = groupShown(a) ? bundled().all : routes, strong = groupShown(a) ? bundled().strong : null;
@@ -1487,7 +1485,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // The obstacles of a route, in screen px from the camera's translation: the drawn outline of every constellation (its disc while
   // stars are on, its card while cards are; the group card for the systems it holds), except the keys in `skip`
   function outlines(a, k) {
-    const placed = a > 0 ? cardLayout(k) : null, cards = a >= 0.5, out = [];
+    const placed = a > 0 ? cardLayout(k) : null, cards = cardsOnAt(a), out = [];
     const disc = d => out.push({ shape: 'disc', key: d.k, x: d.x * k, y: d.y * k, r: d.r * k });
     constellations.forEach(d => {
       if (!cards) return disc(d);
@@ -1742,7 +1740,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const ends = r.dir ? `${name(up)} → ${name(down)}` : `${name(up)} – ${name(down)}`;
     const systems = r.systems ? [...r.systems].sort((a, b) => b[1] - a[1]).map(([key]) => esc(constellationLabel(key))) : [];
     return `<b>${ends}</b><div class="m">${carries}</div>` + (r.dir ? `<div class="m">${T.reads(name(down), name(up))}</div>` : '')
-      + (systems.length ? `<div class="m">${T.systemsList}${L.colon}${systems.slice(0, 5).join(', ')}${systems.length > 5 ? `, + ${num(systems.length - 5)}` : ''}</div>` : '');
+      + (systems.length ? `<div class="m">${T.systemsList}${L.colon}${systems.slice(0, 5).join(', ')}${overflow(systems.length, 5, ', ')}</div>` : '');
   }
   // ---- focus: a constellation's routes in full (the mouse over it, or keyboard focus in its panel row or text summary)
   let focusByMouse = false;   // the focus comes from the mouse (it clears when the mouse leaves), not from keyboard focus
@@ -1810,18 +1808,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     else { if (h.up) ring(h.down ? 8 : 4, C.up, 2.5, true); if (h.down) ring(4, C.down, 2.5, false); }
     ctx.setLineDash([]);
   }
-  // A colour dot of 8 px at (x, y) on a card: filled, outlined in its mark colour when the colour alone falls short (D-042)
-  function cardDot(x, y, color) {
+  // A colour dot of radius r (4: 8 px) at (x, y): filled, outlined in its mark colour, `lw` wide, when the colour alone falls
+  // short (D-042). On a card, and in a folded row of an entity's card (in world units there: r 2.5, lw 1 / k)
+  function cardDot(x, y, color, r = 4, lw = 1) {
     const edge = CONTRAST.edge(color, C.bg);
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
-    if (edge !== color) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    if (edge !== color) { ctx.strokeStyle = edge; ctx.lineWidth = lw; ctx.stroke(); }
   }
   // Draws the card of e at its place, at layer alpha `a` (dimmed when the trajectory holds none of its tables); `over` is the
   // hovered { key, row }. Content by level; text laid out in screen space at constant size. -> the record of what it drew,
   // in screen px: the rectangle, the header (the drag handle) and the rows (the click targets), the text and the level
   function drawSummary(e, a, over) {
     const s = e.s, byLayers = state.by === 'layers', lv = e.lv, x = e.px - e.w / 2 + t.x, y = e.py - e.h / 2 + t.y;
-    const system = !byLayers && SYSTEM.has(e.key);   // a lone source system: neutral (D-066)
+    const system = isSystem(e.key);   // a lone source system: neutral (D-066)
     const mark = byLayers ? C.muted : CONTRAST.edge(DOM[e.key].color, C.bg), ink = byLayers ? C.text : system ? C.muted : CONTRAST.ink(DOM[e.key].color, C.card);
     const ix = x + CARD.PAD_X, iw = e.w - 2 * CARD.PAD_X, hov = over && over.key === e.key;
     const rec = { key: e.key, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: LEVELS[lv], name: null, counts: null, rows: [], main: [], drawn: !(lv >= 4 && !e.tj),
@@ -1832,7 +1831,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     }
     ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1) * litAlpha(e.key);
     if (e.tj) drawCardFrames(e.tj, x, y, e.w, e.h);
-    ctx.fillStyle = C.card; ctx.strokeStyle = SYSTEM.has(e.key) && !byLayers ? CONTRAST.edge(NEUTRAL, C.bg) : mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
+    ctx.fillStyle = C.card; ctx.strokeStyle = isSystem(e.key) ? CONTRAST.edge(NEUTRAL, C.bg) : mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
     roundedRect(x, y, e.w, e.h, CARD.RADIUS); ctx.fill(); ctx.stroke();
     if (lv >= 4) return rec;
     ctx.textAlign = 'left'; ctx.fillStyle = ink; ctx.font = F_NAME;
@@ -1845,8 +1844,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (lv === 3) return rec;
     ty += CARD.SEC;
     if (lv === 2) {
-      const all = d3.rollup(s.rows.flatMap(r => r.kinds), v => d3.sum(v, z => z[1]), z => z[0]);
-      drawBar(ix, ty, iw, kindOrder.filter(k => all.has(k.key)).map(k => [k.key, all.get(k.key)]));
+      drawBar(ix, ty, iw, s.kinds);
       return rec;
     }
     const big = d3.max(s.rows, r => r.n), dot = byLayers ? 12 : 0;
@@ -1889,14 +1887,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (lv) return rec;
     ty += CARD.SEC;
     s.rows.slice(0, CARD.GROUP_ROWS).forEach(r => {
-      if (hov && over.row === r.key) { ctx.fillStyle = 'rgba(100,116,139,.10)'; ctx.fillRect(x + 1, ty, e.w - 2, CARD.GROUP_ROW); }
+      if (hov && over.row === r.key) { ctx.fillStyle = C.cross; ctx.fillRect(x + 1, ty, e.w - 2, CARD.GROUP_ROW); }
       const count = num(r.n);
       ctx.font = F_TEXT; ctx.fillStyle = C.text; ctx.fillText(cutText(F_TEXT, r.label, iw - textW(F_TEXT, count) - 8), ix, ty + 12);
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(count, ix + iw, ty + 12); ctx.textAlign = 'left';
       rec.rows.push(r.key); rec.rowHits.push({ key: r.key, x, y: ty, w: e.w, h: CARD.GROUP_ROW });
       ty += CARD.GROUP_ROW;
     });
-    if (s.rows.length > CARD.GROUP_ROWS) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(s.rows.length - CARD.GROUP_ROWS)}`, ix, ty + 10); }
+    const more = overflow(s.rows.length, CARD.GROUP_ROWS);
+    if (more) { ctx.fillStyle = C.muted; ctx.fillText(more, ix, ty + 10); }
     return rec;
   }
   // the card part under a screen point, by the last frame: { rec, d, part: 'header' | 'row' | 'card', row }, or null
@@ -1912,7 +1911,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   function zoomOnConstellation(d) {
     const w = stage.clientWidth, h = stage.clientHeight - top();
     if (d.members) {   // the source systems together: their box, at least where stars are drawn
-      const bx = [d3.min(d.members, m => m.x - m.r), d3.min(d.members, m => m.y - m.r), d3.max(d.members, m => m.x + m.r), d3.max(d.members, m => m.y + m.r)];
+      const bx = groupBox(d.members).box;
       return zoomTo((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2, Math.max(0.92 * Math.min(w / (bx[2] - bx[0] + 60), h / (bx[3] - bx[1] + 60)), starsScale * 1.05));
     }
     zoomTo(d.x, d.y, Math.max(0.92 * Math.min(w, h) / (2 * d.r + 60), starsScale * 1.05));
@@ -1936,7 +1935,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const holds = trajHolds(), mk = (tag, text) => { const el = document.createElement(tag); if (text != null) el.textContent = text; return el; };
     const button = (text, onclick) => { const b = mk('button', text); b.type = 'button'; b.onclick = onclick; return b; };
     // business constellations first, left to right; then the source systems under their own heading, top to bottom (D-066)
-    const isSys = d => !byLayers && SYSTEM.has(d.k);
+    const isSys = d => isSystem(d.k);
     const section = d => {
       const s = SUMMARIES.get(d.k), box = mk('div'), h = mk('h4'), h4 = [], line = holds.get(d.k);
       box.className = 'sum-c';
@@ -1960,7 +1959,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       return box;
     };
     const business = [...constellations].filter(d => !isSys(d)).sort((a, b) => a.x - b.x || a.y - b.y);
-    const systems = [...constellations].filter(isSys).sort((a, b) => a.y - b.y || b.x - a.x);
+    const systems = [...constellations].filter(isSys).sort(stackOrder);
     const items = business.map(section);
     if (systems.length) {
       const box = mk('div'), h = mk('h4'), tables = d3.sum(systems, d => SUMMARIES.get(d.k).n);
@@ -2050,7 +2049,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     // the cards are pushed off their discs and keep their screen size: Fit makes room for the cards drawn at the scale the discs
     // alone give (one pass: a card's shift grows as k falls, so iterating would shrink the view for ever), then lowers the scale
     // by steps until the cards' own extent at that scale fits the stage's width, and centres that extent: no card is cut at the side
-    const base = box, k0 = frameScale(...base), cardsAt = k => (summaryAlpha(k) >= 0.5 ? cardLayout(k).items.filter(e => e.lv <= 3) : []);
+    const base = box, k0 = frameScale(...base), cardsAt = k => (cardsOnAt(summaryAlpha(k)) ? cardLayout(k).items.filter(e => e.lv <= 3) : []);
     cardsAt(k0).forEach(e => {
       box = [Math.min(box[0], (e.px - e.w / 2) / k0), Math.min(box[1], (e.py - e.h / 2) / k0),
              Math.max(box[2], (e.px + e.w / 2) / k0), Math.max(box[3], (e.py + e.h / 2) / k0)];
@@ -2087,7 +2086,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const n = tree.find(wx, wy, Math.max(200, 12 / t.k));
     if (!n) return null;
     const p = P[n.i], b = B[n.i];
-    const hit = state.detail !== 'names' && t.k > 0.35
+    const hit = state.detail !== 'names' && t.k > TABLE_K
       ? Math.abs(wx - p.x) <= b.w / 2 && Math.abs(wy - p.y) <= b.h / 2
       : Math.hypot(wx - p.x, wy - p.y) <= Math.max(8, 8 / t.k);
     return hit ? n : null;
@@ -2106,7 +2105,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // band under the world x `wx`, if any; on a card, the row under the pointer instead (`row`: its key)
   function layerTip(d, wx, cards, row) {
     const names = d.bands.slice(0, TIP_DOMAINS).map(b => esc(labelOf(DOM[b.key]))).join(' · ');
-    const more = d.bands.length > TIP_DOMAINS ? ` · + ${num(d.bands.length - TIP_DOMAINS)}` : '';
+    const more = overflow(d.bands.length, TIP_DOMAINS, ' · ');
     const band = cards ? SUMMARIES.get(d.k).rows.find(r => r.key === row) : bandSpans(d).find(b => wx - d.x >= b.s0 && wx - d.x <= b.s1);
     return `<b>${esc(constellationLabel(d.k))}</b><div class="m">${plural(d.n, L.tables)}</div>`
       + `<div class="m">${T.domains}${L.colon}${names}${more}</div>`
@@ -2152,7 +2151,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     } else {
       const dd = DOM[d.k], row = cards && part && part.d === d && part.row ? SUMMARIES.get(d.k).rows.find(r => r.key === part.row) : null;
       tip.innerHTML = `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
-        + (SYSTEM.has(d.k) ? `<div class="m">${T.systemOne}</div>` : `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>`)
+        + (isSystem(d.k) ? `<div class="m">${T.systemOne}</div>` : `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>`)
         + (row ? `<div class="m">${T.layerOne}${L.colon}${esc(row.label)} · ${plural(row.n, L.tables)}</div>` : '')
         + `<div class="a">${T.frame}${cards ? ' · ' + T.rowZoom : ''}</div>`;
     }
@@ -2225,7 +2224,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     $u('tj-start').textContent = n.name; $u('tj-start').title = n.name;
     const ups = countByDomain(N, traj.up.keys()), downs = countByDomain(N, traj.down.keys());
     const rows = [...new Set([...ups.keys(), ...downs.keys()])].map(k => [k, ups.get(k) || 0, downs.get(k) || 0])
-      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${DOM[k].label}${L.colon}${countsText(cu, cd)}` }))
+      .map(([k, cu, cd]) => ({ k, total: cu + cd, text: `${labelOf(DOM[k])}${L.colon}${countsText(cu, cd)}` }))
       .sort((a, b) => b.total - a.total || a.text.localeCompare(b.text));
     $u('tj-list').replaceChildren(...rows.map(r => {
       const li = document.createElement('li');
@@ -2341,7 +2340,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       fold: { available: FOLDABLE, on: state.fold },
       folded: [...foldedSet].filter(i => !SP.has(i)).map(i => N[i].id),
       constellations: constellations.map(d => ({ key: d.k, n: d.n, x: d.x, y: d.y, r: d.r, summary: summaryOf(d),
-                                   system: state.by === 'domains' && SYSTEM.has(d.k), flowRank: FLOWRANK.has(d.k) ? FLOWRANK.get(d.k) : null,
+                                   system: isSystem(d.k), flowRank: FLOWRANK.has(d.k) ? FLOWRANK.get(d.k) : null,
                                    bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
 

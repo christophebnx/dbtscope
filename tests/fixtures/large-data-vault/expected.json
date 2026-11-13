@@ -32,9 +32,9 @@
     "activity": {"hubs": 16, "links": 19, "satellites": 42, "pits": 2, "dimensions": 5, "facts": 5}
   },
   "fold": {
-    "folded": 441, "entities_holding": 251, "descriptive_not_folded": 1, "raw_vault_stars": 367,
+    "folded": 441, "parents": 251, "descriptive_not_folded": 1, "raw_vault_stars": 367,
     "entities": 428,
-    "summary": "441 tables folded into 251 entities; 1 descriptive table not folded"
+    "summary": "441 tables folded into 251 parents; 1 descriptive table not folded"
   },
   "special_satellites": {
     "vehicle_e001_s5_sat": {"domain": "vehicle", "parents": []},

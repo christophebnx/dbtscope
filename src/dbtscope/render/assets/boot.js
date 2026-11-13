@@ -71,17 +71,30 @@ const EXPORT = (() => {
   };
 })();
 
-// The viewer's fold choice, shared by both views (D-069): the localStorage key `dbtscope-fold:<title>`, kept apart from
-// the layout and never exported; written only when it differs from the default `universe.fold` (D-062).
-const FOLD = (() => {
-  const key = 'dbtscope-fold:' + PAGE.title, listeners = [];
-  const stored = () => { try { const v = localStorage.getItem(key); return v === 'folded' ? true : v === 'shown' ? false : null; } catch (e) { return null; } };
-  const fallback = PAGE.universe.defaults.fold;
+// The viewer's memory: a choice kept in the localStorage key `<prefix>:<title>`, apart from the layout and never exported
+// (D-048, D-062). `words` are the values a key may hold, anything else reads as no choice; a value is stored only when it
+// differs from the default, and without storage the choice lasts for the session. One store per choice.
+const memoryOf = prefix => {
+  const key = prefix + ':' + PAGE.title;
   return {
-    on: () => stored() ?? fallback,
+    get(words) { try { const v = localStorage.getItem(key); return words.includes(v) ? v : null; } catch (e) { return null; } },
+    set(word, fallback) {
+      try { if (word === fallback) localStorage.removeItem(key); else localStorage.setItem(key, word); } catch (e) { /* session only */ }
+    },
+  };
+};
+// the grouping of the universe (D-048), passed to the universe
+const GROUPING = memoryOf('dbtscope-constellations');
+
+// The viewer's fold choice, shared by both views (D-069): the key `dbtscope-fold:<title>`, values `folded` / `shown`.
+const FOLD = (() => {
+  const memory = memoryOf('dbtscope-fold'), words = ['folded', 'shown'], listeners = [];
+  const word = on => (on ? 'folded' : 'shown'), fallback = PAGE.universe.defaults.fold;
+  return {
+    on: () => { const v = memory.get(words); return v === null ? fallback : v === 'folded'; },
     // `from` is the listener of the view that made the change: it already follows
     set(on, from) {
-      try { if (on === fallback) localStorage.removeItem(key); else localStorage.setItem(key, on ? 'folded' : 'shown'); } catch (e) { /* session only */ }
+      memory.set(word(on), word(fallback));
       listeners.forEach(fn => { if (fn !== from) fn(on); });
     },
     listen: fn => listeners.push(fn),
@@ -96,7 +109,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, FOLD)
-    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow, FOLD);
+    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow, FOLD, GROUPING);
   else if (views[name].shown) views[name].shown();
 }
 function openInDetail(id) {

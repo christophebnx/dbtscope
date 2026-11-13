@@ -26,6 +26,7 @@ from browser.conftest import (
     entities,
     fan_detail,
     scroll_width,
+    set_config,
     show_detail,
     synthetic_detail,
     tooltip,
@@ -40,13 +41,6 @@ Large = tuple[Page, dict[str, Any]]
 OpenPage = Callable[..., Page]
 FOLD_KEY = "dbtscope-fold:Large vault"
 FULL_KEY = "vehicle|||keys|hub,link,sat"  # the view key of a full drawing, as saved before M8.5
-
-
-@pytest.fixture
-def large_detail(large_page: Large) -> Large:
-    p, data = large_page
-    show_detail(p)
-    return p, data
 
 
 def drag(p: Page, table_id: str, dx: float = 25, dy: float = 15) -> None:
@@ -228,8 +222,7 @@ def test_the_page_announces_the_skeleton_and_the_return_to_a_full_drawing(large_
 
 def test_the_announcements_and_the_warning_in_french(tmp_path: Path, open_page: OpenPage) -> None:
     project = write_large_project(tmp_path / "large")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text(encoding="utf-8") + "language: fr\n", encoding="utf-8")
+    set_config(project, language="fr")
     html, data = page_of(project)
     p = open_page(html)
     show_detail(p)
@@ -328,8 +321,7 @@ def large_with_layout(
         {"format": "dbt-erd-layout", "version": 1, "detail": {FULL_KEY: {sat: [0, 0], link: [900, 0]}}},
     )
     if not fold:
-        config = project / "dbt-erd.yml"
-        config.write_text(config.read_text(encoding="utf-8") + "universe:\n  fold: false\n", encoding="utf-8")
+        set_config(project, fold=False)
     html, data = page_of(project)
     return html, {"data": data, "sat": sat, "link": link, "hub": hub}
 

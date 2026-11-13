@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from browser.conftest import NARROW, Page, universe_page
+from browser.conftest import NARROW, Page, geometry, universe_page
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_summary import (
     BUSINESS,
@@ -22,7 +22,6 @@ from browser.test_summary import (
     SYSTEMS,
     Opened,
     card,
-    geometry,
     page_xy,
     set_scale,
     settle,

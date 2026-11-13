@@ -638,7 +638,7 @@ class Report:
 
 
 def _fold_row(universe: UniversePayload, folding: bool) -> str | None:
-    """`441 tables folded into 213 entities; 1 descriptive table not folded`; None with no such kind."""
+    """`441 tables folded into 251 parents; 1 descriptive table not folded`; None with no such kind."""
     descriptive = {k.key for k in universe.kinds if k.role == "descriptive"}
     if not descriptive:
         return None
@@ -647,7 +647,7 @@ def _fold_row(universe: UniversePayload, folding: bool) -> str | None:
     text = f"{_count(len(folded), 'table')} folded"
     if folded:
         parents = len(set(folded))
-        text += f" into {_count(parents, 'entity', 'entities')}"
+        text += f" into {_count(parents, 'parent')}"
     if loose:
         text += f"; {_count(loose, 'descriptive table')} not folded"
     return text if folding else f"{text}; the page opens with them shown"

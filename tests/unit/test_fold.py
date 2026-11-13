@@ -212,10 +212,7 @@ def test_the_example_folds_its_satellites_into_their_hubs(tmp_path: Path) -> Non
     nodes = {n["id"]: n for n in universe["nodes"]}
     folded = [n for n in nodes.values() if n["parent"]]
     expected = EXAMPLE_EXPECTED["universe"]
-    assert (
-        len(folded) == expected["folded"]
-        and len({n["parent"] for n in folded}) == expected["entities_holding"]
-    )
+    assert len(folded) == expected["folded"] and len({n["parent"] for n in folded}) == expected["parents"]
     assert {n["kind"] for n in folded} == {"sat"}
     assert all(
         nodes[n["parent"]]["kind"] == "hub" and nodes[n["parent"]]["domain"] == n["domain"] for n in folded

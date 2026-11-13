@@ -126,7 +126,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A file kind inherits the role of the preset kind it repeats | `domain/config._inherit_roles` (through `merge_config`) |
 | Steps of the data flow, default layer of a table, its rank and step | `domain/steps.STEPS`, `FLOW_PREFIXES`, `UNRANKED`, `default_layer`, `flow_rank`, `step_of` |
 | Star size and name priority by role (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `NAME_ORDER`, `nameOrder`, `OVERVIEW_K`, `orderLabels` |
-| The Types-list order of kinds (panel, cards) | `render/assets/universe.js kindOrder` (`ROLE_ORDER`) |
+| The Types-list order of kinds, by role then payload order (universe panel and cards, detail panel and folded rows) (page, D-058) | `render/assets/common.js kindsByRole` (`ROLE_ORDER`); `universe.js kindOrder`, `detail.js KIND_ORDER` read it |
+| The kinds a list of tables holds with their counts, in a given order (page) | `render/assets/common.js kindCounts`; `detail.js kindPairs`, `universe.js kindMix` |
+| A constellation's composition by kind, in the Types-list order: a card's bar and rows, the bar above its disc (page, D-064) | `render/assets/universe.js kindMix` (`SUMMARIES` `kinds`, read by `drawSummary` and `discLabel`) |
 | Main core tables of a constellation, by relations (page; names at overview and summary cards) | `render/assets/universe.js mainTables` |
 | The order of a constellation's main tables (a card's main tables; names at overview share `nameOrder` and filter by `MAIN` rank in `orderLabels`) | `render/assets/universe.js overviewOrder` |
 | When the universe is drawn as summary cards: the star cell, the two scales, the cross-fade (page, D-063) | `render/assets/universe.js summarise` (`CELL`, `summaryScale`, `starsScale`), `summaryAlpha`, `SUMMARY_CELL`, `SUMMARY_FADE` |
@@ -139,7 +141,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The order of domains in the page: business, then source systems (panel, layer bands, layer card rows; D-066) | `render/assets/universe.js DOMAIN_ORDER` |
 | A business domain's place along the data flow (D-066) | `render/assets/universe.js domainRanks` (over `common.js flowRanks`) |
 | The stack of source systems left of the business domains (D-066) | `render/assets/universe.js stackSystems` |
-| The one card of every source system at overview (D-066) | `render/assets/universe.js drawGroup`, `groupBox` (`GROUP`, the `g` item of `cardLayout`) |
+| The one card of every source system at overview (D-066) | `render/assets/universe.js drawGroup`, `placeGroup` (`GROUP`, the `g` item of `cardLayout`); `groupBox(members)`: the bounding box and circle of some discs, also the framing of Zoom on the source systems |
 | The routes drawn by default and their counts by kind of link (D-067) | `render/assets/universe.js strongRoutes`, `bundled`, `layout` (`rel`, `lin`) |
 | The drawn path of a route around the other constellations (D-067) | `render/assets/universe.js routePath` (`detour`), `routeLayout`, `drawRoutes` |
 | Hit-testing and tooltip of a route; a constellation's routes in focus (D-067) | `render/assets/universe.js routeAt`, `routeTip`, `routeFocus` (`focusOn`, `focusRow`) |
@@ -149,11 +151,11 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Camera animations jump under reduced motion (page) | `render/assets/universe.js motionMs` |
 | Parent of a descriptive table (relation, then name stem; same domain; ties none) and the stem of a table (M8.2, D-061); also the detail's parent: a detail table keeps the universe's parent when both are in the detail payload and share their group (M8.5, D-068) | `domain/fold.parents`, `stem`; `domain/detail.detail_data` (`parents`) |
 | Which tables are drawn, folded or shown; entity marks and counts (page, D-062) | `render/assets/universe.js PARENT`, `FOLDED`, `layout`, `placeShown` |
-| The viewer's fold choice, shared by both views and kept out of the layout (page, D-069) | `render/assets/boot.js FOLD` (replaces `universe.js foldMemory`) |
+| The viewer's fold choice, shared by both views and kept out of the layout (page, D-069) | `render/assets/boot.js FOLD` (over `memoryOf`; replaces `universe.js foldMemory`) |
 | Detail skeleton: which tables are drawn or folded, the rows, the meta line, the warning (page, D-069) | `render/assets/detail.js SKELETON_MIN`, `visibleIds`, `foldedOf`, `buildDot`, `render` |
 | Focus walk with passages (page, D-070) | `render/assets/detail.js visibleIds` |
 | Shape of a skeleton drawing (page, D-071) | `render/assets/detail.js skeletonSvg`, `skeletonOrder` |
-| The large generated Data Vault project (tests) | `tests/large_project.large_manifest`, `write_large_project`, `LARGE_CONFIG`; browser fixture `tests/browser/conftest.large_page` |
+| The large generated Data Vault project (tests) | `tests/large_project.large_manifest`, `write_large_project`, `LARGE_CONFIG`, `EXPECTED` (its counts, `tests/fixtures/large-data-vault/expected.json`, loaded once); browser fixture `tests/browser/conftest.large_page` |
 | Validate an exported layout (format, version, sections) | `domain/layout.check_layout`; `LAYOUT_FORMAT`, `LAYOUT_VERSION`, `LAYOUT_SECTIONS`; `LAYOUT_HINT` (what to do with a bad layout file) |
 | Assemble the HTML page | `render/page.render_page` |
 | Serialise a payload for the page (one encoder, D-023 escape) | `render/page.embedded_json` |
@@ -193,9 +195,14 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
 | Display name of a payload domain, layer or kind (`label ?? key`) (page) | `render/assets/common.js labelOf` |
-| The fold control's kinds line and the lines of a folded-tables tooltip (page) | `render/assets/common.js foldKindsText`, `foldedLines` |
+| The fold control's kind labels, its kinds line and the lines of a folded-tables tooltip (page) | `render/assets/common.js foldKindLabels`, `foldKindsText`, `foldedLines` |
+| The "+ N" of a list cut after N items, with its separator (page) | `render/assets/common.js overflow` |
+| Tables by name, then id (the one tie-break of the page) | `render/assets/common.js byNameThenId` |
+| Whether a constellation is a source system (domain mode only), and the stack order of source systems (page, D-066) | `render/assets/universe.js isSystem`, `stackOrder` |
+| The thresholds of the zoom: overview (routes, band markers, far stars), tables as cards, cards in play (page) | `render/assets/universe.js OVERVIEW_K`, `TABLE_K`, `CARDS_ALPHA` (`cardsOnAt`, `cardsOn`) |
+| A colour dot on a canvas card or folded row, outlined when too light (page) | `render/assets/universe.js cardDot` |
 | What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-048) | `render/assets/universe.js BY`, `grouping` |
-| The viewer's last grouping, kept out of the layout (page, D-048) | `render/assets/universe.js byMemory` |
+| One viewer-memory store: a choice in a localStorage key `<prefix>:<title>`, kept out of the layout, written only when it differs from the default (page, D-048, D-062) | `render/assets/boot.js memoryOf`; `GROUPING` (the viewer's last grouping, key `dbtscope-constellations:<title>`) and `FOLD` are built on it and passed to the views |
 | Placement of a constellation's tables: bands (layer bands, or domain bands in layer mode) in one row, in the smallest circle (page) | `render/assets/universe.js layoutConstellation`, `bandsOf`, `columns`, `packRow` |
 | A band's span on its disc and the disc's upper rim (page, layer mode) | `render/assets/universe.js bandSpans`, `rimAngle`, `rimHalf` |
 | Domain bands of a layer constellation: tint, rim arcs, band names; its tooltip (page) | `render/assets/universe.js drawDomainBands` (`TINT`, `TINTS`), `drawBandNames`, `layerTip` (`TIP_DOMAINS`) |
@@ -244,7 +251,11 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | CLI arguments that build from the written manifest (tests) | `tests/conftest.NO_PARSE_NO_OPEN` |
 | Build and open the page in Chromium (browser tests) | `tests/browser/conftest.build_page`, `open_page`, `shop_page` (`Shop`), `example_page`, `Page`; session fixtures `browser` (the local Chromium) and `cdn` (the vendored libraries served for their CDN URLs); `VIEWPORT` (the default window) |
 | Block every request but the page's own (browser tests) | `tests/browser/conftest.only_own_url` |
-| Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `open_flow`, `wait_flow`, `close_panel`, `scroll_width`, `names`, `names_of`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
+| Drive and measure the page (browser tests) | `tests/browser/conftest.show_detail`, `wait_exportable`, `wait_drawn`, `double_click`, `untick`, `open_flow`, `wait_flow`, `close_panel`, `scroll_width`, `names`, `names_of`, `search` (waits `CENTRE_WAIT_MS`), `to_stars`; `NARROW`, `PAGE_BG`, `CENTRE_WAIT_MS` |
+| Read the page's state (browser tests) | `tests/browser/conftest.geometry` (the universe hook, optionally after selecting a detail level), `summary`, `meta`, `dstate`, `name_px`, `entities`, `tooltip`, `centre`, `vehicle_hub` |
+| Write a project's config for the page language or fold default (browser tests) | `tests/browser/conftest.set_config` |
+| The large project's detail page, its folded and its shown universe page, its project folder (browser tests) | fixtures `tests/browser/conftest.large_detail`, `large_page_shown`, `large` (an alias of `large_page`), `large_project` |
+| A synthetic detail page (browser tests) | `tests/browser/conftest.detail_page`, `synthetic_detail`, `fan_detail` |
 | The page of a synthetic universe payload (browser tests) | `tests/browser/conftest.universe_page` |
 
 ## Glossary
