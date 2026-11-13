@@ -89,9 +89,10 @@ def parents(
         if relation.parent in candidates:
             related[relation.child].add(relation.parent)
     stems = {uid: stem(tables[uid], kinds.get(uid)) for uid in tables}
-    by_domain: dict[str, dict[str, list[str]]] = {}
-    for domain in {domains[uid] for uid in candidates}:
-        by_domain[domain] = _by_stem(sorted(u for u in candidates if domains[u] == domain), stems)
+    members: dict[str, list[str]] = defaultdict(list)
+    for uid in sorted(candidates):
+        members[domains[uid]].append(uid)
+    by_domain = {domain: _by_stem(uids, stems) for domain, uids in members.items()}
 
     found: dict[str, str] = {}
     for uid in sorted(uid for uid, role in roles.items() if role == "descriptive"):

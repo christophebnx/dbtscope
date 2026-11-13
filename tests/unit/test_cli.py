@@ -719,6 +719,10 @@ def test_embeds_exported_layout(
     assert capsys.readouterr().out.splitlines()[-1] == f"  layout:   {path}{line}"
 
 
+def test_a_count_takes_an_irregular_plural() -> None:
+    assert (_count(1, "entity", "entities"), _count(2, "entity", "entities")) == ("1 entity", "2 entities")
+
+
 def test_counts_are_singular_for_one_and_grouped_by_thousands() -> None:
     assert (_count(1, "table"), _count(0, "domain"), _count(1482, "relation")) == (
         "1 table",

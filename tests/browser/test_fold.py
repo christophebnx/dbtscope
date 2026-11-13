@@ -193,6 +193,30 @@ def test_a_double_click_on_a_hub_opens_the_detail_focused_on_it(large: Large) ->
     assert p.page.input_value("#d-focus") == "vehicle_e001_hub"
 
 
+def test_a_double_click_that_zooms_on_another_table_drops_the_earlier_orbit(large: Large) -> None:
+    """A source is not in the detail: its double-click zooms, and the search's orbit must not stay up."""
+    p, data = large
+    search(p, NO_RELATION_SAT)
+    assert any(t["shown"] for t in geometry(p)["tables"])
+    source = uid(data, next(n["name"] for n in data["universe"]["nodes"] if n["kind"] == "source"))
+    p.page.evaluate(
+        "id => { const t = views.universe.geometry().tables.find(t => t.id === id);"
+        " views.universe.camera({x: 640 - t.x * 1.5, y: 400 - t.y * 1.5, k: 1.5}); }",
+        source,
+    )
+    rect = p.page.evaluate("id => views.universe.place(id)", source)
+    box = p.page.locator("#u-canvas").bounding_box()
+    p.page.mouse.dblclick(box["x"] + rect["x"] + rect["w"] / 2, box["y"] + rect["y"] + rect["h"] / 2)
+    p.page.wait_for_timeout(700)
+    state = p.state()
+    nodes = by_id(data)
+    members = {state["start"], *state["up"], *state["down"]}
+    assert state["start"] == source
+    assert {t["id"] for t in geometry(p)["tables"] if t["shown"]} == {
+        m for m in members if nodes[m]["parent"]
+    }
+
+
 def test_the_detail_holds_every_satellite(large: Large) -> None:
     _, data = large
     sats = {n["id"] for n in data["universe"]["nodes"] if n["kind"] == "sat"}
@@ -242,6 +266,41 @@ def test_every_count_is_the_same_folded_and_shown(large: Large) -> None:
     )
     assert folded_counts == shown_counts
     assert meta(p).startswith("1,374 tables · 2,") and "entities" not in meta(p)
+
+
+BAND_TIPS = """() => {
+  const c = document.getElementById('u-canvas'), r = c.getBoundingClientRect();
+  const tip = document.getElementById('u-tip');
+  const found = {};
+  for (let y = 70; y < r.height - 10; y += 6) for (let x = 10; x < r.width - 10; x += 6) {
+    c.dispatchEvent(new MouseEvent('mousemove', { clientX: r.left + x, clientY: r.top + y, bubbles: true }));
+    const lines = tip.style.display === 'none' ? [] : tip.innerText.split('\\n');
+    const band = lines.find(l => l.startsWith('Domain: '));
+    if (band) found[lines[0] + ' / ' + band.split(' · ')[0]] = band.split(' · ')[1];
+  }
+  return found;
+}"""
+
+
+def test_a_layer_tooltip_counts_the_tables_of_a_band_folded_and_shown(large: Large) -> None:
+    """D-062: every count counts tables; the folded ones of a band are in its line."""
+    p, _ = large
+    p.page.check("#u-by input[value=layers]")
+    folded = p.page.evaluate(BAND_TIPS)
+    toggle(p)
+    shown = p.page.evaluate(BAND_TIPS)
+    common = folded.keys() & shown.keys()
+    assert len(common) >= 5 and all(folded[k] == shown[k] for k in common)
+
+
+def test_the_bands_of_a_constellation_count_every_table_folded_and_shown(large: Large) -> None:
+    p, _ = large
+    p.page.check("#u-by input[value=layers]")
+    counts = "views.universe.geometry().constellations.map(d => [d.n, d.bands.map(b => b.n)])"
+    folded = p.page.evaluate(counts)
+    assert all(n == sum(bands) for n, bands in folded)
+    toggle(p)
+    assert p.page.evaluate(counts) == folded
 
 
 # ---------------------------------------------------------------- the control and its memory
@@ -683,3 +742,86 @@ def test_a_trajectory_alone_shows_its_folded_tables_start_included(large: Large)
     expected = {m for m in members if nodes[m]["parent"]}
     shown = {t["id"] for t in geometry(p)["tables"] if t["shown"]}
     assert pit["id"] in expected and shown == expected
+
+
+# ---------------------------------------------------------------- badges from afar and under names
+
+PIXELS = """async probes => {
+  const bmp = await createImageBitmap(await views.universe.image());
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const g = c.getContext('2d'); g.drawImage(bmp, 0, 0);
+  const s = bmp.width / document.getElementById('u-canvas').clientWidth;
+  return probes.map(([x, y, w, h]) => Array.from(g.getImageData(Math.round(x * s), Math.round(y * s),
+    Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s))).data));
+}"""
+HOLDERS = """() => { const g = views.universe.geometry(), cam = views.universe.camera(),
+  v = document.getElementById('u-canvas'), W = v.clientWidth, H = v.clientHeight;
+  return g.tables.filter(t => t.held && !t.shown).map(t => ({ id: t.id, held: t.held,
+    sx: t.x * cam.k + cam.x, sy: t.y * cam.k + cam.y, r: Math.max(t.r * cam.k, 2.5) }))
+    .filter(h => h.sx > 30 && h.sx < W - 60 && h.sy > 90 && h.sy < H - 20); }"""
+
+
+def frame_domain(p: Page, domain: str, k: float) -> None:
+    p.page.evaluate(
+        "([d, k]) => { const c = views.universe.geometry().constellations.find(c => c.key === d),"
+        " v = document.getElementById('u-canvas');"
+        " views.universe.camera({x: v.clientWidth / 2 - c.x * k, y: v.clientHeight / 2 - c.y * k, k}); }",
+        [domain, k],
+    )
+
+
+def rgb(hex_color: str) -> list[int]:
+    return [int(hex_color[i : i + 2], 16) for i in (1, 3, 5)]
+
+
+def test_the_far_badge_keeps_the_colour_of_its_star(large: Large) -> None:
+    """Below scale 0.6 the badge is a small arc on the rim, not a dot hiding the star (hub vs link)."""
+    p, data = large
+    colour = rgb(next(k["color"] for k in data["universe"]["kinds"] if k["key"] == "hub"))
+    frame_domain(p, "vehicle", 0.3)
+    kinds = {n["id"]: n["kind"] for n in data["universe"]["nodes"]}
+    hubs = [h for h in p.page.evaluate(HOLDERS) if kinds[h["id"]] == "hub"]
+    assert len(hubs) >= 10
+    centres = p.page.evaluate(PIXELS, [[h["sx"], h["sy"], 1, 1] for h in hubs])
+    rims = p.page.evaluate(PIXELS, [[h["sx"] + 0.71 * h["r"], h["sy"] - 0.71 * h["r"], 1, 1] for h in hubs])
+    kept = sum(c[:3] == colour for c in centres)
+    marked = sum(c[:3] == BADGE_INK for c in rims)
+    assert kept >= 0.8 * len(hubs) and marked >= 0.8 * len(hubs), (kept, marked, len(hubs))
+
+
+@pytest.mark.parametrize("k", [0.62, 0.7, 0.8])
+def test_no_name_covers_the_badge_of_an_entity(large: Large, k: float) -> None:
+    """The name box of the table above never hides the number of the badge below it."""
+    p, _ = large
+    frame_domain(p, "vehicle", k)
+    holders = p.page.evaluate(HOLDERS)
+    assert len(holders) >= 10
+    left_caps = [[h["sx"] + 0.71 * h["r"] + 2.5, h["sy"] - 0.71 * h["r"] - 7.5, 1, 1] for h in holders]
+    covered = [
+        h["id"]
+        for h, px in zip(holders, p.page.evaluate(PIXELS, left_caps), strict=True)
+        if px[:3] != BADGE_INK
+    ]
+    assert not covered
+
+
+def test_the_name_of_an_entity_with_an_orbit_is_below_the_orbit(large: Large) -> None:
+    p, data = large
+    search(p, TWO_PARENT_SAT)
+    g = geometry(p)
+    parent_id = uid(data, "vehicle_e002_hub")
+    cam = p.page.evaluate("views.universe.camera()")
+    parent = next(t for t in g["tables"] if t["id"] == parent_id)
+    ring = [t for t in g["tables"] if t["shown"]]
+    radius = max(((t["x"] - parent["x"]) ** 2 + (t["y"] - parent["y"]) ** 2) ** 0.5 for t in ring)
+    tall = max(t["r"] for t in ring)
+    sx, sy = parent["x"] * cam["k"] + cam["x"], parent["y"] * cam["k"] + cam["y"]
+    top = sy + radius * cam["k"] + max(tall * cam["k"], 3) + 6 + 14 + 2  # universe.js `below` + 2
+    star = max(parent["r"] * cam["k"], 2.5)
+    below, inside = p.page.evaluate(PIXELS, [[sx - 60, top + 2, 120, 8], [sx - 30, sy + star + 3, 60, 8]])
+
+    def dark(strip: list[int]) -> bool:
+        return any(sum(strip[i : i + 3]) < 3 * 140 for i in range(0, len(strip), 4))
+
+    assert dark(below), "no name drawn below the orbit"
+    assert not dark(inside), "the name is still drawn over the orbit"

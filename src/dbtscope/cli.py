@@ -584,8 +584,9 @@ def _open_browser(output: Path) -> None:
 # --- summary --------------------------------------------------------------------------------
 
 
-def _count(number: int, noun: str) -> str:
-    return f"{number:,} {noun}{'' if number == 1 else 's'}"
+def _count(number: int, noun: str, plural: str | None = None) -> str:
+    """`1 table`, `2 tables`, `2 entities` (`plural` given); thousands grouped."""
+    return f"{number:,} {noun if number == 1 else plural or noun + 's'}"
 
 
 def _size(size: int) -> str:
@@ -646,7 +647,7 @@ def _fold_row(universe: UniversePayload, folding: bool) -> str | None:
     text = f"{_count(len(folded), 'table')} folded"
     if folded:
         parents = len(set(folded))
-        text += f" into {parents:,} {'entity' if parents == 1 else 'entities'}"
+        text += f" into {_count(parents, 'entity', 'entities')}"
     if loose:
         text += f"; {_count(loose, 'descriptive table')} not folded"
     return text if folding else f"{text}; the page opens with them shown"

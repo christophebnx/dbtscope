@@ -6,6 +6,7 @@ from conftest import table
 from dbtscope.domain.selectors import (
     FIELDS,
     SelectorError,
+    _split,
     field_value,
     glob,
     matches,
@@ -96,3 +97,11 @@ def test_step_selector_matches_the_step_of_the_default_layer(
 )
 def test_name_glob_is_the_single_name_part(selector: str, expected: str | None) -> None:
     assert name_glob(selector) == expected
+
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [("*_hub", ("name", "*_hub")), (" Tag : hub ", ("tag", "hub")), ("path:a:b", ("path", "a:b"))],
+)
+def test_a_part_splits_into_one_field_and_pattern(part: str, expected: tuple[str, str]) -> None:
+    assert _split(part) == expected

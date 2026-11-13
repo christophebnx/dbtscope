@@ -73,7 +73,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const OVERVIEW_NAMES = 3;              // core names offered per constellation below OVERVIEW_K
   // folded tables (M8.2, D-062)
   const BADGE_H = 15, BADGE_MAX = 26;   // entity badge, screen px: height; widest (3 characters "99+")
-  const BADGE_DOT = 3.5;                // below OVERVIEW_K the badge is a dot of this screen radius, no digits
+  const BADGE_ARC = 2.5;                // below OVERVIEW_K the badge is a dark arc of this screen width on the star's north-east rim, no digits
   const ORBIT_GAP = 18;                 // world px between an entity's star and its first orbit
   const ORBIT_RING = 16, ORBIT_STEP = 16;  // most shown tables per orbit; world px between two orbits
   const ORBIT_ROOM = 10;                // world px added to a shown star's radius when spacing neighbours (room for ring + search mark)
@@ -141,7 +141,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // folded tables (D-062): vis = filter-visible tables; drawn = visible minus folded; FOLDED = parent -> its visible folded
   // tables; foldedSet = those tables; SP / orbits = folded tables shown now, on an orbit round their entity (placeShown)
   let vis = new Set(), drawn = [], FOLDED = new Map(), foldedSet = new Set(), entityCount = 0;
-  let SP = new Map(), orbits = [];
+  let SP = new Map(), orbits = [], ORBIT_R = new Map();   // ORBIT_R: entity -> { r, tall } its outer orbit and tallest shown star, world
   const posOf = i => P[i] || SP.get(i);
   let drawnNames = [];   // the tables whose names the last screen frame drew (test hook)
   let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, place: 0 };
@@ -438,7 +438,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // A band is one column, split into balanced columns when taller than a height H; H is scanned to give the
   // smallest circle around the reserved boxes. No simulation and no randomness: the same tables give the
   // same offsets on every machine.
-  // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{key, n, x0, x1}] }
+  // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{key, n, x0, x1}] }; a band's n
+  // counts tables: its drawn ones and those folded into them (same domain, so same band, in layer mode)
   function layoutConstellation(key, members) {
     const bands = bandsOf(members);
     const PAD = PACK.PAD;
@@ -461,7 +462,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const R = d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
     return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R,
              rank: grouping().rank(key, members),
-             bands: bands.map((band, j) => ({ key: band.key, n: band.tables.length, x0: best.bands[j][0], x1: best.bands[j][1] })) };
+             bands: bands.map((band, j) => ({ key: band.key, n: d3.sum(band.tables, n => 1 + (FOLDED.get(n.i) || []).length), x0: best.bands[j][0], x1: best.bands[j][1] })) };
   }
   // The bands of a constellation, ordered tables included: [{key, tables}] (see the M5.5 design note § 2).
   // In layer mode every table has a band (its domain), so the catch-all placement never applies.
@@ -687,6 +688,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
       hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
     });
+    // a badge's pill is an obstacle for every name below: its number is never hidden (the far arc has no digits and
+    // is no obstacle: from afar names are rare and the arc is a mark on the star's rim)
+    if (k >= OVERVIEW_K) badges.forEach(([p, r, held]) => {
+      const [bx, by] = screen(p.x + 0.71 * r, p.y - 0.71 * r);
+      taken.push([bx, by - BADGE_H, badgeWidth(held), BADGE_H]);
+    });
     if (byLayers && k >= 0.6) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d); drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
     const around = SP.size ? drawShownNames(screen, taken, k) : [];
@@ -771,7 +778,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const overview = HAS_CORE && k < OVERVIEW_K;
     const rest = labels.filter(n => !sideOf(n.i) && (!overview || (roleOf(n) === 'core' && main(n) < OVERVIEW_NAMES)))
       .sort((a, b) => rank(a) - rank(b) || (roleOf(a) === 'core' ? main(a) - main(b) : 0) || labelScore(b) - labelScore(a));
-    const hov = hover != null && P[hover] ? [N[hover]] : [];   // a shown table's name is drawn anyway
+    const onScreen = new Set(labels.map(n => n.i));
+    const hov = [...new Set([...(hover != null && P[hover] ? [hover] : []), ...[...ORBIT_R.keys()].filter(i => P[i] && onScreen.has(i))])].map(i => N[i]);   // a shown table's name is drawn anyway
     if (!traj) return [...hov, ...rest];
     const inT = labels.filter(n => sideOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
     return [...inT, ...hov, ...rest];
@@ -801,16 +809,21 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const [cx, cy, r] = disc.get(grouping().of(n));
       return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].every(([px, py]) => Math.hypot(px - cx, py - cy) <= r);
     };
+    // below its star, or, while its folded tables are on an orbit, below the orbit, their stars and their names
+    const below = n => {
+      const o = ORBIT_R.get(n.i);
+      return o ? o.r * k + Math.max(o.tall * k, 3) + 6 + LINE_H : rad(n);
+    };
     const drawn = [];
     for (const n of labels) {
       if (drawn.length >= 400) break;
       const side = sideOf(n.i);
-      const strong = side ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover;
+      const strong = side ? trajDist(n.i) <= 1 : labelScore(n) >= 10 || n.i === hover || ORBIT_R.has(n.i);
       ctx.font = `${strong ? 600 : 400} 11px ${FONT}`;
       const [sx, sy] = at.get(n.i), lines = nameLines(n.name);
-      const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + rad(n) + 2;
+      const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + below(n) + 2;
       if (!free(x, y, w, h)) continue;
-      if (!side && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
+      if (!side && n.i !== hover && !ORBIT_R.has(n.i) && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
       taken.push([x, y, w, h]); drawn.push(n.i);
       ctx.globalAlpha = traj && !side ? DIM : 1;
       ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(x, y, w, h);
@@ -881,12 +894,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (b.held.length > FOLD_ROWS) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(b.held.length - FOLD_ROWS)}`, x + 5, top + FOLD_HEAD + 9 + FOLD_ROWS * 11); }
   }
   // the count badge of an entity (names level): a dark pill with the number at the upper right of its star, sized in
-  // screen pixels; a plain dot from afar. r is the drawn radius of the star.
+  // screen pixels; from afar a short dark arc on the star's north-east rim, so the star's colour stays visible.
+  // r is the drawn radius of the star.
+  const badgeWidth = held => Math.max(15, 8 + 6 * (held > 99 ? '99+' : num(held)).length);   // screen px
   function drawBadge(p, r, held, k) {
     const ax = p.x + 0.71 * r, ay = p.y - 0.71 * r;
+    if (k < OVERVIEW_K) {
+      ctx.strokeStyle = C.text; ctx.lineWidth = BADGE_ARC / k; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, -1.4, -0.2); ctx.stroke();
+      ctx.lineCap = 'butt';
+      return;
+    }
     ctx.fillStyle = C.text; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 / k;
-    if (k < OVERVIEW_K) { ctx.beginPath(); ctx.arc(ax, ay, BADGE_DOT / k, 0, 7); ctx.fill(); ctx.stroke(); return; }
-    const text = held > 99 ? '99+' : num(held), w = Math.max(15, 8 + 6 * text.length) / k, h = BADGE_H / k, rad = h / 2, y = ay - h;
+    const text = held > 99 ? '99+' : num(held), w = badgeWidth(held) / k, h = BADGE_H / k, rad = h / 2, y = ay - h;
     ctx.beginPath(); ctx.moveTo(ax + rad, y); ctx.lineTo(ax + w - rad, y); ctx.arc(ax + w - rad, y + rad, rad, -Math.PI / 2, Math.PI / 2);
     ctx.lineTo(ax + rad, y + h); ctx.arc(ax + rad, y + rad, rad, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#ffffff'; ctx.font = `700 ${10 / k}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1088,7 +1108,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const n = t.k >= FAR ? pick(ev) : null;
     if (n) {
       if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
-      found = n.i; zoomTo(posOf(n.i).x, posOf(n.i).y, Math.max(t.k * 2.5, 1.5));
+      found = n.i; placeShown(); zoomTo(posOf(n.i).x, posOf(n.i).y, Math.max(t.k * 2.5, 1.5));
       return;
     }
     const d = domainAt(ev);
@@ -1206,7 +1226,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // its radius clears the entity's star and the shown stars next to each other. They reserve no room.
   function placeShown() {
     const t0 = performance.now();
-    SP = new Map(); orbits = [];
+    SP = new Map(); orbits = []; ORBIT_R = new Map();
     const want = new Set(trajMembers().filter(i => foldedSet.has(i)));
     if (found != null && foldedSet.has(found)) FOLDED.get(PARENT[found]).forEach(i => want.add(i));
     const byParent = d3.group([...want].sort((a, b) => a - b), i => PARENT[i]);
@@ -1216,6 +1236,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         const ring = list.slice(j * ORBIT_RING, (j + 1) * ORBIT_RING), m = ring.length;
         const r = Math.max(starR(N[parent]) + ORBIT_GAP + j * ORBIT_STEP, (tallest + ORBIT_ROOM) / Math.sin(Math.PI / Math.max(m, 2)));
         orbits.push({ x: c.x, y: c.y, r });
+        ORBIT_R.set(parent, { r, tall: tallest });
         ring.forEach((i, q) => {
           const a = -Math.PI / 2 + 2 * Math.PI * q / m;
           SP.set(i, { x: c.x + r * Math.cos(a), y: c.y + r * Math.sin(a), a });
@@ -1246,8 +1267,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         parent: PARENT[n.i] == null ? null : N[PARENT[n.i]].id, held: (FOLDED.get(n.i) || []).length, shown: SP.has(n.i) })),
       fold: { available: FOLDABLE, on: state.fold },
       folded: [...foldedSet].filter(i => !SP.has(i)).map(i => N[i].id),
-      constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r,
-                                   bands: d.bands.map(b => ({ key: b.key, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
+      constellations: constellations.map(d => ({ key: d.k, n: d.n, x: d.x, y: d.y, r: d.r,
+                                   bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)

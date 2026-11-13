@@ -52,11 +52,16 @@ def glob(value: str, pattern: str) -> bool:
     return fnmatch(value.lower(), pattern.lower())
 
 
-def _part_matches(table: Table, part: str) -> bool:
+def _split(part: str) -> tuple[str, str]:
+    """The (field, pattern) of a selector part; a bare part is a `name` pattern."""
     field, sep, pattern = part.partition(":")
     if not sep:
         field, pattern = "name", part
-    field, pattern = field.strip().lower(), pattern.strip()
+    return field.strip().lower(), pattern.strip()
+
+
+def _part_matches(table: Table, part: str) -> bool:
+    field, pattern = _split(part)
     if field not in FIELDS:
         raise SelectorError(
             f"unknown selector field {field!r} in {part!r} (expected {in_words(sorted(FIELDS))})"
@@ -79,13 +84,8 @@ def name_glob(selector: str) -> str | None:
 
     None when the selector has no name part (`tag:hub`) or several (`name:a*,name:*b`).
     """
-    globs = []
-    for part in (p for p in selector.split(",") if p.strip()):
-        field, sep, pattern = part.partition(":")
-        if not sep:
-            globs.append(part.strip())
-        elif field.strip().lower() == "name":
-            globs.append(pattern.strip())
+    split = (_split(part) for part in selector.split(",") if part.strip())
+    globs = [pattern for field, pattern in split if field == "name"]
     return globs[0] if len(globs) == 1 else None
 
 
