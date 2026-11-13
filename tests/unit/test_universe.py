@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
 import yaml
 from colours import ciede2000, contrast
 
@@ -378,10 +377,6 @@ def test_the_star_schema_preset_flags_its_staging_domain() -> None:
     assert _flagged(tables, {}, preset="star_schema") == {"staging": True, "sales": False}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="defect: source_systems guard (universe.py:79) ignores that No domain is a business domain",
-)
 def test_a_catch_all_domain_with_modelled_tables_is_the_business_domain_the_guard_needs() -> None:
     """D-065 rule 4: the guard keeps one business domain; "No domain" (never a system) is one."""
     domains = {"raw": ["source"], "": ["hub"]}

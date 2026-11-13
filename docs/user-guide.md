@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   fold:     13 tables folded into 13 entities
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (289 kB)
+  page:     opens on universe, en, libraries from CDNs (293 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (292 kB)
+  page:     opens on universe, en, libraries from CDNs (296 kB)
   config:   none (built-in defaults)
 ```
 
@@ -528,7 +528,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   fold:     13 tables folded into 13 entities
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (289 kB)
+  page:     opens on universe, en, libraries from CDNs (293 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -736,7 +736,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 ### Reading the map
 
 - **From afar**: the domains, their size, and the **routes** between them: one curved line per pair of domains, from the outline of one to the outline of the other and around the others, thicker with the number of links, with an arrow at the domain that reads when lineage says which way the data goes, and dashed when it carries business relations only. A bar under each domain name shows its mix of kinds. Only the **strongest routes** are drawn by default (each domain's two heaviest, ties included); the top bar says "9 of 15 routes" when some are left out, and **All routes** (under **Links**, hidden when nothing is left out) draws them all. **Hover a domain** (or Tab to its row in the side panel or to its section of the text summary) to see all its routes, its neighbours lit and the rest dimmed; hover a route for its two ends, the links it carries and who reads whom.
-- **Source systems**: a domain made only of technical tables (sources, staging, seeds, snapshots) is a **source system** when the config gives roles to the kinds, with a preset or `role:`. Source systems are drawn apart, neutral, stacked upstream on the left; at overview they are one **Source systems** card (a row per system; click a row to zoom on it, double-click to frame them all, drag its name to move them together) and they have their own heading in the **Domains** list with their own all / none. The business domains stand along the data flow, those read by others to the left of the ones that read them. To force or refuse the flag, write `system: true` or `system: false` on the domain's rule in `dbt-erd.yml` (see the config reference); the command line's summary says "12 domains (7 source systems)".
+- **Source systems**: a domain made only of technical tables (sources, seeds, snapshots, and the staging models of a kind with the `technical` role, which a preset gives) is a **source system** when the config gives a role to at least one kind, with a preset or `role:`; without that, a domain of sources only stays an ordinary domain. Source systems are drawn apart, neutral, stacked upstream on the left; at overview they are one **Source systems** card (a row per system; click a row to zoom on it, double-click to frame them all, drag its name to move them together) and they have their own heading in the **Domains** list with their own all / none. The business domains stand along the data flow, those read by others to the left of the ones that read them. To force or refuse the flag, write `system: true` or `system: false` on the domain's rule in `dbt-erd.yml` (see the config reference); the command line's summary says "12 domains (7 source systems)".
 - **Closer**: each table, coloured by kind, with its name. The size of a star follows the **role** of its kind (core tables larger, satellites, staging and sources smaller) and its number of links; from afar the names shown are the core tables with most relations, when the project's kinds have roles (a tooltip on each Types row gives the role). Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
 - **Entities**: with a Data Vault preset, a satellite or a PIT (a kind whose role is `descriptive`) is not drawn as a star of its own: it is folded into its **entity**, the hub or link (a `core` or `connector` kind) it describes, and a number on that star says how many tables it holds. The parent is found from the declared relations (a `relationships` test or foreign key from the satellite to one hub or link), else from the name (`vehicle_order_sat` belongs to `vehicle_order_hub`: the table's name without the fixed part of its kind's pattern, compared at a `_` boundary), and only inside its own domain; an ambiguous table stays a star, and the summary counts it. Hover an entity or a keys / all-fields card to see its folded tables. Every count still includes them, and search or a trajectory shows a folded table on an orbit around its entity, without moving anything.
 - **Summary cards**: when the stars are too small to tell apart (a large project at Fit), each domain is drawn as a **summary card** instead. A small project such as the example opens on stars; zoom out well below Fit to see its cards. Between the two the card fades into the stars over about two wheel notches; there is nothing to switch. A card shows the domain's name, "290 tables · 149 entities" ("290 tables · 149 entités"; the entities only while folding is on and when the domain has some; folded tables count), one row per layer along the data flow (with **Layers** constellations, one row per domain) with its count and a bar split by kind in the Types colours, and up to five main tables (the core tables with most relations; a source system has none). **The bars compare the rows of one card** (the longest row has the longest bar); to compare domains, read the counts. A card is as large as its text needs, not as large as its domain, and it may sit slightly off its domain's centre so that cards do not overlap; when the room is short it drops its main tables, then its rows, then its counts, and a domain too small for a card keeps its name and count. The routes join the edges of the cards (the seven source systems of a large Data Vault project are one **Source systems** card, with one route per business domain they feed).

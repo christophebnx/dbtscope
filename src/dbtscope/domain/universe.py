@@ -76,7 +76,7 @@ def source_systems(
     automatic: set[str] = set()
     if any(k.role for k in config.kinds):
         automatic = {key for key, flags in tables.items() if key and all(flags)}
-        if automatic >= {key for key in tables if key}:
+        if automatic >= tables.keys():
             automatic = set()
     flagged = {key for key in tables if key and override.get(key, key in automatic)}
     return frozenset(flagged)

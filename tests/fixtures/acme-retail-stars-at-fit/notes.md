@@ -16,3 +16,5 @@ DBTSCOPE_RECORD_GOLDEN=1 uv run --group browser pytest -q -m browser tests/brows
 ```
 
 The test then rewrites `expected.json` through `storage/files.atomic_write`, then compares against it.
+
+M8.4 review loop 1: only `camera` changed (the toolbar's meta line wraps up to 1400 px with `min-height: 2.6em`, so the stage is 6 px shorter: 710 px instead of 716 at 1280 x 800); tables, constellations and routes are as before.

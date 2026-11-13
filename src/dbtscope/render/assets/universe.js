@@ -33,14 +33,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           hintFold: ' · a number on a star: tables folded into it, shown around it by search or trajectory',
           summary: 'Summary', zoomBtn: 'Zoom', zoomOn: name => `Zoom on ${name}`, mainTables: 'Main tables',
           zoomRow: 'Zoom on this layer', zoomRowC: 'Zoom on this domain', layerOne: 'Layer',
-          rowZoom: 'click a row: zoom on it', zoomed: name => `Zoomed on ${name}`,
+          rowZoom: 'click a row: zoom on it', groupHint: 'Click a row: zoom on it · double-click: frame the systems', zoomed: name => `Zoomed on ${name}`,
           hintCards: ' · from afar each constellation is a summary card: double-click it, or click one of its rows, to see its tables',
           // source systems and routes (M8.4, D-065..D-067)
           systems: 'Source systems', systemsN: ['system', 'systems'], systemOne: 'Source system',
           routesN: ['route', 'routes'], routesShownN: ['route shown', 'routes shown'], allRoutes: 'All routes',
           allRoutesOn: 'All routes shown', allRoutesOff: 'Strongest routes shown',
           lineageN: ['lineage link', 'lineage links'], relationsN: ['relation', 'relations'],
-          reads: (r, u) => `${r} reads ${u}`, systemsList: 'Systems: ',
+          reads: (r, u) => `${r} reads ${u}`, systemsList: 'Systems',
           routesOf: (s, n) => `${num(s)} of ${plural(n, T.routesN)}`,
           routes: 'Routes', routesNone: 'none', readsFrom: 'reads', readBy: 'read by', relWith: 'relations with',
           hintRoutes: ' · hover a constellation to see all its routes, a route for the links it carries' },
@@ -72,13 +72,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           hintFold: ' · un nombre sur une étoile\u00a0: tables repliées dans celle-ci, affichées autour d\'elle par la recherche ou la trajectoire',
           summary: 'Synthèse', zoomBtn: 'Cadrer', zoomOn: name => `Cadrer ${name}`, mainTables: 'Tables principales',
           zoomRow: 'Cadrer cette couche', zoomRowC: 'Cadrer ce domaine', layerOne: 'Couche',
-          rowZoom: 'clic sur une ligne\u00a0: la cadrer', zoomed: name => `Cadré sur ${name}`,
+          rowZoom: 'clic sur une ligne\u00a0: la cadrer', groupHint: 'Clic sur une ligne\u00a0: la cadrer · double-clic\u00a0: cadrer les systèmes', zoomed: name => `Cadré sur ${name}`,
           hintCards: ' · de loin, chaque constellation est une carte de synthèse\u00a0: double-clic dessus, ou clic sur une de ses lignes, pour voir ses tables',
           systems: 'Systèmes sources', systemsN: ['système', 'systèmes'], systemOne: 'Système source',
           routesN: ['route', 'routes'], routesShownN: ['route affichée', 'routes affichées'], allRoutes: 'Toutes les routes',
           allRoutesOn: 'Toutes les routes affichées', allRoutesOff: 'Routes principales affichées',
           lineageN: ['lien de lignage', 'liens de lignage'], relationsN: ['relation', 'relations'],
-          reads: (r, u) => `${r} lit ${u}`, systemsList: 'Systèmes\u00a0: ',
+          reads: (r, u) => `${r} lit ${u}`, systemsList: 'Systèmes',
           routesOf: (s, n) => `${plural(s, T.routesN)} sur ${num(n)}`,
           routes: 'Routes', routesNone: 'aucune', readsFrom: 'lit', readBy: 'lu par', relWith: 'relations avec',
           hintRoutes: ' · survolez une constellation pour voir toutes ses routes, une route pour les liens qu\'elle porte' },
@@ -253,7 +253,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         { label: labelOf(it), color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
           title: title && title(it) },
         on => { on ? set.add(it.key) : set.delete(it.key); relayout(); });
-      if (el.id === 'u-domains' || el.id === 'u-systems') focusRow(row, it.key);   // keyboard focus lights the routes (D-067)
+      if (el.id === 'u-domains' || el.id === 'u-systems') focusRow(row, it.key, () => state.by === 'domains');   // keyboard focus lights the routes (D-067)
       return row;
     }));
   }
@@ -446,7 +446,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
-      return { source: a, target: b, c, rel: rel.get(k) || 0, lin: lin.get(k) || 0, f, dir: Math.abs(f) > c * 0.2 ? Math.sign(f) : 0, strong: false };
+      const r = { source: a, target: b, c, rel: rel.get(k) || 0, lin: lin.get(k) || 0, f, flow: 0, dir: 0, strong: false };
+      r.flow = netFlow(r); r.dir = r.lin ? r.flow : 0;
+      return r;
     });
     const strong = strongRoutes(routes);
     routes.forEach(r => { r.strong = strong.has(r); });
@@ -465,7 +467,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const links = routes.filter(r => inSim.has(r.source) && inSim.has(r.target)).map(r => ({ source: r.source, target: r.target, c: r.c }));
     const sim = d3.forceSimulation(business).randomSource(rand)
       // the padding leaves room for the domain name drawn above each constellation
-      .force('collide', d3.forceCollide(d => d.r + 30 + d.r * 0.15).iterations(3))
+      .force('collide', d3.forceCollide(roomOf).iterations(3))
       .force('link', d3.forceLink(links).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
         .strength(l => Math.min(0.4, 0.03 + Math.log1p(l.c) * 0.04)))
       .force('x', d3.forceX(d => d.rank * W).strength(G.flowX))
@@ -499,7 +501,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // median table's (null when that is the catch-all, which gets no floor). A domain read by others sits left of them.
   function domainRanks(business, whole, list) {
     const keys = business.map(d => d.k), at = new Set(keys);
-    const edgesUp = list.filter(r => r.dir && at.has(r.source) && at.has(r.target)).map(r => (r.dir > 0 ? [r.source, r.target] : [r.target, r.source]));
+    const edgesUp = list.filter(r => r.flow && at.has(r.source) && at.has(r.target)).map(r => (r.flow > 0 ? [r.source, r.target] : [r.target, r.source]));
     const layerAt = key => {
       const ranks = whole.get(key).map(n => LAYER[n.layer].rank).sort((a, b) => a - b), m = ranks[ranks.length >> 1];
       return DATA.layers[m].key === NO_LAYER ? null : m;
@@ -511,6 +513,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the columns (the first nearest the business box), each column keeping every disc as close to that y as the room between two
   // discs allows (an isotonic fit, pool-adjacent-violators). A pinned system stays at its pin; a free one steps over it.
   const STACK_GAP = 30;
+  // The direction of a route (the one threshold): the sign of its net lineage flow when that exceeds 20 % of its weight. `flow` is
+  // that, whatever Links shows (it places the business domains along the data flow); `dir`, what is drawn and said (arrowhead,
+  // "reads"), is `flow` only while the route carries lineage on screen
+  const netFlow = r => (Math.abs(r.f) > r.c * 0.2 ? Math.sign(r.f) : 0);
   const roomOf = d => d.r + 30 + d.r * 0.15;   // the collide radius
   function stackSystems(systems, business, byKey) {
     systems.filter(d => d.fx != null).forEach(d => { d.x = d.fx; d.y = d.fy; });
@@ -872,25 +878,46 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // the name, count and composition bar above a disc. A constellation whose card is at level `count` or `frame` has no name
     // on it, so this label stays at full alpha and replaces it (drawn after the cards, below); the others fade with the stars
     const placed = a > 0 ? cardLayout(k) : null, bare = d => !!placed && placed.byKey.get(d.k).lv >= 4;
-    const discLabel = (d, alpha, counts = plural(d.n, L.tables)) => {
+    // every card drawn is an obstacle for a bare constellation's label (it would print over the card's text). The label then tries,
+    // in turn, eight places round its disc (below, the sides, above, nearest first, then a step farther, kept inside the stage),
+    // first whole, then compact (name and count, no bar), the first that is free of cards and of the names already placed; it is skipped only when
+    // none is (`labelShown: false` in the hook): the name stays in the Domains list, the
+    // tooltip and the text summary
+    const cardBoxes = placed && a >= 0.5 ? placed.items.filter(e => e.lv <= 3).map(e => [e.px - e.w / 2 + t.x, e.py - e.h / 2 + t.y, e.w, e.h, e.key]) : [];
+    const onCard = (x, y, w, h, key) => cardBoxes.some(r => r[4] !== key && x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
+    const discLabel = (d, alpha, counts = plural(d.n, L.tables), avoid = false) => {
       const sys = !byLayers && SYSTEM.has(d.k);   // a source system: 13 px, neutral (D-066)
-      const [sx, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
-      const sy = rim - (byLayers ? NAME_LIFT : 0);
-      const name = constellationLabel(d.k);
+      const [cx0, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
+      const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`;
+      const sizeOf = compact => (compact ? [Math.max(textW(font, name), textW(`12px ${FONT}`, counts)) + 8, fs + 16] : [Math.max(textW(font, name), 80) + 8, fs + 22]);
+      let sx = cx0, sy = rim - (byLayers ? NAME_LIFT : 0), compact = false, [w, bh] = sizeOf(false);
+      if (avoid && onCard(sx - w / 2, sy - bh, w, bh, d.k)) {
+        const [, mid] = screen(d.x, d.y), edge = d.r * k + 4, dirs = [[0, 1], [1, 0], [-1, 0], [1, 1], [-1, 1], [0, -1], [1, -1], [-1, -1]];
+        const spot = [false, true].flatMap(c => {
+          const [cw0, ch] = sizeOf(c), cw = Math.max(cw0, textW(`12px ${FONT}`, counts) + 8);   // the count line can be the wider
+          return [0, 24, 60, 120, 200].flatMap(more => dirs.map(([ux, uy]) => {   // eight sides of the disc, then a step farther
+            const n = Math.hypot(ux, uy), dist = edge + more;
+            const x = cx0 + ux / n * (dist + Math.abs(ux) / n * cw / 2), y = mid + uy / n * (dist + Math.abs(uy) / n * ch / 2) + ch / 2;
+            return { x: Math.max(cw / 2 + 2, Math.min(W - cw / 2 - 2, x)), y: Math.max(ch + 2, Math.min(H - 2, y)), c, w: cw, h: ch };
+          }));
+        }).find(o => free(o.x - o.w / 2, o.y - o.h, o.w, o.h) && !onCard(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k));
+        if (!spot) return null;
+        ({ x: sx, y: sy, c: compact, w, h: bh } = spot);
+      }
+      const up = compact ? 8 : 0;   // a compact label has no bar: its lines sit lower
       ctx.globalAlpha = alpha; ctx.textAlign = 'center';
       // a domain name in its colour, readable on the page (D-037); a layer name in the text colour; a source system's muted.
       // A 3 px outline in the page colour keeps a route from cutting a letter
-      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers ? C.text : sys ? C.muted : CONTRAST.ink(DOM[d.k].color, C.bg);
-      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.strokeText(name, sx, sy - 22); ctx.lineJoin = 'miter';
-      ctx.fillText(name, sx, sy - 22);
-      const w = Math.max(ctx.measureText(name).width, 80) + 8;
+      ctx.font = font; ctx.fillStyle = byLayers ? C.text : sys ? C.muted : CONTRAST.ink(DOM[d.k].color, C.bg);
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.strokeText(name, sx, sy - 22 + up); ctx.lineJoin = 'miter';
+      ctx.fillText(name, sx, sy - 22 + up);
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
-      ctx.fillText(counts, sx, sy - 8);
+      ctx.fillText(counts, sx, sy - 8 + up);
       // composition by type, readable before any single star is
       let bx = sx - 40;
-      d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
-      taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
-      return { d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 };
+      if (!compact) d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
+      taken.push([sx - w / 2, sy - bh, w, bh]);
+      return { d, x: sx - w / 2, y: sy - bh, w, h: bh };
     };
     if (LA > 0) constellations.forEach(d => { if (!bare(d)) hits.push(discLabel(d, ctxAlpha(d) * LA)); });
     // a badge's pill is an obstacle for every name below: its number is never hidden (the far arc has no digits and
@@ -905,12 +932,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const named = LA > 0 ? [...around, ...(cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k))] : [];
     // the summary cards, over everything: drawn at alpha a, their headers are the drag handles while cards are on
     const drawnCards = placed ? placed.items.map(e => (e.g ? drawGroup : drawSummary)(e, a, onScreen ? overCard : null)) : [];
-    const bareHits = constellations.filter(bare).map(d => discLabel(d, ctxAlpha(d), SUMMARIES.get(d.k).counts));
+    const bareHits = constellations.filter(bare).map(d => discLabel(d, ctxAlpha(d), SUMMARIES.get(d.k).counts, true));
+    constellations.filter(bare).forEach((d, i) => {   // what became of each bare label (the hook says it)
+      const rec = drawnCards.find(c => c.key === d.k), h = bareHits[i];
+      if (rec) { rec.labelShown = !!h; rec.labelAt = h ? { x: h.x, y: h.y, w: h.w, h: h.h } : null; }
+    });
     ctx.globalAlpha = 1; ctx.textAlign = 'left';
     if (!onScreen) return;
     drawnNames = named;
     summaryAll = drawnCards; summaryHits = drawnCards.filter(c => c.drawn);   // a card at level count / frame is not drawn: no hit either
-    labelHits = a >= 0.5 ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits] : [...hits, ...bareHits];
+    labelHits = a >= 0.5 ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits.filter(Boolean)] : [...hits, ...bareHits.filter(Boolean)];
     perf.draw = performance.now() - t0;
   }
   // the view as shown (filters, zoom, detail level, search mark, trajectory) as a PNG at 2 x the screen
@@ -1367,12 +1398,6 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const x0 = d3.min(GROUPED, d => d.x - d.r), x1 = d3.max(GROUPED, d => d.x + d.r), y0 = d3.min(GROUPED, d => d.y - d.r), y1 = d3.max(GROUPED, d => d.y + d.r);
     Object.assign(GROUPD, { members: GROUPED, x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: Math.hypot(x1 - x0, y1 - y0) / 2, box: [x0, y0, x1, y1] });
   }
-  // the screen size of the group card at its first level (rows): what Fit must make room for
-  function groupCardSize() {
-    const e = { g: true, lv: 0, s: SUMMARIES.get(GROUP), line: '' };
-    e.cw = cardWidth(e);
-    return cardSize(e);
-  }
   // the world rectangle ({x, y, w, h}, top left) of d's card as cardLayout places it now: the one place that says where a
   // constellation's outline is (the routes' ends, the obstacles of a route and the group card build on it). A source system
   // standing in the group card has the group card's rectangle.
@@ -1424,7 +1449,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       b.systems.set(up, (b.systems.get(up) || 0) + r.c);
     });
     const bundles = [...per.values()];
-    bundles.forEach(b => { b.dir = Math.abs(b.f) > b.c * 0.2 ? Math.sign(b.f) : 0; });
+    bundles.forEach(b => { b.dir = b.lin ? netFlow(b) : 0; });
     const all = [...bundles, ...biz];
     BUNDLE = { bundles, biz, all, strong: strongRoutes(all) };
     BUNDLE.bundles.forEach(b => { b.strong = BUNDLE.strong.has(b); });
@@ -1442,20 +1467,22 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const grouped = GROUPED.length > 0 && a > 0, on = groupShown(a), B = grouped ? bundled() : null, sys = new Set(GROUPED.map(d => d.k));
     const key = on && focus && isMember(focus) ? GROUP : focus;   // the group stands for its systems while it is drawn
     const specs = [], involved = new Set(key ? [key] : []);
+    // the group heading without the group card (stars scale) lights every route of every system
+    const isKey = k => (key === GROUP && !on ? sys.has(k) : k === key), touches = r => isKey(r.source) || isKey(r.target);
     const add = (r, alpha, bundle, own) => {
       const from = r.dir < 0 ? r.target : r.source, to = r.dir < 0 ? r.source : r.target;
-      const hi = !!key && (r.source === key || r.target === key) && (!own || !on);
+      const hi = !!key && touches(r) && (!own || !on);
       if (hi) { involved.add(r.source); involved.add(r.target); }
       specs.push({ r, alpha, bundle, hi, from: endOf(from), to: endOf(to), fa: grouped && own && sys.has(from) ? 0 : a, ta: grouped && own && sys.has(to) ? 0 : a });
     };
     const wanted = (r, kept) => state.allRoutes || kept;
     routes.forEach(r => {
       const own = grouped && (sys.has(r.source) || sys.has(r.target));   // a route of a system inside the group card
-      if (own) { if (a < 1 && (wanted(r, r.strong) || (!on && key && (r.source === key || r.target === key)))) add(r, 1 - a, false, true); return; }
-      const kept = on ? B.strong.has(r) : r.strong, hi = key && (r.source === key || r.target === key);
+      if (own) { if (a < 1 && (wanted(r, r.strong) || (!on && key && touches(r)))) add(r, 1 - a, false, true); return; }
+      const kept = on ? B.strong.has(r) : r.strong, hi = key && touches(r);
       if (wanted(r, kept) || hi) add(r, 1, false, false);
     });
-    if (grouped) B.bundles.forEach(b => { if (wanted(b, B.strong.has(b)) || (key && (b.source === key || b.target === key) && on)) add(b, a, true, false); });
+    if (grouped) B.bundles.forEach(b => { if (wanted(b, B.strong.has(b)) || (key && on && (b.source === key || b.target === key))) add(b, a, true, false); });
     // what is lit: the focus, its neighbours, and the systems of the group when it is
     const lit = new Set(involved);
     if (lit.has(GROUP)) GROUPED.forEach(d => lit.add(d.k));
@@ -1721,7 +1748,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const ends = r.dir ? `${name(up)} → ${name(down)}` : `${name(up)} – ${name(down)}`;
     const systems = r.systems ? [...r.systems].sort((a, b) => b[1] - a[1]).map(([key]) => esc(constellationLabel(key))) : [];
     return `<b>${ends}</b><div class="m">${carries}</div>` + (r.dir ? `<div class="m">${T.reads(name(down), name(up))}</div>` : '')
-      + (systems.length ? `<div class="m">${T.systemsList}${systems.slice(0, 5).join(', ')}${systems.length > 5 ? `, + ${num(systems.length - 5)}` : ''}</div>` : '');
+      + (systems.length ? `<div class="m">${T.systemsList}${L.colon}${systems.slice(0, 5).join(', ')}${systems.length > 5 ? `, + ${num(systems.length - 5)}` : ''}</div>` : '');
   }
   // ---- focus: a constellation's routes in full (the mouse over it, or keyboard focus in its panel row or text summary)
   let focusByMouse = false;   // the focus comes from the mouse (it clears when the mouse leaves), not from keyboard focus
@@ -1730,17 +1757,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     routeFocus = key; draw();
   }
   function announceFocus(key) {
-    const grouped = groupShown(summaryAlpha(t.k)) && isMember(key), at = grouped ? GROUP : key;
-    const n = (grouped ? bundled().all : routes).filter(r => r.source === at || r.target === at).length;
+    const grouped = groupShown(summaryAlpha(t.k)), sys = new Set(GROUPED.map(d => d.k));
+    const of = key === GROUP && !grouped ? r => sys.has(r.source) || sys.has(r.target)   // no group card: every route of its systems
+      : (at => r => r.source === at || r.target === at)(grouped && (key === GROUP || isMember(key)) ? GROUP : key);
+    const n = (grouped ? bundled().all : routes).filter(of).length;
     live.textContent = `${key === GROUP ? T.systems : constellationLabel(key)}${L.colon}${plural(n, T.routesShownN)}`;
   }
   // keyboard focus in a panel row: lights its constellation's routes while it lasts
-  function focusRow(row, key) {
-    row.addEventListener('focusin', () => {
-      if (state.by !== 'domains') return;   // in layer mode a domain is a band, not a constellation
+  // `when`: an optional guard; focus moving inside the element keeps the focus (no redraw, no new announcement)
+  function focusRow(el, key, when) {
+    el.addEventListener('focusin', () => {
+      if (when && !when()) return;
       focusByMouse = false; if (routeFocus !== key) announceFocus(key); focusOn(key);
     });
-    row.addEventListener('focusout', () => focusOn(null));
+    el.addEventListener('focusout', ev => { if (!el.contains(ev.relatedTarget)) focusOn(null); });
   }
   // the routes of a constellation, as text, heaviest first: "reads A (36), B (12) · read by C (8) · relations with D (5)"
   function routesLine(key) {
@@ -1803,7 +1833,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const rec = { key: e.key, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: LEVELS[lv], name: null, counts: null, rows: [], main: [], drawn: !(lv >= 4 && !e.tj),
       traj: null, fonts: [null, null], header: { x, y, w: e.w, h: lv <= 2 ? CARD.PAD_Y + CARD.NAME : e.h }, rowHits: [] };
     if (lv >= 4) {   // no room for the name: the label above the disc stays instead (paint), so a bare pill is drawn only to carry a frame
-      rec.label = true; rec.name = s.label; rec.counts = s.counts; rec.fonts = [13, 12];
+      rec.label = true; rec.labelShown = true; rec.name = s.label; rec.counts = s.counts; rec.fonts = [13, 12];
       if (!e.tj) return rec;
     }
     ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1) * litAlpha(e.key);
@@ -1932,8 +1962,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       box.append(ul);
       if (s.main.length) box.append(mk('p', `${T.mainTables}${L.colon}${s.main.map(i => N[i].name).join(', ')}`));
       box.append(mk('p', routesLine(d.k)));   // the canvas is silent: the routes as text
-      box.addEventListener('focusin', () => { focusByMouse = false; if (routeFocus !== d.k) announceFocus(d.k); focusOn(d.k); });
-      box.addEventListener('focusout', () => focusOn(null));
+      focusRow(box, d.k);
       return box;
     };
     const business = [...constellations].filter(d => !isSys(d)).sort((a, b) => a.x - b.x || a.y - b.y);
@@ -1947,8 +1976,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       h.append(mk('span', `${T.systems}${L.colon}${num(systems.length)} · ${plural(tables, L.tables)}`), go);
       box.append(h);
       const key = systems.length > 1 ? GROUP : systems[0].k;
-      box.addEventListener('focusin', () => { focusByMouse = false; if (routeFocus !== key) announceFocus(key); focusOn(key); });
-      box.addEventListener('focusout', () => focusOn(null));
+      focusRow(box, key);
       items.push(box, ...systems.map(section));
     }
     $u('sum-list').replaceChildren(...(items.length ? items : [mk('p', L.empty)]));
@@ -2008,9 +2036,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const NAME_STRIP = 46;
   const frameScale = (bx0, by0, bx1, by1, kMax = Infinity) =>
     Math.min(kMax, 0.95 * Math.min(stage.clientWidth / (bx1 - bx0), (stage.clientHeight - top() - NAME_STRIP) / (by1 - by0)));
-  function frame(bx0, by0, bx1, by1, animate, kMax = Infinity) {
+  const FIT_PAD = 4;   // the least room Fit leaves between a card and the stage's side, screen px
+  function frame(bx0, by0, bx1, by1, animate, kMax = Infinity, kFixed = null) {
     const NAME = NAME_STRIP, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
-    const k = frameScale(bx0, by0, bx1, by1, kMax);
+    const k = kFixed ?? frameScale(bx0, by0, bx1, by1, kMax);
     const tr = d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
     (animate && motionMs(500) ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
   }
@@ -2024,14 +2053,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!constellations.length) return draw();
     let box = [d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
       d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r)];
-    if (GROUPED.length) {   // the group card is pushed off its systems: keep it in the frame (its size is the same at any scale, so settle k)
-      const base = box, size = groupCardSize();
-      for (let i = 0; i < 4; i++) {
-        const k = frameScale(...box), w = size[0] / k, h = size[1] / k;
-        box = [Math.min(base[0], GROUPD.x - w / 2), Math.min(base[1], GROUPD.y - h / 2), Math.max(base[2], GROUPD.x + w / 2), Math.max(base[3], GROUPD.y + h / 2)];
-      }
-    }
-    frame(...box, animate);
+    // the cards are pushed off their discs and keep their screen size: Fit makes room for the cards drawn at the scale the discs
+    // alone give (one pass: a card's shift grows as k falls, so iterating would shrink the view for ever), then lowers the scale
+    // by steps until the cards' own extent at that scale fits the stage's width, and centres that extent: no card is cut at the side
+    const base = box, k0 = frameScale(...base), cardsAt = k => (summaryAlpha(k) >= 0.5 ? cardLayout(k).items.filter(e => e.lv <= 3) : []);
+    cardsAt(k0).forEach(e => {
+      box = [Math.min(box[0], (e.px - e.w / 2) / k0), Math.min(box[1], (e.py - e.h / 2) / k0),
+             Math.max(box[2], (e.px + e.w / 2) / k0), Math.max(box[3], (e.py + e.h / 2) / k0)];
+    });
+    let k = frameScale(...box);
+    if (!cardsAt(k).length) return frame(...box, animate);
+    const w = stage.clientWidth, reach = kk => {   // the screen extent (from the world's origin) of the discs and of the cards at kk
+      const cs = cardsAt(kk);
+      return [Math.min(base[0] * kk, d3.min(cs, e => e.px - e.w / 2)), Math.max(base[2] * kk, d3.max(cs, e => e.px + e.w / 2))];
+    };
+    let [lo, hi] = reach(k);
+    for (let i = 0; i < 24 && hi - lo > w - 2 * FIT_PAD; i++) { k *= 0.97; [lo, hi] = reach(k); }
+    const cx = (lo + hi) / 2 / k, half = (box[2] - box[0]) / 2;   // the centre of the extent, in world units
+    frame(cx - half, box[1], cx + half, box[3], animate, Infinity, k);
   }
   function zoomTo(x, y, k) {
     const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
@@ -2113,10 +2152,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       tip.innerHTML = tableTip(DATA, n) + foldTip(n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
         `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
     } else if (d.members) {   // the group card
-      const rows = SUMMARIES.get(GROUP).rows;
-      tip.innerHTML = `<b>${esc(T.systems)}</b>` + rows.slice(0, CARD.GROUP_ROWS).map(r => `<div class="m">${esc(r.label)} · ${plural(r.n, L.tables)}</div>`).join('')
-        + (rows.length > CARD.GROUP_ROWS ? `<div class="m">+ ${num(rows.length - CARD.GROUP_ROWS)}</div>` : '')
-        + `<div class="a">${T.frame} · ${T.rowZoom}</div>`;
+      tip.innerHTML = `<b>${esc(T.systems)}</b><div class="m">${SUMMARIES.get(GROUP).counts}</div><div class="a">${T.groupHint}</div>`;
     } else if (state.by === 'layers') {
       tip.innerHTML = layerTip(d, t.invert([px, py])[0], cards, part && part.d === d ? part.row : null);
     } else {
@@ -2323,7 +2359,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // what the last screen frame drew of each card, in screen px (kept out of geometry() so geometries compare equal)
   const summariesDrawn = () => summaryAll.map(c => ({ key: c.key, x: c.x, y: c.y, w: c.w, h: c.h, shift: c.shift, level: c.level, name: c.name,
-    counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts, label: !!c.label }));
+    counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts, label: !!c.label, labelShown: !!c.label && c.labelShown !== false, labelAt: c.labelAt || null }));
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
   function camera(to) {

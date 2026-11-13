@@ -42,7 +42,7 @@ from browser.test_summary import (
     set_scale,
     settle,
 )
-from browser.test_trajectory_perf import universe_payload
+from browser.test_trajectory_perf import median, universe_payload
 from browser.test_universe_layout import without_time
 from dbtscope.domain.payload import UniversePayload
 from dbtscope.storage.files import atomic_write
@@ -464,9 +464,17 @@ def test_the_1500_table_payload_keeps_its_budgets_with_cards(tmp_path: Path, ope
     p = open_page(universe_page(tmp_path, universe_payload()))
     assert page_open_ms(p) <= 3000
     s = summary(p)
+    draws, routes = [], []
+    for step in range(
+        7
+    ):  # every step is a new scale: the card and route layouts always miss, the first one is cold
+        set_scale(p, s["scale"] * (1 - 0.01 * step))
+        draws.append(p.page.evaluate(f"{U}.drawMs()"))
+        routes.append(p.page.evaluate(f"{U}.routesMs()"))
     set_scale(p, s["scale"])
     assert summary(p)["alpha"] == 1 and len(cards(p)) == 30
-    assert p.page.evaluate(f"{U}.drawMs()") <= 50
+    assert median(draws) <= 50, draws  # the steady frame, route layout included
+    assert median(routes) <= 30, routes  # the note's route budget on this payload
     set_scale(p, s["stars"] / math.sqrt(1.3))
     assert summary(p)["alpha"] == pytest.approx(0.5)
     assert p.page.evaluate(f"{U}.drawMs()") <= 100
