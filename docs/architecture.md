@@ -143,6 +143,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The routes drawn by default and their counts by kind of link (D-067) | `render/assets/universe.js strongRoutes`, `bundled`, `layout` (`rel`, `lin`) |
 | The drawn path of a route around the other constellations (D-067) | `render/assets/universe.js routePath` (`detour`), `routeLayout`, `drawRoutes` |
 | Hit-testing and tooltip of a route; a constellation's routes in focus (D-067) | `render/assets/universe.js routeAt`, `routeTip`, `routeFocus` (`focusOn`, `focusRow`) |
+| A route's direction: net lineage over 20 % of its weight, shown only while lineage is on screen (D-067) | `render/assets/universe.js netFlow` |
 | Zoom on a constellation or on one of its bands (canvas, cards, summary) | `render/assets/universe.js zoomOnConstellation`, `zoomOnRow` |
 | The summary as text, in the panel (page, D-064; the source systems under their own heading and a routes line per constellation, M8.4) | `render/assets/universe.js renderSummary` |
 | Camera animations jump under reduced motion (page) | `render/assets/universe.js motionMs` |

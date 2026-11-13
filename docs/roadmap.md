@@ -260,7 +260,7 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 - **M8.1 — Roles, complete presets, the large test project.** (Done.) (D-058, D-059, D-060.) A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers; a generated large Data Vault project enters the tests.
 - **M8.2 — Entities.** (Done.) (D-061, D-062.) Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
 - **M8.3 — Summary cards.** (Done.) (D-063, D-064.) At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
-- **M8.4 — Source systems apart, readable routes.** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
+- **M8.4 — Source systems apart, readable routes.** (Done.) (D-065, D-066, D-067.) Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
 - **M8.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
@@ -272,7 +272,7 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
 - Universe overview, from the M5.5 reviews: names at Fit for the main core tables only, taken by M8.1 (D-058).
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
-- Universe interaction: curved routes between domains that avoid the circles, with the relations and lineage links they carry shown on hover; neighbours lit on hover; a shareable link to a table (`erd.html#table=…`).
+- Universe interaction: curved routes and neighbours lit on hover taken by M8.4 (D-067); a shareable link to a table (`erd.html#table=…`).
 - Flow view: the paths between two chosen tables.
 - Code, from M8.3: `render/assets/universe.js` holds the whole universe view in one closure (about 1,550 lines after the summary cards). Splitting it needs a rule for view modules first (`render/CLAUDE.md`: only `common.js` declares globals, a view never does), recorded as a decision.
 - Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).
