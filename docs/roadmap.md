@@ -255,13 +255,13 @@ Asked by the user on 2026-11-12, after a failed first run on Windows: "dbtscope 
 
 ## M8 — A synthetic view of large projects
 
-Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order:
+Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order (all done; what remains: `/audit`, the screenshots, `docs/progress.md` § Resume):
 
 - **M8.1 — Roles, complete presets, the large test project.** (Done.) (D-058, D-059, D-060.) A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers; a generated large Data Vault project enters the tests.
 - **M8.2 — Entities.** (Done.) (D-061, D-062.) Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
 - **M8.3 — Summary cards.** (Done.) (D-063, D-064.) At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M8.4 — Source systems apart, readable routes.** (Done.) (D-065, D-066, D-067.) Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
-- **M8.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
+- **M8.5 — Detail skeleton.** (Done.) (D-068 to D-072.) A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 

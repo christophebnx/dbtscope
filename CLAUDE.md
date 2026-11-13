@@ -6,8 +6,8 @@ Read this file at the start of every session. It is the source of truth for how 
 
 `dbtscope` turns a dbt project into one self-contained, interactive HTML map, for everyone who works with the warehouse (data team, business, management). It runs on a developer's machine or in CI, from the dbt project directory: it runs `dbt parse`, reads `target/manifest.json` (never the warehouse) and writes `erd_output/erd.html`.
 
-1. **Universe view**: every model, source, seed and snapshot, grouped into one constellation per data domain, with routes between domains, layers along the data flow, filters and semantic zoom.
-2. **Detail view**: the entity-relationship diagram (Graphviz) of the selected tables, with their key or all columns, group and kind filters, and focus on a table's neighbourhood.
+1. **Universe view**: every model, source, seed and snapshot, grouped into one constellation per data domain, with routes between domains, layers along the data flow, filters and semantic zoom (summary cards from afar, descriptive tables folded into their entity, source systems apart).
+2. **Detail view**: the entity-relationship diagram (Graphviz) of the selected tables, with their key or all columns, group and kind filters, and focus on a table's neighbourhood; a large group opens as a skeleton (descriptive tables as a row of their entity).
 3. **Relations from dbt declarations**: `relationships` tests and `foreign_key` constraints become relations; `ref` / `source` give the lineage.
 4. **Conventions as config**: selectors and ordered rules in `dbt-erd.yml` (kinds with an optional role, domains, layers), with Data Vault and star schema presets.
 5. **Shared manual layout**: arrangements dragged in the page are exported to `dbt-erd-layout.json` and embedded in later pages.

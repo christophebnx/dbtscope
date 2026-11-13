@@ -36,8 +36,11 @@ groups and `__all`) and the SVG exported by `views.detail.svgImage(1)` for `cust
 change of the example or a deliberate change of the drawing: build the page of the example project from the committed
 manifest with the code to be frozen (`uv run dbtscope --project-dir <example> --no-parse --no-open`), open it in
 Chromium, show the Detail tab, select each group in `#d-group` (value `''` for "All groups"), wait until the drawing is
-mounted and write the DOT (`buildDot(visibleIds())` of the code then; `views.detail.state().dot` once it exists) and
-`views.detail.svgImage(1)` to those files, unchanged.
+mounted and write the DOT and
+`views.detail.svgImage(1)` to those files, unchanged. The DOT is the first argument of the page's global
+`GRAPHVIZ.render`: before selecting a group, wrap it in the console (`const r = GRAPHVIZ.render; GRAPHVIZ.render =
+(dot, o) => { window.lastDot = dot; return r(dot, o); }`) and read `window.lastDot` (`views.detail.state().dot`
+gives the same on a page built since M8.5).
 
 Regenerate after any change to `examples/acme_retail/` (then update `expected.json` if a count
 changes, and understand why):
