@@ -52,6 +52,17 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel label.fold input { margin-top:3px; }
 .panel label.fold span { flex:1; min-width:0; overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
 .panel label .sub { display:block; color:var(--muted); font-size:12px; line-height:1.4; }
+/* the summary as text (M8.3, D-064): the last block of the universe panel, closed until opened */
+#u-sum { margin-top:16px; }
+#u-sum > summary { cursor:pointer; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:4px 0; }
+#u-sum .sum-c { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
+#u-sum h4 { display:flex; align-items:center; gap:7px; margin:0; font-size:13px; }
+#u-sum h4 i { width:10px; height:10px; border-radius:50%; flex:none; }
+#u-sum h4 span { flex:1; min-width:0; overflow-wrap:anywhere; }
+#u-sum p { margin:2px 0 0; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+#u-sum ul { list-style:none; margin:4px 0 0; padding:0; }
+#u-sum li button { display:block; width:100%; text-align:left; border:0; background:none; padding:3px 0; font:inherit; font-size:12px; color:var(--fg); cursor:pointer; overflow-wrap:anywhere; }
+#u-sum li button:hover { color:var(--accent); text-decoration:underline; }
 .panel .hint { color:var(--muted); font-size:12px; line-height:1.5; margin-top:18px; }
 
 /* ---- drawing area ---- */
@@ -165,4 +176,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   button { min-width:44px; }
   input:not([type=checkbox]):not([type=radio]):not([type=file]) { box-sizing:border-box; }
   .panel h3 a { display:inline-flex; align-items:center; padding:0 8px; }
+  #u-sum > summary, #u-sum button { min-height:44px; }
+  #u-sum h4 button { min-width:44px; }
+  #u-sum > summary { display:flex; align-items:center; }
 }

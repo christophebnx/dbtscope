@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from conftest import page_of, write_example
 
-from browser.conftest import Page, Shop
+from browser.conftest import Page, Shop, to_stars
 
 pytestmark = pytest.mark.browser
 
@@ -48,6 +48,17 @@ def names_at(p: Page, k: float) -> list[int]:
     )
     p.page.wait_for_timeout(300)
     return p.page.evaluate("views.universe.drawnNames()")
+
+
+def names_at_stars(p: Page) -> dict[str, list[int]]:
+    """The names drawn when each constellation is framed in turn at the stars scale, the first scale where the
+    large project shows its stars (D-063; at Fit it shows cards): {constellation key: name indices}."""
+    keys = [c["key"] for c in p.page.evaluate("views.universe.geometry()")["constellations"]]
+    frames = {}
+    for key in keys:
+        to_stars(p, key)
+        frames[key] = p.page.evaluate("views.universe.drawnNames()")
+    return frames
 
 
 def fit_scale(p: Page) -> float:
@@ -172,13 +183,17 @@ def test_the_large_project_opens_fast_and_shows_core_names_in_every_domain(
     opened = p.page.evaluate("views.universe.geometry().layoutMs")
     assert opened < OPEN_S * 1000
     assert fit_scale(p) < OVERVIEW_K
-    names = p.page.evaluate("views.universe.drawnNames()")
+    frames = names_at_stars(
+        p
+    )  # at Fit the summary cards show the main tables; the stars (and names) from `stars`
     roles = {k["key"]: k["role"] for k in universe["kinds"]}
-    assert names and all(roles[universe["nodes"][i]["kind"]] == "core" for i in names)
-    business = {"vehicle", "auction", "account", "claim", "activity"}
-    assert business <= {universe["nodes"][i]["domain"] for i in names}
     rank = main_rank(universe)
-    assert [rank[i] for i in names] == sorted(rank[i] for i in names)
+    for names in frames.values():
+        assert all(roles[universe["nodes"][i]["kind"]] == "core" for i in names)
+        assert [rank[i] for i in names] == sorted(rank[i] for i in names)
+    assert any(frames.values())
+    business = {"vehicle", "auction", "account", "claim", "activity"}
+    assert business <= {universe["nodes"][i]["domain"] for names in frames.values() for i in names}
 
 
 def test_the_large_project_panel_has_no_other_and_ordered_layers(
@@ -200,13 +215,15 @@ def test_the_folded_large_project_opens_fast_and_shows_core_names(
     universe = data["universe"]
     assert p.page.evaluate("views.universe.geometry().layoutMs") < OPEN_S * 1000
     assert fit_scale(p) < OVERVIEW_K
-    names = p.page.evaluate("views.universe.drawnNames()")
+    frames = names_at_stars(p)
     roles = {k["key"]: k["role"] for k in universe["kinds"]}
-    assert names and all(roles[universe["nodes"][i]["kind"]] == "core" for i in names)
-    business = {"vehicle", "auction", "account", "claim", "activity"}
-    assert len(business & {universe["nodes"][i]["domain"] for i in names}) >= 4
     rank = main_rank(universe)
-    assert [rank[i] for i in names] == sorted(rank[i] for i in names)
+    for names in frames.values():
+        assert all(roles[universe["nodes"][i]["kind"]] == "core" for i in names)
+        assert [rank[i] for i in names] == sorted(rank[i] for i in names)
+    assert any(frames.values())
+    business = {"vehicle", "auction", "account", "claim", "activity"}
+    assert len(business & {universe["nodes"][i]["domain"] for names in frames.values() for i in names}) >= 4
 
 
 def test_a_filter_change_on_the_large_project_is_fast(large_page_shown: tuple[Page, dict[str, Any]]) -> None:

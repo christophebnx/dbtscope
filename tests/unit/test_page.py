@@ -134,6 +134,16 @@ def test_page_has_the_export_controls() -> None:
         assert "export" not in box.split("</section>", 1)[0]
 
 
+def test_the_universe_panel_ends_with_the_closed_summary_details() -> None:
+    """The summary as text (M8.3, D-064): a closed `details` between the Domains list and the hint."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    panel = page.split('id="u-panel"', 1)[1].split("</aside>", 1)[0]
+    markers = ['id="u-domains"', '<details id="u-sum">', 'id="u-sum-h"', 'id="u-sum-list"', 'id="u-hint"']
+    positions = [panel.index(m) for m in markers]
+    assert positions == sorted(positions)
+    assert '<details id="u-sum" open' not in panel and '<summary id="u-sum-h"></summary>' in panel
+
+
 # ---------------------------------------------------------------- M2 acceptance gaps (tester)
 
 

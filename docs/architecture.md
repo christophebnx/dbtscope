@@ -125,8 +125,18 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Role of a kind (validation, values) | `domain/config.KindRule`, `Role`, `ROLES`; preset form `PresetKindRule` |
 | A file kind inherits the role of the preset kind it repeats | `domain/config._inherit_roles` (through `merge_config`) |
 | Steps of the data flow, default layer of a table, its rank and step | `domain/steps.STEPS`, `FLOW_PREFIXES`, `UNRANKED`, `default_layer`, `flow_rank`, `step_of` |
-| Star size and name priority by role; Types list order (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `ROLE_ORDER`, `NAME_ORDER`, `OVERVIEW_K`, `orderLabels` |
-| Main core tables of a constellation, by relations (page; names now, cards in M8.3) | `render/assets/universe.js mainTables` |
+| Star size and name priority by role (page) | `render/assets/universe.js starR`, `ROLE_STAR`, `STAR_MAX`, `NAME_ORDER`, `nameOrder`, `OVERVIEW_K`, `orderLabels` |
+| The Types-list order of kinds (panel, cards) | `render/assets/universe.js kindOrder` (`ROLE_ORDER`) |
+| Main core tables of a constellation, by relations (page; names at overview and summary cards) | `render/assets/universe.js mainTables` |
+| The overview order of a constellation's names (names at overview, a card's main tables) | `render/assets/universe.js overviewOrder` |
+| When the universe is drawn as summary cards: the star cell, the two scales, the cross-fade (page, D-063) | `render/assets/universe.js summarise` (`CELL`, `summaryScale`, `starsScale`), `summaryAlpha`, `SUMMARY_CELL`, `SUMMARY_FADE` |
+| Content of a summary card: counts, rows by own layer or domain, bars by kind, main tables (page, D-064) | `render/assets/universe.js summarise` (`SUMMARIES`) |
+| Where a summary card is placed on screen: anchor on its disc, levels, the push (page, D-063) | `render/assets/universe.js cardLayout` (`settleCards`, `relaxCards`, `cardSize`, `CARD`) |
+| Drawing and hit-testing a summary card (page) | `render/assets/universe.js drawSummary`, `summaryAt` |
+| Outline of a constellation for routes: the card rectangle, a route's end (page; M8.4 builds on it) | `render/assets/universe.js summaryRect`, `edgeOf` |
+| Zoom on a constellation or on one of its bands (canvas, cards, summary) | `render/assets/universe.js zoomOnConstellation`, `zoomOnRow` |
+| The summary as text, in the panel (page, D-064) | `render/assets/universe.js renderSummary` |
+| Camera animations jump under reduced motion (page) | `render/assets/universe.js motionMs` |
 | Parent of a descriptive table (relation, then name stem; same domain; ties none) and the stem of a table (M8.2, D-061) | `domain/fold.parents`, `stem` |
 | Which tables are drawn, folded or shown; entity marks and counts (page, D-062) | `render/assets/universe.js PARENT`, `FOLDED`, `layout`, `placeShown` |
 | The viewer's last fold choice, kept out of the layout (page) | `render/assets/universe.js foldMemory` |
@@ -247,6 +257,9 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | Drawing a descriptive table inside its parent instead of as its own star (D-062) | **fold** (config `universe.fold`, payload `defaults.fold`, `state.fold`, `foldMemory`); a **folded table**; the opposite is **shown** | collapse, merge, hide | French UI: « replier » / « afficher » ; « table repliée ». |
 | A core or connector table with the tables folded into it (UI, D-062) | **entity** in UI text only (`T.entitiesN`) | holder, group, cluster | French « entité ». In code the table is the **parent** and its tables `FOLDED`; the payload words `entities` / `DetailEntity` (D-027) stay the detail's tables, a different concept, written "detail entity" in prose. |
 | A descriptive table's name without its kind's fixed glob part (D-061) | **stem** (`domain/fold.stem`) | root, base name | Compared at a non-alphanumeric boundary. |
+| What a constellation is drawn as at overview scale: name, counts, a row per layer (or domain) with a bar by kind, main tables (M8.3, D-063) | **summary card** (`SUMMARIES`, `summarise`, `drawSummary`, `summaryRect`, `summaryAlpha`, `summaryScale`) | domain card, overview card, tile | French UI « carte de synthèse ». In `universe.js` "card" alone (`drawCard`, `cards`) stays the **table card** of the keys and all-fields levels. |
+| The screen room of a star: the median `√(w · h)` of the drawn tables' reserved boxes (D-063) | **star cell** (`CELL`, `SUMMARY_CELL`) | spacing, density | Its size on screen decides cards or stars. |
+| The panel section listing the cards' content as text (D-064) | **summary** (UI « Synthèse », `#u-sum`, `renderSummary`) | overview, legend | |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view, lineage graph | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. |

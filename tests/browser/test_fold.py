@@ -18,7 +18,7 @@ import pytest
 from conftest import page_of, write_example, write_layout
 from large_project import NO_RELATION_SAT, OTHER_DOMAIN_SAT, TWO_PARENT_SAT
 
-from browser.conftest import Page, Shop, universe_page
+from browser.conftest import Page, Shop, summary, universe_page
 from dbtscope.domain.payload import UniversePayload
 
 pytestmark = pytest.mark.browser
@@ -778,7 +778,7 @@ def test_the_far_badge_keeps_the_colour_of_its_star(large: Large) -> None:
     """Below scale 0.6 the badge is a small arc on the rim, not a dot hiding the star (hub vs link)."""
     p, data = large
     colour = rgb(next(k["color"] for k in data["universe"]["kinds"] if k["key"] == "hub"))
-    frame_domain(p, "vehicle", 0.3)
+    frame_domain(p, "vehicle", max(0.3, summary(p)["stars"]))  # stars are drawn from the stars scale (D-063)
     kinds = {n["id"]: n["kind"] for n in data["universe"]["nodes"]}
     hubs = [h for h in p.page.evaluate(HOLDERS) if kinds[h["id"]] == "hub"]
     assert len(hubs) >= 10

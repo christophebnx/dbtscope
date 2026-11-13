@@ -147,6 +147,26 @@ def close_panel(p: Page, view: str) -> None:
     assert p.page.is_hidden(f"#{view}-panel")
 
 
+def summary(p: Page) -> dict[str, float]:
+    """The summary-card rule of the page (D-063): `cell`, `scale` (cards fully on up to), `stars` (stars
+    fully on from) and `alpha` (the cards' opacity at the current zoom)."""
+    return p.page.evaluate("views.universe.geometry().summary")
+
+
+def to_stars(p: Page, key: str | None = None, wait_ms: int = 300) -> None:
+    """Set the camera to the stars scale, where the large page draws its stars: centred on the constellation
+    `key`, or on what the view's centre shows now. Waits `wait_ms` for the frame."""
+    p.page.evaluate(
+        """key => { const u = views.universe, c = u.camera(), g = u.geometry(),
+          v = document.getElementById('u-canvas'), k = g.summary.stars,
+          d = g.constellations.find(d => d.key === key),
+          x = d ? d.x : (v.clientWidth / 2 - c.x) / c.k, y = d ? d.y : (v.clientHeight / 2 - c.y) / c.k;
+          u.camera({ x: v.clientWidth / 2 - x * k, y: v.clientHeight / 2 - y * k, k }); }""",
+        key,
+    )
+    p.page.wait_for_timeout(wait_ms)
+
+
 def scroll_width(p: Page) -> int:
     return p.page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
 

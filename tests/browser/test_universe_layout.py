@@ -290,8 +290,19 @@ def test_discs_fit_their_content(name: str, request: pytest.FixtureRequest) -> N
 # ---------------------------------------------------------------- 5. determinism
 
 
+CARD_RECT = ("x", "y", "w", "h")
+
+
 def without_time(g: Geometry) -> Geometry:
-    return {k: v for k, v in g.items() if k != "layoutMs"}
+    """The geometry minus what is not placement: the layout time, and what follows the camera (the summary
+    cards' alpha and rectangles: a card has a constant screen size, so its world size follows the zoom)."""
+    out = {k: v for k, v in g.items() if k != "layoutMs"}
+    out["summary"] = {k: v for k, v in g["summary"].items() if k != "alpha"}
+    out["constellations"] = [
+        {**c, "summary": {k: v for k, v in c["summary"].items() if k not in CARD_RECT}}
+        for c in g["constellations"]
+    ]
+    return out
 
 
 def test_two_loads_give_the_same_geometry(acme: tuple[Path, Opener]) -> None:
