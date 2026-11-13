@@ -863,44 +863,48 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     // the name, count and composition bar above a disc. A constellation whose card is at level `count` or `frame` has no name
     // on it, so this label stays at full alpha and replaces it (drawn after the cards, below); the others fade with the stars
     const placed = a > 0 ? cardLayout(k) : null, bare = d => !!placed && placed.byKey.get(d.k).lv >= 4;
-    // every card drawn is an obstacle for a bare constellation's label (it would print over the card's text). The label then tries,
-    // in turn, eight places round its disc (below, the sides, above, nearest first, then a step farther, kept inside the stage),
-    // first whole, then compact (name and count, no bar), the first that is free of cards and of the names already placed; it is skipped only when
-    // none is (`labelShown: false` in the hook): the name stays in the Domains list, the
-    // tooltip and the text summary
+    // every card drawn and every label already placed is an obstacle for a bare constellation's label (it would print over their text).
+    // The label then tries its usual place, then eight places round its disc (below, the sides, above, nearest first, then a step
+    // farther, kept inside the stage), first whole, then compact (name and count, no bar), then the name alone, the first that is free
+    // of cards and of the labels already placed. When none is, the name alone is put where no card is: a name is never lost at overview
     const cardBoxes = placed && cardsOnAt(a) ? placed.items.filter(e => e.lv <= 3).map(e => [e.px - e.w / 2 + t.x, e.py - e.h / 2 + t.y, e.w, e.h, e.key]) : [];
     const onCard = (x, y, w, h, key) => cardBoxes.some(r => r[4] !== key && x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
     const discLabel = (d, alpha, counts = plural(d.n, L.tables), avoid = false) => {
       const sys = isSystem(d.k);   // a source system: 13 px, neutral (D-066)
       const [cx0, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
-      const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`;
-      const sizeOf = compact => (compact ? [Math.max(textW(font, name), textW(`12px ${FONT}`, counts)) + 8, fs + 16] : [Math.max(textW(font, name), 80) + 8, fs + 22]);
-      let sx = cx0, sy = rim - (byLayers ? NAME_LIFT : 0), compact = false, [w, bh] = sizeOf(false);
-      if (avoid && onCard(sx - w / 2, sy - bh, w, bh, d.k)) {
+      const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`, sub = `12px ${FONT}`;
+      const nameW = textW(font, name), countsW = textW(sub, counts);
+      // the three forms of a label: whole (name, counts, bar), compact (name and counts) and the name alone; [w, h, lift of its lines]
+      const forms = [[Math.max(nameW, countsW, 80) + 8, fs + 22, 0], [Math.max(nameW, countsW) + 8, fs + 16, 8], [nameW + 8, fs + 6, 16]];
+      let sx = cx0, sy = rim - (byLayers ? NAME_LIFT : 0), form = 0, [w, bh] = forms[0];
+      if (avoid) {
         const [, mid] = screen(d.x, d.y), edge = d.r * k + 4, dirs = [[0, 1], [1, 0], [-1, 0], [1, 1], [-1, 1], [0, -1], [1, -1], [-1, -1]];
-        const spot = [false, true].flatMap(c => {
-          const [cw0, ch] = sizeOf(c), cw = Math.max(cw0, textW(`12px ${FONT}`, counts) + 8);   // the count line can be the wider
-          return [0, 24, 60, 120, 200].flatMap(more => dirs.map(([ux, uy]) => {   // eight sides of the disc, then a step farther
+        const at = (f, x, y) => ({ x, y, f, w: forms[f][0], h: forms[f][1] });
+        // for each form, the usual place first, then eight sides of the disc, each a step farther in turn
+        const spots = [0, 1, 2].flatMap(f => {
+          const [cw, ch] = forms[f];
+          return [at(f, cx0, sy), ...[0, 24, 60, 120, 200].flatMap(more => dirs.map(([ux, uy]) => {
             const n = Math.hypot(ux, uy), dist = edge + more;
             const x = cx0 + ux / n * (dist + Math.abs(ux) / n * cw / 2), y = mid + uy / n * (dist + Math.abs(uy) / n * ch / 2) + ch / 2;
-            return { x: Math.max(cw / 2 + 2, Math.min(W - cw / 2 - 2, x)), y: Math.max(ch + 2, Math.min(H - 2, y)), c, w: cw, h: ch };
-          }));
-        }).find(o => free(o.x - o.w / 2, o.y - o.h, o.w, o.h) && !onCard(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k));
-        if (!spot) return null;
-        ({ x: sx, y: sy, c: compact, w, h: bh } = spot);
+            return at(f, Math.max(cw / 2 + 2, Math.min(W - cw / 2 - 2, x)), Math.max(ch + 2, Math.min(H - 2, y)));
+          }))];
+        });
+        const clear = o => !onCard(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k);
+        // the name is never lost: when no place is free of the other labels too, the name alone goes where no card is
+        const spot = spots.find(o => clear(o) && free(o.x - o.w / 2, o.y - o.h, o.w, o.h)) || spots.find(o => o.f === 2 && clear(o)) || spots.find(o => o.f === 2);
+        ({ x: sx, y: sy, f: form, w, h: bh } = spot);
       }
-      const up = compact ? 8 : 0;   // a compact label has no bar: its lines sit lower
+      const up = forms[form][2];
       ctx.globalAlpha = alpha; ctx.textAlign = 'center';
       // a domain name in its colour, readable on the page (D-037); a layer name in the text colour; a source system's muted.
       // A 3 px outline in the page colour keeps a route from cutting a letter
       ctx.font = font; ctx.fillStyle = byLayers ? C.text : sys ? C.muted : CONTRAST.ink(DOM[d.k].color, C.bg);
       ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.strokeText(name, sx, sy - 22 + up); ctx.lineJoin = 'miter';
       ctx.fillText(name, sx, sy - 22 + up);
-      ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
-      ctx.fillText(counts, sx, sy - 8 + up);
+      if (form < 2) { ctx.font = sub; ctx.fillStyle = C.muted; ctx.fillText(counts, sx, sy - 8 + up); }
       // composition by type in the Types-list order (D-064: the cards' bar, `SUMMARIES` kinds), readable before any single star is
       let bx = sx - 40;
-      if (!compact) SUMMARIES.get(d.k).kinds.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
+      if (form === 0) SUMMARIES.get(d.k).kinds.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
       taken.push([sx - w / 2, sy - bh, w, bh]);
       return { d, x: sx - w / 2, y: sy - bh, w, h: bh };
     };
@@ -1285,15 +1289,17 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (e.lv === 0) e.names = Math.max(Math.min(CARD.NAMES_MIN, m), Math.min(SUMMARY_NAMES, m, Math.floor((2 * e.r - base - CARD.SEC) / CARD.LINE)));
     return [e.cw, e.names ? base + CARD.SEC + CARD.LINE * e.names : base];
   }
+  // the size of a card at its level, and the box (`bw`, `bh`) the push keeps clear: the card and its trajectory frames
+  function sizeCard(e) {
+    [e.w, e.h] = cardSize(e);
+    const room = e.tj ? CARD.TRAJ_ROOM : 0;
+    e.bw = e.w + 2 * room; e.bh = e.h + 2 * room;
+  }
   // Puts every card on its anchor, then pushes overlapping pairs apart (CARD.ITER passes): each pair along the line between
   // its centres by the distance that clears the nearer axis, the smaller card moving more, the pushes of a pass summed and
   // applied at CARD.DAMP. Deterministic, no state. Sets e.px, e.py (centre), e.disp (distance from the anchor), e.over.
   function relaxCards(items) {
-    items.forEach(e => {
-      [e.w, e.h] = cardSize(e);
-      const room = e.tj ? CARD.TRAJ_ROOM : 0;
-      e.bw = e.w + 2 * room; e.bh = e.h + 2 * room; e.px = e.ax; e.py = e.ay;
-    });
+    items.forEach(e => { sizeCard(e); e.px = e.ax; e.py = e.ay; });
     const n = items.length, mv = new Float64Array(2 * n), order = items.map((_, i) => i);
     for (let it = 0; it < CARD.ITER; it++) {
       mv.fill(0);
@@ -1352,6 +1358,26 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       bad[0].lv = bad[0].g ? 3 : bad[0].lv + 1;
     }
   }
+  // The last word on overlaps: when the push and the drops could not separate two cards drawn (the rounds ran out, a card stuck at its
+  // last level), the lower priority of the pair (fewer tables, then key) drops a level in place until they are apart. A lower level is
+  // smaller and keeps its centre, so a drop never creates an overlap, and every pass lowers a level: it ends. The group card goes to its name.
+  function separateCards(items) {
+    const shown = e => e.lv <= 3 || e.tj, last = e => (e.g ? 3 : 5), droppable = e => e.lv < last(e);
+    const lower = (a, b) => ((a.s.n - b.s.n || (a.key < b.key ? -1 : 1)) < 0 ? a : b);
+    for (;;) {
+      const live = items.filter(shown);
+      let pair = null;
+      for (let i = 0; i < live.length && !pair; i++) for (let j = i + 1; j < live.length && !pair; j++) {
+        const a = live[i], b = live[j];
+        if (Math.abs(a.px - b.px) < (a.w + b.w) / 2 && Math.abs(a.py - b.py) < (a.h + b.h) / 2) pair = [a, b];
+      }
+      if (!pair) return;
+      const low = lower(...pair), drop = droppable(low) ? low : pair.find(e => e !== low);
+      if (!droppable(drop)) return;
+      drop.lv = drop.g ? 3 : drop.lv + 1;
+      sizeCard(drop);
+    }
+  }
   // The place of every card at scale k, in screen px from the origin of the camera's translation (the anchor of a card is
   // its disc's centre, d.x * k): a pure function of the layout, the zoom, the moved constellations and the trajectory,
   // so cached by those; the one place that places cards. -> { items, byKey }
@@ -1376,6 +1402,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       items.push(group);
     }
     settleCards(items);
+    separateCards(items);
     const byKey = new Map(items.map(e => [e.key, e]));
     if (group) GROUPED.forEach(d => byKey.set(d.k, group));
     cardCache = { k, runs: layoutRuns, rev: dragRev, traj, items, byKey };

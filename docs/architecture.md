@@ -133,7 +133,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The order of a constellation's main tables (a card's main tables; names at overview share `nameOrder` and filter by `MAIN` rank in `orderLabels`) | `render/assets/universe.js overviewOrder` |
 | When the universe is drawn as summary cards: the star cell, the two scales, the cross-fade (page, D-063) | `render/assets/universe.js summarise` (`CELL`, `summaryScale`, `starsScale`), `summaryAlpha`, `SUMMARY_CELL`, `SUMMARY_FADE` |
 | Content of a summary card: counts, rows by own layer or domain, bars by kind, main tables (page, D-064) | `render/assets/universe.js summarise` (`SUMMARIES`) |
-| Where a summary card is placed on screen: anchor on its disc, levels, the push (page, D-063) | `render/assets/universe.js cardLayout` (`settleCards`, `relaxCards`, `cardSize`, `CARD`) |
+| Where a summary card is placed on screen: anchor on its disc, levels, the push (page, D-063) | `render/assets/universe.js cardLayout` (`settleCards`, `relaxCards`, `separateCards`, `sizeCard`, `cardSize`, `CARD`); where a bare label goes: `discLabel` |
 | Drawing and hit-testing a summary card (page) | `render/assets/universe.js drawSummary`, `summaryAt` |
 | Outline of a constellation for routes: its disc's edge or its card's, the group card's for a grouped source system (page, D-067) | `render/assets/universe.js summaryRect`, `edgeOf` |
 | Which domains are source systems: rule, override, gate (D-065) | `domain/universe.source_systems` |
@@ -187,7 +187,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Escape a DOT string (page) | `render/assets/common.js dotStr` |
 | Escape text inside a Graphviz HTML-like label (page) | `render/assets/common.js dotText` |
 | Render DOT with Graphviz, recovering from a failed render (page) | `render/assets/common.js GRAPHVIZ` |
-| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom`, which resolves the handle `zv` built by `zoomHandle(box, layer, size, onZoom)` (`layer`, `fit`, `get`, `set`, `centre`, `destroy`) |
+| Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom`, which resolves the handle `zv` built by `zoomHandle(box, layer, size, onZoom)` (`layer`, `fit` (with `FIT_PAD`), `atFit`, `get`, `set`, `centre`, `destroy`) |
 | Attach a d3 zoom to a view's drawing area, Safari trackpad pinch (`gesture*` events) included (page, all three views) | `render/assets/common.js zoomOn` |
 | Scale range of every zoom of the page | `render/assets/common.js ZOOM_EXTENT` |
 | Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |

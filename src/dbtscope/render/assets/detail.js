@@ -125,6 +125,8 @@ function startDetail(DATA, LAYOUT, EXPORT, FOLD) {
   const refit = () => zv && zv.fit();
   $d('fit').onclick = refit;
   window.addEventListener('resize', refit);
+  // the area changes without a window resize (the toolbar wraps when its text grows): a drawing still at its fit follows
+  new ResizeObserver(() => { if (zv && zv.atFit()) zv.fit(); }).observe(box);
   sidePanel('d', refit);
   const pngBtn = $d('export-png'), svgBtn = $d('export-svg');
   $d('export-h').textContent = L.exportImage;

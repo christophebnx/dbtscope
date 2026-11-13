@@ -350,7 +350,7 @@ function zoomOn(sel, zoom) {
 // <g>, the zoom layer, and the svg fills the box at one CSS pixel per Graphviz point at scale 1. Waits until
 // the box and the drawing have a real size (page laid out in the background). onZoom(transform) runs on
 // every zoom or pan. -> Promise<zv>, or null as soon as isCurrent() turns false (a newer render replaced
-// this one). zv: { layer, fit(), get(), set({x, y, k}), centre(rect, k), destroy() }.
+// this one). zv: { layer, fit(), atFit(), get(), set({x, y, k}), centre(rect, k), destroy() }.
 function graphZoom(box, svg, isCurrent, onZoom) {
   const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
   const size = vb.length === 4 ? [vb[2], vb[3]] : [parseFloat(svg.getAttribute('width')), parseFloat(svg.getAttribute('height'))];
@@ -370,10 +370,15 @@ function graphZoom(box, svg, isCurrent, onZoom) {
     init();
   });
 }
+// Fit leaves FIT_PAD px free on every side: the drawing's strokes and the Graphviz bounding box never touch the
+// edge of the area, so no last row looks cut.
+const FIT_PAD = 8;
 // The zoom of a mounted Graphviz diagram (see graphZoom).
 function zoomHandle(box, layer, size, onZoom) {
   const [w, h] = size, sel = d3.select(box);
-  const fitScale = () => Math.min(box.clientWidth / w, box.clientHeight / h);
+  const room = (side, drawn) => Math.max(side - 2 * FIT_PAD, side / 2) / drawn;
+  const fitScale = () => Math.min(room(box.clientWidth, w), room(box.clientHeight, h));
+  let fitted = null;
   const zoom = d3.zoom().scaleExtent([Math.min(ZOOM_EXTENT[0], fitScale()), ZOOM_EXTENT[1]]).clickDistance(3)
     .on('zoom', ev => { layer.setAttribute('transform', ev.transform); if (onZoom) onZoom(ev.transform); });
   zoomOn(sel, zoom);
@@ -384,8 +389,11 @@ function zoomHandle(box, layer, size, onZoom) {
     fit() {
       if (!box.clientWidth || !box.clientHeight) return;
       const k = fitScale();
-      set({ x: (box.clientWidth - w * k) / 2, y: (box.clientHeight - h * k) / 2, k });
+      fitted = { x: (box.clientWidth - w * k) / 2, y: (box.clientHeight - h * k) / 2, k };
+      set(fitted);
     },
+    // true while the view is still the one fit() set: the user has not zoomed or panned since
+    atFit() { const t = d3.zoomTransform(box); return !!fitted && t.k === fitted.k && t.x === fitted.x && t.y === fitted.y; },
     get() { const t = d3.zoomTransform(box); return { x: t.x, y: t.y, k: t.k }; },
     set,
     // the centre of a screen rectangle at the centre of the box, at scale k (the current one when omitted)
