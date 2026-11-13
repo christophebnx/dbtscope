@@ -23,7 +23,7 @@ from conftest import SHOP, page_of, write_config, write_example
 from reference_pages import LAYOUT as EDGE_LAYOUT
 from reference_pages import build_page as reference_page
 
-from browser.conftest import Page, universe_page
+from browser.conftest import NO_FOLD, Page, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 
 pytestmark = pytest.mark.browser
@@ -74,7 +74,10 @@ def overlapping(boxes: list[tuple[float, float, float, float]]) -> list[tuple[in
 @pytest.fixture
 def acme(tmp_path: Path, open_page: Any) -> tuple[Path, Opener]:
     """The example page and a way to open it (again)."""
-    html, _ = page_of(write_example(tmp_path / "acme_retail"))
+    project = write_example(tmp_path / "acme_retail")
+    config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
+    write_config(project, config + NO_FOLD)
+    html, _ = page_of(project)
     return html, lambda: open_page(html)
 
 
@@ -123,7 +126,7 @@ def band_of(domain: dict[str, Any], x: float) -> int:
 def test_tables_without_a_layer_follow_their_parents(tmp_path: Path, open_page: Any) -> None:
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS)
+    write_config(project, config[: config.index("layers:")] + PARTIAL_LAYERS + NO_FOLD)
     html, data = page_of(project)
     p = open_page(html)
     nodes = data["universe"]["nodes"]

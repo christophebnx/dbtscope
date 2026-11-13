@@ -6,8 +6,9 @@ from collections import Counter
 from collections.abc import Iterable
 from itertools import cycle
 
+from dbtscope.domain import fold
 from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
-from dbtscope.domain.config import Config
+from dbtscope.domain.config import Config, DomainRule
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 from dbtscope.domain.payload import (
     UniverseDefaults,
@@ -20,9 +21,13 @@ from dbtscope.domain.payload import (
 
 # kinds for tables no configured kind matches
 TYPE_KINDS: dict[str, BuiltinKind] = {
-    "source": BuiltinKind(key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8"),
-    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#c62a36"),
-    "snapshot": BuiltinKind(key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b"),
+    "source": BuiltinKind(
+        key="source", label={"en": "Source", "fr": "Source"}, color="#94a3b8", role="technical"
+    ),
+    "seed": BuiltinKind(key="seed", label={"en": "Seed", "fr": "Seed"}, color="#c62a36", role="technical"),
+    "snapshot": BuiltinKind(
+        key="snapshot", label={"en": "Snapshot", "fr": "Snapshot"}, color="#64748b", role="technical"
+    ),
 }
 NO_DOMAIN = {"en": "No domain", "fr": "Hors domaine"}
 NO_DOMAIN_COLOR = "#8a94a6"
@@ -73,20 +78,55 @@ def flow_rank(key: str) -> float:
     return min((rank for prefix, rank in FLOW_PREFIXES if key.startswith(prefix)), default=UNRANKED)
 
 
-def _domains(nodes: list[UniverseNode], config: Config, project: Project) -> tuple[UniverseDomain, ...]:
+def is_source_system(roles: Iterable[str], override: bool | None) -> bool:
+    """Whether a domain is a source system (D-068): the rule's `override`, else every table is technical.
+
+    `roles` are the kind roles of the domain's tables; an empty domain is not a source system.
+    """
+    if override is not None:
+        return override
+    roles = list(roles)
+    return bool(roles) and all(role == "technical" for role in roles)
+
+
+def _system_override(key: str, config: Config) -> bool | None:
+    """`system` of the first domain rule of `key` that sets it, None when none does."""
+    return next((r.system for r in config.domains if r.key == key and r.system is not None), None)
+
+
+def _first_set(rules: Iterable[DomainRule], attribute: str, unset: str | None = None) -> str | None:
+    """`attribute` of the first rule that sets it (D-068, D-079); a label equal to the key is not set."""
+    return next((v for r in rules if (v := getattr(r, attribute)) and v != unset), None)
+
+
+def _roles_by_domain(members: list[fold.Member]) -> dict[str, list[str]]:
+    """The kind role of every table, per domain key."""
+    roles: dict[str, list[str]] = {}
+    for member in members:
+        roles.setdefault(member.domain, []).append(member.role)
+    return roles
+
+
+def _domains(
+    nodes: list[UniverseNode], config: Config, project: Project, roles: dict[str, list[str]]
+) -> tuple[UniverseDomain, ...]:
     sizes = Counter(n.domain for n in nodes)
-    configured = {r.key: r for r in config.domains}
     lang, palette = config.language, cycle(PALETTE)
     domains = []
     for key, _ in sorted(sizes.items(), key=lambda kv: (kv[0] == "", -kv[1], kv[0])):
-        rule = configured.get(key)
+        rules = [r for r in config.domains if r.key == key]
         group = project.groups.get(key)
         if key == "":
             color, label = NO_DOMAIN_COLOR, NO_DOMAIN[lang]
         else:
-            color = rule.color if rule and rule.color else next(palette)
-            label = rule.label if rule and rule.label else key
-        domains.append(UniverseDomain(key=key, label=label, color=color, owner=group.owner if group else ""))
+            color = _first_set(rules, "color") or next(palette)
+            label = _first_set(rules, "label", unset=key) or key
+        system = is_source_system(roles[key], _system_override(key, config))
+        domains.append(
+            UniverseDomain(
+                key=key, label=label, color=color, owner=group.owner if group else "", system=system
+            )
+        )
     return tuple(domains)
 
 
@@ -101,9 +141,13 @@ def _layers(used: set[str], config: Config) -> tuple[UniverseLayer, ...]:
 
 
 def _kinds(used: set[str], config: Config) -> tuple[UniverseKind, ...]:
-    kinds = [UniverseKind(key=k.key, label=k.label, color=k.color) for k in config.kinds if k.key in used]
+    kinds = [
+        UniverseKind(key=k.key, label=k.label, color=k.color, role=k.role or "none")
+        for k in config.kinds
+        if k.key in used
+    ]
     kinds += [
-        UniverseKind(key=t.key, label=t.label[config.language], color=t.color)
+        UniverseKind(key=t.key, label=t.label[config.language], color=t.color, role=t.role)
         for t in [*TYPE_KINDS.values(), OTHER]
         if t.key in used
     ]
@@ -122,21 +166,29 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
     index = {uid: i for i, uid in enumerate(ids)}
     is_key = key_columns(config, project.relations)
 
-    nodes = []
+    nodes, members = [], []
     for uid in ids:
         table = tables[uid]
-        kind = first_rule(table, config.kinds) or TYPE_KINDS.get(table.resource_type, OTHER)
+        rule = first_rule(table, config.kinds)
+        kind = rule or TYPE_KINDS.get(table.resource_type, OTHER)
+        domain, layer = domain_of(table, config), _layer_of(table, config)
+        role = kind.role or "none"
+        members.append(
+            fold.Member(id=uid, role=role, stem=fold.stem(table, rule), domain=domain, layer=layer)
+        )
         nodes.append(
             UniverseNode(
                 id=uid,
                 name=table.name,
-                domain=domain_of(table, config),
-                layer=_layer_of(table, config),
+                domain=domain,
+                layer=layer,
                 kind=kind.key,
                 desc=table.description[:DESCRIPTION_LIMIT],
                 cols=tuple((c.name, c.data_type, int(is_key(uid, c.name))) for c in table.columns),
             )
         )
+    parent_of = fold.parents(members, project.relations)
+    nodes = [n.model_copy(update={"parent": parent_of.get(n.id, "")}) for n in nodes]
 
     def pairs(edges: Iterable[Relation | LineageEdge]) -> tuple[tuple[int, int], ...]:
         found = {(index[e.child], index[e.parent]) for e in edges if e.child in index and e.parent in index}
@@ -146,7 +198,7 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
         nodes=tuple(nodes),
         relations=pairs(project.relations),
         lineage=pairs(project.lineage),
-        domains=_domains(nodes, config, project),
+        domains=_domains(nodes, config, project, _roles_by_domain(members)),
         layers=_layers({n.layer for n in nodes}, config),
         kinds=_kinds({n.kind for n in nodes}, config),
         defaults=UniverseDefaults(
@@ -154,5 +206,6 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
             detail=universe.detail,
             hidden_kinds=universe.hidden_kinds,
             constellations=universe.constellations,
+            fold=universe.fold,
         ),
     )

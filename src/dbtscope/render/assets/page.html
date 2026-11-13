@@ -41,8 +41,12 @@
       <label><input type="radio" name="u-by" value="domains"><span id="u-by-domains"></span><small id="u-by-domains-n"></small></label>
       <label><input type="radio" name="u-by" value="layers"><span id="u-by-layers"></span><small id="u-by-layers-n"></small></label>
     </fieldset>
+    <fieldset id="u-fold" hidden><legend id="u-h-fold"></legend>
+      <label id="u-fold-row"><input type="checkbox" id="u-fold-box"><span id="u-fold-label"></span><small id="u-fold-n"></small></label>
+    </fieldset>
     <h3 id="u-h-links"></h3>
     <select id="u-links" aria-labelledby="u-h-links"></select>
+    <label id="u-routes-row" hidden><input type="checkbox" id="u-routes-box"><span id="u-routes-label"></span><small id="u-routes-n"></small></label>
     <h3 id="u-h-detail"></h3>
     <select id="u-detail" aria-labelledby="u-h-detail"></select>
     <h3><span id="u-h-layers"></span></h3>
@@ -51,6 +55,8 @@
     <div id="u-kinds"></div>
     <h3><span id="u-h-domains"></span><span><a id="u-all"></a> · <a id="u-none"></a></span></h3>
     <div id="u-domains"></div>
+    <h3 id="u-systems-h"><span id="u-h-systems"></span><span><a id="u-sys-all"></a> · <a id="u-sys-none"></a></span></h3>
+    <div id="u-systems"></div>
     <div class="hint" id="u-hint"></div>
   </aside>
   <div class="stage">
@@ -81,7 +87,9 @@
         <button id="u-tj-leave" type="button"></button>
       </div>
       <span class="sr-only" id="u-tj-live" role="status" aria-live="polite"></span>
+      <span class="sr-only" id="u-live" role="status" aria-live="polite"></span>
       <canvas id="u-canvas"></canvas>
+      <section class="sr-only" id="u-summary" aria-labelledby="u-summary-h"><h2 id="u-summary-h"></h2></section>
       <div class="tip" id="u-tip"></div>
     </div>
   </div>
@@ -91,8 +99,14 @@
   <aside class="panel" id="d-panel">
     <h3 id="d-h-group"></h3>
     <select id="d-group" aria-labelledby="d-h-group"></select>
+    <fieldset id="d-fold" hidden><legend id="d-h-fold"></legend>
+      <label id="d-fold-row"><input type="checkbox" id="d-fold-box"><span id="d-fold-label"></span><small id="d-fold-n"></small></label>
+      <p class="hint" id="d-fold-warn" role="status"></p>
+      <button id="d-fold-now" type="button" hidden></button>
+    </fieldset>
     <h3 id="d-h-depth"></h3>
     <select id="d-depth" aria-labelledby="d-h-depth"></select>
+    <div class="hint" id="d-depth-note" hidden></div>
     <h3 id="d-h-cols"></h3>
     <button id="d-cols"></button>
     <h3 id="d-h-kinds"></h3>
@@ -112,6 +126,7 @@
       <span class="export" role="group" aria-labelledby="d-export-h"><span id="d-export-h"></span>
         <button id="d-export-png" type="button" disabled></button><button id="d-export-svg" type="button" disabled></button></span>
     </div>
+    <span class="sr-only" id="d-live" role="status" aria-live="polite"></span>
     <div class="canvas-box"><div id="d-graph"></div></div>
   </div>
 </section>

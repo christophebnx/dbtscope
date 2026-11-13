@@ -11,6 +11,8 @@ Inside one selector, comma-separated parts must ALL match (intersection), as in 
     "package:my_package"       dbt package name
     "type:source"              resource type (model, source, seed, snapshot)
     "tag:DV_CORE,*_link"       both
+    "!vw_*"                    a part starting with `!` matches when the rest does not
+                               ("path:models/int/*,!vw_*"; quote it in YAML when it starts the selector)
 
 Matching is case-insensitive and uses shell-style globs (fnmatch).
 """
@@ -36,7 +38,7 @@ FIELDS = {*ATTRIBUTES, "tag"}
 
 
 class SelectorError(DomainError):
-    """A selector names an unknown field."""
+    """A selector names an unknown field or negates nothing."""
 
 
 def field_value(table: Table, field: str) -> str:
@@ -49,11 +51,23 @@ def glob(value: str, pattern: str) -> bool:
     return fnmatch(value.lower(), pattern.lower())
 
 
-def _part_matches(table: Table, part: str) -> bool:
+def _split_part(part: str) -> tuple[str, str]:
+    """The `(field, pattern)` of one non-negated part; a bare part is a `name` pattern."""
     field, sep, pattern = part.partition(":")
     if not sep:
-        field, pattern = "name", part
-    field, pattern = field.strip().lower(), pattern.strip()
+        return "name", part.strip()
+    return field.strip().lower(), pattern.strip()
+
+
+def _part_matches(table: Table, part: str) -> bool:
+    if part.strip().startswith("!"):
+        rest = part.strip()[1:].strip()
+        if not rest:
+            raise SelectorError(
+                f"empty negation in {part.strip()!r} (write the selector after '!', such as '!vw_*')"
+            )
+        return not _part_matches(table, rest)
+    field, pattern = _split_part(part)
     if field not in FIELDS:
         raise SelectorError(
             f"unknown selector field {field!r} in {part!r} (expected {in_words(sorted(FIELDS))})"
@@ -61,6 +75,13 @@ def _part_matches(table: Table, part: str) -> bool:
     if field == "tag":
         return any(glob(tag, pattern) for tag in table.tags)
     return glob(field_value(table, field), pattern)
+
+
+def name_patterns(selector: str) -> tuple[str, ...]:
+    """The positive name patterns of one selector, in order (a bare part or `name:`; not `!` parts)."""
+    parts = (part.strip() for part in selector.split(","))
+    split = (_split_part(part) for part in parts if part and not part.startswith("!"))
+    return tuple(pattern for field, pattern in split if field == "name")
 
 
 def matches(table: Table, selector: str) -> bool:

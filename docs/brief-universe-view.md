@@ -48,16 +48,16 @@ A view, usable **by everyone** (data team, business, management), that answers w
 | **Star** | a table (model, source, seed, snapshot) | the nodes |
 | **Star colour** | its nature (hub, link, sat, fact, dimension, staging, source…) | the `kinds` |
 | **Constellation lines** | links between tables of the domain | business relations and/or lineage (§ 4) |
-| **Interstellar routes** | dependencies between domains, as a single aggregated line per pair of domains, with a thickness proportional to the number of links | links between two domains |
+| **Interstellar routes** | dependencies between domains, as a single aggregated line per pair of domains, with a thickness proportional to the number of links (refined by D-071: edge to edge, curved around the other domains, arrowed, the strongest by default) | links between two domains |
 | **Layers** | position in the flow: sources → staging → vault → products | `layers:` config |
 
-All stars have the same size: the priority is a universe that **fits the screen as well as possible**, rather than a size that carries meaning.
+All stars have the same size: the priority is a universe that **fits the screen as well as possible**, rather than a size that carries meaning. *(Superseded by D-058: since v0.2 the radius grows with the degree, and since M8.1 it also follows the kind's role.)*
 
 ## 4. User experience
 
 ### Three zoom levels (“semantic zoom”)
 
-1. **Universe**: on opening, the whole project is framed in the screen. Each domain is a compact constellation, named and surrounded by a coloured halo, with its number of tables. Routes between domains are visible.
+1. **Universe** *(superseded in part by D-065: on large projects the universe opens on summary cards, and the stars show when zooming in)*: on opening, the whole project is framed in the screen. Each domain is a compact constellation, named and surrounded by a coloured halo, with its number of tables. Routes between domains are visible.
 2. **Constellation**: when zooming in, or clicking a domain to frame it, the stars appear with their names. Hovering a star shows its dbt description and its links.
 3. **Detail**: at high zoom, or when double-clicking a star, tables show their columns according to the chosen level (below). You can also open the current ERD view (Graphviz) filtered on the domain or focused on the table.
 
@@ -133,7 +133,7 @@ The `data_vault` preset will provide suitable `layers`. Without config, layers a
 
 Graphviz is fine for the detail view, but not for a universe of more than 1,000 nodes. I propose a **two-level layout**, stable and readable:
 
-1. **Place the domains**: a force simulation between domains, where strongly connected domains move closer together.
+1. **Place the domains**: a force simulation between domains, where strongly connected domains move closer together. (refined by D-069 and D-070: source systems in a grid upstream, business domains along the data flow)
 2. **Place the tables within their domain**: a local simulation, ordering the layers in the direction of the flow (sources on one side, data products on the other). Constellations do not overlap.
 
 The placement is computed with a fixed seed: it is **reproducible**, and the universe keeps the same shape from one generation to the next. “Fit to screen” framing is applied on opening and after every filter.

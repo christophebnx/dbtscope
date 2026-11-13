@@ -35,9 +35,19 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel { width:260px; flex:none; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:12px 14px; font-size:13px; }
 .panel.closed { display:none; }
 .panel h3, .panel legend { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:16px 0 6px; display:flex; justify-content:space-between; align-items:center; }
-.panel h3:first-child, .panel fieldset[hidden] + h3 { margin-top:0; }
+/* no top margin on a panel's first visible heading: the first child, or the first one after the leading hidden
+   fieldsets (the universe panel starts with at most two: #u-by and #u-fold-box) */
+.panel h3:first-child, .panel fieldset[hidden]:first-child + h3, .panel fieldset[hidden]:first-child + fieldset[hidden] + h3 { margin-top:0; }
 .panel fieldset { border:0; margin:0; padding:0; min-width:0; }
 .panel legend { padding:0; margin-top:0; }
+.panel fieldset:not([hidden]) + fieldset { margin-top:16px; }
+#u-fold label span, #d-fold label span { white-space:normal; }
+#d-fold:not([hidden]) { margin-top:16px; }   /* the group select above has no bottom margin */
+#d-fold-warn { margin-top:6px; color:var(--fg); }
+#d-fold-warn:empty { margin:0; }
+#d-fold-now { margin-top:6px; }
+#d-depth-note { margin-top:6px; }
+.panel h3[hidden], .panel label[hidden] { display:none; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
 .panel h3 a:hover { color:var(--accent); }
 .panel select, .panel > button { width:100%; }
@@ -52,6 +62,9 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .stage { flex:1; min-width:0; display:flex; flex-direction:column; }
 .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
 .toolbar .meta { color:var(--muted); font-size:13px; }
+/* the universe's and the detail's counts are one line in a box of fixed height (a longer line never wraps the toolbar, so the stage keeps
+   its size and the camera its place while the zoom crosses 0.6): cut with an ellipsis, the title holds the whole text */
+#u-meta, #d-meta { flex:100 1 8em; min-width:0; height:30px; line-height:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */
@@ -61,8 +74,8 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .canvas-box { flex:1; min-height:0; position:relative; overflow:hidden; }
 
 /* ---- detail view ---- */
-#d-focus { width:240px; }
-#d-q { width:160px; }
+#d-focus { flex:0 1 200px; min-width:140px; }   /* the toolbar keeps one row at 1280 px */
+#d-q { flex:0 1 160px; min-width:0; }
 #d-graph { position:absolute; inset:0; touch-action:none; }
 #d-graph .msg { padding:24px; color:var(--muted); }
 #d-graph .dim { opacity:.15; transition:opacity .15s; }
@@ -74,7 +87,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }
 .tip .m { color:var(--muted); }
-.tip .desc { margin-top:6px; color:var(--fg); }
+.tip .desc, .tip .held { margin-top:6px; color:var(--fg); }
 .tip .a { color:var(--accent); margin-top:6px; }
 .tip .tj { margin-top:6px; padding-left:7px; border-left:3px solid var(--traj-down); color:var(--fg); }
 .tip .tj.up { border-left-style:dashed; border-left-color:var(--traj-up); }

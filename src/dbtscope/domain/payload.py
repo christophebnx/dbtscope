@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, View
+from dbtscope.domain.config import Constellations, DetailLevel, Language, Links, Role, View
 from dbtscope.domain.model import DOMAIN
 
 
@@ -22,6 +22,7 @@ class DetailKind(BaseModel):
     label: str | None  # null when a rule says `label: null`
     color: str
     bg: str  # light tint of `color`, for the table body
+    role: Role = "none"  # the kind's role (D-059, D-072); last key
 
 
 class DetailEntity(BaseModel):
@@ -33,6 +34,9 @@ class DetailEntity(BaseModel):
     kind: str
     description: str
     columns: tuple[tuple[str, str, bool, str], ...]  # [name, type, is_key (true/false), description]
+    parent: str = (
+        ""  # unique_id of the table it folds into, kept only if also a detail table (D-072); last key
+    )
 
 
 class DetailRelation(BaseModel):
@@ -66,6 +70,9 @@ class UniverseNode(BaseModel):
     kind: str
     desc: str
     cols: tuple[tuple[str, str, int], ...]  # [name, type, is_key (1/0)]
+    parent: str = (
+        ""  # last key: the unique_id of the table this descriptive table folds into, "" for none (D-062)
+    )
 
 
 class UniverseDomain(BaseModel):
@@ -75,6 +82,7 @@ class UniverseDomain(BaseModel):
     label: str | None
     color: str
     owner: str
+    system: bool = False  # last key: made only of technical tables, or declared so (D-068)
 
 
 class UniverseLayer(BaseModel):
@@ -90,6 +98,7 @@ class UniverseKind(BaseModel):
     key: str
     label: str | None
     color: str
+    role: Role = "none"
 
 
 class UniverseDefaults(BaseModel):
@@ -101,6 +110,9 @@ class UniverseDefaults(BaseModel):
     detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
     constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-048)
+    fold: bool = (
+        True  # last key: `universe.fold`, whether the page opens with descriptive tables folded (D-063)
+    )
 
 
 class UniversePayload(BaseModel):

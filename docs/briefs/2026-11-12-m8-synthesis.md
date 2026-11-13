@@ -181,7 +181,7 @@ Done when:
 - The page sets source systems apart from business domains: neutral colour treatment, smaller, placed on the upstream side of the universe (left), stacked. At the summary scale they are one group card ("Source systems: 7 · 504 tables") that lists them with their counts; zooming in shows each as its own constellation.
 - The Domains panel lists business domains first, then source systems under their own heading, with all / none per heading.
 - Business domains are placed along the data flow where the routes say so: a domain mostly read by others sits left of them. Pinned domains win, as today; **Reset layout** gives the new placement. Old arrangements load unchanged.
-- With no technical role in the page (no preset), nothing changes.
+- Without a preset, only the built-in technical kinds (source, seed, snapshot, D-059) make a source system: a domain made only of sources is set apart; a domain holding any model of a kind with no role is not. A project whose domains all mix models and sources sees no change.
 
 ### Routes
 

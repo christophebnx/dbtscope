@@ -326,7 +326,7 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
     u = data["universe"]
     kind_color = {k["key"]: k["color"] for k in u["kinds"]}
     color_of = {n["name"]: kind_color[n["kind"]] for n in u["nodes"]}
-    domains = {d["label"] for d in u["domains"]}
+    domains = {d["label"] for d in u["domains"] if not d["system"]}  # a source system is drawn neutral, 12 px
     p.page.select_option("#u-detail", "keys")
     p.page.evaluate(RECORD)
     cards: set[str] = set()
@@ -347,6 +347,8 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         elif t["text"] in domains and size >= 13:  # a domain name, on the page
             back = BG
             named.add(t["text"])
+        elif t["text"].isdigit() or t["text"] == "99+":  # the count of an entity's badge, on its dark disc
+            back = "#1f2933"
         elif size == 9:  # a card column, on the white card
             back = "#ffffff"
         else:  # a caption ("N tables"), a star label on its backdrop, the empty message
@@ -662,3 +664,39 @@ def test_hostile_dots_reach_3_to_1(dbt_project: Path, build_page: Any, open_page
 
 def test_example_dots_reach_3_to_1(tmp_path: Path, open_page: Any) -> None:
     check_dots(*acme_page(tmp_path, open_page, "en"))
+
+
+def test_the_entity_mark_from_afar_is_a_ring_that_reaches_the_mark_contrast() -> None:
+    """From afar an entity is a thin ring of `C.text` around its star."""
+    ring = "#1f2933"  # C.text = THEME.fg
+    assert contrast(ring, BG) >= MARK and contrast(ring, "#ffffff") >= MARK
+
+
+# ---------------------------------------------------------------- summary cards under hostile colours (M8.3)
+
+
+def test_hostile_card_borders_bars_and_dots_reach_3_to_1_on_the_page_background(
+    tmp_path: Path, open_page: Any
+) -> None:
+    """Every opaque stroke (card borders, dot outlines) and every 6 px bar of the cards, at the cards' scale,
+    reaches 3:1 on #f5f6f8; a dot under 3:1 is outlined, in the name list and in the rows."""
+    from browser.conftest import universe_page
+    from browser.test_summary_cards import hostile_payload, set_k, summary
+
+    payload = hostile_payload()
+    p = open_page(universe_page(tmp_path, payload, view="universe"))
+    set_k(p, summary(p)["kCards"])
+    p.page.evaluate(RECORD_MARKS)
+    marks = frame_marks(p, export=False)
+    strokes = [m for m in marks if m["op"] == "stroke" and opaque(m["stroke"])]
+    assert strokes and [m for m in strokes if contrast(m["stroke"], BG) < MARK] == []
+    bars = [m for m in marks if m["op"] == "fillRect" and m["args"][3] == 6]
+    assert bars and all(contrast(m["fill"], BG) >= MARK for m in bars)
+    colours = {k.color for k in payload.kinds} | {d.color for d in payload.domains}
+    outlined = 0
+    for m, after in pairwise(marks):
+        c = opaque(m["fill"])
+        if m["op"] == "fill" and c in colours and contrast(c, BG) < MARK:
+            assert after["op"] == "stroke" and contrast(after["stroke"], BG) >= MARK, (m, after)
+            outlined += 1
+    assert outlined >= 1

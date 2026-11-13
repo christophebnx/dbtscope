@@ -1,4 +1,4 @@
-"""Byte-identity reference of the generated page (M3): nine cases on the `shop` project.
+"""Byte-identity reference of the generated page (M3): ten cases on the `shop` project.
 
 Generated from the code before M3 so that the typed model provably keeps every page byte for byte.
 `write_reference(folder)` regenerates `tests/fixtures/m3-reference-pages/`; run it only when a change
@@ -43,6 +43,17 @@ include_packages: true
 universe: {links: lineage, detail: keys, hidden_kinds: [dim]}
 group_by: "tag:co*"
 """
+ROLES = """\
+preset: data_vault
+kinds:
+  - {key: hub, label: Hub, match: ["*_hub"]}
+  - {key: fact, label: Fact, match: ["fct_*"], role: none}
+  - {key: dim, label: Dimension, match: ["dim_*"], role: technical}
+layers:
+  - {key: sources, label: Sources, match: ["type:source"]}
+  - {key: rest, label: Everything else, match: ["!type:source,!stg_*"]}
+  - {key: staging, label: Staging, match: ["stg_*"]}
+"""
 LAYOUT = {
     "format": "dbt-erd-layout",
     "version": 1,
@@ -57,6 +68,7 @@ CASES: dict[str, tuple[str | None, list[str], bool]] = {
     "fr": (FR, [], False),
     "layers_domains": (LAYERS_DOMAINS, [], False),
     "kinds": (KINDS, [], False),
+    "roles": (ROLES, [], False),
     "edge": (None, [], True),
     "offline": (None, ["--offline"], False),
     "offline_fr": (FR, ["--offline"], False),

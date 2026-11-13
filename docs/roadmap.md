@@ -257,21 +257,21 @@ Asked by the user on 2026-11-12, after a failed first run on Windows: "dbtscope 
 
 Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project, then on the real Openlane manifest: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order:
 
-- **M8.1 — Roles, complete presets, the large test project.** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers that group folders by pattern (`raw_*`); selectors may gain negation (`!vw_*`, optional); a generated large Data Vault project enters the tests.
-- **M8.2 — Entities.** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
-- **M8.3 — Summary cards.** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
-- **M8.4 — Source systems apart, readable routes.** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
-- **M8.5 — Detail skeleton.** A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
+- **M8.1 — Roles, complete presets, the large test project (done).** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers that group folders by pattern (`raw_*`); selectors may gain negation (`!vw_*`, optional); a generated large Data Vault project enters the tests.
+- **M8.2 — Entities (done).** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
+- **M8.3 — Summary cards (done).** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
+- **M8.4 — Source systems apart, readable routes (done).** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
+- **M8.5 — Detail skeleton (done).** A large group (more than 60 tables with parents) opens as core and connector tables with their folded tables as one row, on a grid of columns that fits the drawing area (D-072 to D-077). Closing items of M8: the retaken screenshots of `docs/images/` and the `data_vault` `select` question (D-077) go to the user.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
 ## Later (not scheduled)
 
+- Documentation round after M8 (user, 2026-11-13): retake the screenshots of `docs/images/` for roles, entities, summary cards, source systems and routes, and the detail skeleton (acme_retail and the large generated project), with the user's approval; a pass over the user guide and how it works.
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
-- Default layers for medallion folders, from M5.12: `bronze*`, `silver` and `gold` have no `FLOW_PREFIXES` rank, so without `layers` rules they sort alphabetically (Gold before Silver) and each `bronze_<system>` folder is its own layer; ranks for them (and a way to merge `bronze_*` folders) would let such projects drop their layer rules.
+- Default layers for medallion folders, from M5.12: covered by the built-in presets' default layers (M8.1, D-060); still no rank without rules (`bronze*`, `silver` and `gold` sort alphabetically when a project sets neither a preset nor `layers`).
 - Colour marks, from the M5.7 review: the crimson seed (#c62a36) is only about 11 ΔE2000 from the downstream trajectory orange (#c2410c), so a downstream ring on a seed star reads weakly, and a seeds-only domain bar can read as an alert; a white header cell in the detail shows a box in a box (table border plus cell outline).
-- Universe overview, from the M5.5 reviews: with compact domains, names that would cover another star are hidden, so far fewer names show at Fit than before M5.5; consider labels for the main tables only (hubs, facts, dimensions) at overview, or a slightly smaller overview font.
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
-- Universe interaction: curved routes between domains that avoid the circles, with the relations and lineage links they carry shown on hover; neighbours lit on hover; a shareable link to a table (`erd.html#table=…`).
+- Universe interaction: a shareable link to a table (`erd.html#table=…`). (Curved routes that avoid the circles, with their counts on hover, and neighbours lit on hover were built by M8.4, D-071.)
 - Flow view: the paths between two chosen tables.
 - Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).

@@ -28,6 +28,7 @@ from conftest import (
     write_manifest,
     write_preset,
 )
+from large_project import SPECIAL, write_large_project
 
 from dbtscope import __version__
 from dbtscope.cli import EPILOG, _age, _count, _moment, _size, app, main
@@ -582,6 +583,77 @@ def test_stdout_holds_only_the_summary_with_the_absolute_page_path(
     ]
     data = page_data(page.read_text(encoding="utf-8"))
     assert data["view"] == "detail" and len(data["detail"]["entities"]) == 4
+
+
+FOLD_KINDS = """\
+kinds:
+  - {key: core, label: Core, match: ["fct_orders"], role: core}
+  - {key: desc, label: Desc, match: ["fct_returns", "dim_*"], role: descriptive}
+"""
+
+
+@pytest.mark.parametrize(
+    ("config", "row"),
+    [
+        (FOLD_KINDS, "  folded:   1 descriptive table into their parent, 2 without a parent"),
+        (
+            FOLD_KINDS + "universe: {fold: false}\n",
+            "  folded:   1 descriptive table into their parent, 2 without a parent; "
+            "shown when the page opens (universe.fold: false)",
+        ),
+        (
+            FOLD_KINDS.replace("fct_orders", "nothing"),
+            "  folded:   0 descriptive tables into their parent, 3 without a parent",
+        ),
+    ],
+    ids=["folded", "fold-off", "none-folded"],
+)
+def test_the_summary_counts_the_folded_tables_after_the_universe_row(
+    dbt_project: Path, capsys: Capsys, config: str, row: str
+) -> None:
+    write_config(dbt_project, config)
+    assert main(build(dbt_project)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[2] == row and lines[1].startswith("  universe: ") and lines[3].startswith("  detail:")
+
+
+def _parents_of(page: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """The parent of every detail table, and of every universe table with one, from the embedded payload."""
+    data = page_data(page.read_text(encoding="utf-8"))
+    detail = {e["id"]: e["parent"] for e in data["detail"]["entities"]}
+    universe = {n["id"]: n["parent"] for n in data["universe"]["nodes"] if n["parent"]}
+    return detail, universe
+
+
+def test_the_detail_parents_are_the_universe_parents_of_the_detail_tables(dbt_project: Path) -> None:
+    write_config(dbt_project, FOLD_KINDS + "select: ['*']\n")
+    assert main(build(dbt_project)) == 0
+    detail, universe = _parents_of(dbt_project / "erd_output" / "erd.html")
+    assert universe
+    for uid, parent in detail.items():
+        wanted = universe.get(uid, "")
+        assert parent == (wanted if wanted in detail else "")
+    assert any(detail.values())
+
+
+def test_a_page_without_roles_has_no_detail_parent(dbt_project: Path) -> None:
+    assert main(build(dbt_project)) == 0
+    detail, universe = _parents_of(dbt_project / "erd_output" / "erd.html")
+    assert not universe and set(detail.values()) == {""}
+
+
+def test_the_large_project_detail_holds_the_vehicle_satellites_with_their_parent(tmp_path: Path) -> None:
+    folder = write_large_project(tmp_path / "large")
+    assert main(build(folder)) == 0
+    detail, universe = _parents_of(folder / "erd_output" / "erd.html")
+    folded = {i: p for i, p in detail.items() if p}
+    assert len(folded) > 400 and all(universe[i] == p for i, p in folded.items())
+    assert detail[SPECIAL["no_parent"]] == detail[SPECIAL["other_domain"]] == ""
+
+
+def test_the_summary_has_no_folded_row_without_a_descriptive_kind(dbt_project: Path, capsys: Capsys) -> None:
+    assert main(build(dbt_project)) == 0
+    assert not [line for line in capsys.readouterr().out.splitlines() if line.startswith("  folded:")]
 
 
 @pytest.mark.parametrize(

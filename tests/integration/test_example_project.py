@@ -22,11 +22,13 @@ MODEL = "model.acme_retail."
 
 def _summary(project: Path) -> list[str]:
     """The summary lines the CLI must print for the example (from `expected.json`)."""
-    universe, detail = EXPECTED["universe"], EXPECTED["detail"]
+    universe, detail, fold = EXPECTED["universe"], EXPECTED["detail"], EXPECTED["fold"]
     kinds = ", ".join(f"{count} {label}" for label, count in detail["kinds"].items())
     return [
         f"  universe: {universe['tables']} tables in {universe['domains']} domains, "
         f"{universe['relations']} relations, {universe['lineage']} lineage links",
+        f"  folded:   {fold['folded']} descriptive tables into their parent, "
+        f"{fold['without_parent']} without a parent",
         f"  detail:   {detail['tables']} tables ({kinds}), {detail['relations']} relations",
         f"  config:   {project / 'dbt-erd.yml'}, preset data_vault",
     ]
@@ -55,6 +57,7 @@ def test_example_domains_come_from_schemas_and_rules(example_project: Path) -> N
     tables = _project(example_project).tables
     assert len(domains) == EXPECTED["universe"]["domains"]
     assert not any(domain["owner"] for domain in domains.values())  # no dbt group (D-047)
+    assert sorted(k for k, d in domains.items() if d["system"]) == EXPECTED["universe"]["source_systems"]
     assert nodes["fct_orders"]["domain"] == tables[MODEL + "fct_orders"].schema_name == "sales"
     for name in ("customer_hub", "customer_sat"):  # silver, by its schema
         assert nodes[name]["domain"] == tables[MODEL + name].schema_name == "customer"
@@ -63,6 +66,48 @@ def test_example_domains_come_from_schemas_and_rules(example_project: Path) -> N
     by_id = {node["id"]: node for node in universe["nodes"]}
     assert by_id["source.acme_retail.erp.orders"]["domain"] == "sales"  # a source, by a rule
     assert nodes["calendar"]["domain"] == "shared"
+
+
+def test_example_kinds_come_from_the_preset_with_no_other(example_project: Path) -> None:
+    universe = page_of(example_project)[1]["universe"]
+    labels = {kind["key"]: kind["label"] for kind in universe["kinds"]}
+    counts = Counter(labels[node["kind"]] for node in universe["nodes"])
+    assert {label: counts.get(label, 0) for label in EXPECTED["universe"]["kinds"]} == EXPECTED["universe"][
+        "kinds"
+    ]
+    assert "other" not in labels
+    assert {kind["key"]: kind["role"] for kind in universe["kinds"]}["hub"] == "core"
+
+
+def test_example_folds_its_satellites_into_their_hubs_and_links(example_project: Path) -> None:
+    universe = page_of(example_project)[1]["universe"]
+    roles = {kind["key"]: kind["role"] for kind in universe["kinds"]}
+    nodes = {node["id"]: node for node in universe["nodes"]}
+    fold = EXPECTED["fold"]
+    descriptive = [n for n in nodes.values() if roles[n["kind"]] == "descriptive"]
+    assert len(descriptive) == fold["descriptive"]
+    assert sum(bool(n["parent"]) for n in descriptive) == fold["folded"]
+    assert sum(roles[n["kind"]] in ("core", "connector") for n in nodes.values()) == fold["entities"]
+    for node in descriptive:
+        assert roles[nodes[node["parent"]]["kind"]] in ("core", "connector")
+        assert nodes[node["parent"]]["domain"] == node["domain"]
+
+
+def test_example_detail_groups_never_pass_the_skeleton_threshold_and_share_the_universe_parents(
+    example_project: Path,
+) -> None:
+    data = page_of(example_project)[1]
+    entities = {e["id"]: e for e in data["detail"]["entities"]}
+    group_of = {i: e["group"] for i, e in entities.items()}
+    for group in set(group_of.values()):  # the other-group parents of the group are drawn too
+        scope = {i for i, g in group_of.items() if g == group}
+        scope |= {r["parent"] for r in data["detail"]["relations"] if group_of[r["child"]] == group}
+        assert len(scope) <= 60, f"{group}: the skeleton would apply (D-073)"
+    universe = {n["id"]: n["parent"] for n in data["universe"]["nodes"]}
+    assert any(e["parent"] for e in entities.values())
+    for uid, entity in entities.items():
+        wanted = universe.get(uid, "")
+        assert entity["parent"] == (wanted if wanted in entities else "")
 
 
 def test_example_layers_are_the_medallion(example_project: Path) -> None:

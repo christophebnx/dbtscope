@@ -25,6 +25,8 @@ What it covers, as dbt really writes it:
   count is larger (`tests/browser/test_example_project.py`);
 - fields dbtscope does not read, ignored by `manifest_schema.INPUT`.
 
+- the universe kinds (M8.1): the `data_vault` preset gives Hub 13, Link 12, Satellite 13, Fact 8, Dimension 8, Staging 18 (the bronze `stg_*`), Source 18, Seed 3, Snapshot 2 and no Other;
+
 `expected.json` holds the counts the tests check (`tests/integration/test_example_project.py`).
 
 Regenerate after any change to `examples/acme_retail/` (then update `expected.json` if a count

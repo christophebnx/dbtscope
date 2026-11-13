@@ -16,11 +16,13 @@
     key_columns: "^(hk_|hd_)"     # regex; columns used by a relation are always keys
     include_packages: false       # also draw nodes from installed dbt packages
     kinds:                        # ordered, first match wins
-      - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
+      - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"], role: core}
+                                  # role: core | connector | descriptive | technical | none (kinds only)
 
     # universe view (every table of the project, by data domain)
     domains:                      # after dbt groups and meta.domain, before group_by
       - {key: vehicle, label: Vehicle, color: "#4da3ff", match: ["schema:vehicle"]}
+      - {key: raw_crm, system: false, match: []}   # system: true | false forces "source system" (D-068)
     layers:                       # ordered along the data flow; default: first folder under models/
       - {key: staging, label: Staging, match: ["path:models/staging/*"]}
     universe:
@@ -30,10 +32,12 @@
       detail: names               # names | keys | all
       hidden_kinds: []            # kinds unticked when the page opens
       constellations: domains     # domains | layers
+      fold: true                  # draw descriptive tables inside the table they describe (D-062, D-063)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
 Keys set in the file replace the preset's (lists are not merged); `universe` is merged key by key.
+A file kind rule that sets no `role` takes the role of the preset kind with the same `key`.
 Unknown keys are ignored (existing files keep working, invariant 9). The defaults are the field
 defaults of `Config` and `UniverseSettings`.
 Reading the files is the caller's job (`storage/project_files.load_config`).
@@ -46,7 +50,7 @@ and an unknown key is an error. `dbt-erd.yml` stays lenient.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -58,7 +62,7 @@ from pydantic import (
     model_validator,
 )
 
-from dbtscope.domain.errors import DomainError, validation_message
+from dbtscope.domain.errors import DomainError, in_words, validation_message
 
 CONFIG_FILE = "dbt-erd.yml"
 DEFAULT_KIND_COLOR = "#777777"
@@ -70,6 +74,8 @@ View = Literal["universe", "detail"]  # tab shown when the page opens
 Links = Literal["relations", "lineage", "both"]  # links drawn in the universe view
 DetailLevel = Literal["names", "keys", "all"]  # columns shown in the universe view
 Constellations = Literal["domains", "layers"]  # what a universe constellation stands for (D-048)
+Role = Literal["core", "connector", "descriptive", "technical", "none"]  # how much a kind matters (D-059)
+ROLES = get_args(Role)
 # unknown keys are accepted silently, as before the typed model: existing files keep working
 SETTINGS = ConfigDict(extra="ignore", frozen=True)
 # a preset is closed: a misspelt key is an error (D-030)
@@ -130,7 +136,31 @@ class Rule(BaseModel):
         return data
 
 
+class KindRule(Rule):
+    """A rule of `kinds`: a `Rule` with an optional `role` (None = not set, "none" = explicitly none)."""
+
+    role: Role | None = None
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _role(cls, value: Any) -> Any:
+        """Empty means not set; anything but a role is an error that lists the roles (D-059)."""
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str) or value not in ROLES:
+            raise ValueError(f"invalid role {value!r} ({in_words(ROLES)})")
+        return value
+
+
+class DomainRule(Rule):
+    """A rule of `domains`: a `Rule` with an optional `system` (None = not set), D-068."""
+
+    system: StrictBool | None = None
+
+
+DomainRuleList = Annotated[tuple[DomainRule, ...], BeforeValidator(_as_list)]
 RuleList = Annotated[tuple[Rule, ...], BeforeValidator(_as_list)]
+KindRuleList = Annotated[tuple[KindRule, ...], BeforeValidator(_as_list)]
 
 
 class UniverseSettings(BaseModel):
@@ -144,6 +174,7 @@ class UniverseSettings(BaseModel):
     detail: DetailLevel = "names"
     hidden_kinds: StrList = ()
     constellations: Constellations = "domains"
+    fold: StrictBool = True
 
 
 class Config(BaseModel):
@@ -160,8 +191,8 @@ class Config(BaseModel):
     group_by: str = "schema"
     key_columns: str | None = None
     include_packages: StrictBool = False
-    kinds: RuleList = ()
-    domains: RuleList = ()
+    kinds: KindRuleList = ()
+    domains: DomainRuleList = ()
     layers: RuleList = ()
     universe: UniverseSettings = UniverseSettings()
     layout_file: str = "dbt-erd-layout.json"
@@ -186,7 +217,7 @@ class Config(BaseModel):
 
     @field_validator("kinds", mode="after")
     @classmethod
-    def _kind_colors(cls, kinds: tuple[Rule, ...]) -> tuple[Rule, ...]:
+    def _kind_colors(cls, kinds: tuple[KindRule, ...]) -> tuple[KindRule, ...]:
         return tuple(k if k.color else k.model_copy(update={"color": DEFAULT_KIND_COLOR}) for k in kinds)
 
 
@@ -196,7 +227,21 @@ class PresetRule(Rule):
     model_config = PRESET_SETTINGS
 
 
+class PresetKindRule(KindRule):
+    """A kind rule of a preset: the fields of `KindRule`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
+class PresetDomainRule(DomainRule):
+    """A domain rule of a preset: the fields of `DomainRule`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
+PresetDomainRuleList = Annotated[tuple[PresetDomainRule, ...], BeforeValidator(_as_list)]
 PresetRuleList = Annotated[tuple[PresetRule, ...], BeforeValidator(_as_list)]
+PresetKindRuleList = Annotated[tuple[PresetKindRule, ...], BeforeValidator(_as_list)]
 
 
 class PresetUniverse(UniverseSettings):
@@ -213,8 +258,8 @@ class Preset(Config):
 
     model_config = PRESET_SETTINGS
 
-    kinds: PresetRuleList = ()
-    domains: PresetRuleList = ()
+    kinds: PresetKindRuleList = ()
+    domains: PresetDomainRuleList = ()
     layers: PresetRuleList = ()
     universe: PresetUniverse = PresetUniverse()
 
@@ -255,10 +300,33 @@ def _merged_universe(preset: dict[str, Any], file_config: dict[str, Any]) -> Any
     return {k: v for value in values if value for k, v in value.items()}
 
 
+def _inherited_roles(preset: dict[str, Any], file_config: dict[str, Any]) -> Any:
+    """The file's `kinds`, each rule without a role taking the role of the preset kind of the same key.
+
+    Only for string keys, when both lists hold mappings; any other shape is passed on for validation (D-059).
+    """
+    kinds, given = preset.get("kinds"), file_config.get("kinds")
+    if not isinstance(kinds, list | tuple) or not isinstance(given, list | tuple):
+        return given
+    roles = {
+        k["key"]: k["role"]
+        for k in kinds
+        if isinstance(k, dict) and k.get("role") and isinstance(k.get("key"), str)
+    }
+    return [
+        {**k, "role": roles[k["key"]]}
+        if isinstance(k, dict) and not k.get("role") and isinstance(k.get("key"), str) and k["key"] in roles
+        else k
+        for k in given
+    ]
+
+
 def merge_config(preset: dict[str, Any], file_config: dict[str, Any]) -> Config:
     """Defaults < preset < config file, validated once. `universe` is merged key by key."""
     merged = {**preset, **{k: v for k, v in file_config.items() if k != "preset"}}
     merged["universe"] = _merged_universe(preset, file_config)
+    if "kinds" in file_config:
+        merged["kinds"] = _inherited_roles(preset, file_config)
     try:
         return Config.model_validate(merged)
     except ValidationError as error:

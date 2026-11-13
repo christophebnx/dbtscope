@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 from conftest import empty_detail, page_of, write_config, write_example
+from large_project import write_large_project
 
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.payload import UniversePayload
@@ -33,6 +34,8 @@ NARROW = {"width": 360, "height": 800}
 PAGE_BG = (0xF5, 0xF6, 0xF8)  # C.bg of universe.js
 CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
 HERE = Path(__file__).parent
+# config text that opts out of the fold (M8.2): the example opens folded, some tests need the shown drawing
+NO_FOLD = "universe:\n  fold: false\n"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -140,6 +143,15 @@ def open_flow(p: Page, name: str, direction: str = "both", depth: str = "dall") 
     return p.page.evaluate("flow.state()")
 
 
+def set_all_domains(p: Page, on: bool) -> None:
+    """Tick or untick every domain of the universe panel: the business domains and, when there are some, the
+    source systems (each heading has its own all / none, M8.4)."""
+    suffix = "all" if on else "none"
+    p.page.click(f"#u-{suffix}")
+    if p.page.is_visible("#u-systems-h"):
+        p.page.click(f"#u-sys-{suffix}")
+
+
 def close_panel(p: Page, view: str) -> None:
     if p.page.is_visible(f"#{view}-panel"):
         p.page.click(f"#{view}-toggle")
@@ -229,3 +241,11 @@ def example_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, 
     """The page of the example project `acme_retail` (D-033), opened, and its payload."""
     html, data = page_of(write_example(tmp_path / "acme_retail"))
     return open_page(html), data
+
+
+@pytest.fixture
+def large_page(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    """The page of the generated large Data Vault project (1,419 tables, M8.1) and its payload.
+
+    Not opened: the tests time the opening themselves (`open_page(html)`)."""
+    return page_of(write_large_project(tmp_path / "large"))

@@ -1,0 +1,45 @@
+{
+ "shop": {
+  "": [
+   "5 / 5 tables \u00b7 4 relations \u00b7 dashed: other group",
+   "11b8d3aab3c5de563396dae66846a49dae2c3ef0545d8491c644e9bc3b097292"
+  ]
+ },
+ "acme": {
+  "": [
+   "54 / 54 tables \u00b7 58 relations",
+   "5508fad733513547e6edbbd30fa42f9d9211862c2d5040adf058fcd8f2b3b76d"
+  ],
+  "customer": [
+   "4 / 4 tables \u00b7 2 relations \u00b7 dashed: other group",
+   "0b8e508adb31075a7bb5f146d2a365c88cb6d65d6ed53192d38a23911715a8fc"
+  ],
+  "finance": [
+   "11 / 11 tables \u00b7 11 relations \u00b7 dashed: other group",
+   "9d09d4266ea612d1b82f18062c2bc1e550d313443cc81106d73f0558f5f4dd13"
+  ],
+  "logistics": [
+   "17 / 17 tables \u00b7 16 relations \u00b7 dashed: other group",
+   "fa88e6bafb63d9380938ff53d9cb401b8735d9fd86e6ca7ac95e2fdeaea7723d"
+  ],
+  "marketing": [
+   "14 / 14 tables \u00b7 13 relations \u00b7 dashed: other group",
+   "0ca3a401b9f8230bbc2fecf1d17595b512c00187df9ae065745e0c4340997a13"
+  ],
+  "product": [
+   "6 / 6 tables \u00b7 4 relations \u00b7 dashed: other group",
+   "a7ed7fb9ec02c57f3e61e9bc28fba9eea5d12ec63db39077884f07ac9ee2aad4"
+  ],
+  "sales": [
+   "16 / 16 tables \u00b7 15 relations \u00b7 dashed: other group",
+   "db690753088f6e46a113e60bd9ddbd0c1d94513c8ecada20ca3ef7ed7d561fe2"
+  ]
+ },
+ "large": {
+  "": [
+   "277 / 277 tables \u00b7 288 relations \u00b7 dashed: other group",
+   "e86339d7467d3cea4e565948fd2f67df7b43a02757c51114caf2138be1d55833"
+  ]
+ },
+ "large_group": "vehicle"
+}

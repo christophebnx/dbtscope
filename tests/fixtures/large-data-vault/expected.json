@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "synthetic": true,
+  "tables": 1419,
+  "kinds": {
+    "Link": 191, "Hub": 175, "Satellite": 422, "Source": 252, "PIT": 20,
+    "Dimension": 31, "Fact": 31, "Staging": 277, "View": 20
+  },
+  "layers": {"Sources": 252, "Staging": 277, "Raw vault": 828, "Data products": 62},
+  "domains": {
+    "Vehicle": 299, "Auction": 234, "Account": 179, "Claim": 105, "Activity": 98,
+    "raw_crm": 72, "raw_dms": 72, "raw_erp": 72, "raw_lms": 72, "raw_pay": 72, "raw_tms": 72, "raw_web": 72
+  },
+  "source_systems": ["raw_crm", "raw_dms", "raw_erp", "raw_lms", "raw_pay", "raw_tms", "raw_web"],
+  "relations": 978,
+  "lineage": 1643,
+  "fold": {
+    "descriptive": 442, "folded": 440, "without_parent": 2, "entities": 428,
+    "raw_vault_stars_folded": 388,
+    "parents": {
+      "effectivity_on_link": "model.shop.belt_camera_registration_link",
+      "no_relation_by_name": "model.shop.car_hub",
+      "two_parents": "model.shop.van_hub",
+      "no_parent": "",
+      "other_domain": ""
+    }
+  },
+  "detail": {
+    "tables": 788,
+    "group_by": "schema",
+    "vehicle": {"own": 263, "other_group": 14, "scope": 277, "with_parent": 139, "drawn": 138}
+  },
+  "special": {
+    "effectivity_on_link": "model.shop.belt_camera_registration_effsat",
+    "no_relation_by_name": "model.shop.car_unlinked_sat",
+    "no_parent": "model.shop.orphan_ledger_sat",
+    "two_parents": "model.shop.van_shared_sat",
+    "other_domain": "model.shop.auction_vehicle_sat"
+  }
+}

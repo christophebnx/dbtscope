@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from dbtscope.domain.classify import OTHER, background, first_rule, group_of, in_scope, key_columns
 from dbtscope.domain.config import Config
@@ -18,8 +18,18 @@ def select(
     return picked, [r for r in relations if r.child in picked and r.parent in picked]
 
 
-def detail_data(tables: dict[str, Table], relations: list[Relation], config: Config) -> DetailPayload:
-    """The payload of the detail view for the tables and relations returned by `select`."""
+def detail_data(
+    tables: dict[str, Table],
+    relations: list[Relation],
+    config: Config,
+    parents: Mapping[str, str] | None = None,
+) -> DetailPayload:
+    """The payload of the detail view for the tables and relations returned by `select`.
+
+    `parents` maps a table id to the id of the table it folds into, as the universe computes it
+    (`fold.parents`, D-062); a parent that is not itself a detail table is dropped (D-072).
+    """
+    parents = parents or {}
     is_key = key_columns(config, relations)
     entities = []
     for uid, table in sorted(tables.items(), key=lambda kv: kv[1].name):
@@ -34,13 +44,14 @@ def detail_data(tables: dict[str, Table], relations: list[Relation], config: Con
                 columns=tuple(
                     (c.name, c.data_type, is_key(uid, c.name), c.description) for c in table.columns
                 ),
+                parent=parents.get(uid, "") if parents.get(uid, "") in tables else "",
             )
         )
 
     used_kinds = {e.kind for e in entities}
     lang = config.language
     kinds = [
-        DetailKind(key=k.key, label=k.label, color=k.color, bg=background(k.color))
+        DetailKind(key=k.key, label=k.label, color=k.color, bg=background(k.color), role=k.role or "none")
         for k in config.kinds
         if k.key in used_kinds  # every configured kind has a colour (`Config._kind_colors`)
     ]

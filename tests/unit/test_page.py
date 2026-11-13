@@ -211,6 +211,28 @@ def test_page_has_the_flow_view() -> None:
     assert "{{FLOW_JS}}" not in page
 
 
+def test_page_has_the_text_summary_of_the_constellations_inside_the_stage_after_the_canvas() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    stage = page[page.index('id="u-stage"') : page.index('id="tab-detail"')]
+    assert stage.index('id="u-canvas"') < stage.index('id="u-summary"')
+    summary = re.search(r"<section[^>]*\bid=\"u-summary\"[^>]*>(.*?)</section>", stage, re.S)
+    assert summary is not None
+    assert 'class="sr-only"' in summary.group(0) and 'aria-labelledby="u-summary-h"' in summary.group(0)
+    assert re.search(r'<h2 id="u-summary-h">', summary.group(1))
+
+
+def test_the_universe_panel_has_the_source_systems_list_and_the_all_routes_row() -> None:
+    """M8.4: a second Domains heading with its own all / none, and the routes row after Links."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    panel = page[page.index('id="u-panel"') : page.index('class="stage"')]
+    assert panel.index('id="u-domains"') < panel.index('id="u-systems-h"') < panel.index('id="u-systems"')
+    heading = re.search(r'<h3 id="u-systems-h">(.*?)</h3>', panel, re.S)
+    assert heading is not None
+    assert 'id="u-sys-all"' in heading.group(1) and 'id="u-sys-none"' in heading.group(1)
+    assert panel.index('id="u-links"') < panel.index('id="u-routes-row"') < panel.index('id="u-h-detail"')
+    assert re.search(r'<label id="u-routes-row" hidden><input type="checkbox" id="u-routes-box">', panel)
+
+
 @pytest.mark.parametrize("offline", [False, True])
 def test_scripts_come_in_order_common_detail_universe_flow_boot(offline: bool) -> None:
     page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)

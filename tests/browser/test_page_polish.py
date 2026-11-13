@@ -16,8 +16,10 @@ from conftest import SHOP, page_of, shop_manifest, write_config, write_example, 
 from browser.conftest import (
     CENTRE_WAIT_MS,
     NARROW,
+    NO_FOLD,
     Page,
     scroll_width,
+    set_all_domains,
     show_detail,
     universe_page,
     wait_exportable,
@@ -38,7 +40,7 @@ def page_in(build_page: Any, open_page: Any, lang: str, **options: Any) -> Page:
 
 
 def domain_box(p: Page, label: str) -> Any:
-    return p.page.locator("#u-domains label", has_text=label).locator("input")
+    return p.page.locator("#u-domains label, #u-systems label", has_text=label).locator("input")
 
 
 def meta(p: Page) -> str:
@@ -99,10 +101,10 @@ def shared_tooltip(p: Page) -> str:
 def test_universe_meta_and_domain_tooltip_agree(tmp_path: Path, open_page: Any, lang: str) -> None:
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(project, config.replace("language: en\n", f"language: {lang}\n"))
+    write_config(project, config.replace("language: en\n", f"language: {lang}\n") + NO_FOLD)
     p = open_page(page_of(project)[0])
     none, shared, tables, domains = UNIVERSE_COUNTS[lang]
-    p.page.click("#u-none")
+    set_all_domains(p, False)
     assert meta(p) == none
     domain_box(p, "Shared").check()
     assert meta(p) == shared
@@ -338,7 +340,7 @@ def test_every_universe_and_detail_meta_count_agrees(tmp_path: Path, open_page: 
     links: set[int] = set()
     labels = [d["label"] for d in data["universe"]["domains"]]
     for first, second in zip(labels, [*labels[1:], None], strict=True):
-        p.page.click("#u-none")
+        set_all_domains(p, False)
         domain_box(p, first).check()
         links.add(agrees(meta(p), lang)[1])
         if second:
@@ -358,7 +360,7 @@ def test_every_universe_and_detail_meta_count_agrees(tmp_path: Path, open_page: 
 )
 def test_one_link_reads_singular(build_page: Any, open_page: Any, lang: str, expected: str) -> None:
     p = page_in(build_page, open_page, lang)
-    p.page.click("#u-none")
+    set_all_domains(p, False)
     sales = p.page.locator("#u-domains label").filter(
         has=p.page.locator("span", has_text=re.compile("^sales$"))
     )

@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from conftest import page_of, write_config, write_example
 
-from browser.conftest import NARROW, Page, close_panel, open_flow, scroll_width, universe_page
+from browser.conftest import NARROW, NO_FOLD, Page, close_panel, open_flow, scroll_width, universe_page
 from browser.test_trajectory_perf import median, universe_payload
 from browser.test_universe_layout import (
     HOVER,
@@ -78,7 +78,7 @@ def far_corner(c: dict[str, Any], t: dict[str, Any]) -> float:
 
 @pytest.fixture
 def acme(tmp_path: Path, open_page: Any) -> tuple[Page, dict[str, Any]]:
-    html, data = example(tmp_path)
+    html, data = example(tmp_path, NO_FOLD)
     return open_page(html), data
 
 

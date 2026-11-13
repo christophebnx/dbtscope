@@ -10,7 +10,7 @@ from dbtscope.domain.config import (
     NOT_IN_PRESET,
     Config,
     ConfigError,
-    Rule,
+    KindRule,
     check_preset,
     is_preset_path,
     merge_config,
@@ -32,6 +32,24 @@ def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.constellations == "layers"
 
 
+def test_fold_defaults_to_true_and_is_a_strict_boolean() -> None:
+    assert merge_config({}, {}).universe.fold is True
+    assert merge_config({}, {"universe": {"fold": False}}).universe.fold is False
+    preset = {"universe": {"fold": False}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.fold is False
+    assert merge_config(preset, {"universe": {"fold": True}}).universe.fold is True
+
+
+@pytest.mark.parametrize("value", ["maybe", 1, "yes", None])
+def test_a_non_boolean_fold_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"universe": {"fold": value}})
+    assert str(info.value).startswith("universe.fold: ") and "\n" not in str(info.value)
+    with pytest.raises(ConfigError, match=r"^universe\.fold: "):
+        check_preset({"universe": {"fold": value}})
+
+
 def test_file_overrides_preset_and_universe_is_merged() -> None:
     preset = {"title": "Preset", "group_by": "folder", "universe": {"detail": "keys"}}
     config = merge_config(preset, {"preset": "x", "title": "Mine", "universe": {"links": "lineage"}})
@@ -42,7 +60,9 @@ def test_file_overrides_preset_and_universe_is_merged() -> None:
 
 def test_rules_are_normalised() -> None:
     config = merge_config({}, {"kinds": [{"key": "core", "match": "tag:core"}], "select": "fct_*"})
-    assert config.kinds == (Rule(key="core", label="core", color=DEFAULT_KIND_COLOR, match=("tag:core",)),)
+    assert config.kinds == (
+        KindRule(key="core", label="core", color=DEFAULT_KIND_COLOR, match=("tag:core",)),
+    )
     assert config.select == ("fct_*",)
 
 
@@ -353,3 +373,123 @@ def test_a_short_hex_colour_is_written_out_and_case_is_kept() -> None:
 def test_an_empty_rule_colour_means_none() -> None:
     config = merge_config({}, {"kinds": [{"key": "a", "color": "", "match": ["*"]}]})
     assert config.kinds[0].color == DEFAULT_KIND_COLOR
+
+
+def _kinds(*rules: dict[str, Any]) -> dict[str, Any]:
+    return {"kinds": list(rules)}
+
+
+HUB = {"key": "hub", "match": ["*_hub"]}
+
+
+@pytest.mark.parametrize("role", ["core", "connector", "descriptive", "technical", "none"])
+def test_every_role_is_accepted(role: str) -> None:
+    assert merge_config({}, _kinds({**HUB, "role": role})).kinds[0].role == role
+
+
+@pytest.mark.parametrize("role", [None, ""])
+def test_an_absent_null_or_empty_role_is_not_set(role: str | None) -> None:
+    assert merge_config({}, _kinds(HUB)).kinds[0].role is None
+    assert merge_config({}, _kinds({**HUB, "role": role})).kinds[0].role is None
+
+
+@pytest.mark.parametrize("role", ["Core", "hubb", 3, ["core"]])
+def test_an_invalid_role_is_one_line_with_the_choices(role: Any) -> None:
+    with pytest.raises(ConfigError) as error:
+        merge_config({}, _kinds(HUB, HUB, {**HUB, "role": role}))
+    assert str(error.value) == (
+        f"kinds[2].role: invalid role {role!r} (core, connector, descriptive, technical or none)"
+    )
+
+
+def test_an_invalid_role_in_a_preset_is_refused() -> None:
+    with pytest.raises(ConfigError, match=r"kinds\[0\]\.role: invalid role 'hubb'"):
+        check_preset(_kinds({**HUB, "role": "hubb"}))
+    assert check_preset(_kinds({**HUB, "role": "core"}))
+
+
+def test_a_role_on_a_domain_or_layer_rule_is_ignored_in_a_file_and_refused_in_a_preset() -> None:
+    rule = {"key": "x", "match": ["*"], "role": "core"}
+    config = merge_config({}, {"domains": [rule], "layers": [rule]})
+    assert not hasattr(config.domains[0], "role") and not hasattr(config.layers[0], "role")
+    for section in ("domains", "layers"):
+        with pytest.raises(ConfigError, match=rf"{section}\[0\]\.role: unknown key"):
+            check_preset({section: [rule]})
+
+
+PRESET = _kinds(
+    {"key": "hub", "match": ["*_hub"], "role": "core"},
+    {"key": "link", "match": ["*_link"], "role": "connector"},
+    {"key": "plain", "match": ["p_*"]},
+)
+
+
+def test_a_file_kind_inherits_the_role_of_the_preset_kind_with_the_same_key() -> None:
+    config = merge_config(PRESET, _kinds({"key": "hub", "label": "H", "match": ["h_*"]}))
+    assert [(k.key, k.role) for k in config.kinds] == [("hub", "core")]  # link and plain stay dropped
+    assert config.kinds[0].match == ("h_*",)  # nothing else is inherited
+
+
+@pytest.mark.parametrize(
+    ("own", "expected"),
+    [("connector", "connector"), ("none", "none"), (None, "core"), ("", "core")],
+)
+def test_an_own_role_wins_and_none_drops_the_inherited_one(own: str | None, expected: str) -> None:
+    config = merge_config(PRESET, _kinds({"key": "hub", "match": ["h_*"], "role": own}))
+    assert config.kinds[0].role == expected
+
+
+def test_a_key_not_in_the_preset_gets_no_role_and_each_duplicate_inherits() -> None:
+    config = merge_config(
+        PRESET,
+        _kinds(
+            {"key": "new", "match": ["n_*"]}, {"key": "link", "match": ["a"]}, {"key": "link", "match": ["b"]}
+        ),
+    )
+    assert [k.role for k in config.kinds] == [None, "connector", "connector"]
+
+
+@pytest.mark.parametrize("kinds", ["hub", {"key": "hub"}, [3, "x"], [None]])
+def test_a_kinds_value_that_is_not_a_list_of_mappings_still_reaches_validation(kinds: Any) -> None:
+    with pytest.raises(ConfigError):
+        merge_config(PRESET, {"kinds": kinds})
+
+
+def test_a_preset_replaced_through_the_option_inherits_from_that_preset() -> None:
+    other = _kinds({"key": "hub", "match": ["*"], "role": "descriptive"})
+    assert merge_config(other, _kinds({"key": "hub", "match": ["h"]})).kinds[0].role == "descriptive"
+
+
+def test_a_file_kind_key_that_is_not_a_string_is_a_config_error() -> None:
+    """Role inheritance never hashes a non-string key: validation reports it (D-059)."""
+    preset = {"kinds": [{"key": "hub", "role": "core", "match": "x"}]}
+    with pytest.raises(ConfigError, match=r"kinds\[0\]\.key"):
+        merge_config(preset, {"kinds": [{"key": ["a"], "match": "x"}]})
+
+
+@pytest.mark.parametrize(("given", "expected"), [(True, True), (False, False), (None, None)])
+def test_a_domain_rule_system_is_a_bool_or_not_set(given: bool | None, expected: bool | None) -> None:
+    rule: dict[str, Any] = {"key": "d", "match": []}
+    if given is not None:
+        rule["system"] = given
+    assert merge_config({}, {"domains": [rule]}).domains[0].system is expected
+
+
+@pytest.mark.parametrize("value", ["yes", 1, "maybe"])
+def test_a_non_boolean_system_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"domains": [{"key": "a", "match": []}, {"key": "d", "match": [], "system": value}]})
+    assert str(info.value).startswith("domains[1].system: ")
+    assert "\n" not in str(info.value)
+
+
+def test_a_preset_domain_rule_may_set_system_but_a_kind_or_layer_rule_may_not() -> None:
+    check_preset({"domains": [{"key": "d", "match": "x", "system": True}]})
+    for section in ("kinds", "layers"):
+        with pytest.raises(ConfigError, match=rf"{section}\[0\].system: unknown key"):
+            check_preset({section: [{"key": "d", "match": "x", "system": True}]})
+
+
+def test_system_on_a_file_layer_rule_is_ignored() -> None:
+    config = merge_config({}, {"layers": [{"key": "l", "match": [], "system": True}]})
+    assert not hasattr(config.layers[0], "system")

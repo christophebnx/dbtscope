@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from pydantic import BaseModel
 
 from dbtscope.domain import selectors
-from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, Language, Rule
+from dbtscope.domain.config import DEFAULT_KIND_COLOR, Config, Language, Role, Rule
 from dbtscope.domain.model import DOMAIN, Relation, Table
 
 
@@ -20,6 +20,7 @@ class BuiltinKind(BaseModel):
     key: str
     label: dict[Language, str]
     color: str
+    role: Role = "none"
 
 
 OTHER = BuiltinKind(key="other", label={"en": "Other", "fr": "Autre"}, color=DEFAULT_KIND_COLOR)

@@ -99,6 +99,14 @@ def test_an_invalid_config_names_the_key(dbt_project: Path, capsys: pytest.Captu
     assert message == f"config {config}: {problem}"
 
 
+def test_a_kind_key_that_is_not_a_string_is_one_line_with_a_preset(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(dbt_project, "preset: star_schema\nkinds:\n  - {key: [a], match: [x]}\n")
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message.startswith(f"config {dbt_project / 'dbt-erd.yml'}: kinds[0].key: ")
+
+
 def test_an_invalid_config_wins_over_valid_command_line_overrides(
     dbt_project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -124,3 +132,58 @@ def test_a_misspelt_preset_key_fails_in_a_subprocess(dbt_project: Path) -> None:
     assert (result.returncode, result.stdout) == (1, "")
     assert result.stderr == f"dbtscope: error: preset {preset}: kinds[0].colour: unknown key; fix the file\n"
     assert not (dbt_project / PAGE).exists()
+
+
+def test_an_invalid_role_is_one_line_naming_the_file_and_the_kind(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(
+        dbt_project, "kinds:\n  - {key: a, match: ['a_*']}\n  - {key: hub, match: ['*_hub'], role: hubb}\n"
+    )
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message == (
+        f"config {dbt_project / 'dbt-erd.yml'}: kinds[1].role: invalid role 'hubb' "
+        "(core, connector, descriptive, technical or none); fix the file"
+    )
+
+
+def test_a_non_boolean_system_is_one_line_naming_the_file_and_the_rule(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(
+        dbt_project, "domains:\n  - {key: a, match: ['a_*']}\n  - {key: b, system: maybe, match: []}\n"
+    )
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert message.startswith(f"config {dbt_project / 'dbt-erd.yml'}: domains[1].system: ")
+    assert message.endswith("; fix the file")
+
+
+def test_a_boolean_system_override_reaches_the_page_payload(dbt_project: Path) -> None:
+    write_config(dbt_project, "domains:\n  - {key: sales, system: true, match: ['*']}\n")
+    assert main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN]) == 0
+    data = page_data((dbt_project / PAGE).read_text(encoding="utf-8"))
+    domains = {d["key"]: d for d in data["universe"]["domains"]}
+    assert domains["sales"]["system"] is True and list(domains["sales"])[-1] == "system"
+
+
+def test_a_bare_negation_is_one_line_naming_the_config(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(dbt_project, "exclude: ['!']\n")
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert "empty negation in '!'" in message and "dbt-erd.yml" in message
+
+
+def test_a_quoted_negation_filters_and_an_unquoted_one_fails_on_one_line(
+    dbt_project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_config(dbt_project, "select: ['!stg_*']\n")
+    html = dbt_project / PAGE
+    assert main(["--project-dir", str(dbt_project), *NO_PARSE_NO_OPEN]) == 0
+    data = page_data(html.read_text(encoding="utf-8"))
+    names = {e["name"] for e in data["detail"]["entities"]}
+    assert {"fct_orders", "orders"} <= names and "stg_orders" not in names
+    html.unlink()
+    write_config(dbt_project, "select: [!stg_*]\n")
+    message = _fails_on_one_line(dbt_project, capsys)
+    assert "dbt-erd.yml" in message

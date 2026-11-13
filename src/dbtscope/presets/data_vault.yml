@@ -1,18 +1,39 @@
 # Data Vault 2.0 naming: <entity>_hub, <a>_<b>_link, <entity>_sat, ...
 # Only the core is selected by default; reference tables and business vault
 # objects have a kind so that a project can add them to `select`.
+# Every kind has a role (core, connector, descriptive, technical, none): it drives the
+# size of its stars and which names the page shows first.
 title: Raw vault
 group_by: schema
 key_columns: "^(hk_|hd_)"
 select: ["*_hub", "*_link", "*_nhlink", "*_sal", "*_sat", "*_nhsat", "*_masat", "*_effsat"]
 exclude: ["vw_*", "stg_*"]
 kinds:
-  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"]}
-  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"]}
-  - {key: nhlink, label: NH link, color: "#1f8a8a", match: ["*_nhlink"]}
-  - {key: sal, label: Same-as link, color: "#8e5bb5", match: ["*_sal"]}
-  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat", "*_nhsat", "*_masat", "*_effsat"]}
-  - {key: refhub, label: Ref hub, color: "#5b7fa6", match: ["*_refhub"]}
-  - {key: refsat, label: Ref sat, color: "#a8924a", match: ["*_refsat"]}
-  - {key: pit, label: PIT, color: "#b5651d", match: ["*_pit"]}
-  - {key: bridge, label: Bridge, color: "#8a5a44", match: ["*_bridge"]}
+  - {key: hub, label: Hub, color: "#2f6fb5", match: ["*_hub"], role: core}
+  - {key: link, label: Link, color: "#2e8b57", match: ["*_link"], role: connector}
+  - {key: nhlink, label: NH link, color: "#1f8a8a", match: ["*_nhlink"], role: connector}
+  - {key: sal, label: Same-as link, color: "#8e5bb5", match: ["*_sal"], role: connector}
+  - {key: sat, label: Satellite, color: "#c9a227", match: ["*_sat", "*_nhsat", "*_masat", "*_effsat"], role: descriptive}
+  - {key: refhub, label: Ref hub, color: "#5b7fa6", match: ["*_refhub"], role: core}
+  - {key: refsat, label: Ref sat, color: "#a8924a", match: ["*_refsat"], role: descriptive}
+  - {key: pit, label: PIT, color: "#b5651d", match: ["*_pit"], role: descriptive}
+  - {key: bridge, label: Bridge, color: "#8a5a44", match: ["*_bridge"], role: connector}
+  - {key: dim, label: Dimension, color: "#39246b", match: ["dim_*"], role: core}
+  - {key: fact, label: Fact, color: "#6b2447", match: ["fct_*"], role: core}
+  - {key: stg, label: Staging, color: "#60562e", match: ["stg_*"], role: technical}
+  - {key: view, label: View, color: "#245d6b", match: ["vw_*"], role: none}
+# default layers, by folder pattern (a project's own `layers` replace them; `layers: []` gives
+# back one layer per first folder). The first matching rule wins.
+layers:
+  - {key: sources, label: Sources, match: ["type:source"]}
+  - key: staging
+    label: Staging
+    match: ["stg_*", "type:seed", "type:snapshot", "path:models/raw*,!path:models/raw*vault*",
+            "path:models/stg*", "path:models/staging*", "path:models/base*", "path:models/bronze*"]
+  - key: vault
+    label: Raw vault
+    match: ["path:models/int*", "path:models/vault*", "path:models/raw*vault*", "path:models/ref*",
+            "path:models/silver*", "*_hub", "*_link", "*_nhlink", "*_sal", "*_sat", "*_nhsat", "*_masat",
+            "*_effsat", "*_refhub", "*_refsat", "*_pit", "*_bridge"]
+  - {key: products, label: Data products, match: ["dim_*", "fct_*", "path:models/dp*", "path:models/mart*", "path:models/product*", "path:models/gold*"]}
+  - {key: reports, label: Reports, match: ["path:models/report*", "path:models/expo*"]}

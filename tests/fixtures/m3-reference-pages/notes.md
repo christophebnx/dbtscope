@@ -8,10 +8,11 @@ project of `tests/conftest.py`, built through `cli.main([... "--no-parse", "--no
 |---|---|
 | `none` | no `dbt-erd.yml`: defaults |
 | `star_schema` | `--preset star_schema` |
-| `data_vault` | `--preset data_vault` |
+| `data_vault` | `--preset data_vault` (its kinds with roles and its default layers, M8.1) |
 | `fr` | `language: fr`, `view: detail` (French built-in labels) |
 | `layers_domains` | `layers` via `path:` with an `other` layer and a `label: null`; `domains` with and without `color` / `label` (palette consumption); `group_by: folder:1` |
 | `kinds` | custom `kinds` (one without `color`, one without `label`, one with `label: null`), `key_columns: "_id$"`, `include_packages: true`, `universe` `links` / `detail` / `hidden_kinds`, `group_by: tag:co*` |
+| `roles` | `preset: data_vault` with a `kinds` list overriding `hub` without a role (inherits `core`), `fact` with `role: none` and `dim` with `role: technical`, and `layers` rules with a negated part (`!type:source,!stg_*`) (M8.1, D-059, D-061) |
 | `edge` | a description holding `<!-- <script>`, `</script>`, non-ASCII, U+2028 / U+2029 and a tab (D-023, `ensure_ascii=False`), a `null` column `data_type`, an embedded `dbt-erd-layout.json` with a fixed `savedAt` |
 | `offline` | `none` + `--offline` |
 | `offline_fr` | `fr` + `--offline` |
@@ -25,3 +26,17 @@ Files:
 
 Checked by `tests/unit/test_reference_pages.py`. Regenerate (only when a page change is intended, in
 the same commit, and say so in the message): `uv run python tests/reference_pages.py`.
+
+M8.2 (entities, D-062, D-063): every case gains `"parent":""` on each universe node and `"fold":true` at the
+end of the universe defaults; the old and new payloads are equal once those two keys are removed (checked
+before regenerating), and no case has a descriptive table with a parent (the `shop` project has no hub or
+satellite), so every `parent` is empty. Every page changes by the script (`universe.js`), the markup of
+the fold control (`page.html`) and `page.css`.
+
+M8.5 (detail skeleton, D-072): every detail entity gains `"parent":""` (last key) and every detail kind
+its `"role"` (last key: `"none"` for a kind without one, `"core"` for the `star_schema` kinds; the `data_vault` and
+`roles` cases have an empty detail). The old and new payloads
+are equal once those two keys are removed (checked before regenerating), and no case has a detail table whose
+universe parent is also a detail table (the `shop` project has no hub or satellite), so every `parent` is
+empty. Every page changes by the scripts (`common.js`, `detail.js`, `universe.js`) and the markup and style of
+the detail panel (`page.html`, `page.css`).
