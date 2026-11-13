@@ -16,6 +16,14 @@
     "Hub": 175, "Link": 191, "Satellite": 422, "PIT": 20, "Dimension": 32, "Fact": 30,
     "Staging": 252, "Source": 252
   },
+  "source_systems": ["raw_auction_house", "raw_billing", "raw_claims", "raw_crm", "raw_dealer", "raw_telematics", "raw_web"],
+  "business_flow": {
+    "order": ["account", "vehicle", "auction", "claim", "activity"],
+    "products_reading_upstream": {
+      "vehicle": {"account": 5}, "auction": {"vehicle": 4, "account": 2}, "claim": {"vehicle": 3, "auction": 2},
+      "activity": {"claim": 2, "auction": 2}
+    }
+  },
   "business_domains": {
     "vehicle": {"hubs": 70, "links": 66, "satellites": 135, "pits": 6, "dimensions": 7, "facts": 6},
     "auction": {"hubs": 40, "links": 48, "satellites": 111, "pits": 5, "dimensions": 11, "facts": 10},

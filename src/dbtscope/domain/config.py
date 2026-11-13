@@ -21,6 +21,7 @@
     # universe view (every table of the project, by data domain)
     domains:                      # after dbt groups and meta.domain, before group_by
       - {key: vehicle, label: Vehicle, color: "#4da3ff", match: ["schema:vehicle"]}
+      # optional `system: true | false` forces or refuses "source system" (default: automatic)
     layers:                       # ordered along the data flow; default: first folder under models/
       - {key: staging, label: Staging, match: ["path:models/staging/*"]}
     universe:
@@ -155,6 +156,15 @@ class KindRule(Rule):
 KindRuleList = Annotated[tuple[KindRule, ...], BeforeValidator(_as_list)]
 
 
+class DomainRule(Rule):
+    """A rule of `domains`: a `Rule` with an optional source-system flag (D-065)."""
+
+    system: StrictBool | None = None  # null or absent: automatic (`universe.source_systems`)
+
+
+DomainRuleList = Annotated[tuple[DomainRule, ...], BeforeValidator(_as_list)]
+
+
 class UniverseSettings(BaseModel):
     """The `universe` section: scope and opening state of the universe view."""
 
@@ -184,7 +194,7 @@ class Config(BaseModel):
     key_columns: str | None = None
     include_packages: StrictBool = False
     kinds: KindRuleList = ()
-    domains: RuleList = ()
+    domains: DomainRuleList = ()
     layers: RuleList = ()
     universe: UniverseSettings = UniverseSettings()
     layout_file: str = "dbt-erd-layout.json"
@@ -225,8 +235,15 @@ class PresetKindRule(KindRule):
     model_config = PRESET_SETTINGS
 
 
+class PresetDomainRule(DomainRule):
+    """A domain rule of a preset: the fields of `DomainRule`, no other key."""
+
+    model_config = PRESET_SETTINGS
+
+
 PresetRuleList = Annotated[tuple[PresetRule, ...], BeforeValidator(_as_list)]
 PresetKindRuleList = Annotated[tuple[PresetKindRule, ...], BeforeValidator(_as_list)]
+PresetDomainRuleList = Annotated[tuple[PresetDomainRule, ...], BeforeValidator(_as_list)]
 
 
 class PresetUniverse(UniverseSettings):
@@ -244,7 +261,7 @@ class Preset(Config):
     model_config = PRESET_SETTINGS
 
     kinds: PresetKindRuleList = ()
-    domains: PresetRuleList = ()
+    domains: PresetDomainRuleList = ()
     layers: PresetRuleList = ()
     universe: PresetUniverse = PresetUniverse()
 

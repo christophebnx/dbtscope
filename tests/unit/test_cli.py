@@ -576,7 +576,7 @@ def test_stdout_holds_only_the_summary_with_the_absolute_page_path(
     assert captured.err == ""
     assert captured.out.splitlines() == [
         str(page),
-        "  universe: 6 tables in 4 domains, 4 relations, 5 lineage links",
+        "  universe: 6 tables in 4 domains (1 source system), 4 relations, 5 lineage links",
         "  detail:   4 tables (2 Fact, 2 Dimension), 3 relations",
         f"  page:     opens on detail, en, libraries from CDNs ({_size(page.stat().st_size)})",
         "  config:   none (built-in defaults), preset star_schema",
@@ -641,6 +641,17 @@ def test_a_page_without_descriptive_tables_keeps_its_summary(dbt_project: Path, 
     write_config(dbt_project, "preset: data_vault\n")
     assert main(build(dbt_project)) == 0
     assert not any(line.startswith("  fold:") for line in capsys.readouterr().out.splitlines())
+
+
+def test_the_universe_row_counts_source_systems_only_when_there_are_some(
+    dbt_project: Path, capsys: Capsys
+) -> None:
+    """D-065: `(1 source system)` with a preset that gives roles, no parenthesis on a page without roles."""
+    assert main(build(dbt_project)) == 0
+    assert "  universe: 6 tables in 5 domains, 4 relations" in capsys.readouterr().out
+    write_config(dbt_project, "preset: star_schema\n")
+    assert main(build(dbt_project)) == 0
+    assert "6 tables in 4 domains (1 source system), 4 relations" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

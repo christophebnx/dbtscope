@@ -40,6 +40,8 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel legend { padding:0; margin-top:0; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
 .panel h3 a:hover { color:var(--accent); }
+.panel h3[hidden], .panel label[hidden] { display:none; }   /* the source systems heading and the All routes row: only when there is something to say */
+.panel label.check { margin-top:6px; }
 .panel select, .panel > button { width:100%; }
 .panel label { display:flex; align-items:center; gap:7px; padding:2px 0; cursor:pointer; user-select:none; }
 .panel input[type=radio] { margin:3px 3px 3px 4px; }   /* the checkbox's default margin: rows of one height */
@@ -55,7 +57,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 /* the summary as text (M8.3, D-064): the last block of the universe panel, closed until opened */
 #u-sum { margin-top:16px; }
 #u-sum > summary { cursor:pointer; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:4px 0; }
-#u-sum .sum-c { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
+#u-sum .sum-c, #u-sum .sum-sys { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
 #u-sum h4 { display:flex; align-items:center; gap:7px; margin:0; font-size:13px; }
 #u-sum h4 i { width:10px; height:10px; border-radius:50%; flex:none; }
 #u-sum h4 span { flex:1; min-width:0; overflow-wrap:anywhere; }
@@ -69,6 +71,10 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .stage { flex:1; min-width:0; display:flex; flex-direction:column; }
 .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
 .toolbar .meta { color:var(--muted); font-size:13px; }
+/* the universe's meta line changes length with the zoom ("9 of 15 routes" only from afar): it never decides whether the toolbar wraps, or the stage
+   would resize and refit while zooming. It takes the room left, with a floor, and is cut with an ellipsis (its full text is its title) */
+#u-meta + .grow { display:none; }
+#u-meta { flex:1 1 0; min-width:19em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */
@@ -86,7 +92,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #d-graph g.node { cursor:grab; }
 
 /* ---- universe view ---- */
-#u-q { width:220px; }
+#u-q { width:150px; }
 #u-canvas { position:absolute; inset:0; display:block; touch-action:none; }
 .tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }

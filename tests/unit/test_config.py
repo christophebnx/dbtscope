@@ -430,3 +430,27 @@ def test_role_inheritance_leaves_malformed_kinds_to_validation() -> None:
         merge_config(preset, {"kinds": "hub"})
     with pytest.raises(ConfigError, match=r"kinds\[1\]"):
         merge_config(preset, {"kinds": [{"key": "hub", "match": "x"}, "oops"]})
+
+
+@pytest.mark.parametrize("value", [True, False, None])
+def test_a_domain_rule_accepts_a_system_flag_or_none(value: bool | None) -> None:
+    config = merge_config({}, {"domains": [{"key": "d", "match": "x", "system": value}]})
+    assert config.domains[0].system is value
+    assert merge_config({}, {"domains": [{"key": "d", "match": "x"}]}).domains[0].system is None
+
+
+@pytest.mark.parametrize("value", ["yes", 1])
+def test_a_non_bool_system_is_a_one_line_error(value: object) -> None:
+    domains = [{"key": "a", "match": "x"}, {"key": "b", "match": "x", "system": value}]
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"domains": domains})
+    assert str(info.value).startswith("domains[1].system") and "\n" not in str(info.value)
+
+
+def test_system_is_allowed_on_a_preset_domain_but_not_on_a_layer() -> None:
+    check_preset({"domains": [{"key": "d", "match": "x", "system": True}]})
+    with pytest.raises(ConfigError, match="unknown key"):
+        check_preset({"layers": [{"key": "d", "match": "x", "system": True}]})
+    assert not hasattr(
+        merge_config({}, {"layers": [{"key": "l", "match": "x", "system": True}]}).layers[0], "system"
+    )

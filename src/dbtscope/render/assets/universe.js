@@ -34,7 +34,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           summary: 'Summary', zoomBtn: 'Zoom', zoomOn: name => `Zoom on ${name}`, mainTables: 'Main tables',
           zoomRow: 'Zoom on this layer', zoomRowC: 'Zoom on this domain', layerOne: 'Layer',
           rowZoom: 'click a row: zoom on it', zoomed: name => `Zoomed on ${name}`,
-          hintCards: ' · from afar each constellation is a summary card: double-click it, or click one of its rows, to see its tables' },
+          hintCards: ' · from afar each constellation is a summary card: double-click it, or click one of its rows, to see its tables',
+          // source systems and routes (M8.4, D-065..D-067)
+          systems: 'Source systems', systemsN: ['system', 'systems'], systemOne: 'Source system',
+          routesN: ['route', 'routes'], routesShownN: ['route shown', 'routes shown'], allRoutes: 'All routes',
+          allRoutesOn: 'All routes shown', allRoutesOff: 'Strongest routes shown',
+          lineageN: ['lineage link', 'lineage links'], relationsN: ['relation', 'relations'],
+          reads: (r, u) => `${r} reads ${u}`, systemsList: 'Systems: ',
+          routesOf: (s, n) => `${num(s)} of ${plural(n, T.routesN)}`,
+          routes: 'Routes', routesNone: 'none', readsFrom: 'reads', readBy: 'read by', relWith: 'relations with',
+          hintRoutes: ' · hover a constellation to see all its routes, a route for the links it carries' },
     fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
           names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
           every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
@@ -64,7 +73,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           summary: 'Synthèse', zoomBtn: 'Cadrer', zoomOn: name => `Cadrer ${name}`, mainTables: 'Tables principales',
           zoomRow: 'Cadrer cette couche', zoomRowC: 'Cadrer ce domaine', layerOne: 'Couche',
           rowZoom: 'clic sur une ligne\u00a0: la cadrer', zoomed: name => `Cadré sur ${name}`,
-          hintCards: ' · de loin, chaque constellation est une carte de synthèse\u00a0: double-clic dessus, ou clic sur une de ses lignes, pour voir ses tables' },
+          hintCards: ' · de loin, chaque constellation est une carte de synthèse\u00a0: double-clic dessus, ou clic sur une de ses lignes, pour voir ses tables',
+          systems: 'Systèmes sources', systemsN: ['système', 'systèmes'], systemOne: 'Système source',
+          routesN: ['route', 'routes'], routesShownN: ['route affichée', 'routes affichées'], allRoutes: 'Toutes les routes',
+          allRoutesOn: 'Toutes les routes affichées', allRoutesOff: 'Routes principales affichées',
+          lineageN: ['lien de lignage', 'liens de lignage'], relationsN: ['relation', 'relations'],
+          reads: (r, u) => `${r} lit ${u}`, systemsList: 'Systèmes\u00a0: ',
+          routesOf: (s, n) => `${plural(s, T.routesN)} sur ${num(n)}`,
+          routes: 'Routes', routesNone: 'aucune', readsFrom: 'lit', readBy: 'lu par', relWith: 'relations avec',
+          hintRoutes: ' · survolez une constellation pour voir toutes ses routes, une route pour les liens qu\'elle porte' },
   }[PAGE.lang];
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
@@ -118,6 +135,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // names at overview (orderLabels) share nameOrder and offer the first OVERVIEW_NAMES of the tables on screen.
   const overviewOrder = members => members.filter(n => !HAS_CORE || roleOf(n) === 'core').sort(nameOrder);
   const DOM = Object.fromEntries(DATA.domains.map(d => [d.key, d]));
+  // source systems (M8.4, D-065, D-066): Python decides which domains are plumbing, the page only reads the flag. DOMAIN_ORDER is
+  // the one order of domains in the page: business domains in payload order, then source systems (the Domains panel, the layer
+  // mode's bands and card rows); without a system it is the payload order
+  const SYSTEM = new Set(DATA.domains.filter(d => d.system).map(d => d.key));
+  const DOMAIN_ORDER = [...DATA.domains.filter(d => !d.system), ...DATA.domains.filter(d => d.system)];
+  const NEUTRAL = '#8a94a6', GROUP = '\u0000systems';   // a source system's colour (drawn through CONTRAST.edge); the group card's key
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
   const counts = key => d3.rollup(N, v => v.length, n => n[key]);
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
@@ -156,6 +179,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
     fold: FOLDABLE ? foldMemory.get() ?? DATA.defaults.fold : false,
+    allRoutes: false,   // exploration, not a lasting choice: never stored nor exported
   };
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
   let ctx = screenCtx;   // what the drawing helpers paint on: the screen, or an exported image during draw()
@@ -163,11 +187,17 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   let P = [], B = [], REL = new Map(), labelHits = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
   // folded tables (D-062): vis = filter-visible tables; drawn = visible minus folded; FOLDED = parent -> its visible folded
   // tables; foldedSet = those tables; SP / orbits = folded tables shown now, on an orbit round their entity (placeShown)
+  // routes (M8.4): the individual routes are `routes`; BUNDLE the bundled graph through the group card (built on demand);
+  // FLOWRANK the business domains' flow ranks; GROUPED the source systems the group card stands for (two or more, else none);
+  // routeFocus the constellation (or GROUP) whose routes are all drawn; routeSeen what the last screen frame drew
+  let litSet = null;   // the keys the focus lights (null: no focus)
+  const litAlpha = key => (litSet && !litSet.has(key) ? DIM_CTX : 1);
+  let BUNDLE = null, FLOWRANK = new Map(), GROUPED = [], routeFocus = null, routeSeen = { list: [], obstacles: [] };
   let vis = new Set(), drawn = [], FOLDED = new Map(), foldedSet = new Set(), entityCount = 0;
   let SP = new Map(), orbits = [], ORBIT_R = new Map();   // ORBIT_R: entity -> { r, tall } its outer orbit and tallest shown star, world
   const posOf = i => P[i] || SP.get(i);
   let drawnNames = [];   // the tables whose names the last screen frame drew (test hook)
-  let t = d3.zoomIdentity, hover = null, overCard = null, found = null, perf = { layout: 0, draw: 0, place: 0, cards: 0, cardLayout: 0 };
+  let t = d3.zoomIdentity, hover = null, overCard = null, found = null, perf = { layout: 0, draw: 0, place: 0, cards: 0, cardLayout: 0, routes: 0 };
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
   const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
   const DEPTH = { d1: 1, d2: 2, d3: 3, dall: Infinity };
@@ -198,32 +228,48 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
   $u('fold').querySelector('label').title = T.foldTitle;
   $u('fold-on').checked = state.fold;
-  const hintText = () => T.hint + (state.fold ? T.hintFold : '') + T.hintCards;
+  const hintText = () => T.hint + (state.fold ? T.hintFold : '') + T.hintCards + T.hintRoutes;
   $u('fold-on').onchange = ev => {
     state.fold = ev.target.checked; foldMemory.set(state.fold, DATA.defaults.fold);
     $u('hint').textContent = hintText();
     relayout();
     live.textContent = state.fold ? T.foldOn(entityCount) : T.foldOff;
   };
+  const BUSINESS = DOMAIN_ORDER.filter(d => !d.system), SYSTEMS = DOMAIN_ORDER.filter(d => d.system);
   $u('h-layers').textContent = T.layers; $u('h-kinds').textContent = L.kinds; $u('h-domains').textContent = T.domains;
   $u('all').textContent = T.every; $u('none').textContent = T.nothing;
+  $u('h-systems').textContent = T.systems; $u('sys-all').textContent = T.every; $u('sys-none').textContent = T.nothing;
+  $u('h-systems-row').hidden = !SYSTEMS.length;
+  $u('routes-t').textContent = T.allRoutes;
+  $u('routes').onchange = ev => {
+    state.allRoutes = ev.target.checked; draw();
+    live.textContent = state.allRoutes ? T.allRoutesOn : T.allRoutesOff;
+  };
   $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = hintText();
 
   function checkboxes(el, items, countOf, set, color, title) {
-    el.replaceChildren(...items.map(it => filterRow(
-      { label: labelOf(it), color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
-        title: title && title(it) },
-      on => { on ? set.add(it.key) : set.delete(it.key); relayout(); })));
+    el.replaceChildren(...items.map(it => {
+      const row = filterRow(
+        { label: labelOf(it), color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
+          title: title && title(it) },
+        on => { on ? set.add(it.key) : set.delete(it.key); relayout(); });
+      if (el.id === 'u-domains' || el.id === 'u-systems') focusRow(row, it.key);   // keyboard focus lights the routes (D-067)
+      return row;
+    }));
   }
   function refreshPanel() {
     checkboxes($u('layers'), DATA.layers, COUNT.layer, state.layers);
     checkboxes($u('kinds'), kindOrder, COUNT.kind, state.kinds, k => k.color,
       k => k.role ? `${T.role}${L.colon}${T.roles[k.role]}` : labelOf(k));
-    checkboxes($u('domains'), DATA.domains, COUNT.domain, state.domains, d => d.color, d => d.owner ? `${T.owner}${L.colon}${d.owner}` : labelOf(d));
+    const domainTitle = d => d.owner ? `${T.owner}${L.colon}${d.owner}` : labelOf(d);
+    checkboxes($u('domains'), BUSINESS, COUNT.domain, state.domains, d => d.color, domainTitle);
+    checkboxes($u('systems'), SYSTEMS, COUNT.domain, state.domains, d => d.color, domainTitle);
   }
   refreshPanel();
-  $u('all').onclick = () => { DATA.domains.forEach(d => state.domains.add(d.key)); refreshPanel(); relayout(); };
-  $u('none').onclick = () => { state.domains.clear(); refreshPanel(); relayout(); };
+  // all / none act on their own list: the business domains, or the source systems
+  const setAll = (list, on) => () => { list.forEach(d => (on ? state.domains.add(d.key) : state.domains.delete(d.key))); refreshPanel(); relayout(); };
+  $u('all').onclick = setAll(BUSINESS, true); $u('none').onclick = setAll(BUSINESS, false);
+  $u('sys-all').onclick = setAll(SYSTEMS, true); $u('sys-none').onclick = setAll(SYSTEMS, false);
   sidePanel('u', () => { resize(); fit(false); });
   $u('export-h').textContent = L.exportImage;
   $u('export').textContent = L.png; $u('export').title = T.pngTitle;
@@ -367,16 +413,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
 
     // constellations: linked ones attract, ordered left to right along the flow, never overlapping
-    const agg = new Map(), flow = new Map();
+    const agg = new Map(), flow = new Map(), rel = new Map(), lin = new Map();
+    const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
     edges.forEach(([a, b]) => {
       const da = G.of(N[a]), db = G.of(N[b]);
-      if (da !== db) { const k = da < db ? da + '|' + db : db + '|' + da; agg.set(k, (agg.get(k) || 0) + 1); }
+      if (da !== db) { const k = pairKey(da, db); agg.set(k, (agg.get(k) || 0) + 1); }
     });
+    // what each route carries, by kind of link (its tooltip), under the Links selector
+    const tally = (list, into) => list.forEach(([a, b]) => {
+      if (!vis.has(a) || !vis.has(b) || G.of(N[a]) === G.of(N[b])) return;
+      const k = pairKey(G.of(N[a]), G.of(N[b]));
+      into.set(k, (into.get(k) || 0) + 1);
+    });
+    if (state.links !== 'lineage') tally(DATA.relations, rel);
+    if (state.links !== 'relations') tally(DATA.lineage, lin);
     DATA.lineage.forEach(([child, parent]) => {  // data flows from parent to child
       if (!vis.has(child) || !vis.has(parent)) return;
       const from = G.of(N[parent]), to = G.of(N[child]);
       if (from === to) return;
-      const k = from < to ? from + '|' + to : to + '|' + from;
+      const k = pairKey(from, to);
       flow.set(k, (flow.get(k) || 0) + (from < to ? 1 : -1));
     });
     // manual arrangement: a moved table keeps its offset from its constellation's centre, a moved
@@ -391,13 +446,27 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     constellations.forEach(d => { const p = saved[G.pins][d.k]; if (p) { d.fx = p[0]; d.fy = p[1]; } });
     routes = [...agg].map(([k, c]) => {
       const [a, b] = k.split('|'), f = flow.get(k) || 0;
-      return { source: a, target: b, c, dir: Math.abs(f) > c * 0.2 ? Math.sign(f) : 0 };
+      return { source: a, target: b, c, rel: rel.get(k) || 0, lin: lin.get(k) || 0, f, dir: Math.abs(f) > c * 0.2 ? Math.sign(f) : 0, strong: false };
     });
-    const rand = d3.randomLcg(42), W = (d3.mean(constellations, d => d.r) || 1) * 2.4;
-    const sim = d3.forceSimulation(constellations).randomSource(rand)
+    const strong = strongRoutes(routes);
+    routes.forEach(r => { r.strong = strong.has(r); });
+    BUNDLE = null;
+    // source systems stay out of the simulation: they are stacked upstream afterwards (stackSystems). Business domains are
+    // placed along the data flow: their x target is their rank over the business-domain graph (domainRanks)
+    const byKey = new Map(constellations.map(d => [d.k, d])), isSys = d => state.by === 'domains' && SYSTEM.has(d.k);
+    const business = constellations.filter(d => !isSys(d)), systems = constellations.filter(isSys);
+    FLOWRANK = new Map();
+    if (state.by === 'domains') {
+      FLOWRANK = domainRanks(business, whole, routes);
+      business.forEach(d => { d.rank = FLOWRANK.get(d.k); });
+    }
+    const rand = d3.randomLcg(42), W = (d3.mean(business, d => d.r) || 1) * 2.4;
+    const inSim = new Set(business.map(d => d.k));
+    const links = routes.filter(r => inSim.has(r.source) && inSim.has(r.target)).map(r => ({ source: r.source, target: r.target, c: r.c }));
+    const sim = d3.forceSimulation(business).randomSource(rand)
       // the padding leaves room for the domain name drawn above each constellation
       .force('collide', d3.forceCollide(d => d.r + 30 + d.r * 0.15).iterations(3))
-      .force('link', d3.forceLink(routes).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
+      .force('link', d3.forceLink(links).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
         .strength(l => Math.min(0.4, 0.03 + Math.log1p(l.c) * 0.04)))
       .force('x', d3.forceX(d => d.rank * W).strength(G.flowX))
       .force('y', d3.forceY(0).strength(0.06))
@@ -407,6 +476,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // settle with collisions only, so link forces can't leave constellations overlapping
     sim.force('link', null).force('x', null).force('y', null).force('charge', null);
     for (let k = 0; k < 100; k++) sim.tick();
+    stackSystems(systems, business, byKey);
+    GROUPED = systems.length >= 2 ? systems : [];
+    if (GROUPED.length) groupBox();
+    // the control for every route: only when some are left out, evaluated per layout so it never flickers while zooming
+    const all = routes.every(r => r.strong);
+    $u('routes-row').hidden = all;
+    if (all && state.allRoutes) { state.allRoutes = false; $u('routes').checked = false; }
 
     P = [];
     constellations.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
@@ -415,6 +491,89 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     perf.layout = performance.now() - t0;
     summarise();
     renderSummary();
+  }
+
+  // ---------------------------------------------------------------- source systems and routes (M8.4, D-065..D-067)
+  // The business domains' x target (D-066): the rank of each over the graph of business constellations, reusing flowRanks. An edge
+  // runs from the upstream domain to the one that reads it (routes with a net direction); the layer of a constellation is its
+  // median table's (null when that is the catch-all, which gets no floor). A domain read by others sits left of them.
+  function domainRanks(business, whole, list) {
+    const keys = business.map(d => d.k), at = new Set(keys);
+    const edgesUp = list.filter(r => r.dir && at.has(r.source) && at.has(r.target)).map(r => (r.dir > 0 ? [r.source, r.target] : [r.target, r.source]));
+    const layerAt = key => {
+      const ranks = whole.get(key).map(n => LAYER[n.layer].rank).sort((a, b) => a - b), m = ranks[ranks.length >> 1];
+      return DATA.layers[m].key === NO_LAYER ? null : m;
+    };
+    return flowRanks(keys, edgesUp, layerAt).rank;
+  }
+  // The source systems in columns left of the business domains (D-066), after the simulation: no randomness. A column's height is
+  // capped at the business box's; the systems, sorted by the mean y of the business domains they feed, are dealt round-robin into
+  // the columns (the first nearest the business box), each column keeping every disc as close to that y as the room between two
+  // discs allows (an isotonic fit, pool-adjacent-violators). A pinned system stays at its pin; a free one steps over it.
+  const STACK_GAP = 30;
+  const roomOf = d => d.r + 30 + d.r * 0.15;   // the collide radius
+  function stackSystems(systems, business, byKey) {
+    systems.filter(d => d.fx != null).forEach(d => { d.x = d.fx; d.y = d.fy; });
+    const free = systems.filter(d => d.fx == null), pinned = systems.filter(d => d.fx != null);
+    if (!free.length) return;
+    const roomSum = d3.sum(free, d => 2 * roomOf(d));
+    const top = business.length ? d3.min(business, d => d.y - d.r) : 0, bottom = business.length ? d3.max(business, d => d.y + d.r) : 0;
+    const H = business.length ? Math.max(bottom - top, 2 * d3.max(free, roomOf)) : Math.sqrt(d3.sum(free, d => (2 * roomOf(d)) ** 2));
+    const mid = (top + bottom) / 2, ncol = Math.max(1, Math.ceil(roomSum / H));
+    const bary = d => {
+      let w = 0, sum = 0;
+      routes.forEach(r => {
+        const other = r.source === d.k ? r.target : r.target === d.k ? r.source : null, o = other && byKey.get(other);
+        if (o && !SYSTEM.has(other)) { w += r.c; sum += r.c * o.y; }
+      });
+      return w ? sum / w : mid;
+    };
+    const order = free.map((d, i) => ({ d, i, y: bary(d) })).sort((a, b) => a.y - b.y || a.i - b.i);
+    const cols = Array.from({ length: ncol }, () => []);
+    order.forEach((e, j) => cols[j % ncol].push(e));
+    let right = (business.length ? d3.min(business, d => d.x - d.r) : 0) - STACK_GAP;
+    cols.forEach(col => {
+      if (!col.length) return;
+      const wide = d3.max(col, e => e.d.r), cx = right - wide;
+      right = cx - wide - STACK_GAP;
+      // y_i = z_i + cum_i, z non-decreasing: the isotonic fit of (wanted y - cum) keeps the order and the room
+      let cum = 0;
+      const blocks = [];
+      col.forEach((e, j) => {
+        if (j) cum += roomOf(col[j - 1].d) + roomOf(e.d);
+        e.cum = cum;
+        blocks.push({ sum: e.y - cum, n: 1 });
+        while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
+          const b = blocks.pop(); blocks[blocks.length - 1].sum += b.sum; blocks[blocks.length - 1].n += b.n;
+        }
+      });
+      let at = 0, prev = -Infinity;
+      blocks.forEach(b => { for (let j = 0; j < b.n; j++, at++) col[at].z = b.sum / b.n; });
+      col.forEach(e => {
+        const R = roomOf(e.d);
+        let y = Math.max(e.z + e.cum, prev + R);
+        for (let again = true, guard = 0; again && guard <= pinned.length; guard++) {   // step over a pinned disc in this column
+          again = false;
+          pinned.forEach(p => {
+            if (Math.abs(cx - p.x) < e.d.r + p.r + STACK_GAP && Math.abs(y - p.y) < R + roomOf(p)) { y = p.y + roomOf(p) + R; again = true; }
+          });
+        }
+        e.d.x = cx; e.d.y = y; prev = y + R;
+      });
+    });
+  }
+  // The strongest routes (D-067): each constellation keeps its STRONG_ROUTES heaviest (by `c`), ties included; a route is kept
+  // when it is among the strongest of either end. -> Set of the routes of `list` kept
+  const STRONG_ROUTES = 2;
+  function strongRoutes(list) {
+    const by = new Map(), keep = new Set();
+    list.forEach(r => [r.source, r.target].forEach(k => { if (!by.has(k)) by.set(k, []); by.get(k).push(r); }));
+    by.forEach(rs => {
+      rs.sort((a, b) => b.c - a.c);
+      const floor = rs[Math.min(STRONG_ROUTES, rs.length) - 1].c;
+      rs.forEach(r => { if (r.c >= floor) keep.add(r); });
+    });
+    return keep;
   }
 
   // the saved arrangement of the current grouping and detail level: { <pins>: {key: [x, y]}, nodes: {id: [dx, dy]} }
@@ -443,18 +602,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // no layer and are placed by lineage. Without configured layers no layer is the catch-all.
   const NO_LAYER = DATA.layers.length && DATA.layers[DATA.layers.length - 1].key === 'other' ? 'other' : null;
   const layerPos = n => (n.layer === NO_LAYER ? null : LAYER[n.layer].rank);
-  const DOM_POS = Object.fromEntries(DATA.domains.map((d, i) => [d.key, i]));
+  const DOM_POS = Object.fromEntries(DOMAIN_ORDER.map((d, i) => [d.key, i]));
   // What a constellation stands for (D-048): of, its key for a table; band, a table's band position (null:
   // no band, placed by lineage); bandKey, a band position's key; rank, the constellation's x target along
   // the flow; flowX, the strength of that target; pins, the key of saved centres; scope, the layout scope;
   // rowOf, a table's row on a summary card (its own layer, or its own domain) and rowList, the rows' order (D-064)
   const BY = {
     domains: { of: n => n.domain, band: layerPos, bandKey: pos => DATA.layers[pos].key,
-               rank: (key, members) => d3.mean(members, n => LAYER[n.layer].rank), flowX: 0.06,
+               rank: () => 0, flowX: 0.1,   // rank: replaced by domainRanks() (the flow over the business domains), see layout()
                pins: 'domains', scope: () => state.detail, rowOf: n => n.layer, rowList: DATA.layers },
-    layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DATA.domains[pos].key,
+    layers: { of: n => n.layer, band: n => DOM_POS[n.domain], bandKey: pos => DOMAIN_ORDER[pos].key,
               rank: key => LAYER[key].rank, flowX: 0.3, pins: 'layers', scope: () => 'layers:' + state.detail,
-              rowOf: n => n.domain, rowList: DATA.domains },
+              rowOf: n => n.domain, rowList: DOMAIN_ORDER },
   };
   const grouping = () => BY[state.by];
   const PACK = { PAD: 6, STRIP_GAP: 8, BAND_GAP: 20, TRIES: 24, REFINE: 6 };
@@ -573,8 +732,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- drawing
-  const C = { bg: THEME.bg, text: THEME.fg, muted: THEME.muted, card: '#ffffff', route: 'rgba(71,85,105,.22)',
-              arrow: 'rgba(71,85,105,.55)', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
+  const C = { bg: THEME.bg, text: THEME.fg, muted: THEME.muted, card: '#ffffff', edge: 'rgba(100,116,139,.22)', cross: 'rgba(100,116,139,.10)', hl: 'rgba(31,41,51,.85)',
               ...TRAJ_COLORS };   // trajectory: upstream (dashed marks), downstream (solid marks)
   const DIM = 0.2, DIM_CTX = 0.45;   // trajectory mode: alpha of what is outside it, of constellations holding none of it
   // layer mode (D-048): a domain band's opaque tint (the page mixed with the domain's mark colour at 6 %), the
@@ -628,11 +786,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
       const entities = state.fold ? ` · ${plural(entityCount, T.entitiesN)}` : '';
-      $u('meta').textContent = `${plural(visible.length, L.tables)}${entities} · ${plural(edges.length, T.linksN)} · ${groups}`;
+      // the routes left out, while routes are drawn (D-067): the bundled graph's counts while the group card is on
+      const { total, shown } = k < OVERVIEW_K ? routeCounts(a) : { total: 0, shown: 0 };
+      const left = !state.allRoutes && shown < total ? ` · ${T.routesOf(shown, total)}` : '';
+      $u('meta').textContent = $u('meta').title = `${plural(visible.length, L.tables)}${entities} · ${plural(edges.length, T.linksN)} · ${groups}${left}`;
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
-      if (onScreen) summaryHits = [];
+      if (onScreen) { summaryHits = []; summaryAll = []; routeSeen = { list: [], obstacles: [] }; }
       return;
     }
     const [x0, y0] = t.invert([0, 0]), [x1, y1] = t.invert([W, H]);
@@ -641,30 +802,30 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // in the trajectory mode, constellations holding none of its drawn tables are context only
     const G = grouping(), byLayers = state.by === 'layers';
     const tdom = traj ? new Set(trajMembers().filter(i => posOf(i)).map(i => G.of(N[i]))) : null;
-    const ctxAlpha = d => tdom && !tdom.has(d.k) ? DIM_CTX : 1;
+    // the routes in play (below OVERVIEW_K), and what the focus lights: its constellation, its neighbours, the rest at DIM_CTX
+    const rs = k < OVERVIEW_K ? routeLayout(k, a, traj ? null : routeFocus) : null;
+    litSet = rs && rs.focus ? rs.lit : null;
+    const ctxAlpha = d => tdom && !tdom.has(d.k) ? DIM_CTX : litSet && !litSet.has(d.k) ? DIM_CTX : 1;
 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
     constellations.forEach(d => {
-      ctx.globalAlpha = ctxAlpha(d);
+      // a source system's halo is neutral (D-066), at half strength while the group card stands for it
+      const sys = !byLayers && SYSTEM.has(d.k);
+      ctx.globalAlpha = ctxAlpha(d) * (sys && GROUPED.length ? 1 - a / 2 : 1);
       if (byLayers) { drawDomainBands(d, k); return; }
-      const c = CONTRAST.edge(DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
-      g.addColorStop(0, c + '26'); g.addColorStop(1, c + '0a');
+      const c = CONTRAST.edge(sys ? NEUTRAL : DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
+      g.addColorStop(0, c + (sys ? '1f' : '26')); g.addColorStop(1, c + '0a');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
-      ctx.strokeStyle = c + '66'; ctx.lineWidth = 1.5 / k; ctx.stroke();
+      ctx.strokeStyle = c + (sys ? '80' : '66'); ctx.lineWidth = 1.5 / k; ctx.stroke();
     });
     if (k >= 0.6 && LA > 0) constellations.forEach(d => { setA(ctxAlpha(d)); drawBandMarkers(d, k); });
     ctx.globalAlpha = traj ? DIM : 1;
 
-    if (k < 0.6) {  // from afar: one route per pair of constellations, arrowed along the data flow; from the edge of a card
-      routes.forEach(r => {   // to the edge of the other while cards are drawn (edgeOf), else from centre to centre
-        const from = r.dir < 0 ? r.target : r.source, to = r.dir < 0 ? r.source : r.target;
-        const [ax, ay] = edgeOf(from, to, a), [bx, by] = edgeOf(to, from, a);
-        ctx.strokeStyle = C.route; ctx.fillStyle = C.arrow;
-        ctx.lineWidth = (1 + Math.log2(r.c)) * 1.6 / k;
-        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-        if (r.dir) arrowHead(ax, ay, bx, by, 9 / k);
-      });
-    }
+    if (rs) {  // from afar: the routes, outline to outline around the other constellations (D-067), in screen px
+      ctx.save(); ctx.setTransform(scale, 0, 0, scale, t.x * scale, t.y * scale);
+      drawRoutes(rs, onScreen);
+      ctx.restore();
+    } else if (onScreen) routeSeen = { list: [], obstacles: [] };
     // table-level links: hidden from afar (the routes say it), faint at mid zoom, full when close;
     // hover dimming is off in the trajectory mode, whose dimming replaces it
     const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
@@ -683,7 +844,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const drawTable = n => {
       const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
       const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, side = sideOf(n.i);
-      setA(traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1);
+      setA((litSet && !litSet.has(G.of(n)) ? DIM_CTX : 1) * (traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1));
       if (cards) drawCard(n, p, b, col, mark, side, k);
       else {
         drawStar(n, p, col, mark, side, k); labels.push(n);
@@ -712,12 +873,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // on it, so this label stays at full alpha and replaces it (drawn after the cards, below); the others fade with the stars
     const placed = a > 0 ? cardLayout(k) : null, bare = d => !!placed && placed.byKey.get(d.k).lv >= 4;
     const discLabel = (d, alpha, counts = plural(d.n, L.tables)) => {
-      const [sx, rim] = screen(d.x, d.y - d.r), fs = Math.max(13, Math.min(20, 10 + d.r * k / 25));
+      const sys = !byLayers && SYSTEM.has(d.k);   // a source system: 13 px, neutral (D-066)
+      const [sx, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const sy = rim - (byLayers ? NAME_LIFT : 0);
       const name = constellationLabel(d.k);
       ctx.globalAlpha = alpha; ctx.textAlign = 'center';
-      // a domain name in its colour, readable on the page (D-037); a layer name in the text colour
-      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
+      // a domain name in its colour, readable on the page (D-037); a layer name in the text colour; a source system's muted.
+      // A 3 px outline in the page colour keeps a route from cutting a letter
+      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers ? C.text : sys ? C.muted : CONTRAST.ink(DOM[d.k].color, C.bg);
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.strokeText(name, sx, sy - 22); ctx.lineJoin = 'miter';
       ctx.fillText(name, sx, sy - 22);
       const w = Math.max(ctx.measureText(name).width, 80) + 8;
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
@@ -740,12 +904,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const around = SP.size && LA > 0 ? drawShownNames(screen, taken, k) : [];
     const named = LA > 0 ? [...around, ...(cards ? [] : drawNames(orderLabels(labels, k), screen, free, taken, k))] : [];
     // the summary cards, over everything: drawn at alpha a, their headers are the drag handles while cards are on
-    const drawnCards = placed ? placed.items.map(e => drawSummary(e, a, onScreen ? overCard : null)) : [];
+    const drawnCards = placed ? placed.items.map(e => (e.g ? drawGroup : drawSummary)(e, a, onScreen ? overCard : null)) : [];
     const bareHits = constellations.filter(bare).map(d => discLabel(d, ctxAlpha(d), SUMMARIES.get(d.k).counts));
     ctx.globalAlpha = 1; ctx.textAlign = 'left';
     if (!onScreen) return;
     drawnNames = named;
-    summaryHits = drawnCards;
+    summaryAll = drawnCards; summaryHits = drawnCards.filter(c => c.drawn);   // a card at level count / frame is not drawn: no hit either
     labelHits = a >= 0.5 ? [...drawnCards.filter(c => !c.label).map(c => ({ d: c.d, ...c.header })), ...bareHits] : [...hits, ...bareHits];
     perf.draw = performance.now() - t0;
   }
@@ -755,9 +919,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!visible.length) return null;
     const W = stage.clientWidth, H = stage.clientHeight, s = EXPORT.scale(W, H), c = document.createElement('canvas');
     c.width = Math.round(W * s); c.height = Math.round(H * s);
-    const pointer = hover;
-    hover = null;
-    try { draw(c.getContext('2d'), s); } finally { hover = pointer; }
+    const pointer = hover, focus = routeFocus;   // hover and focus are pointer-like state: left out (D-021, D-064)
+    hover = null; routeFocus = null;
+    try { draw(c.getContext('2d'), s); } finally { hover = pointer; routeFocus = focus; }
     return EXPORT.png(c);
   }
 
@@ -772,7 +936,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the labels of a domain's layer bands, in flow order (its tooltip)
   const bandLabels = d => d.bands.map(b => labelOf(LAYER[b.key])).join(' → ');
   // a constellation's name: its domain's, or its layer's
-  const constellationLabel = key => labelOf(state.by === 'layers' ? LAYER[key] : DOM[key]);
+  const constellationLabel = key => (key === GROUP ? T.systems : labelOf(state.by === 'layers' ? LAYER[key] : DOM[key]));
   // the horizontal span of each band of d, relative to its centre: from the midpoint with the previous band
   // (the disc's left edge for the first) to the midpoint with the next (the right edge for the last)
   const bandSpans = d => d.bands.map((b, j) => ({ ...b,
@@ -1024,6 +1188,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         main: overviewOrder(members.filter(n => !foldedSet.has(n.i))).slice(0, SUMMARY_NAMES).map(n => n.i) };
       SUMMARIES.set(key, { ...s, counts: cardCounts(s) });
     }
+    if (GROUPED.length) {   // the one card of every source system (D-066): a row per system, in stack order, top to bottom
+      const rows = [...GROUPED].sort((a, b) => a.y - b.y || b.x - a.x).map(d => ({ key: d.k, label: constellationLabel(d.k), n: SUMMARIES.get(d.k).n }));
+      const n = d3.sum(rows, r => r.n);
+      SUMMARIES.set(GROUP, { key: GROUP, label: T.systems, n, rows, main: [], entities: null, g: true,
+        counts: `${plural(rows.length, T.systemsN)} · ${plural(n, L.tables)}` });
+    }
     perf.cards = performance.now() - t0;
   }
   // 0 under prefers-reduced-motion: reduce, else ms: the camera's animations (zoomTo, frame) jump instead of gliding
@@ -1037,7 +1207,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // Card geometry, in screen px at constant text size (13 px name, 11 px otherwise). A card's content has levels, from most
   // to least: 0 rows and main tables, 1 rows, 2 one bar by kind, 3 name and tables, 4 the count, 5 a frame (D-063).
   const CARD = { PAD_X: 8, PAD_Y: 6, NAME: 16, LINE: 14, SEC: 4, ROW: 22, BAR: 6, BAR_MIN: 6, SEG_MIN: 2, W_MIN: 112, W_MAX: 176,
-                 NAMES_MIN: 3, RADIUS: 6, BORDER: 2, BORDER_HOVER: 3, GAP: 2, TRAJ_ROOM: 8, ITER: 40, DAMP: 0.6, ROUNDS: 30, WORK: 600 };
+                 NAMES_MIN: 3, RADIUS: 6, BORDER: 2, BORDER_HOVER: 3, GAP: 2, TRAJ_ROOM: 8, ITER: 40, DAMP: 0.6, ROUNDS: 30, WORK: 600,
+                 GROUP_ROW: 17, GROUP_ROWS: 8, GROUP_W: [150, 190], GROUP_NAME_W: 150 };   // the group card (M8.4): rows, widths
   const LEVELS = ['rows', 'rows', 'bar', 'name', 'count', 'frame'];
   const F_NAME = `600 13px ${FONT}`, F_TEXT = `11px ${FONT}`;
   const TW = new Map();   // widths of texts by font: asked for every card in every frame
@@ -1067,6 +1238,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the width of a card: its widest line and a margin, between W_MIN and W_MAX (the counts line is never cut)
   function cardWidth(e) {
     const s = e.s, dot = state.by === 'layers' ? 12 : 0;
+    if (e.g) {   // the group card: a name, a counts line and one line per system, between GROUP_W
+      const w = Math.max(textW(F_NAME, s.label), textW(F_TEXT, s.counts), textW(F_TEXT, e.line),
+        ...s.rows.slice(0, CARD.GROUP_ROWS).map(r => textW(F_TEXT, r.label) + 12 + textW(F_TEXT, num(r.n)))) + 2 * CARD.PAD_X;
+      return Math.max(CARD.GROUP_W[0], Math.min(CARD.GROUP_W[1], Math.ceil(w)));
+    }
     const w = Math.max(textW(F_NAME, s.label), textW(F_TEXT, s.counts), textW(F_TEXT, e.line),
       ...s.rows.map(r => dot + textW(F_TEXT, r.label) + 12 + textW(F_TEXT, num(r.n))),
       ...s.main.map(i => 14 + Math.min(textW(F_TEXT, N[i].name), 100))) + 2 * CARD.PAD_X;
@@ -1076,6 +1252,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function cardSize(e) {
     const line = e.line && e.lv <= 3 ? CARD.LINE : 0, m = e.s.main.length;
     e.names = 0;
+    if (e.g) {   // the group card: rows, then its name and counts only (it never becomes a bare pill: it carries every name)
+      if (e.lv >= 3) return [CARD.GROUP_NAME_W, 42 + line];
+      const shown = Math.min(e.s.rows.length, CARD.GROUP_ROWS), more = e.s.rows.length > shown ? CARD.LINE : 0;
+      return [e.cw, CARD.PAD_Y + CARD.NAME + CARD.LINE + line + CARD.SEC + CARD.GROUP_ROW * shown + more + CARD.PAD_Y];
+    }
     if (e.lv === 5) return [20, 14];
     if (e.lv === 4) return [40, 24];
     if (e.lv === 3) return [96, 42 + line];
@@ -1126,17 +1307,29 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // A card stays on its constellation: its centre within the disc's screen radius and clear of every other card. While one
   // is not, the worst offender (shift over radius, an overlap weighing 10) drops one level and the push restarts, at most
-  // CARD.ROUNDS times (fewer with many constellations: a round costs about n^2, so CARD.WORK / n rounds keep the total
-  // about linear in n), then every offender goes to its frame.
+  // CARD.ROUNDS times (fewer with many constellations: a round costs up to n² when cards crowd (the sweep makes it about n log n
+  // when they are spread), so CARD.WORK / n rounds keep the total about linear in n), then every offender goes to its frame.
   function settleCards(items) {
     const rounds = Math.max(1, Math.min(CARD.ROUNDS, Math.floor(CARD.WORK / items.length)));
     for (let round = 1; ; round++) {
       relaxCards(items);
       const score = e => e.disp / e.r + 10 * e.over;
-      const bad = items.filter(e => e.lv < 5 && (e.disp > e.r || e.over)).sort((a, b) => score(b) - score(a));
-      if (!bad.length) return;
-      if (round >= rounds) { bad.forEach(e => { e.lv = 5; }); relaxCards(items); return; }
-      bad[0].lv++;
+      const last = e => (e.g ? 3 : 5);   // the group card stops at its name
+      const offends = e => e.disp > e.r || e.over;
+      const bad = items.filter(e => e.lv < last(e) && offends(e)).sort((a, b) => score(b) - score(a));
+      if (!bad.length) {   // a card already at its last level still off its disc: the nearest card that can give a level gives it
+        const stuck = items.filter(e => e.lv >= last(e) && offends(e)).sort((a, b) => score(b) - score(a))[0];
+        const near = stuck && items.filter(e => e.lv < last(e) && e !== stuck)
+          .sort((a, b) => Math.hypot(a.px - stuck.ax, a.py - stuck.ay) - Math.hypot(b.px - stuck.ax, b.py - stuck.ay))[0];
+        if (!near) return;
+        bad.push(near);
+      }
+      if (round >= rounds) {   // out of rounds: every offender to its last level, and the group card (the biggest) to its name
+        bad.forEach(e => { e.lv = last(e); });
+        items.forEach(e => { if (e.g) e.lv = 3; });
+        relaxCards(items); return;
+      }
+      bad[0].lv = bad[0].g ? 3 : bad[0].lv + 1;
     }
   }
   // The place of every card at scale k, in screen px from the origin of the camera's translation (the anchor of a card is
@@ -1146,32 +1339,421 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function cardLayout(k) {
     const c = cardCache;
     if (c && c.k === k && c.runs === layoutRuns && c.rev === dragRev && c.traj === traj) return c;
-    const t0 = performance.now(), holds = trajHolds();
-    const items = constellations.map(d => {
+    const t0 = performance.now(), holds = trajHolds(), grouped = new Set(GROUPED.map(d => d.k));
+    const item = (d, extra) => {
       const h = holds.get(d.k), s = SUMMARIES.get(d.k), held = h && (h.start || h.up + h.down > 0);
-      const e = { d, key: d.k, s, ax: d.x * k, ay: d.y * k, r: d.r * k, tj: held ? h : null, line: held ? trajLine(h) : '', lv: s.main.length ? 0 : 1 };
+      const e = { d, key: d.k, s, ax: d.x * k, ay: d.y * k, r: d.r * k, tj: held ? h : null, line: held ? trajLine(h) : '', lv: s.main.length ? 0 : 1, ...extra };
       e.cw = cardWidth(e);
       return e;
-    });
+    };
+    const items = constellations.filter(d => !grouped.has(d.k)).map(d => item(d, {}));
+    let group = null;
+    if (GROUPED.length) {   // the group card: anchored on the middle of the systems' box, "on" it within half its diagonal
+      groupBox();
+      const parts = GROUPED.map(d => holds.get(d.k)).filter(Boolean);
+      holds.set(GROUP, parts.length ? { start: parts.some(h => h.start), up: d3.sum(parts, h => h.up), down: d3.sum(parts, h => h.down) } : undefined);
+      group = item(GROUPD, { g: true, lv: 0 });
+      items.push(group);
+    }
     settleCards(items);
-    cardCache = { k, runs: layoutRuns, rev: dragRev, traj, items, byKey: new Map(items.map(e => [e.key, e])) };
+    const byKey = new Map(items.map(e => [e.key, e]));
+    if (group) GROUPED.forEach(d => byKey.set(d.k, group));
+    cardCache = { k, runs: layoutRuns, rev: dragRev, traj, items, byKey };
     perf.cardLayout = performance.now() - t0;
     return cardCache;
   }
+  // the group's pseudo constellation: the bounding circle of its members (world), refreshed whenever one moves
+  function groupBox() {
+    const x0 = d3.min(GROUPED, d => d.x - d.r), x1 = d3.max(GROUPED, d => d.x + d.r), y0 = d3.min(GROUPED, d => d.y - d.r), y1 = d3.max(GROUPED, d => d.y + d.r);
+    Object.assign(GROUPD, { members: GROUPED, x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: Math.hypot(x1 - x0, y1 - y0) / 2, box: [x0, y0, x1, y1] });
+  }
+  // the screen size of the group card at its first level (rows): what Fit must make room for
+  function groupCardSize() {
+    const e = { g: true, lv: 0, s: SUMMARIES.get(GROUP), line: '' };
+    e.cw = cardWidth(e);
+    return cardSize(e);
+  }
   // the world rectangle ({x, y, w, h}, top left) of d's card as cardLayout places it now: the one place that says where a
-  // constellation's outline is (M8.4 builds its routes and group card on it)
+  // constellation's outline is (the routes' ends, the obstacles of a route and the group card build on it). A source system
+  // standing in the group card has the group card's rectangle.
   function summaryRect(d) {
     const e = cardLayout(t.k).byKey.get(d.k), k = t.k;
     return { x: (e.px - e.w / 2) / k, y: (e.py - e.h / 2) / k, w: e.w / k, h: e.h / k };
   }
-  // where a route toward `toward` ({x, y}, world) leaves d: the centre of its disc, moved by the card alpha `a` to the point
-  // where the ray from the card's centre toward `toward` leaves the card's rectangle
+  // where a route toward `toward` ({x, y}, world) leaves d (D-067): between the point of its disc toward `toward` (a = 0) and the
+  // point where the ray from its card's centre toward `toward` leaves the card's rectangle (a = 1), by the card alpha `a`:
+  // continuous in the zoom, so a route never jumps
   function edgeOf(d, toward, a) {
-    if (!a) return [d.x, d.y];
-    const r = summaryRect(d), cx = r.x + r.w / 2, cy = r.y + r.h / 2, dx = toward.x - cx, dy = toward.y - cy;
-    const s = Math.min(dx ? r.w / 2 / Math.abs(dx) : Infinity, dy ? r.h / 2 / Math.abs(dy) : Infinity);
-    if (!isFinite(s)) return [d.x, d.y];
-    return [d.x + a * (cx + dx * s - d.x), d.y + a * (cy + dy * s - d.y)];
+    const dx = toward.x - d.x, dy = toward.y - d.y, len = Math.hypot(dx, dy) || 1;
+    const disc = [d.x + dx / len * d.r, d.y + dy / len * d.r];
+    if (!a) return disc;
+    const r = summaryRect(d), cx = r.x + r.w / 2, cy = r.y + r.h / 2, ex = toward.x - cx, ey = toward.y - cy;
+    const s = Math.min(ex ? r.w / 2 / Math.abs(ex) : Infinity, ey ? r.h / 2 / Math.abs(ey) : Infinity);
+    if (!isFinite(s)) return disc;
+    return [disc[0] + a * (cx + ex * s - disc[0]), disc[1] + a * (cy + ey * s - disc[1])];
+  }
+
+  // ---------------------------------------------------------------- routes (M8.4, D-067)
+  // A route is the one line between two constellations, carrying their links. Below OVERVIEW_K it is drawn from outline to outline,
+  // as a curve around the other constellations, with an arrowhead at the reader (net lineage direction), dashed when it carries
+  // relations only; by default only the strongest ones, all of a constellation's on hover or keyboard focus.
+  const ROUTE = { W_MIN: 1, W_MAX: 3, W_SAT: 128, BOW: 0.08, MARGIN: 6, PASSES: 6, WAYPOINTS: 4, SAMPLES: 24, CLEAR: 12, GAP: 2,
+                  DIM: 0.15, DETOUR_WORK: 12000, BUILDS: 250, DASH: [6, 4], INK: '#7b8494', INK_HI: '#475569', HIT: 6 };
+  const routeInk = hi => CONTRAST.edge(hi ? ROUTE.INK_HI : ROUTE.INK, C.bg);
+  const routeWidth = c => ROUTE.W_MIN + (ROUTE.W_MAX - ROUTE.W_MIN) * Math.min(1, Math.log2(Math.max(1, c)) / Math.log2(ROUTE.W_SAT));
+  // the pseudo constellation of the group card: key GROUP, the bounding circle of its members (world); refreshed with each card layout
+  const GROUPD = { k: GROUP, members: [], x: 0, y: 0, r: 0 };
+  const isMember = key => GROUPED.some(d => d.k === key);
+  // the constellation (or the group) a route's end names
+  const endOf = key => (key === GROUP ? GROUPD : constellations.find(d => d.k === key));
+
+  // The routes through the group card (D-066): while it is drawn, the routes between a source system and a business constellation are
+  // summed per business constellation into one bundled route from the group; routes between two systems are not drawn. Built once per
+  // layout. -> { bundles, biz, all, strong }: the bundled routes, the routes between business constellations, both, the Set kept
+  function bundled() {
+    if (BUNDLE) return BUNDLE;
+    const sys = new Set(GROUPED.map(d => d.k)), per = new Map(), biz = [];
+    routes.forEach(r => {
+      const sa = sys.has(r.source), sb = sys.has(r.target);
+      if (sa && sb) return;
+      if (!sa && !sb) { biz.push(r); return; }
+      const other = sa ? r.target : r.source, up = sa ? r.source : r.target;
+      if (!per.has(other)) per.set(other, { source: GROUP, target: other, c: 0, rel: 0, lin: 0, f: 0, strong: false, systems: new Map() });
+      const b = per.get(other);
+      b.c += r.c; b.rel += r.rel; b.lin += r.lin; b.f += sa ? r.f : -r.f;   // f > 0: from the group to `other`
+      b.systems.set(up, (b.systems.get(up) || 0) + r.c);
+    });
+    const bundles = [...per.values()];
+    bundles.forEach(b => { b.dir = Math.abs(b.f) > b.c * 0.2 ? Math.sign(b.f) : 0; });
+    const all = [...bundles, ...biz];
+    BUNDLE = { bundles, biz, all, strong: strongRoutes(all) };
+    BUNDLE.bundles.forEach(b => { b.strong = BUNDLE.strong.has(b); });
+    return BUNDLE;
+  }
+  const groupShown = a => GROUPED.length > 0 && a >= 0.5;   // the bundled graph is the one in play
+  // how many routes the default set holds, of how many (the meta line): the bundled graph while the group card is on
+  function routeCounts(a) {
+    const list = groupShown(a) ? bundled().all : routes, strong = groupShown(a) ? bundled().strong : null;
+    return { total: list.length, shown: state.allRoutes ? list.length : list.filter(r => (strong ? strong.has(r) : r.strong)).length };
+  }
+  // The routes to draw at card alpha `a`, with their ends and alpha: the default set (strongest, or all), plus every route of the
+  // focused constellation. Source systems in the group card fade as 1 - a into the bundled routes. -> { specs, lit }
+  function routeSpecs(a, focus) {
+    const grouped = GROUPED.length > 0 && a > 0, on = groupShown(a), B = grouped ? bundled() : null, sys = new Set(GROUPED.map(d => d.k));
+    const key = on && focus && isMember(focus) ? GROUP : focus;   // the group stands for its systems while it is drawn
+    const specs = [], involved = new Set(key ? [key] : []);
+    const add = (r, alpha, bundle, own) => {
+      const from = r.dir < 0 ? r.target : r.source, to = r.dir < 0 ? r.source : r.target;
+      const hi = !!key && (r.source === key || r.target === key) && (!own || !on);
+      if (hi) { involved.add(r.source); involved.add(r.target); }
+      specs.push({ r, alpha, bundle, hi, from: endOf(from), to: endOf(to), fa: grouped && own && sys.has(from) ? 0 : a, ta: grouped && own && sys.has(to) ? 0 : a });
+    };
+    const wanted = (r, kept) => state.allRoutes || kept;
+    routes.forEach(r => {
+      const own = grouped && (sys.has(r.source) || sys.has(r.target));   // a route of a system inside the group card
+      if (own) { if (a < 1 && (wanted(r, r.strong) || (!on && key && (r.source === key || r.target === key)))) add(r, 1 - a, false, true); return; }
+      const kept = on ? B.strong.has(r) : r.strong, hi = key && (r.source === key || r.target === key);
+      if (wanted(r, kept) || hi) add(r, 1, false, false);
+    });
+    if (grouped) B.bundles.forEach(b => { if (wanted(b, B.strong.has(b)) || (key && (b.source === key || b.target === key) && on)) add(b, a, true, false); });
+    // what is lit: the focus, its neighbours, and the systems of the group when it is
+    const lit = new Set(involved);
+    if (lit.has(GROUP)) GROUPED.forEach(d => lit.add(d.k));
+    return { specs, lit, focus: key };
+  }
+
+  // ---- the path of one route
+  // The obstacles of a route, in screen px from the camera's translation: the drawn outline of every constellation (its disc while
+  // stars are on, its card while cards are; the group card for the systems it holds), except the keys in `skip`
+  function outlines(a, k) {
+    const placed = a > 0 ? cardLayout(k) : null, cards = a >= 0.5, out = [];
+    const disc = d => out.push({ shape: 'disc', key: d.k, x: d.x * k, y: d.y * k, r: d.r * k });
+    constellations.forEach(d => {
+      if (!cards) return disc(d);
+      if (GROUPED.includes(d)) return;
+      const e = placed.byKey.get(d.k);
+      if (e.lv >= 4 && !e.tj) return disc(d);
+      out.push({ shape: 'card', key: d.k, x: e.px - e.w / 2, y: e.py - e.h / 2, w: e.w, h: e.h });
+    });
+    if (cards && GROUPED.length) {
+      const e = placed.byKey.get(GROUP);
+      out.push({ shape: 'card', key: GROUP, x: e.px - e.w / 2, y: e.py - e.h / 2, w: e.w, h: e.h });
+    }
+    return out;
+  }
+  // how deep the point (x, y) lies inside obstacle o inflated by `m` px (0: outside)
+  function depth(o, x, y, m) {
+    if (o.shape === 'disc') return Math.max(0, o.r + m - Math.hypot(x - o.x, y - o.y));
+    const d = Math.min(x - (o.x - m), o.x + o.w + m - x, y - (o.y - m), o.y + o.h + m - y);
+    return Math.max(0, d);
+  }
+  // Catmull-Rom (centripetal) through the points, as cubic Béziers [[p0, c1, c2, p3], ...]; two points make a straight segment
+  function smooth(pts) {
+    if (pts.length === 2) { const [p, q] = pts; return [[p, [p[0] + (q[0] - p[0]) / 3, p[1] + (q[1] - p[1]) / 3], [p[0] + 2 * (q[0] - p[0]) / 3, p[1] + 2 * (q[1] - p[1]) / 3], q]]; }
+    const ext = [[2 * pts[0][0] - pts[1][0], 2 * pts[0][1] - pts[1][1]], ...pts, [2 * pts[pts.length - 1][0] - pts[pts.length - 2][0], 2 * pts[pts.length - 1][1] - pts[pts.length - 2][1]]];
+    const dist = (p, q) => Math.max(1e-6, Math.sqrt(Math.hypot(q[0] - p[0], q[1] - p[1])));
+    const segs = [];
+    for (let i = 1; i < ext.length - 2; i++) {
+      const [p0, p1, p2, p3] = [ext[i - 1], ext[i], ext[i + 1], ext[i + 2]], d1 = dist(p0, p1), d2 = dist(p1, p2), d3 = dist(p2, p3);
+      const c1 = [0, 1].map(j => (d1 * d1 * p2[j] - d2 * d2 * p0[j] + (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2) * p1[j]) / (3 * d1 * (d1 + d2)));
+      const c2 = [0, 1].map(j => (d3 * d3 * p1[j] - d2 * d2 * p3[j] + (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2) * p2[j]) / (3 * d3 * (d3 + d2)));
+      segs.push([p1, c1, c2, p2]);
+    }
+    return segs;
+  }
+  const bezier = ([p0, c1, c2, p3], u) => {
+    const v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+    return [a * p0[0] + b * c1[0] + c * c2[0] + d * p3[0], a * p0[1] + b * c1[1] + c * c2[1] + d * p3[1]];
+  };
+  const sampleCurve = segs => {
+    const pts = [segs[0][0]];
+    segs.forEach(sg => { for (let i = 1; i <= ROUTE.SAMPLES; i++) pts.push(bezier(sg, i / ROUTE.SAMPLES)); });
+    return pts;
+  };
+  // Where a route of `spec` runs: its drawn polyline (screen px from the camera's translation), deterministic. The ends leave the
+  // outlines toward the first waypoint (else the other end). Unobstructed first (a curve bowed to the right of lower key -> higher
+  // key, so two routes never coincide); else up to ROUTE.PASSES passes, each taking the first obstacle the curve enters and adding a
+  // waypoint beside it on the side that penetrates less (at most ROUTE.WAYPOINTS); when none clears, the least penetrating
+  // candidate is kept and the route is `blocked`. Never loops, never throws.
+  function routePath(spec, obstacles, k) {
+    const skip = new Set([spec.from.k, spec.to.k]);
+    if (isMember(spec.from.k) || isMember(spec.to.k)) skip.add(GROUP);
+    const obs = obstacles.filter(o => !skip.has(o.key)), world = p => ({ x: p[0] / k, y: p[1] / k });
+    const centre = d => [d.x * k, d.y * k];
+    const ends = wps => {
+      const next = wps.length ? wps[0] : centre(spec.to), prev = wps.length ? wps[wps.length - 1] : centre(spec.from);
+      return [edgeOf(spec.from, world(next), spec.fa).map(v => v * k), edgeOf(spec.to, world(prev), spec.ta).map(v => v * k)];
+    };
+    // how deep the polyline runs into the obstacles (sum over its samples): `sum` weighs a real crossing 100 times a graze of the
+    // ROUTE.MARGIN around an outline, so a curve that only grazes beats one that crosses; `worst` is the obstacle run into most
+    const depthInto = (o, pts, m) => {
+      const [x0, y0, x1, y1] = o.shape === 'disc' ? [o.x - o.r - m, o.y - o.r - m, o.x + o.r + m, o.y + o.r + m] : [o.x - m, o.y - m, o.x + o.w + m, o.y + o.h + m];
+      let own = 0;
+      for (let i = 0; i < pts.length; i++) {   // the bounding box first: most samples are far from most obstacles
+        const x = pts[i][0], y = pts[i][1];
+        if (x > x0 && x < x1 && y > y0 && y < y1) own += depth(o, x, y, m);
+      }
+      return own;
+    };
+    const penetration = pts => {
+      let sum = 0, worst = null, most = 0, crossing = 0;
+      obs.forEach(o => {
+        const real = depthInto(o, pts, 0), own = real * 100 + depthInto(o, pts, ROUTE.MARGIN);
+        crossing += real; sum += own;
+        if (own > most) { most = own; worst = o; }
+      });
+      return { sum, worst, crossing };
+    };
+    const [A0, B0] = ends([]), len = Math.hypot(B0[0] - A0[0], B0[1] - A0[1]) || 1, u = [(B0[0] - A0[0]) / len, (B0[1] - A0[1]) / len];
+    const nrm = [-u[1], u[0]];   // the visual right of the chord's direction (screen y down)
+    const sign = spec.from.k < spec.to.k ? 1 : -1;
+    const bowed = (() => {
+      const q = [(A0[0] + B0[0]) / 2 + sign * nrm[0] * ROUTE.BOW * len, (A0[1] + B0[1]) / 2 + sign * nrm[1] * ROUTE.BOW * len];
+      const c1 = [A0[0] + 2 / 3 * (q[0] - A0[0]), A0[1] + 2 / 3 * (q[1] - A0[1])], c2 = [B0[0] + 2 / 3 * (q[0] - B0[0]), B0[1] + 2 / 3 * (q[1] - B0[1])];
+      return sampleCurve([[A0, c1, c2, B0]]);
+    })();
+    const done = c => ({ pts: c.pts, blocked: c.crossing > 0 });
+    const first = { pts: bowed, ...penetration(bowed), wps: [] };
+    if (first.sum === 0) return done(first);
+    const build = wps => {
+      builds++;
+      const [A, B] = ends(wps), pts = sampleCurve(smooth([A, ...wps, B]));
+      return { pts, ...penetration(pts), wps };
+    };
+    const proj = p => (p[0] - A0[0]) * u[0] + (p[1] - A0[1]) * u[1];
+    // Waypoints, by a small depth-first search: the obstacle the curve runs deepest into gets a waypoint on its circle (a card: the
+    // circle round it), at the middle of the arc the route would follow (the direction between the ends as seen from its centre) or
+    // on the other side; each side is tried, down to ROUTE.WAYPOINTS of them; the first curve that clears everything wins, else
+    // the least penetrating one (the route is then `blocked` if it still crosses an outline)
+    const search = cand => {
+      if (cand.sum === 0 || cand.wps.length >= ROUTE.WAYPOINTS || builds >= ROUTE.BUILDS) return cand;   // BUILDS: a fixed budget per layout, so a hairball stays cheap
+      const o = cand.worst, c0 = o.shape === 'disc' ? [o.x, o.y] : [o.x + o.w / 2, o.y + o.h / 2];
+      const R = (o.shape === 'disc' ? o.r + ROUTE.MARGIN : Math.hypot(o.w / 2 + ROUTE.MARGIN, o.h / 2 + ROUTE.MARGIN)) + ROUTE.CLEAR;
+      const unit = p => { const l = Math.hypot(p[0] - c0[0], p[1] - c0[1]) || 1; return [(p[0] - c0[0]) / l, (p[1] - c0[1]) / l]; };
+      const ua = unit(A0), ub = unit(B0), sum = [ua[0] + ub[0], ua[1] + ub[1]], sl = Math.hypot(sum[0], sum[1]);
+      const m = sl < 0.2 ? nrm : [sum[0] / sl, sum[1] / sl];   // the ends opposite each other: the chord's right side
+      let best = cand;
+      for (const d of [m, [-m[0], -m[1]]]) {
+        const w = [c0[0] + d[0] * R, c0[1] + d[1] * R];
+        if (cand.wps.some(v => Math.hypot(v[0] - w[0], v[1] - w[1]) <= 2)) continue;
+        const next = search(build([...cand.wps, w].sort((p, q) => proj(p) - proj(q))));
+        if (next.sum < best.sum) best = next;
+        if (best.sum === 0) break;
+      }
+      return best;
+    };
+    const straight = build([]), best = search(straight.sum < first.sum ? straight : first);
+    let result = best.sum < first.sum ? best : first;
+    if (result.crossing > 0 && detourWork < ROUTE.DETOUR_WORK) {   // the search found no way: the shortest way round the outlines, if one exists (rare, bounded)
+      const way = detour(A0, B0, obs);
+      if (way) { const c = build(way); if (c.sum < result.sum) result = c; }
+    }
+    return done(result);
+  }
+  // The shortest polyline from a to b around the obstacles (screen px): a visibility graph over the corners of every outline
+  // (a disc as a 12-gon round it), Dijkstra on it. -> the waypoints between a and b, or null when b cannot be reached
+  function detour(a, b, obs) {
+    const pad = ROUTE.MARGIN + ROUTE.CLEAR / 2, tight = ROUTE.MARGIN - 0.5;
+    const blocks = (o, p, q, margin) => {   // does the segment p -> q run into the outline o (inflated by margin)?
+      if (o.shape === 'disc') {
+        const dx = q[0] - p[0], dy = q[1] - p[1], l2 = dx * dx + dy * dy || 1;
+        const f = Math.max(0, Math.min(1, ((o.x - p[0]) * dx + (o.y - p[1]) * dy) / l2));
+        return Math.hypot(p[0] + f * dx - o.x, p[1] + f * dy - o.y) < o.r + margin;
+      }
+      let t0 = 0, t1 = 1;   // Liang-Barsky against the rectangle
+      for (const [pk, dk, lo, hi] of [[p[0], q[0] - p[0], o.x - margin, o.x + o.w + margin], [p[1], q[1] - p[1], o.y - margin, o.y + o.h + margin]]) {
+        if (Math.abs(dk) < 1e-9) { if (pk <= lo || pk >= hi) return false; continue; }
+        let u0 = (lo - pk) / dk, u1 = (hi - pk) / dk;
+        if (u0 > u1) [u0, u1] = [u1, u0];
+        t0 = Math.max(t0, u0); t1 = Math.min(t1, u1);
+        if (t0 >= t1) return false;
+      }
+      return true;
+    };
+    const within = (o, p, m) => (o.shape === 'disc' ? Math.hypot(p[0] - o.x, p[1] - o.y) < o.r + m
+      : p[0] > o.x - m && p[0] < o.x + o.w + m && p[1] > o.y - m && p[1] < o.y + o.h + m);
+    const inside = p => obs.some(o => within(o, p, tight));
+    // an end already inside an outline's margin (a card pushed onto a neighbour's disc) leaves it: only a real crossing blocks there
+    const margins = obs.map(o => [a, b].map(e => (within(o, e, tight) ? 0.5 : tight)));
+    const nodes = [a, b];
+    obs.forEach(o => {
+      if (o.shape === 'disc') for (let i = 0; i < 12; i++) nodes.push([o.x + Math.cos(i * Math.PI / 6) * (o.r + pad) / Math.cos(Math.PI / 12), o.y + Math.sin(i * Math.PI / 6) * (o.r + pad) / Math.cos(Math.PI / 12)]);
+      else for (const [cx, cy] of [[o.x - pad, o.y - pad], [o.x + o.w + pad, o.y - pad], [o.x + o.w + pad, o.y + o.h + pad], [o.x - pad, o.y + o.h + pad]]) nodes.push([cx, cy]);
+    });
+    const usable = nodes.map((p, i) => i < 2 || !inside(p));
+    const dist = nodes.map(() => Infinity), from = nodes.map(() => -1), done = nodes.map(() => false);
+    dist[0] = 0;
+    for (;;) {
+      let u = -1;
+      dist.forEach((d, i) => { if (!done[i] && d < Infinity && (u < 0 || d < dist[u])) u = i; });
+      if (u < 0 || detourWork > ROUTE.DETOUR_WORK) return null;   // unreachable, or out of budget
+      if (u === 1) break;
+      done[u] = true;
+      nodes.forEach((q, v) => {
+        if (done[v] || !usable[v]) return;
+        detourWork += obs.length;
+        if (obs.some((o, i) => blocks(o, nodes[u], q, u < 2 ? margins[i][u] : v < 2 ? margins[i][v] : tight))) return;
+        const d = dist[u] + Math.hypot(q[0] - nodes[u][0], q[1] - nodes[u][1]);
+        if (d < dist[v]) { dist[v] = d; from[v] = u; }
+      });
+    }
+    const way = [];
+    for (let v = from[1]; v > 0; v = from[v]) way.unshift(nodes[v]);
+    return way.slice(0, 8);
+  }
+
+  // the paths of the routes in play at (k, a, focus), cached like the cards (a pan reuses them): by the zoom, the layout, the moved
+  // constellations, the card layout, the route set shown and the focus. -> { specs, lit, focus, obstacles }
+  let routeCache = null, builds = 0, detourWork = 0;   // builds: the curves tried by this layout's searches; detourWork: segment tests spent by the detours of this layout (a fixed budget: deterministic)
+  function routeLayout(k, a, focus) {
+    const cl = a > 0 ? cardLayout(k) : null, key = `${k}|${layoutRuns}|${dragRev}|${state.allRoutes}|${focus}|${traj ? 1 : 0}`;
+    if (routeCache && routeCache.key === key && routeCache.cl === cl) return routeCache;
+    const t0 = performance.now(), set = routeSpecs(a, focus), obstacles = outlines(a, k);
+    detourWork = 0; builds = 0;
+    set.specs.forEach(sp => { Object.assign(sp, routePath(sp, obstacles, k)); });
+    routeCache = { ...set, key, cl, obstacles };
+    perf.routes = performance.now() - t0;
+    return routeCache;
+  }
+  // the polyline cut by `head` px at its start and `tail` px at its end (arc length); null when nothing is left
+  function cutPath(pts, head, tail) {
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const total = cum[cum.length - 1], from = head, to = total - tail;
+    if (to - from < 1) return null;
+    const at = d => {
+      let i = 1;
+      while (i < cum.length - 1 && cum[i] < d) i++;
+      const f = (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+      return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f];
+    };
+    return [at(from), ...pts.filter((_, i) => cum[i] > from && cum[i] < to), at(to)];
+  }
+  // Draws the routes of `rs` (screen px from the camera's translation, the focused ones last) and records what it drew for the hooks
+  // and the hit-test. A route with a net direction ends in a triangle at the reader's outline; relations only: dashed.
+  function drawRoutes(rs, onScreen) {
+    const seen = [];
+    [...rs.specs].sort((p, q) => p.hi - q.hi).forEach(sp => {
+      const r = sp.r, w = routeWidth(r.c), dim = rs.focus && !sp.hi ? ROUTE.DIM : 1, head = 6 + 1.2 * w, half = 3 + 0.8 * w;
+      const line = cutPath(sp.pts, ROUTE.GAP, ROUTE.GAP) || sp.pts;
+      let stroke = line, arrow = null;
+      if (r.dir) {   // a route too short for its arrowhead gets a smaller one, never none
+        const room = cutPath(line, 0, 0) && Math.hypot(line[line.length - 1][0] - line[0][0], line[line.length - 1][1] - line[0][1]);
+        const base = cutPath(line, 0, Math.min(head, 0.7 * (room || head)));
+        if (base) { stroke = base; arrow = { tip: line[line.length - 1], from: base[base.length - 1] }; }
+        else arrow = { tip: line[line.length - 1], from: line[0] };
+      }
+      ctx.globalAlpha = sp.alpha * (traj ? DIM : dim); ctx.strokeStyle = ctx.fillStyle = routeInk(sp.hi && !traj);
+      ctx.lineWidth = w; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.setLineDash(r.lin ? [] : ROUTE.DASH);
+      ctx.beginPath(); stroke.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+      ctx.setLineDash([]);
+      if (arrow) {
+        const ang = Math.atan2(arrow.tip[1] - arrow.from[1], arrow.tip[0] - arrow.from[0]), [tx, ty] = arrow.tip;
+        ctx.beginPath(); ctx.moveTo(tx, ty);
+        ctx.lineTo(tx - Math.cos(ang) * head + Math.sin(ang) * half, ty - Math.sin(ang) * head - Math.cos(ang) * half);
+        ctx.lineTo(tx - Math.cos(ang) * head - Math.sin(ang) * half, ty - Math.sin(ang) * head + Math.cos(ang) * half);
+        ctx.closePath(); ctx.fill();
+      }
+      if (onScreen) seen.push({ sp, w, arrow: arrow ? [arrow.tip[0] + t.x, arrow.tip[1] + t.y] : null,
+                                pts: sp.pts.map(([x, y]) => [x + t.x, y + t.y]) });
+    });
+    ctx.globalAlpha = 1; ctx.lineJoin = 'miter';
+    if (onScreen) routeSeen = { list: seen, obstacles: rs.obstacles.map(o => ({ ...o, x: o.x + t.x, y: o.y + t.y })) };
+  }
+  // the route under a screen point, by the last frame: within max(HIT, half the width + 3) px of its polyline
+  function routeAt(px, py) {
+    let best = null, near = Infinity;
+    routeSeen.list.forEach(e => {
+      const tol = Math.max(ROUTE.HIT, e.w / 2 + 3);
+      for (let i = 1; i < e.pts.length; i++) {
+        const [ax, ay] = e.pts[i - 1], [bx, by] = e.pts[i], dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+        const f = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)), d = Math.hypot(px - ax - f * dx, py - ay - f * dy);
+        if (d <= tol && d < near) { near = d; best = e; }
+      }
+    });
+    return best;
+  }
+  // the route tooltip (D-067): upstream -> reader (without a direction: both ends), what it carries, who reads whom; a bundled
+  // route lists its systems (the first 5, then "+ N")
+  function routeTip(e) {
+    const r = e.sp.r, up = e.sp.from, down = e.sp.to, name = d => esc(constellationLabel(d.k));
+    const carries = [r.lin ? plural(r.lin, T.lineageN) : null, r.rel ? plural(r.rel, T.relationsN) : null].filter(Boolean).join(' · ');
+    const ends = r.dir ? `${name(up)} → ${name(down)}` : `${name(up)} – ${name(down)}`;
+    const systems = r.systems ? [...r.systems].sort((a, b) => b[1] - a[1]).map(([key]) => esc(constellationLabel(key))) : [];
+    return `<b>${ends}</b><div class="m">${carries}</div>` + (r.dir ? `<div class="m">${T.reads(name(down), name(up))}</div>` : '')
+      + (systems.length ? `<div class="m">${T.systemsList}${systems.slice(0, 5).join(', ')}${systems.length > 5 ? `, + ${num(systems.length - 5)}` : ''}</div>` : '');
+  }
+  // ---- focus: a constellation's routes in full (the mouse over it, or keyboard focus in its panel row or text summary)
+  let focusByMouse = false;   // the focus comes from the mouse (it clears when the mouse leaves), not from keyboard focus
+  function focusOn(key) {
+    if (routeFocus === key) return;
+    routeFocus = key; draw();
+  }
+  function announceFocus(key) {
+    const grouped = groupShown(summaryAlpha(t.k)) && isMember(key), at = grouped ? GROUP : key;
+    const n = (grouped ? bundled().all : routes).filter(r => r.source === at || r.target === at).length;
+    live.textContent = `${key === GROUP ? T.systems : constellationLabel(key)}${L.colon}${plural(n, T.routesShownN)}`;
+  }
+  // keyboard focus in a panel row: lights its constellation's routes while it lasts
+  function focusRow(row, key) {
+    row.addEventListener('focusin', () => {
+      if (state.by !== 'domains') return;   // in layer mode a domain is a band, not a constellation
+      focusByMouse = false; if (routeFocus !== key) announceFocus(key); focusOn(key);
+    });
+    row.addEventListener('focusout', () => focusOn(null));
+  }
+  // the routes of a constellation, as text, heaviest first: "reads A (36), B (12) · read by C (8) · relations with D (5)"
+  function routesLine(key) {
+    const label = k => constellationLabel(k), by = (list, f) => list.sort((a, b) => b.c - a.c || (label(a.o) < label(b.o) ? -1 : 1))
+      .map(x => `${label(x.o)} (${num(x.c)})`).join(', ');
+    const reads = [], read = [], rel = [];
+    routes.forEach(r => {
+      if (r.source !== key && r.target !== key) return;
+      const o = r.source === key ? r.target : r.source;
+      (!r.dir ? rel : (r.dir > 0) === (r.target === key) ? reads : read).push({ o, c: r.c });
+    });
+    const parts = [reads.length && `${T.readsFrom} ${by(reads)}`, read.length && `${T.readBy} ${by(read)}`, rel.length && `${T.relWith} ${by(rel)}`].filter(Boolean);
+    return `${T.routes}${L.colon}${parts.length ? parts.join(' · ') : T.routesNone}`;
   }
 
   function roundedRect(x, y, w, h, r) {
@@ -1215,17 +1797,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // in screen px: the rectangle, the header (the drag handle) and the rows (the click targets), the text and the level
   function drawSummary(e, a, over) {
     const s = e.s, byLayers = state.by === 'layers', lv = e.lv, x = e.px - e.w / 2 + t.x, y = e.py - e.h / 2 + t.y;
-    const mark = byLayers ? C.muted : CONTRAST.edge(DOM[e.key].color, C.bg), ink = byLayers ? C.text : CONTRAST.ink(DOM[e.key].color, C.card);
+    const system = !byLayers && SYSTEM.has(e.key);   // a lone source system: neutral (D-066)
+    const mark = byLayers ? C.muted : CONTRAST.edge(DOM[e.key].color, C.bg), ink = byLayers ? C.text : system ? C.muted : CONTRAST.ink(DOM[e.key].color, C.card);
     const ix = x + CARD.PAD_X, iw = e.w - 2 * CARD.PAD_X, hov = over && over.key === e.key;
-    const rec = { key: e.key, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: LEVELS[lv], name: null, counts: null, rows: [], main: [],
+    const rec = { key: e.key, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: LEVELS[lv], name: null, counts: null, rows: [], main: [], drawn: !(lv >= 4 && !e.tj),
       traj: null, fonts: [null, null], header: { x, y, w: e.w, h: lv <= 2 ? CARD.PAD_Y + CARD.NAME : e.h }, rowHits: [] };
     if (lv >= 4) {   // no room for the name: the label above the disc stays instead (paint), so a bare pill is drawn only to carry a frame
       rec.label = true; rec.name = s.label; rec.counts = s.counts; rec.fonts = [13, 12];
       if (!e.tj) return rec;
     }
-    ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1);
+    ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1) * litAlpha(e.key);
     if (e.tj) drawCardFrames(e.tj, x, y, e.w, e.h);
-    ctx.fillStyle = C.card; ctx.strokeStyle = mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
+    ctx.fillStyle = C.card; ctx.strokeStyle = SYSTEM.has(e.key) && !byLayers ? CONTRAST.edge(NEUTRAL, C.bg) : mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
     roundedRect(x, y, e.w, e.h, CARD.RADIUS); ctx.fill(); ctx.stroke();
     if (lv >= 4) return rec;
     ctx.textAlign = 'left'; ctx.fillStyle = ink; ctx.font = F_NAME;
@@ -1262,8 +1845,38 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     });
     return rec;
   }
+  // The group card (D-066), at layer alpha `a`: the same record as drawSummary's. Header "Source systems", the counts line, then
+  // one row per system in stack order (label, count; no bar by kind: that is on the system's own card), `+ N` past GROUP_ROWS.
+  // At level `name` (the ladder stops there) only the header and the counts.
+  function drawGroup(e, a, over) {
+    const s = e.s, lv = e.lv, x = e.px - e.w / 2 + t.x, y = e.py - e.h / 2 + t.y, ix = x + CARD.PAD_X, iw = e.w - 2 * CARD.PAD_X;
+    const mark = CONTRAST.edge(NEUTRAL, C.bg), hov = over && over.key === GROUP;
+    const rec = { key: GROUP, d: e.d, x, y, w: e.w, h: e.h, shift: e.disp, level: lv ? 'name' : 'rows', name: null, counts: s.counts, rows: [], main: [],
+      drawn: true, traj: null, fonts: [13, 11], header: { x, y, w: e.w, h: lv ? e.h : CARD.PAD_Y + CARD.NAME }, rowHits: [] };
+    ctx.globalAlpha = a * (traj && !e.tj ? DIM_CTX : 1) * litAlpha(GROUP);
+    if (e.tj) drawCardFrames(e.tj, x, y, e.w, e.h);
+    ctx.fillStyle = C.card; ctx.strokeStyle = mark; ctx.lineWidth = hov ? CARD.BORDER_HOVER : CARD.BORDER;
+    roundedRect(x, y, e.w, e.h, CARD.RADIUS); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.fillStyle = C.muted; ctx.font = F_NAME;
+    let ty = y + CARD.PAD_Y;
+    ctx.fillText(rec.name = cutText(F_NAME, s.label, iw), ix, ty + 12); ty += CARD.NAME;
+    ctx.font = F_TEXT; ctx.fillText(s.counts, ix, ty + 10); ty += CARD.LINE;
+    if (e.line && lv < 3) { ctx.fillText(rec.traj = cutText(F_TEXT, e.line, iw), ix, ty + 10); ty += CARD.LINE; }
+    if (lv) return rec;
+    ty += CARD.SEC;
+    s.rows.slice(0, CARD.GROUP_ROWS).forEach(r => {
+      if (hov && over.row === r.key) { ctx.fillStyle = 'rgba(100,116,139,.10)'; ctx.fillRect(x + 1, ty, e.w - 2, CARD.GROUP_ROW); }
+      const count = num(r.n);
+      ctx.font = F_TEXT; ctx.fillStyle = C.text; ctx.fillText(cutText(F_TEXT, r.label, iw - textW(F_TEXT, count) - 8), ix, ty + 12);
+      ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(count, ix + iw, ty + 12); ctx.textAlign = 'left';
+      rec.rows.push(r.key); rec.rowHits.push({ key: r.key, x, y: ty, w: e.w, h: CARD.GROUP_ROW });
+      ty += CARD.GROUP_ROW;
+    });
+    if (s.rows.length > CARD.GROUP_ROWS) { ctx.fillStyle = C.muted; ctx.fillText(`+ ${num(s.rows.length - CARD.GROUP_ROWS)}`, ix, ty + 10); }
+    return rec;
+  }
   // the card part under a screen point, by the last frame: { rec, d, part: 'header' | 'row' | 'card', row }, or null
-  let summaryHits = [];
+  let summaryHits = [], summaryAll = [];   // summaryHits: the cards drawn (hit-testing); summaryAll: every card (the summariesDrawn hook)
   function summaryAt(x, y) {
     const inside = r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h, rec = summaryHits.find(inside);
     if (!rec) return null;
@@ -1274,6 +1887,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // stars are drawn, so the tables are seen
   function zoomOnConstellation(d) {
     const w = stage.clientWidth, h = stage.clientHeight - top();
+    if (d.members) {   // the source systems together: their box, at least where stars are drawn
+      const bx = [d3.min(d.members, m => m.x - m.r), d3.min(d.members, m => m.y - m.r), d3.max(d.members, m => m.x + m.r), d3.max(d.members, m => m.y + m.r)];
+      return zoomTo((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2, Math.max(0.92 * Math.min(w / (bx[2] - bx[0] + 60), h / (bx[3] - bx[1] + 60)), starsScale * 1.05));
+    }
     zoomTo(d.x, d.y, Math.max(0.92 * Math.min(w, h) / (2 * d.r + 60), starsScale * 1.05));
   }
   // a row's band (domain mode: a layer; layer mode: a domain); the constellation when that band is not drawn
@@ -1294,7 +1911,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!sumBox.open) return;
     const holds = trajHolds(), mk = (tag, text) => { const el = document.createElement(tag); if (text != null) el.textContent = text; return el; };
     const button = (text, onclick) => { const b = mk('button', text); b.type = 'button'; b.onclick = onclick; return b; };
-    const items = [...constellations].sort((a, b) => a.x - b.x || a.y - b.y).map(d => {
+    // business constellations first, left to right; then the source systems under their own heading, top to bottom (D-066)
+    const isSys = d => !byLayers && SYSTEM.has(d.k);
+    const section = d => {
       const s = SUMMARIES.get(d.k), box = mk('div'), h = mk('h4'), h4 = [], line = holds.get(d.k);
       box.className = 'sum-c';
       if (!byLayers) h4.push(paintDot(mk('i'), DOM[d.k].color));
@@ -1312,8 +1931,26 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       });
       box.append(ul);
       if (s.main.length) box.append(mk('p', `${T.mainTables}${L.colon}${s.main.map(i => N[i].name).join(', ')}`));
+      box.append(mk('p', routesLine(d.k)));   // the canvas is silent: the routes as text
+      box.addEventListener('focusin', () => { focusByMouse = false; if (routeFocus !== d.k) announceFocus(d.k); focusOn(d.k); });
+      box.addEventListener('focusout', () => focusOn(null));
       return box;
-    });
+    };
+    const business = [...constellations].filter(d => !isSys(d)).sort((a, b) => a.x - b.x || a.y - b.y);
+    const systems = [...constellations].filter(isSys).sort((a, b) => a.y - b.y || b.x - a.x);
+    const items = business.map(section);
+    if (systems.length) {
+      const box = mk('div'), h = mk('h4'), tables = d3.sum(systems, d => SUMMARIES.get(d.k).n);
+      box.className = 'sum-sys';
+      const go = button(T.zoomBtn, () => { zoomOnConstellation({ members: systems }); live.textContent = T.zoomed(T.systems); });
+      go.setAttribute('aria-label', T.zoomOn(T.systems));
+      h.append(mk('span', `${T.systems}${L.colon}${num(systems.length)} · ${plural(tables, L.tables)}`), go);
+      box.append(h);
+      const key = systems.length > 1 ? GROUP : systems[0].k;
+      box.addEventListener('focusin', () => { focusByMouse = false; if (routeFocus !== key) announceFocus(key); focusOn(key); });
+      box.addEventListener('focusout', () => focusOn(null));
+      items.push(box, ...systems.map(section));
+    }
     $u('sum-list').replaceChildren(...(items.length ? items : [mk('p', L.empty)]));
   }
   sumBox.addEventListener('toggle', renderSummary);
@@ -1336,7 +1973,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const dx = ev.dx / t.k, dy = ev.dy / t.k, s = ev.subject;
       s.moved = true;
       if (s.n) { P[s.n.i].x += dx; P[s.n.i].y += dy; }
-      else { s.d.x += dx; s.d.y += dy; dragRev++; drawn.forEach(n => { if (grouping().of(n) === s.d.k) { P[n.i].x += dx; P[n.i].y += dy; } }); }
+      else {   // a constellation, or the group card: every source system it stands for
+        const moved = s.d.members || [s.d], keys = new Set(moved.map(m => m.k));
+        moved.forEach(m => { m.x += dx; m.y += dy; });
+        dragRev++;
+        drawn.forEach(n => { if (keys.has(grouping().of(n))) { P[n.i].x += dx; P[n.i].y += dy; } });
+      }
       if (SP.size) placeShown();   // the orbits follow their entity
       draw();
     })
@@ -1362,10 +2004,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
   const top = () => traj ? bar.offsetHeight : 0;
   // frame a world-space box, at most at scale kMax
+  // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
+  const NAME_STRIP = 46;
+  const frameScale = (bx0, by0, bx1, by1, kMax = Infinity) =>
+    Math.min(kMax, 0.95 * Math.min(stage.clientWidth / (bx1 - bx0), (stage.clientHeight - top() - NAME_STRIP) / (by1 - by0)));
   function frame(bx0, by0, bx1, by1, animate, kMax = Infinity) {
-    // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
-    const NAME = 46, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
-    const k = Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0)));
+    const NAME = NAME_STRIP, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
+    const k = frameScale(bx0, by0, bx1, by1, kMax);
     const tr = d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
     (animate && motionMs(500) ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
   }
@@ -1377,8 +2022,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
         d3.max(tj, i => posOf(i).x + boxOf(i).w / 2), d3.max(tj, i => posOf(i).y + boxOf(i).oy + boxOf(i).h / 2), animate, 2);
     }
     if (!constellations.length) return draw();
-    frame(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
-      d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r), animate);
+    let box = [d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
+      d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r)];
+    if (GROUPED.length) {   // the group card is pushed off its systems: keep it in the frame (its size is the same at any scale, so settle k)
+      const base = box, size = groupCardSize();
+      for (let i = 0; i < 4; i++) {
+        const k = frameScale(...box), w = size[0] / k, h = size[1] / k;
+        box = [Math.min(base[0], GROUPD.x - w / 2), Math.min(base[1], GROUPD.y - h / 2), Math.max(base[2], GROUPD.x + w / 2), Math.max(base[3], GROUPD.y + h / 2)];
+      }
+    }
+    frame(...box, animate);
   }
   function zoomTo(x, y, k) {
     const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
@@ -1447,18 +2100,29 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const cards = cardsOn(), part = cards ? summaryAt(px, py) : null, at = part ? { key: part.d.k, row: part.row } : null;
     if (h !== hover || !sameCard(at, overCard)) { hover = h; overCard = at; draw(); }
     const d = n ? null : domainAt(ev);
+    // the mouse over a constellation (not a table) lights its routes (D-067); leaving it clears them
+    const fk = !n && !traj && t.k < OVERVIEW_K && d ? d.k : null;
+    if (fk) { focusByMouse = true; focusOn(fk); } else if (focusByMouse) { focusByMouse = false; focusOn(null); }
+    const hitRoute = !n && !(part && cards) && !traj && t.k < OVERVIEW_K ? routeAt(px, py) : null;
     canvas.style.cursor = (n && !SP.has(n.i) && t.k >= FAR) || labelAt(px, py) ? 'grab' : part && part.row ? 'pointer' : '';
-    if (!n && !d) { tip.style.display = 'none'; return; }
-    if (n) {
+    if (!n && !d && !hitRoute) { tip.style.display = 'none'; return; }
+    if (hitRoute) {
+      tip.innerHTML = routeTip(hitRoute);
+    } else if (n) {
       const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
       tip.innerHTML = tableTip(DATA, n) + foldTip(n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
         `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>`;
+    } else if (d.members) {   // the group card
+      const rows = SUMMARIES.get(GROUP).rows;
+      tip.innerHTML = `<b>${esc(T.systems)}</b>` + rows.slice(0, CARD.GROUP_ROWS).map(r => `<div class="m">${esc(r.label)} · ${plural(r.n, L.tables)}</div>`).join('')
+        + (rows.length > CARD.GROUP_ROWS ? `<div class="m">+ ${num(rows.length - CARD.GROUP_ROWS)}</div>` : '')
+        + `<div class="a">${T.frame} · ${T.rowZoom}</div>`;
     } else if (state.by === 'layers') {
       tip.innerHTML = layerTip(d, t.invert([px, py])[0], cards, part && part.d === d ? part.row : null);
     } else {
       const dd = DOM[d.k], row = cards && part && part.d === d && part.row ? SUMMARIES.get(d.k).rows.find(r => r.key === part.row) : null;
       tip.innerHTML = `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
-        + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>`
+        + (SYSTEM.has(d.k) ? `<div class="m">${T.systemOne}</div>` : `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>`)
         + (row ? `<div class="m">${T.layerOne}${L.colon}${esc(row.label)} · ${plural(row.n, L.tables)}</div>` : '')
         + `<div class="a">${T.frame}${cards ? ' · ' + T.rowZoom : ''}</div>`;
     }
@@ -1469,6 +2133,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   });
   canvas.addEventListener('mouseleave', () => {
     tip.style.display = 'none';
+    if (focusByMouse) { focusByMouse = false; focusOn(null); }
     if (hover != null || overCard) { hover = null; overCard = null; draw(); }
   });
   // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
@@ -1492,7 +2157,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const n = t.k >= FAR ? pick(ev) : null;
     if (n) { enterTrajectory(n.i); return; }
     const hit = cardsOn() ? summaryAt(...d3.pointer(ev, canvas)) : null;
-    if (hit && hit.part === 'row') { zoomOnRow(hit.d, hit.row); return; }   // a click elsewhere on a card does nothing
+    if (hit && hit.part === 'row') { hit.d.members ? zoomOnConstellation(hit.d.members.find(m => m.k === hit.row)) : zoomOnRow(hit.d, hit.row); return; }   // a click elsewhere on a card does nothing
     if (labelAt(...d3.pointer(ev, canvas)) || domainAt(ev)) return;
     if (traj) leaveTrajectory(false);
     if (found != null && foldedSet.has(found)) { found = null; placeShown(); draw(); }   // the empty background hides the orbit
@@ -1637,13 +2302,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function geometry() {
     return { by: state.by, layoutMs: perf.layout,
       summary: { cell: CELL, scale: summaryScale, stars: starsScale, alpha: summaryAlpha(t.k) },
-      routes: routes.map(r => ({ source: r.source.k, target: r.target.k, c: r.c, dir: r.dir })),
+      routes: routes.map(r => ({ source: r.source, target: r.target, c: r.c, dir: r.dir, rel: r.rel, lin: r.lin, strong: r.strong,
+        bundle: GROUPED.some(d => d.k === r.source || d.k === r.target) && !(isMember(r.source) && isMember(r.target)) ? GROUP : null })),
+      systems: { keys: DATA.domains.filter(d => d.system).map(d => d.key), grouped: GROUPED.map(d => d.k) },
       tables: [...drawn, ...[...SP.keys()].map(i => N[i])].map(n => ({ id: n.id, domain: n.domain, layer: n.layer,
         x: posOf(n.i).x, y: posOf(n.i).y, w: boxOf(n.i).w, h: boxOf(n.i).h, oy: boxOf(n.i).oy, r: starR(n),
         parent: PARENT[n.i] == null ? null : N[PARENT[n.i]].id, held: (FOLDED.get(n.i) || []).length, shown: SP.has(n.i) })),
       fold: { available: FOLDABLE, on: state.fold },
       folded: [...foldedSet].filter(i => !SP.has(i)).map(i => N[i].id),
       constellations: constellations.map(d => ({ key: d.k, n: d.n, x: d.x, y: d.y, r: d.r, summary: summaryOf(d),
+                                   system: state.by === 'domains' && SYSTEM.has(d.k), flowRank: FLOWRANK.has(d.k) ? FLOWRANK.get(d.k) : null,
                                    bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })) };
   }
 
@@ -1654,7 +2322,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       rows: s.rows.map(r => ({ key: r.key, n: r.n, kinds: r.kinds })) };
   }
   // what the last screen frame drew of each card, in screen px (kept out of geometry() so geometries compare equal)
-  const summariesDrawn = () => summaryHits.map(c => ({ key: c.key, x: c.x, y: c.y, w: c.w, h: c.h, shift: c.shift, level: c.level, name: c.name,
+  const summariesDrawn = () => summaryAll.map(c => ({ key: c.key, x: c.x, y: c.y, w: c.w, h: c.h, shift: c.shift, level: c.level, name: c.name,
     counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts, label: !!c.label }));
 
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
@@ -1665,6 +2333,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
+  // routesDrawn: what the last screen frame drew of each route and the outlines it avoided (screen px); routesMs: the last route
+  // layout; focus(key): the keyboard focus' effect, for the tests
+  const routesDrawn = () => ({
+    routes: routeSeen.list.map(e => ({ source: e.sp.r.source, target: e.sp.r.target, bundled: e.sp.bundle, c: e.sp.r.c, rel: e.sp.r.rel, lin: e.sp.r.lin,
+      dir: e.sp.r.dir, alpha: e.sp.alpha, dashed: !e.sp.r.lin, blocked: e.sp.blocked, hi: e.sp.hi, arrow: e.arrow, samples: e.pts })),
+    obstacles: routeSeen.obstacles.map(o => (o.shape === 'disc' ? { key: o.key, kind: 'disc', x: o.x, y: o.y, r: o.r } : { key: o.key, kind: 'card', x: o.x, y: o.y, w: o.w, h: o.h })) });
   return { shown: () => { resize(); }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames, placeMs: () => perf.place,
-    summariesDrawn, cardsMs: () => perf.cards, layoutCardsMs: () => perf.cardLayout, drawMs: () => perf.draw };
+    summariesDrawn, cardsMs: () => perf.cards, layoutCardsMs: () => perf.cardLayout, drawMs: () => perf.draw, routesDrawn, routesMs: () => perf.routes,
+    focus: key => { focusByMouse = false; focusOn(key ?? null); } };
 }

@@ -653,6 +653,12 @@ def _fold_row(universe: UniversePayload, folding: bool) -> str | None:
     return text if folding else f"{text}; the page opens with them shown"
 
 
+def _systems(universe: UniversePayload) -> str:
+    """` (7 source systems)` when the universe has source systems (D-065), else nothing."""
+    systems = sum(d.system for d in universe.domains)
+    return f" ({_count(systems, 'source system')})" if systems else ""
+
+
 def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -> str:
     """The success summary: the page path, then one aligned line per view, page, config, layout."""
     entities = detail.entities
@@ -661,7 +667,8 @@ def _summary(report: Report, detail: DetailPayload, universe: UniversePayload) -
     config = report.config
     libraries = "offline, libraries embedded" if config.offline else "libraries from CDNs"
     rows = {
-        "universe": f"{_count(len(universe.nodes), 'table')} in {_count(len(universe.domains), 'domain')}, "
+        "universe": f"{_count(len(universe.nodes), 'table')} in {_count(len(universe.domains), 'domain')}"
+        f"{_systems(universe)}, "
         f"{_count(len(universe.relations), 'relation')}, {_count(len(universe.lineage), 'lineage link')}",
         **({"fold": fold} if (fold := _fold_row(universe, config.universe.fold)) else {}),
         "detail": f"{_count(len(entities), 'table')}{kinds}, {_count(len(detail.relations), 'relation')}",

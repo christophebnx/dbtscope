@@ -16,7 +16,7 @@ domains:
   - {key: marketing, label: Marketing, color: "#c2549d", match: ["type:source,schema:raw_crm", "type:source,schema:raw_web", "stg_crm__*", "stg_web__*"]}
   - {key: finance, label: Finance, color: "#c9a227", match: ["type:source,schema:raw_billing", "stg_billing__*", "currency_rates"]}
   - {key: logistics, label: Logistics, color: "#5b7fa6", match: ["type:source,schema:raw_wms", "stg_wms__*"]}
-  - {key: shared, label: Shared, color: "#777777", match: ["calendar"]}
+  - {key: shared, label: Shared, color: "#777777", match: ["calendar"], system: false}
 # layers along the medallion; seeds and snapshots sit in Bronze (loaded or captured as is)
 layers:
   - {key: source, label: Sources, match: ["type:source"]}

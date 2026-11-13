@@ -22,7 +22,9 @@ from conftest import page_of
 from browser.conftest import NARROW, Page, scroll_width, summary, universe_page
 from browser.test_summary import (
     BUSINESS,
+    GROUP,
     NOTCH,
+    SYSTEMS,
     Opened,
     U,
     assert_apart,
@@ -107,66 +109,52 @@ def hub_name(data: dict[str, Any], key: str = "vehicle") -> str:
 
 
 def parse_n(counts: str) -> int:
-    return int(counts.split()[0].replace(",", ""))
+    """The tables a card counts: its first figure; the group card's second (`7 systems · 504 tables`)."""
+    parts = counts.split(" · ")
+    return int(
+        (parts[1] if parts[0].endswith(("system", "systems")) else parts[0]).split()[0].replace(",", "")
+    )
 
 
-RECORD = """() => { const p = CanvasRenderingContext2D.prototype; window.__orig = [p.moveTo, p.lineTo];
-  const seg = window.__seg = []; let last = null;
-  p.moveTo = function (x, y) { last = [x, y]; return window.__orig[0].call(this, x, y); };
-  p.lineTo = function (x, y) {
-    if (last) seg.push([last[0], last[1], x, y]);
-    last = null;
-    return window.__orig[1].call(this, x, y);
-  };
-}"""
-STOP = """() => { const p = CanvasRenderingContext2D.prototype;
-  [p.moveTo, p.lineTo] = window.__orig; return window.__seg; }"""
+def card_counts(exp: dict[str, dict[str, Any]]) -> dict[str, int]:
+    """The table counts of the cards a page draws, from `visible_counts`: two or more visible source systems
+    are one group card (D-066)."""
+    systems = {k: e["n"] for k, e in exp.items() if k in SYSTEMS}
+    out = {k: e["n"] for k, e in exp.items() if k not in SYSTEMS or len(systems) < 2}
+    return {**out, **({GROUP: sum(systems.values())} if len(systems) >= 2 else {})}
 
 
-def drawn_segments(p: Page) -> list[list[float]]:
-    """Every straight segment of the next frame, in world coordinates (the canvas transform is the camera)."""
-    p.page.evaluate(RECORD)
-    try:
-        c = camera(p)
-        p.page.evaluate(f"c => {U}.camera(c)", c)  # the same camera: a frame, no move
-        p.page.wait_for_timeout(200)
-    finally:
-        segments = p.page.evaluate(STOP)
-    return segments
+def drawn_routes(p: Page) -> dict[str, Any]:
+    """What the last frame drew of the routes: their samples (screen px) and the outlines they avoided."""
+    p.page.wait_for_timeout(200)
+    return p.page.evaluate(f"{U}.routesDrawn()")
 
 
-def edge_point(rect: dict[str, float], toward: tuple[float, float]) -> tuple[float, float]:
-    """Where the ray from the centre of `rect` toward a point leaves it (what `edgeOf` says at alpha 1)."""
-    cx, cy = rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2
-    dx, dy = toward[0] - cx, toward[1] - cy
-    s = min(rect["w"] / 2 / abs(dx) if dx else math.inf, rect["h"] / 2 / abs(dy) if dy else math.inf)
-    return cx + dx * s, cy + dy * s
+def from_to(r: dict[str, Any]) -> tuple[str, str]:
+    """A drawn route's ends in drawing order: the upstream constellation, then the reader (D-067)."""
+    return (r["target"], r["source"]) if r["dir"] < 0 else (r["source"], r["target"])
 
 
-def expected_ends(p: Page) -> list[tuple[tuple[float, float], tuple[float, float]]]:
-    """Each route's two ends as `edgeOf` defines them at the current alpha: the disc's centre moved by alpha
-    toward the point where the card's centre-to-other-disc ray leaves the card."""
-    g = geometry(p)
-    a = g["summary"]["alpha"]
-    d = {c["key"]: c for c in g["constellations"]}
-
-    def end(mine: dict[str, Any], other: dict[str, Any]) -> tuple[float, float]:
-        ex, ey = edge_point(mine["summary"], (other["x"], other["y"]))
-        return mine["x"] + a * (ex - mine["x"]), mine["y"] + a * (ey - mine["y"])
-
-    return [(end(d[r["source"]], d[r["target"]]), end(d[r["target"]], d[r["source"]])) for r in g["routes"]]
+def outline_gap(o: dict[str, Any], x: float, y: float) -> float:
+    """How far (px) the point is from the outline of an obstacle: a disc's circle, a card's rectangle."""
+    if o["kind"] == "disc":
+        return abs(math.hypot(x - o["x"], y - o["y"]) - o["r"])
+    inside = o["x"] <= x <= o["x"] + o["w"] and o["y"] <= y <= o["y"] + o["h"]
+    sides = [abs(x - o["x"]), abs(x - o["x"] - o["w"]), abs(y - o["y"]), abs(y - o["y"] - o["h"])]
+    dx = max(o["x"] - x, 0, x - o["x"] - o["w"])
+    dy = max(o["y"] - y, 0, y - o["y"] - o["h"])
+    return min(sides) if inside else math.hypot(dx, dy)
 
 
-def assert_routes_end_at(p: Page, ends: list[tuple[tuple[float, float], tuple[float, float]]]) -> None:
-    k = camera(p)["k"]
-    segments = drawn_segments(p)
-    tol = 1 / k  # one screen px
-    for (ax, ay), (bx, by) in ends:
-        assert any(
-            (math.hypot(s[0] - ax, s[1] - ay) < tol and math.hypot(s[2] - bx, s[3] - by) < tol)
-            or (math.hypot(s[0] - bx, s[1] - by) < tol and math.hypot(s[2] - ax, s[3] - ay) < tol)
-            for s in segments
-        ), ((ax, ay), (bx, by))
+def assert_routes_leave_outlines(p: Page, tol: float = 1.0) -> None:
+    """Every drawn route starts on the outline of its upstream end and finishes on its reader's."""
+    drawn = drawn_routes(p)
+    outlines = {o["key"]: o for o in drawn["obstacles"]}
+    assert drawn["routes"]
+    for r in drawn["routes"]:
+        a, b = from_to(r)
+        assert outline_gap(outlines[a], *r["samples"][0]) < tol, (a, b)
+        assert outline_gap(outlines[b], *r["samples"][-1]) < tol, (a, b)
 
 
 def toggle_input(p: Page, container: str, index: int) -> None:
@@ -216,13 +204,14 @@ def test_the_cards_give_the_size_of_every_domain_in_numbers_though_the_discs_do_
     p, data = large_page
     exp = visible_counts(data)
     read = {c["key"]: parse_n(c["counts"]) for c in cards(p)}
-    assert read == {k: e["n"] for k, e in exp.items()}
+    assert read == card_counts(exp)
     assert sorted(BUSINESS, key=lambda k: -read[k]) == ["vehicle", "auction", "account", "claim", "activity"]
-    radius = disc_radii(p)
+    radius = {k: r for k, r in disc_radii(p).items() if k != GROUP}
     assert radius["activity"] > radius["claim"] and read["activity"] < read["claim"]  # the known deviation
     assert sorted(radius, key=lambda k: -radius[k])[:3] == ["vehicle", "auction", "account"]
     # no card shows a count that differs from what its constellation holds, so no size is misreported
-    assert all(read[c["key"]] == c["n"] for c in geometry(p)["constellations"])
+    assert all(read[c["key"]] == c["n"] for c in geometry(p)["constellations"] if c["key"] in BUSINESS)
+    assert read[GROUP] == sum(c["n"] for c in geometry(p)["constellations"] if c["key"] in SYSTEMS)
 
 
 def test_each_card_shows_where_its_data_comes_from_and_goes_by_layer_in_flow_order(
@@ -232,11 +221,17 @@ def test_each_card_shows_where_its_data_comes_from_and_goes_by_layer_in_flow_ord
     p, data = large_page
     flow = [layer["key"] for layer in data["universe"]["layers"]]
     for c in cards(p):
-        assert c["rows"] == sorted(c["rows"], key=flow.index)
+        if c["key"] != GROUP:
+            assert c["rows"] == sorted(c["rows"], key=flow.index)
         if c["key"] in BUSINESS:
             assert set(c["rows"]) <= set(flow) and {"raw_vault", "data_products"} <= set(c["rows"])
-        else:
-            assert c["rows"] == ["sources", "staging"]
+        else:  # the group card: a row per system; each system's own card reads sources then staging
+            assert c["key"] == GROUP and sorted(c["rows"]) == SYSTEMS
+    assert all(
+        [r["key"] for r in s["rows"]] == ["sources", "staging"]
+        for k, s in card_rows(p).items()
+        if k in SYSTEMS
+    )
     assert [r["key"] for r in card_rows(p)["vehicle"]["rows"]][:1] != []
 
 
@@ -278,8 +273,8 @@ def test_the_routes_of_the_cards_are_the_links_between_the_domains(large_page: O
 def test_no_two_cards_overlap_at_fit_as_the_page_opens(large_page: Opened) -> None:
     p, _ = large_page
     shown = cards(p)
-    assert len(shown) == 12 and summary(p)["alpha"] == 1
-    assert [c["level"] for c in shown] == ["rows"] * 12  # none had to give up its rows to make room
+    assert len(shown) == 6 and summary(p)["alpha"] == 1
+    assert [c["level"] for c in shown] == ["rows"] * 6  # none had to give up its rows to make room
     assert_apart(shown, disc_radii(p), camera(p)["k"])
     stage = p.page.evaluate("(v => [v.clientWidth, v.clientHeight])(document.getElementById('u-canvas'))")
     assert all(c["x"] >= 0 and c["y"] >= 0 for c in shown)
@@ -293,7 +288,7 @@ def test_two_loads_give_identical_card_rectangles(tmp_path: Path, open_page: Cal
 
     html, _ = page_of(write_large_project(tmp_path / "p"))
     first, second = open_page(html), open_page(html)
-    assert cards(first) == cards(second) and len(cards(first)) == 12
+    assert cards(first) == cards(second) and len(cards(first)) == 6
     assert without_time(geometry(first)) == without_time(geometry(second))
     assert geometry(first)["summary"]["alpha"] == geometry(second)["summary"]["alpha"]
 
@@ -302,27 +297,24 @@ def test_routes_end_on_the_edges_of_the_cards(large_page: Opened) -> None:
     p, _ = large_page
     g = geometry(p)
     assert g["summary"]["alpha"] == 1 and g["routes"]
-    ends = expected_ends(p)
-    rects = {c["key"]: c["summary"] for c in g["constellations"]}
-    for r, (a, b) in zip(g["routes"], ends, strict=True):
-        for end, key in ((a, r["source"]), (b, r["target"])):
-            rect = rects[key]
-            inside = rect["x"] - 1e-6 <= end[0] <= rect["x"] + rect["w"] + 1e-6
-            inside = inside and rect["y"] - 1e-6 <= end[1] <= rect["y"] + rect["h"] + 1e-6
-            on_side = min(
-                abs(end[0] - rect["x"]), abs(end[0] - rect["x"] - rect["w"]),
-                abs(end[1] - rect["y"]), abs(end[1] - rect["y"] - rect["h"]),
-            )  # fmt: skip
-            assert inside and on_side < 1e-6, (key, end)
-    assert_routes_end_at(p, ends)  # and the page draws them there
+    assert_routes_leave_outlines(p)  # a card's edge (the group card's for the bundled routes), at alpha 1
+    kinds = {o["kind"] for o in drawn_routes(p)["obstacles"]}
+    assert kinds == {"card"}
 
 
-def test_routes_move_from_the_disc_centres_to_the_card_edges_with_the_alpha(large_page: Opened) -> None:
+def test_routes_move_from_the_disc_edges_to_the_card_edges_without_a_jump(large_page: Opened) -> None:
     p, _ = large_page
     set_scale(p, summary(p)["scale"] * 1.15)
-    a = summary(p)["alpha"]
-    assert 0 < a < 1
-    assert_routes_end_at(p, expected_ends(p))
+    assert 0 < summary(p)["alpha"] < 1
+    before = {(r["source"], r["target"], r["bundled"]): r["samples"] for r in drawn_routes(p)["routes"]}
+    set_scale(p, summary(p)["scale"] * 1.1501)  # a hair further: the ends move by a hair, never jump
+    after = {(r["source"], r["target"], r["bundled"]): r["samples"] for r in drawn_routes(p)["routes"]}
+    assert before.keys() == after.keys() and before
+    for key, samples in before.items():
+        for end in (0, -1):
+            assert (
+                math.hypot(samples[end][0] - after[key][end][0], samples[end][1] - after[key][end][1]) < 3
+            ), key
 
 
 # ---------------- done when 2: acme_retail as before
@@ -344,7 +336,9 @@ def record_golden(p: Page) -> None:
             for c in g["constellations"]
         ],
         "tables": [{k: t[k] for k in ("id", "x", "y", "w", "h", "oy", "r")} for t in g["tables"]],
-        "routes": [{k: r[k] for k in ("source", "target", "c", "dir")} for r in g["routes"]],
+        "routes": [
+            {k: r[k] for k in ("source", "target", "c", "dir", "rel", "lin", "strong")} for r in g["routes"]
+        ],
     }
     atomic_write(GOLDEN, (json.dumps(gold, indent=1, ensure_ascii=False) + "\n").encode("utf-8"))
 
@@ -373,19 +367,25 @@ def test_acme_retail_opens_on_stars_with_the_geometry_it_had_before_the_cards(ex
         assert [got[k] for k in ("x", "y", "w", "h", "oy", "r")] == pytest.approx(
             [want[k] for k in ("x", "y", "w", "h", "oy", "r")], rel=1e-9
         ), got["id"]
-    assert [{k: r[k] for k in ("source", "target", "c", "dir")} for r in g["routes"]] == gold["routes"]
+    assert [
+        {k: r[k] for k in ("source", "target", "c", "dir", "rel", "lin", "strong")} for r in g["routes"]
+    ] == gold["routes"]
 
 
-def test_acme_retail_routes_run_from_centre_to_centre_at_fit(example_page: Opened) -> None:
+def test_acme_retail_routes_leave_the_discs_at_fit(example_page: Opened) -> None:
     p, _ = example_page
-    assert camera(p)["k"] < 0.6 and geometry(p)["routes"]
-    assert_routes_end_at(p, expected_ends(p))
-    d = {c["key"]: c for c in geometry(p)["constellations"]}
-    first = geometry(p)["routes"][0]
-    assert expected_ends(p)[0] == (
-        (d[first["source"]]["x"], d[first["source"]]["y"]),
-        (d[first["target"]]["x"], d[first["target"]]["y"]),
-    )
+    g, cam = geometry(p), camera(p)
+    assert cam["k"] < 0.6 and g["routes"] and g["summary"]["alpha"] == 0
+    drawn = drawn_routes(p)
+    assert {o["kind"] for o in drawn["obstacles"]} == {"disc"}  # stars are on: the outline is the disc
+    d = {c["key"]: c for c in g["constellations"]}
+    for r in drawn["routes"]:
+        a, b = from_to(r)
+        for key, end in ((a, r["samples"][0]), (b, r["samples"][-1])):
+            c = d[key]
+            assert math.hypot(
+                end[0] - (c["x"] * cam["k"] + cam["x"]), end[1] - (c["y"] * cam["k"] + cam["y"])
+            ) == (pytest.approx(c["r"] * cam["k"], abs=1))
 
 
 # ---------------- done when 3: continuous, both ways, in budget
@@ -411,7 +411,7 @@ def test_a_wheel_sequence_in_then_out_returns_the_camera_to_where_it_started(lar
     end = camera(p)
     assert end == pytest.approx(start, rel=1e-6, abs=1e-6)
     assert p.state()["layoutRuns"] == runs
-    assert summary(p)["alpha"] == 1 and len(cards(p)) == 12
+    assert summary(p)["alpha"] == 1 and len(cards(p)) == 6
 
 
 @pytest.mark.parametrize("factor", [1.05, 1.15, 1.25])
@@ -493,7 +493,7 @@ def test_unticking_a_kind_changes_counts_rows_and_bars_of_every_card(large_page:
     toggle_input(p, "u-kinds", order.index("hub"))
     assert_rows_equal(p, data, visible_counts(data, hide_kinds=("hub",)))
     exp = visible_counts(data, hide_kinds=("hub",))
-    assert {c["key"]: parse_n(c["counts"]) for c in cards(p)} == {k: e["n"] for k, e in exp.items()}
+    assert {c["key"]: parse_n(c["counts"]) for c in cards(p)} == card_counts(exp)
     assert all("hub" not in dict(r["kinds"]) for c in card_rows(p).values() for r in c["rows"])
 
 
@@ -503,11 +503,9 @@ def test_unticking_a_layer_removes_its_row_and_its_tables_from_the_counts(large_
     toggle_input(p, "u-layers", layers.index("staging"))
     exp = visible_counts(data, hide_layers=("staging",))
     assert_rows_equal(p, data, exp)
-    assert all(
-        c["rows"] == ["sources"] for c in cards(p) if c["key"] not in BUSINESS and c["level"] == "rows"
-    )
+    assert all([r["key"] for r in s["rows"]] == ["sources"] for k, s in card_rows(p).items() if k in SYSTEMS)
     assert all("staging" not in c["rows"] for c in cards(p))
-    assert {c["key"]: parse_n(c["counts"]) for c in cards(p)} == {k: e["n"] for k, e in exp.items()}
+    assert {c["key"]: parse_n(c["counts"]) for c in cards(p)} == card_counts(exp)
 
 
 def test_unticking_a_domain_leaves_the_other_cards_as_they_were(large_page: Opened) -> None:
@@ -669,7 +667,10 @@ def test_the_text_summary_says_what_the_cards_say(large_page: Opened) -> None:
     for s in p.page.locator("#u-sum-list .sum-c").all():
         key = by_name[s.locator("h4 span").inner_text()]
         e = exp[key]
-        assert s.locator("p").first.inner_text() == shown[key]["counts"] == counts_text(e)
+        assert s.locator("p").first.inner_text() == counts_text(e)
+        assert key in SYSTEMS or shown[key]["counts"] == counts_text(
+            e
+        )  # a system is on the group card, not its own
         lines = [li.inner_text() for li in s.locator("li button").all()]
         want = []
         for layer in row_keys(data, e):
@@ -678,7 +679,7 @@ def test_the_text_summary_says_what_the_cards_say(large_page: Opened) -> None:
             n = sum(kc.values())
             want.append(f"{names[layer]}: {n:,} table{'s' if n != 1 else ''} ({split})")
         assert lines == want
-        mains = ", ".join(i.rsplit(".", 1)[1] for i in shown[key]["main"])
+        mains = ", ".join(i.rsplit(".", 1)[1] for i in (shown[key]["main"] if key in shown else []))
         assert (f"Main tables: {mains}" in s.inner_text()) == bool(mains)
     toggle_input(p, "u-layers", [la["key"] for la in data["universe"]["layers"]].index("staging"))
     after = visible_counts(data, hide_layers=("staging",))
@@ -735,7 +736,8 @@ def test_a_trajectory_seen_from_afar_marks_the_cards_that_hold_it_with_counts_th
     set_scale(p, summary(p)["scale"])
     shown = {c["key"]: c for c in cards(p)}
     domain = {n["id"]: n["domain"] for n in nodes_of(data)}
-    holding = {domain[i] for i in [*t["up"], *t["down"]]} | {domain[t["start"]]}
+    of = lambda d: GROUP if d in SYSTEMS else d  # noqa: E731  the systems' tables are held by the group card
+    holding = {of(domain[i]) for i in [*t["up"], *t["down"]]} | {of(domain[t["start"]])}
     assert {k for k, c in shown.items() if c["traj"]} == holding
     ups = sum(
         int(c["traj"].split("start · ")[-1].split(" upstream")[0].split(" · ")[-1])
@@ -769,7 +771,7 @@ def test_old_layout_files_load_unchanged_and_the_cards_follow_the_pinned_constel
     dump = p.page.evaluate("LAYOUT.dump()")
     assert dump["format"] == "dbt-erd-layout" and dump["version"] == 1 and set(dump["universe"]) == {"names"}
     shown = cards(p)
-    assert len(shown) == 12
+    assert len(shown) == 6
     assert_apart(shown, disc_radii(p), camera(p)["k"])
 
 
@@ -836,7 +838,7 @@ def test_the_large_project_on_a_phone_opens_on_cards_without_horizontal_scroll(
     html, _ = page_of(write_large_project(tmp_path / "large"))
     p = open_page(html, viewport=NARROW)
     assert scroll_width(p) <= NARROW["width"]
-    assert summary(p)["alpha"] > 0 and len(cards(p)) == 12
+    assert summary(p)["alpha"] > 0 and len(cards(p)) == 6
     p.page.click("#u-toggle")
     assert scroll_width(p) <= NARROW["width"]
 

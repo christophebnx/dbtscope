@@ -9,6 +9,9 @@ vehicle-auction vault; every name is invented. The counts the tests assert are i
     5 business domains: 175 hubs, 191 links, 422 satellites, 20 PITs, 32 dimensions, 30 facts (870)
     7 source systems: 36 sources and 36 staging models each (504)
 
+Business domains read one another along `FLOW` (data products reading hubs upstream): account, vehicle,
+auction, claim, activity.
+
 Schema, path and name of a table follow the project layout: `models/staging/<system>/` (schema = the
 system), `models/raw_vault/<domain>/` and `models/data_products/<domain>/` (schema = the domain).
 """
@@ -33,6 +36,18 @@ EFFSAT_SHARE = 0.4  # effectivity satellites per link
 THREE_HUB_LINKS = 0.19  # share of links between three hubs
 OTHER_DOMAIN_LINKS = 5  # one link in five takes a hub of another domain
 SECOND_STAGING = 0.12  # share of vault tables fed by two staging models
+
+# data products of a business domain that read a hub of an upstream one: (reader, upstream, how many),
+# a chain account -> vehicle -> auction -> claim -> activity (the data flow between business domains)
+FLOW = (
+    ("vehicle", "account", 5),
+    ("auction", "vehicle", 4),
+    ("auction", "account", 2),
+    ("claim", "vehicle", 3),
+    ("claim", "auction", 2),
+    ("activity", "claim", 2),
+    ("activity", "auction", 2),
+)
 
 
 class Shape(NamedTuple):
@@ -224,6 +239,26 @@ def _domain(b: _Builder, domain: str, shape: Shape, stems: dict[str, list[str]])
     _data_products(b, domain, shape, hubs, sats, links)
 
 
+def _cross_domain_lineage(b: _Builder) -> None:
+    """Some data products read a hub of the upstream domain, in place of their last parent.
+
+    Replacing keeps the lineage count; a product with one parent takes it as an extra. No random draw,
+    so nothing else of the project moves.
+    """
+    by_name = {n["name"]: n for n in b.nodes}
+    used: dict[str, int] = {}
+    for reader, upstream, count in FLOW:
+        products = [n for n in by_name if n.startswith((f"dim_{reader}_", f"fct_{reader}_"))]
+        start = used.get(reader, 0)
+        used[reader] = start + count
+        for i, name in enumerate(products[start : start + count], 1):
+            parents: list[str] = by_name[name]["depends_on"]["nodes"]
+            hub = f"{SHOP}{upstream}_e{i:03d}_hub"
+            if len(parents) > 1:
+                parents.pop()
+            parents.append(hub)
+
+
 def large_manifest() -> dict[str, Any]:
     """The manifest of the large Data Vault project: 1,374 tables, deterministic."""
     b = _Builder()
@@ -231,6 +266,7 @@ def large_manifest() -> dict[str, Any]:
     stems = {domain: _hubs(b, domain, shape.hubs) for domain, shape in DOMAINS.items()}
     for domain, shape in DOMAINS.items():
         _domain(b, domain, shape, stems)
+    _cross_domain_lineage(b)
     return {
         "metadata": {"project_name": "shop"},
         "nodes": {n["unique_id"]: n for n in b.nodes + b.tests},

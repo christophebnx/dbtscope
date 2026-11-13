@@ -28,6 +28,16 @@ pytestmark = pytest.mark.browser
 U = "views.universe"
 ROLE_ORDER = ["core", "connector", "descriptive", "technical", None]
 BUSINESS = ["vehicle", "auction", "account", "claim", "activity"]
+SYSTEMS = [
+    "raw_auction_house",
+    "raw_billing",
+    "raw_claims",
+    "raw_crm",
+    "raw_dealer",
+    "raw_telematics",
+    "raw_web",
+]
+GROUP = "\x00systems"  # the key of the group card: the one card of the source systems (M8.4, D-066)
 NOTCH = -100  # one wheel notch in: a factor 2 ** 0.2 = 1.15 (d3's default wheel delta)
 Opened = tuple[Page, dict[str, Any]]
 
@@ -106,6 +116,13 @@ def expected(data: dict[str, Any], by: str = "domain") -> dict[str, dict[str, An
     return out
 
 
+def card_keys(p: Page) -> list[str]:
+    """The keys of the cards a page draws: its constellations, the grouped systems being the group card."""
+    g = geometry(p)
+    grouped = set(g["systems"]["grouped"])
+    return [c["key"] for c in g["constellations"] if c["key"] not in grouped] + ([GROUP] if grouped else [])
+
+
 def kind_order(data: dict[str, Any]) -> list[str]:
     kinds = data["universe"]["kinds"]
     return [k["key"] for k in sorted(kinds, key=lambda k: ROLE_ORDER.index(k["role"]))]
@@ -136,16 +153,25 @@ def main_ids(data: dict[str, Any], key: str) -> list[str]:
 # ------------------------------------------------------------ done when 1: the large project, 12 cards
 
 
-def test_the_large_project_opens_on_one_card_per_domain(large_page: Opened) -> None:
+def test_the_large_project_opens_on_one_card_per_business_domain_and_the_group_card(
+    large_page: Opened,
+) -> None:
     p, data = large_page
     s = summary(p)
     assert s["alpha"] == 1 and camera(p)["k"] <= s["scale"] / 1.1
     shown, g = cards(p), geometry(p)
-    assert (
-        sorted(c["key"] for c in shown) == sorted(c["key"] for c in g["constellations"]) and len(shown) == 12
-    )
+    assert sorted(c["key"] for c in shown) == sorted(card_keys(p)) and len(shown) == 6
     exp, names = expected(data), labels(data)
+    group = next(c for c in shown if c["key"] == GROUP)
+    assert (
+        group["name"] == "Source systems"
+        and group["counts"] == "7 systems · 504 tables"
+        and group["level"] == "rows"
+    )
+    assert sorted(group["rows"]) == SYSTEMS and group["fonts"] == [13, 11]
     for c in shown:
+        if c["key"] == GROUP:
+            continue
         e = exp[c["key"]]
         assert c["level"] == "rows" and c["fonts"] == [13, 11], c["key"]
         label = names[c["key"]]
@@ -253,7 +279,7 @@ def test_at_360_px_the_state_follows_the_rule_and_a_resize_refits(
     s, k = summary(p), camera(p)["k"]
     state = 1 if k <= s["scale"] else 0 if k >= s["stars"] else math.log(s["stars"] / k) / math.log(1.3)
     assert s["alpha"] == pytest.approx(state)
-    assert state > 0 and len(cards(p)) == len(geometry(p)["constellations"])
+    assert state > 0 and len(cards(p)) == len(card_keys(p))
     runs = p.state()["layoutRuns"]
     p.page.set_viewport_size({"width": 1280, "height": 800})
     settle(p, 600)
@@ -332,7 +358,15 @@ def test_budgets(large_page: Opened) -> None:
 
 
 def disc_radii(p: Page) -> dict[str, float]:
-    return {c["key"]: c["r"] for c in geometry(p)["constellations"]}
+    """The disc radius of each card's constellation; the group card's is half its systems' box diagonal."""
+    g = geometry(p)
+    radii = {c["key"]: c["r"] for c in g["constellations"]}
+    grouped = [c for c in g["constellations"] if c["key"] in g["systems"]["grouped"]]
+    if grouped:
+        x = [c["x"] - c["r"] for c in grouped], [c["x"] + c["r"] for c in grouped]
+        y = [c["y"] - c["r"] for c in grouped], [c["y"] + c["r"] for c in grouped]
+        radii[GROUP] = math.hypot(max(x[1]) - min(x[0]), max(y[1]) - min(y[0])) / 2
+    return radii
 
 
 @pytest.mark.parametrize("factor", [1.0, 1.15, 1.25, 0.85, 0.7])
@@ -341,21 +375,27 @@ def test_cards_never_overlap_and_stay_on_their_disc(large_page: Opened, factor: 
     k = summary(p)["scale"] * factor
     set_scale(p, k)
     shown = cards(p)
-    assert len(shown) == 12
+    assert len(shown) == 6
     assert_apart(shown, disc_radii(p), k)
     assert [c["x"] for c in shown] == [c["x"] for c in cards(p)]  # the same k gives the same rectangles
     if factor == 1.0:
         assert all(c["level"] == "rows" for c in cards(p))
 
 
-def test_all_twelve_cards_keep_their_rows_at_1280_and_the_level_only_falls_when_zooming_out(
+def test_all_six_cards_keep_their_rows_at_1280_and_the_level_only_falls_when_zooming_out(
     large_page: Opened,
 ) -> None:
     p, _ = large_page
-    assert [c["level"] for c in cards(p)] == ["rows"] * 12
+    assert [c["level"] for c in cards(p)] == ["rows"] * 6
     business = [c for c in cards(p) if c["key"] in BUSINESS]
     assert all(3 <= len(c["main"]) <= 5 for c in business)
-    assert all(c["rows"] == ["sources", "staging"] for c in cards(p) if c["key"] not in BUSINESS)
+    # the seven systems are in the group card; each one's own card (geometry) reads sources, then staging
+    assert sorted(next(c for c in cards(p) if c["key"] == GROUP)["rows"]) == SYSTEMS
+    assert all(
+        [r["key"] for r in c["summary"]["rows"]] == ["sources", "staging"]
+        for c in geometry(p)["constellations"]
+        if c["key"] in SYSTEMS
+    )
     k0 = summary(p)["scale"]
     ladder = ["rows", "bar", "name", "count", "frame"]
     last = {c["key"]: 0 for c in cards(p)}
@@ -375,7 +415,7 @@ def test_at_360_px_every_card_keeps_at_least_its_frame(
     html, _ = page_of(write_large_project(tmp_path / "large"))
     p = open_page(html, viewport=NARROW)
     shown = cards(p)
-    assert len(shown) == 12 and all(c["level"] in ("rows", "bar", "name", "count", "frame") for c in shown)
+    assert len(shown) == 6 and all(c["level"] in ("rows", "bar", "name", "count", "frame") for c in shown)
     assert_apart(shown, disc_radii(p), camera(p)["k"])
     assert Counter(c["level"] for c in shown)["rows"] >= 3
     k, times = camera(p)["k"], []
@@ -518,10 +558,11 @@ def test_a_card_holding_the_trajectory_says_so_and_the_others_are_dimmed(large_p
     ups: Counter[str] = Counter()
     downs: Counter[str] = Counter()
     domains = {n["id"]: n["domain"] for n in data["universe"]["nodes"]}
+    of = lambda d: GROUP if d in SYSTEMS else d  # noqa: E731  the source systems' tables are held by the group card
     for uid in t["up"]:
-        ups[domains[uid]] += 1
+        ups[of(domains[uid])] += 1
     for uid in t["down"]:
-        downs[domains[uid]] += 1
+        downs[of(domains[uid])] += 1
     by_domain.update(ups)
     by_domain.update(downs)
     shown = {c["key"]: c for c in cards(p)}
@@ -558,7 +599,7 @@ def test_filters_change_the_cards_at_once(large_page: Opened) -> None:
         )
     p.page.locator("#u-domains input").first.click()
     p.page.wait_for_timeout(300)
-    assert len(cards(p)) == 11
+    assert len(cards(p)) == 5
 
 
 def test_layer_mode_has_one_card_per_layer_with_a_row_per_domain(large_page: Opened) -> None:
@@ -585,7 +626,8 @@ def test_with_the_fold_off_cards_show_tables_only_with_the_same_counts(large_pag
     p.page.click("#u-fold-on")
     p.page.wait_for_timeout(500)
     assert {c["key"]: c["counts"] for c in cards(p)} == {
-        k: counts_text(e, entities=False) for k, e in exp.items()
+        **{k: counts_text(e, entities=False) for k, e in exp.items() if k not in SYSTEMS},
+        GROUP: "7 systems · 504 tables",
     }
 
 
@@ -616,8 +658,13 @@ def test_the_text_summary_is_closed_until_opened_then_lists_the_cards(large_page
     assert sections.count() == 12
     exp = expected(data)
     names = labels(data)
-    xs = [d["key"] for d in sorted(geometry(p)["constellations"], key=lambda d: (d["x"], d["y"]))]
+    cs = geometry(p)[
+        "constellations"
+    ]  # business domains left to right, then the source systems top to bottom (D-066)
+    xs = [d["key"] for d in sorted((d for d in cs if not d["system"]), key=lambda d: (d["x"], d["y"]))]
+    xs += [d["key"] for d in sorted((d for d in cs if d["system"]), key=lambda d: (d["y"], -d["x"]))]
     assert [sections.nth(i).locator("h4 span").inner_text() for i in range(12)] == [names[k] for k in xs]
+    assert p.page.locator("#u-sum-list .sum-sys h4 span").inner_text() == "Source systems: 7 · 504 tables"
     first = sections.nth(xs.index("vehicle"))
     assert first.locator("p").first.inner_text() == counts_text(exp["vehicle"])
     row = first.locator("li button").first.inner_text()
@@ -656,6 +703,11 @@ def test_the_text_summary_follows_filters_and_zooms_like_the_canvas(large_page: 
 def test_the_text_summary_is_reached_by_tab_after_the_domains(large_page: Opened) -> None:
     p, _ = large_page
     p.page.locator("#u-domains input").last.focus()
+    p.page.keyboard.press("Tab")
+    assert p.page.evaluate(
+        "document.activeElement.closest('#u-systems') !== null"
+    )  # the source systems list comes next
+    p.page.locator("#u-systems input").last.focus()
     p.page.keyboard.press("Tab")
     assert (
         p.page.evaluate("document.activeElement.id") == "u-sum-h"

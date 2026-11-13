@@ -25,3 +25,9 @@ Files:
 
 Checked by `tests/unit/test_reference_pages.py`. Regenerate (only when a page change is intended, in
 the same commit, and say so in the message): `uv run python tests/reference_pages.py`.
+
+Regenerated for M8.4 (D-065..D-067): every domain object gains `"system":false` after its `"owner"`, except the
+`raw` and `staging` domains of `data_vault` and the `staging` domain of `star_schema`, which read `"system":true`
+(sources and staging models of a preset that gives roles); the other cases give no role and have no source
+system. Nothing else differs in the payloads (`test_a_page_differs_from_the_pre_m8_4_one_only_by_the_system_key`);
+every page grows by about 49 kB of assets (`none` 199,891 → 249,381 bytes).

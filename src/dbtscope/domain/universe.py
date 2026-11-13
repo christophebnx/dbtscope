@@ -60,7 +60,31 @@ def _layer_of(table: Table, config: Config) -> str:
     return layer.key if layer else OTHER.key
 
 
-def _domains(nodes: list[UniverseNode], config: Config, project: Project) -> tuple[UniverseDomain, ...]:
+def source_systems(
+    nodes: Iterable[UniverseNode], kinds: Iterable[UniverseKind], config: Config
+) -> frozenset[str]:
+    """The domain keys that are source systems (D-065): a rule's `system` first, else automatic.
+
+    Automatic: every table of the domain has a technical kind, and the config gives a role to at
+    least one kind (a page with no preset changes nothing); never every domain; never "No domain".
+    """
+    override = {r.key: r.system for r in config.domains if r.system is not None}
+    technical = {k.key for k in kinds if k.role == "technical"}
+    tables: dict[str, list[bool]] = {}
+    for node in nodes:
+        tables.setdefault(node.domain, []).append(node.kind in technical)
+    automatic: set[str] = set()
+    if any(k.role for k in config.kinds):
+        automatic = {key for key, flags in tables.items() if key and all(flags)}
+        if automatic >= {key for key in tables if key}:
+            automatic = set()
+    flagged = {key for key in tables if key and override.get(key, key in automatic)}
+    return frozenset(flagged)
+
+
+def _domains(
+    nodes: list[UniverseNode], config: Config, project: Project, systems: frozenset[str]
+) -> tuple[UniverseDomain, ...]:
     sizes = Counter(n.domain for n in nodes)
     configured = {r.key: r for r in config.domains}
     lang, palette = config.language, cycle(PALETTE)
@@ -73,7 +97,8 @@ def _domains(nodes: list[UniverseNode], config: Config, project: Project) -> tup
         else:
             color = rule.color if rule and rule.color else next(palette)
             label = rule.label if rule and rule.label else key
-        domains.append(UniverseDomain(key=key, label=label, color=color, owner=group.owner if group else ""))
+        owner = group.owner if group else ""
+        domains.append(UniverseDomain(key=key, label=label, color=color, owner=owner, system=key in systems))
     return tuple(domains)
 
 
@@ -137,13 +162,14 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
         found = {(index[e.child], index[e.parent]) for e in edges if e.child in index and e.parent in index}
         return tuple(sorted(found))
 
+    used_kinds = _kinds({n.kind for n in nodes}, config)
     return UniversePayload(
         nodes=tuple(nodes),
         relations=pairs(project.relations),
         lineage=pairs(project.lineage),
-        domains=_domains(nodes, config, project),
+        domains=_domains(nodes, config, project, source_systems(nodes, used_kinds, config)),
         layers=_layers({n.layer for n in nodes}, config),
-        kinds=_kinds({n.kind for n in nodes}, config),
+        kinds=used_kinds,
         defaults=UniverseDefaults(
             links=universe.links,
             detail=universe.detail,

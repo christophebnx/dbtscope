@@ -148,7 +148,35 @@ def test_the_summary_has_the_fold_row(tmp_path: Path, capsys: pytest.CaptureFixt
     page_of(write_large_project(tmp_path))
     lines = capsys.readouterr().out.splitlines()
     assert lines[2] == "  fold:     " + EXPECTED["fold"]["summary"] and lines[1].startswith("  universe:")
+    assert "in 12 domains (7 source systems), 892 relations, 1,360 lineage links" in lines[1]  # D-065
 
 
 def test_the_page_builds_within_the_bound(large: tuple[float, Any]) -> None:
     assert large[0] < BUILD_BOUND_S
+
+
+def test_the_seven_raw_systems_are_the_source_systems(large: tuple[float, Any]) -> None:
+    domains = large[1]["domains"]
+    assert [d["key"] for d in domains if d["system"]] == EXPECTED["source_systems"]
+    assert {d["key"] for d in domains if not d["system"]} == set(EXPECTED["business_flow"]["order"])
+
+
+def test_business_domains_read_one_another_along_the_flow(large: tuple[float, Any]) -> None:
+    """Data products read an upstream domain's hubs along a chain of five ranks; counts untouched (M8.4)."""
+    universe = large[1]
+    nodes = universe["nodes"]
+    order = EXPECTED["business_flow"]["order"]
+    reads: Counter[tuple[str, str]] = Counter()  # (reader domain, upstream domain): products reading it
+    for child, parent in universe["lineage"]:
+        reader, up = nodes[child]["domain"], nodes[parent]["domain"]
+        if reader != up and reader in order and up in order and nodes[child]["kind"] in ("dim", "fact"):
+            reads[(reader, up)] += 1
+    expected = {
+        (r, u): n
+        for r, ups in EXPECTED["business_flow"]["products_reading_upstream"].items()
+        for u, n in ups.items()
+    }
+    assert all(reads[pair] >= n for pair, n in expected.items())
+    assert all(
+        order.index(u) < order.index(r) for r, u in expected
+    )  # acyclic: every read goes down the order

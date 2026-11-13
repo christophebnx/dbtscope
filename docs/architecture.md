@@ -133,9 +133,18 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Content of a summary card: counts, rows by own layer or domain, bars by kind, main tables (page, D-064) | `render/assets/universe.js summarise` (`SUMMARIES`) |
 | Where a summary card is placed on screen: anchor on its disc, levels, the push (page, D-063) | `render/assets/universe.js cardLayout` (`settleCards`, `relaxCards`, `cardSize`, `CARD`) |
 | Drawing and hit-testing a summary card (page) | `render/assets/universe.js drawSummary`, `summaryAt` |
-| Outline of a constellation for routes: the card rectangle, a route's end (page; M8.4 builds on it) | `render/assets/universe.js summaryRect`, `edgeOf` |
+| Outline of a constellation for routes: its disc's edge or its card's, the group card's for a grouped source system (page, D-067) | `render/assets/universe.js summaryRect`, `edgeOf` |
+| Which domains are source systems: rule, override, gate (D-065) | `domain/universe.source_systems` |
+| A domain rule and its optional `system` (D-065) | `domain/config.DomainRule` (preset form `PresetDomainRule`) |
+| The order of domains in the page: business, then source systems (panel, layer bands, layer card rows; D-066) | `render/assets/universe.js DOMAIN_ORDER` |
+| A business domain's place along the data flow (D-066) | `render/assets/universe.js domainRanks` (over `common.js flowRanks`) |
+| The stack of source systems left of the business domains (D-066) | `render/assets/universe.js stackSystems` |
+| The one card of every source system at overview (D-066) | `render/assets/universe.js drawGroup`, `groupBox` (`GROUP`, the `g` item of `cardLayout`) |
+| The routes drawn by default and their counts by kind of link (D-067) | `render/assets/universe.js strongRoutes`, `bundled`, `layout` (`rel`, `lin`) |
+| The drawn path of a route around the other constellations (D-067) | `render/assets/universe.js routePath` (`detour`), `routeLayout`, `drawRoutes` |
+| Hit-testing and tooltip of a route; a constellation's routes in focus (D-067) | `render/assets/universe.js routeAt`, `routeTip`, `routeFocus` (`focusOn`, `focusRow`) |
 | Zoom on a constellation or on one of its bands (canvas, cards, summary) | `render/assets/universe.js zoomOnConstellation`, `zoomOnRow` |
-| The summary as text, in the panel (page, D-064) | `render/assets/universe.js renderSummary` |
+| The summary as text, in the panel (page, D-064; the source systems under their own heading and a routes line per constellation, M8.4) | `render/assets/universe.js renderSummary` |
 | Camera animations jump under reduced motion (page) | `render/assets/universe.js motionMs` |
 | Parent of a descriptive table (relation, then name stem; same domain; ties none) and the stem of a table (M8.2, D-061) | `domain/fold.parents`, `stem` |
 | Which tables are drawn, folded or shown; entity marks and counts (page, D-062) | `render/assets/universe.js PARENT`, `FOLDED`, `layout`, `placeShown` |
@@ -258,6 +267,11 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | A core or connector table with the tables folded into it (UI, D-062) | **entity** in UI text only (`T.entitiesN`) | holder, group, cluster | French « entité ». In code the table is the **parent** and its tables `FOLDED`; the payload words `entities` / `DetailEntity` (D-027) stay the detail's tables, a different concept, written "detail entity" in prose. |
 | A descriptive table's name without its kind's fixed glob part (D-061) | **stem** (`domain/fold.stem`) | root, base name | Compared at a non-alphanumeric boundary. |
 | What a constellation is drawn as at overview scale: name, counts, a row per layer (or domain) with a bar by kind, main tables (M8.3, D-063) | **summary card** (`SUMMARIES`, `summarise`, `drawSummary`, `summaryRect`, `summaryAlpha`, `summaryScale`) | domain card, overview card, tile | French UI « carte de synthèse ». In `universe.js` "card" alone (`drawCard`, `cards`) stays the **table card** of the keys and all-fields levels. |
+| A domain made only of technical tables, or declared so (M8.4, D-065) | **source system** (`UniverseDomain.system`, `domains[].system`, `source_systems`, `SYSTEM`) | raw domain, system domain, source domain | French UI « système source » (pl. « systèmes sources »). |
+| A domain that is not a source system (D-066) | **business domain** | functional domain | French UI « domaine métier » (only where both are named). |
+| The one line between two constellations, carrying their links (D-067) | **route** (`routes`, `routePath`, `strongRoutes`) | edge, connection, bundle | French UI « route ». "Link" stays the table-level word. |
+| The routes drawn by default: each constellation's two heaviest, ties included, either end keeping a route (D-067) | **strongest routes** (`strong`) | main routes, top routes | |
+| The one card that stands for every source system at overview (D-066) | **group card** (`GROUP`, `drawGroup`) | system card | French UI: its header « Systèmes sources ». |
 | The screen room of a star: the median `√(w · h)` of the drawn tables' reserved boxes (D-063) | **star cell** (`CELL`, `SUMMARY_CELL`) | spacing, density | Its size on screen decides cards or stars. |
 | The panel section listing the cards' content as text (D-064) | **summary** (UI « Synthèse », `#u-sum`, `renderSummary`) | overview, legend | |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |

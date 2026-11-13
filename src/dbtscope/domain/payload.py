@@ -77,6 +77,7 @@ class UniverseDomain(BaseModel):
     label: str | None
     color: str
     owner: str
+    system: bool = False  # a source system (D-065); the last key
 
 
 class UniverseLayer(BaseModel):

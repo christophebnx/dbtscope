@@ -15,4 +15,10 @@ source-system lens (M8.2 to M8.5).
   three special satellites (one with no relationship, one with two parents, one in another domain than its
   parent hub).
 - Tested by `tests/unit/test_large_project.py` (counts) and `tests/browser/test_roles.py` (the page).
+- **Business-to-business lineage (M8.4).** Some data products (dimensions and facts) of a business domain read
+  a hub of an upstream one, in place of their last parent (`FLOW` in `tests/large_project.py`): account, then
+  vehicle, then auction, then claim and activity downstream. It gives the business-domain graph a flow order of
+  five ranks, which the placement along the flow and its tests need. The replacement keeps every count (tables,
+  relations and the 1,360 lineage links; the only change is 20 lineage links that now cross a domain, in the
+  directions of `expected.json` `business_flow`).
 - Names are invented; nothing comes from a real project.

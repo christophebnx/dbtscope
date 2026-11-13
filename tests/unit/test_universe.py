@@ -10,11 +10,13 @@ from colours import ciede2000, contrast
 from dbtscope.domain.classify import OTHER
 from dbtscope.domain.config import DEFAULT_KIND_COLOR, merge_config
 from dbtscope.domain.model import Project, Table
+from dbtscope.domain.payload import UniverseKind, UniverseNode
 from dbtscope.domain.steps import UNRANKED, flow_rank
 from dbtscope.domain.universe import (
     NO_DOMAIN_COLOR,
     PALETTE,
     TYPE_KINDS,
+    source_systems,
     universe_data,
 )
 from dbtscope.render.page import embedded_json
@@ -58,6 +60,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "label": "Sales",
         "color": "#123456",
         "owner": "Ana",
+        "system": False,
     }
     assert domains["returns"]["color"].startswith("#")
 
@@ -100,7 +103,13 @@ def test_tables_without_domain_come_last(shop: Project) -> None:
     data = universe_data(shop, merge_config({}, {"group_by": "none", "language": "fr"})).model_dump(
         mode="json", by_alias=True
     )
-    assert data["domains"][-1] == {"key": "", "label": "Hors domaine", "color": "#8a94a6", "owner": ""}
+    assert data["domains"][-1] == {
+        "key": "",
+        "label": "Hors domaine",
+        "color": "#8a94a6",
+        "owner": "",
+        "system": False,
+    }
 
 
 def test_default_layers_follow_the_data_flow() -> None:
@@ -236,3 +245,45 @@ def test_a_node_carries_its_parents_id_last_and_the_fold_default_follows_the_con
 def test_a_project_without_roles_has_no_parent(shop: Project) -> None:
     data = universe_data(shop, merge_config({}, {}))
     assert all(n.parent is None for n in data.nodes)
+
+
+def _systems(domains: dict[str, list[str]], config: dict[str, Any]) -> frozenset[str]:
+    """source_systems over nodes of the given kinds per domain, with the page's kinds under `config`."""
+    kinds = {"source": "technical", "hub": "core", "stg": "technical"}
+    nodes = [
+        UniverseNode(id=f"{d}.{i}", name=f"{d}{i}", domain=d, layer="l", kind=k, desc="", cols=())
+        for d, ks in domains.items()
+        for i, k in enumerate(ks)
+    ]
+    used = [UniverseKind(key=k, label=k, color="#000000", role=r) for k, r in kinds.items()]
+    return source_systems(nodes, used, merge_config({}, config))
+
+
+ROLES = {"kinds": [{"key": "hub", "match": "x", "role": "core"}]}
+
+
+def test_a_technical_only_domain_is_a_source_system_when_roles_are_given() -> None:
+    domains = {"raw": ["source", "stg"], "core": ["hub", "stg"]}
+    assert _systems(domains, ROLES) == {"raw"}
+    assert _systems(domains, {}) == frozenset()  # no kind with a role: nothing changes
+
+
+def test_the_guard_keeps_one_business_domain_and_overrides_still_apply() -> None:
+    domains = {"raw": ["source"], "raw2": ["stg"]}
+    assert _systems(domains, ROLES) == frozenset()
+    force = {**ROLES, "domains": [{"key": "raw", "match": [], "system": True}]}
+    assert _systems(domains, force) == {"raw"}
+
+
+def test_an_override_refuses_or_forces_whatever_resolved_the_domain() -> None:
+    domains = {"raw": ["source"], "core": ["hub"], "ref": ["hub"]}
+    no = {**ROLES, "domains": [{"key": "raw", "match": [], "system": False}]}
+    yes = {**ROLES, "domains": [{"key": "ref", "match": [], "system": True}]}
+    assert _systems(domains, no) == frozenset()
+    assert _systems(domains, yes) == {"raw", "ref"}
+
+
+def test_no_domain_is_never_a_source_system() -> None:
+    domains = {"": ["source"], "core": ["hub"]}
+    forced = {**ROLES, "domains": [{"key": "", "match": [], "system": True}]}
+    assert _systems(domains, ROLES) == frozenset() and _systems(domains, forced) == frozenset()

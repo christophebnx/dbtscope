@@ -144,6 +144,31 @@ def test_the_universe_panel_ends_with_the_closed_summary_details() -> None:
     assert '<details id="u-sum" open' not in panel and '<summary id="u-sum-h"></summary>' in panel
 
 
+def test_the_universe_panel_has_the_source_systems_list_and_the_all_routes_control() -> None:
+    """M8.4 (D-066, D-067): a hidden Source systems heading after Domains, a hidden All routes row."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    panel = page.split('id="u-panel"', 1)[1].split("</aside>", 1)[0]
+    heading = [
+        'id="u-domains"',
+        'id="u-h-systems-row" hidden',
+        'id="u-sys-all"',
+        'id="u-sys-none"',
+        'id="u-systems"',
+        '<details id="u-sum">',
+    ]
+    positions = [panel.index(m) for m in heading]
+    assert positions == sorted(positions)
+    routes = [
+        'id="u-links"',
+        'id="u-routes-row" class="check" hidden',
+        'type="checkbox" id="u-routes"',
+        'id="u-routes-t"',
+        'id="u-h-detail"',
+    ]
+    positions = [panel.index(m) for m in routes]
+    assert positions == sorted(positions)
+
+
 # ---------------------------------------------------------------- M2 acceptance gaps (tester)
 
 

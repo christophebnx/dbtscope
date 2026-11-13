@@ -37,6 +37,7 @@ NO_PRESET_BEFORE_M8 = {  # sha256 of the payloads of M3, before the `role` keys 
 }
 ROLE_KEY = re.compile(rb',"role":(?:null|"(?:core|connector|descriptive|technical)")')
 FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true')  # M8.2: a node's parent, the universe's fold default
+SYSTEM_KEY = re.compile(rb',"system":(?:false|true)')  # M8.4: a domain's source-system flag (D-065)
 NO_FOLD_BEFORE_M8_2 = {  # sha256 of the payloads before M8.2 (D-061, D-062), every case
     "none": "d439c123da7c57b36298627d7ac690174dcd1f216fef33f4039a30e9e49e9638",
     "star_schema": "44547a0b8f835b6bc0314c62a64d36bdbec2fb1d34d98c03b810230c5a7c9b4a",
@@ -53,7 +54,7 @@ def test_a_page_without_preset_differs_from_the_pre_m8_one_only_by_role_keys(cas
     payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
     assert ROLE_KEY.search(payload)
     assert (
-        hashlib.sha256(FOLD_KEYS.sub(b"", ROLE_KEY.sub(b"", payload))).hexdigest()
+        hashlib.sha256(FOLD_KEYS.sub(b"", ROLE_KEY.sub(b"", SYSTEM_KEY.sub(b"", payload)))).hexdigest()
         == NO_PRESET_BEFORE_M8[case]
     )
 
@@ -62,4 +63,33 @@ def test_a_page_without_preset_differs_from_the_pre_m8_one_only_by_role_keys(cas
 def test_a_page_differs_from_the_pre_m8_2_one_only_by_the_parent_and_fold_keys(case: str) -> None:
     payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
     assert payload.count(b',"fold":true') == 1 and b',"parent":null' in payload
-    assert hashlib.sha256(FOLD_KEYS.sub(b"", payload)).hexdigest() == NO_FOLD_BEFORE_M8_2[case]
+    assert (
+        hashlib.sha256(FOLD_KEYS.sub(b"", SYSTEM_KEY.sub(b"", payload))).hexdigest()
+        == NO_FOLD_BEFORE_M8_2[case]
+    )
+
+
+NO_SYSTEM_BEFORE_M8_4 = {  # sha256 of the payloads before M8.4 (D-065), every case
+    "none": "9850e04b3fe0f85fa3ef2cad94d14b12d97099021920b0306ffacf2f5ef446bf",
+    "star_schema": "190f2d72c7067bc85437f4be114611c8eb93cc0ab6a27f8b2c1cece631190da5",
+    "data_vault": "617752eb31522a9e8e06ace0d81de109d59f55d13498dd40abfcbd8f97ba8b45",
+    "fr": "97774afb67c5b548f50dd6298a71b03b47fbfa365bfec9f8fad2d009a22faebb",
+    "layers_domains": "5ca2a89c79a03808d68272ffd7d223f212496155944bfc60d822664f5c6c5e8b",
+    "kinds": "0a9ae586485e1131a0e31a339fa6816d4ec43eead3e553174e670376cbe9d51f",
+    "edge": "3a2e91f1c5ad9224fb3a13ad4bae8bfb6c6ef834b096c51c1a758f921dc9cde2",
+}
+SYSTEMS_OF = {
+    "data_vault": ["raw", "staging"],
+    "star_schema": ["staging"],
+}  # the preset's staging models and sources
+
+
+@pytest.mark.parametrize("case", list(NO_SYSTEM_BEFORE_M8_4))
+def test_a_page_differs_from_the_pre_m8_4_one_only_by_the_system_key(case: str) -> None:
+    payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
+    assert payload.count(b',"system":') == len(json.loads(payload)["universe"]["domains"])
+    assert hashlib.sha256(SYSTEM_KEY.sub(b"", payload)).hexdigest() == NO_SYSTEM_BEFORE_M8_4[case]
+    domains = json.loads(payload)["universe"]["domains"]
+    assert [d["key"] for d in domains if d["system"]] == SYSTEMS_OF.get(
+        case, []
+    )  # no role-giving kind, no system
