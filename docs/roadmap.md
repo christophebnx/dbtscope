@@ -262,7 +262,7 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 - **M8.3 — Summary cards.** (Done.) (D-063, D-064.) At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M8.4 — Source systems apart, readable routes.** (Done.) (D-065, D-066, D-067.) Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
 - **M8.5 — Detail skeleton.** (Done.) (D-068 to D-072.) A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
-- **M8.6 — Summary cards can be switched off.** (D-074.) Asked by the user on 2026-11-14: a **Summary cards** checkbox in the universe panel (ticked by default, remembered per viewer, default `universe.cards`); unticked, the universe shows stars at every zoom, source systems as their own constellations and unbundled routes. Design note `docs/architecture/2026-11-14-m8.6-cards-switch.md`.
+- **M8.6 — Summary cards can be switched off.** (Done.) (D-074.) Asked by the user on 2026-11-14: a **Summary cards** checkbox in the universe panel (ticked by default, remembered per viewer, default `universe.cards`); unticked, the universe shows stars at every zoom, source systems as their own constellations and unbundled routes. Design note `docs/architecture/2026-11-14-m8.6-cards-switch.md`.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
