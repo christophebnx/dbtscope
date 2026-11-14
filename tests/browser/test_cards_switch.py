@@ -3,7 +3,8 @@
 Off, the card layer's alpha is 0 at every zoom: the stars layer is drawn from afar, source systems are their
 own neutral constellations (left of the business domains), routes end on disc edges and are never bundled.
 Toggling runs no layout and does not move the camera. The choice is a viewer memory (`dbtscope-cards:<title>`,
-never exported) over the page default `universe.cards`.
+never exported) over the page default `universe.cards`, which is `false` (M8.7, D-075): the pages of this
+module open with the cards on (`CARDS_ON`, `universe.cards: true`) unless a test builds a default page itself.
 """
 
 from __future__ import annotations
@@ -18,7 +19,15 @@ import pytest
 from conftest import page_of, write_example
 from large_project import write_large_project
 
-from browser.conftest import NARROW, Page, geometry, scroll_width, summary, universe_page
+from browser.conftest import (
+    NARROW,
+    Page,
+    geometry,
+    scroll_width,
+    summary,
+    universe_page,
+    write_example_cards,
+)
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_routes import crossings, routes_drawn
 from browser.test_summary import (
@@ -37,6 +46,9 @@ from browser.test_summary_acceptance import assert_routes_leave_outlines
 from browser.test_trajectory_perf import median, steady, universe_payload
 
 pytestmark = pytest.mark.browser
+CARDS_ON = (
+    True  # the default pages of this module have the cards on, to be switched off (D-075: off by default)
+)
 
 U = "views.universe"
 KEY_LARGE = "dbtscope-cards:Large vault"
@@ -108,7 +120,7 @@ def large_off(large_page: Opened) -> Opened:
 
 @pytest.fixture
 def big_off(tmp_path: Path, open_page: Any) -> Page:
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     switch(p, False)
     return p
 
@@ -116,10 +128,52 @@ def big_off(tmp_path: Path, open_page: Any) -> Page:
 # ---------------------------------------------------------------- the control and what it switches
 
 
-def test_the_box_is_ticked_by_default_and_the_large_page_shows_cards(large_page: Opened) -> None:
-    p, _ = large_page
+def test_the_box_is_unticked_by_default_and_the_pages_show_no_card_at_any_zoom(
+    tmp_path: Path, open_page: Any
+) -> None:
+    """D-075: a page whose config does not set `universe.cards` opens with the box unticked, on every project
+    and at every zoom: the large project at 1280 px and both projects at 360 px (where cards used to show)."""
+    for name, write, viewport in [
+        ("large", write_large_project, None),
+        ("large360", write_large_project, NARROW),
+        ("acme360", write_example, NARROW),
+    ]:
+        html, data = page_of(write(tmp_path / name))
+        assert data["universe"]["defaults"]["cards"] is False
+        p = open_page(html, viewport=viewport)
+        assert not p.page.is_checked("#u-cards")
+        assert summary(p)["on"] is False and summary(p)["alpha"] == 0
+        assert_no_card_at_every_zoom(p)
+        assert (
+            p.page.evaluate("k => localStorage.getItem(k)", f"dbtscope-cards:{p.page.evaluate('PAGE.title')}")
+            is None
+        )
+
+
+def test_ticking_the_box_of_a_default_page_shows_the_cards_and_stores_the_choice(
+    tmp_path: Path, open_page: Any
+) -> None:
+    p = open_page(page_of(write_large_project(tmp_path / "large"))[0])
+    key = f"dbtscope-cards:{p.page.evaluate('PAGE.title')}"
+    assert key == KEY_LARGE and cards(p) == []
+    switch(p, True)
+    assert summary(p)["on"] is True and summary(p)["alpha"] > 0 and cards(p)
+    assert p.page.evaluate("k => localStorage.getItem(k)", key) == "shown"
+    reload(p)
+    assert p.page.is_checked("#u-cards") and cards(p)
+    switch(p, False)
+    assert p.page.evaluate("k => localStorage.getItem(k)", key) is None  # back to the page default: no key
+    reload(p)
+    assert not p.page.is_checked("#u-cards") and cards(p) == []
+
+
+def test_the_config_opens_with_the_cards_and_unticking_stores_the_choice(large_page: Opened) -> None:
+    """`universe.cards: true` (CARDS_ON): the box is ticked and the large page shows cards at Fit."""
+    p, data = large_page
+    assert data["universe"]["defaults"]["cards"] is True
     assert p.page.is_checked("#u-cards") and p.page.is_visible("#u-cards-row")
     assert summary(p)["on"] is True and summary(p)["alpha"] > 0 and cards(p)
+    assert p.page.evaluate("k => localStorage.getItem(k)", KEY_LARGE) is None
 
 
 def test_off_no_card_is_drawn_at_any_zoom_on_the_large_project(large_off: Opened) -> None:
@@ -248,38 +302,38 @@ def test_the_choice_is_remembered_per_viewer_and_never_exported(large_page: Open
     assert p.page.is_checked("#u-cards") and cards(p)
 
 
-def write_cards_off(folder: Path, *, preset: bool = False) -> Path:
-    """The example project with `universe.cards: false`, in its `dbt-erd.yml` or in a preset file it names."""
+def write_cards_on(folder: Path, *, preset: bool = False) -> Path:
+    """The example project with `universe.cards: true`, in its `dbt-erd.yml` or in a preset file it names."""
     project = write_example(folder)
     config = project / "dbt-erd.yml"
     text = config.read_text(encoding="utf-8")
     if preset:
-        (project / "team.yml").write_text("universe:\n  cards: false\n", encoding="utf-8")
+        (project / "team.yml").write_text("universe:\n  cards: true\n", encoding="utf-8")
         text = text.replace("preset: data_vault", "preset: team.yml")
     else:
-        text += "universe:\n  cards: false\n"
+        text += "universe:\n  cards: true\n"
     config.write_text(text, encoding="utf-8")
     return project
 
 
 @pytest.mark.parametrize("preset", [False, True])
-def test_a_config_default_of_false_opens_without_cards_and_the_viewer_can_tick_it(
+def test_a_config_default_of_true_opens_with_the_cards_and_the_viewer_can_untick_it(
     tmp_path: Path, open_page: Any, preset: bool
 ) -> None:
-    html, data = page_of(write_cards_off(tmp_path / "acme", preset=preset))
-    assert data["universe"]["defaults"]["cards"] is False
+    html, data = page_of(write_cards_on(tmp_path / "acme", preset=preset))
+    assert data["universe"]["defaults"]["cards"] is True
     p = open_page(html)
     key = f"dbtscope-cards:{p.page.evaluate('PAGE.title')}"
-    assert not p.page.is_checked("#u-cards") and summary(p)["on"] is False
+    assert p.page.is_checked("#u-cards") and summary(p)["on"] is True
     assert p.page.evaluate("k => localStorage.getItem(k)", key) is None
     to_scale(p, summary(p)["scale"] * 0.5)
-    assert cards(p) == []
-    switch(p, True)
-    assert p.page.evaluate("k => localStorage.getItem(k)", key) == "shown"
-    assert summary(p)["on"] is True and summary(p)["alpha"] > 0 and cards(p)
-    reload(p)
-    assert p.page.is_checked("#u-cards")
+    assert cards(p)
     switch(p, False)
+    assert p.page.evaluate("k => localStorage.getItem(k)", key) == "hidden"
+    assert summary(p)["on"] is False and summary(p)["alpha"] == 0 and cards(p) == []
+    reload(p)
+    assert not p.page.is_checked("#u-cards")
+    switch(p, True)
     assert p.page.evaluate("k => localStorage.getItem(k)", key) is None
 
 
@@ -323,7 +377,7 @@ def test_the_label_and_the_announcements_in_english(large_page: Opened) -> None:
 
 
 def test_the_label_and_the_announcements_in_french(tmp_path: Path, open_page: Any) -> None:
-    project = write_example(tmp_path / "acme")
+    project = write_example_cards(tmp_path / "acme")
     config = project / "dbt-erd.yml"
     config.write_text(config.read_text(encoding="utf-8") + "language: fr\n", encoding="utf-8")
     p = open_page(page_of(project)[0])
@@ -353,7 +407,7 @@ def test_the_box_is_one_tab_stop_after_the_fold_control_and_space_toggles_it(lar
 def test_the_box_is_a_44_px_target_on_a_coarse_pointer_and_360_px_does_not_scroll(
     tmp_path: Path, open_page: Any
 ) -> None:
-    p = open_page(page_of(write_example(tmp_path / "acme"))[0], viewport=NARROW, touch=True)
+    p = open_page(page_of(write_example_cards(tmp_path / "acme"))[0], viewport=NARROW, touch=True)
     p.page.click("#u-toggle")  # the panel starts closed at 360 px
     assert p.page.is_visible("#u-cards-row")
     assert p.page.locator("#u-cards-row").bounding_box()["height"] >= 44
@@ -426,12 +480,8 @@ def test_budgets_off_on_the_1500_table_payload(big_off: Page) -> None:
 
 
 def test_the_page_opens_within_3_s_with_the_cards_off(tmp_path: Path, open_page: Any) -> None:
-    project = write_large_project(tmp_path / "large")
-    config = project / "dbt-erd.yml"
-    config.write_text(config.read_text(encoding="utf-8") + "universe:\n  cards: false\n", encoding="utf-8")
-    big = universe_payload()
-    big = big.model_copy(update={"defaults": big.defaults.model_copy(update={"cards": False})})
-    for html in (page_of(project)[0], universe_page(tmp_path, big)):
+    project = write_large_project(tmp_path / "large")  # cards off: the default of D-075
+    for html in (page_of(project)[0], universe_page(tmp_path, universe_payload())):
         t0 = time.perf_counter()
         p = open_page(html)
         assert time.perf_counter() - t0 <= 3 and cards(p) == []

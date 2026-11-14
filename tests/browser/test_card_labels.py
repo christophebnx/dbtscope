@@ -8,16 +8,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_of, write_example
-from large_project import write_large_project
+from conftest import page_of
 
-from browser.conftest import NARROW, Page
+from browser.conftest import NARROW, Page, write_example_cards, write_large_cards
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 PHONE = {"width": 390, "height": 844}
 SIZES = [(PHONE, True), (NARROW, False)]
-PROJECTS = [("acme", write_example), ("large", write_large_project)]
+PROJECTS = [("acme", write_example_cards), ("large", write_large_cards)]
 
 
 def apart(a: dict[str, Any], b: dict[str, Any]) -> bool:
@@ -100,7 +100,7 @@ def test_thirty_domains_keep_apart_cards_and_a_name_each_across_the_zoom(
     from browser.test_summary import set_scale
     from browser.test_trajectory_perf import universe_payload
 
-    p = open_page(universe_page(tmp_path, universe_payload()), viewport=PHONE, touch=True)
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)), viewport=PHONE, touch=True)
     k0 = p.page.evaluate("views.universe.camera().k")
     for step in range(0, 60):
         set_scale(p, k0 * (0.5 + 0.05 * step))

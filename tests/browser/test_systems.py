@@ -33,6 +33,7 @@ from browser.test_summary import (
 from browser.test_universe_layout import without_time
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 U = "views.universe"
 
@@ -90,9 +91,9 @@ def test_the_group_card_is_drawn_at_fit_with_a_row_per_system_in_stack_order(lar
 
 
 def test_two_loads_give_the_same_placement(tmp_path: Path, open_page: Any) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     first, second = open_page(html), open_page(html)
     assert without_time(geometry(first)) == without_time(geometry(second))
 
@@ -275,9 +276,9 @@ def test_the_tooltip_of_a_source_system_says_so(large_page: Opened) -> None:
 
 
 def test_a_card_at_level_count_or_frame_is_listed_but_not_hit(tmp_path: Path, open_page: Any) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     p = open_page(html, viewport=NARROW)
     bare = [c for c in cards(p) if c["level"] in ("count", "frame")]
     assert bare and all(

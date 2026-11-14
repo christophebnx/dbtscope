@@ -31,6 +31,7 @@ from browser.test_summary_acceptance import from_to, outline_gap
 from browser.test_trajectory_perf import median, steady, universe_payload
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 U = "views.universe"
 
@@ -110,9 +111,11 @@ def test_no_route_crosses_with_the_focus_on_each_constellation(large_page: Opene
 
 @pytest.mark.parametrize("narrow", [False, True])
 def test_acme_retail_routes_cross_nothing(tmp_path: Path, open_page: Any, narrow: bool) -> None:
-    from conftest import page_of, write_example
+    from conftest import page_of
 
-    html, _ = page_of(write_example(tmp_path / "acme"))
+    from browser.conftest import write_example_cards
+
+    html, _ = page_of(write_example_cards(tmp_path / "acme"))
     p = open_page(html, viewport=NARROW if narrow else None)
     drawn = routes_drawn(p)
     assert drawn["routes"] and crossings(drawn) == [] and not any(r["blocked"] for r in drawn["routes"])
@@ -294,7 +297,7 @@ def test_the_routes_are_laid_out_within_budget(large_page: Opened) -> None:
 
 
 def test_the_1500_table_payload_lays_out_every_route_within_budget(tmp_path: Path, open_page: Any) -> None:
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     if p.page.is_visible("#u-routes-row"):
         p.page.check("#u-routes")
 

@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_of, write_example
-from large_project import write_large_project
+from conftest import page_of
 
-from browser.conftest import NARROW, Page, geometry, set_config
+from browser.conftest import NARROW, Page, geometry, set_config, write_example_cards, write_large_cards
 from browser.test_routes import at_stars, lit, routes_drawn
 from browser.test_summary import SYSTEMS, Opened, cards
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 U = "views.universe"
 
@@ -59,7 +59,7 @@ def test_the_source_systems_heading_at_the_stars_scale_lights_every_route_of_eve
 def test_a_bare_label_never_prints_over_a_card_and_every_one_is_shown_at_360_px(
     tmp_path: Path, open_page: Any
 ) -> None:
-    for name, project in (("large", write_large_project), ("acme", write_example)):
+    for name, project in (("large", write_large_cards), ("acme", write_example_cards)):
         html, _ = page_of(project(tmp_path / name))
         p = open_page(html, viewport=NARROW)
         shown = cards(p)
@@ -79,7 +79,7 @@ def test_a_bare_label_never_prints_over_a_card_and_every_one_is_shown_at_360_px(
 
 
 def test_fit_keeps_every_drawn_card_inside_the_stage_at_360_px(tmp_path: Path, open_page: Any) -> None:
-    for name, project in (("large", write_large_project), ("acme", write_example)):
+    for name, project in (("large", write_large_cards), ("acme", write_example_cards)):
         html, _ = page_of(project(tmp_path / name))
         p = open_page(html, viewport=NARROW)
         for c in cards(p):
@@ -94,7 +94,7 @@ def test_fit_keeps_every_drawn_card_inside_the_stage_at_360_px(tmp_path: Path, o
 def test_the_meta_line_is_whole_not_clipped(
     tmp_path: Path, open_page: Any, width: int, language: str
 ) -> None:
-    project = write_large_project(tmp_path / "large")
+    project = write_large_cards(tmp_path / "large")
     if language == "fr":
         set_config(project, language="fr")
     html, _ = page_of(project)

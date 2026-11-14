@@ -17,10 +17,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_of, write_example
-from large_project import write_large_project
+from conftest import page_of
 
-from browser.conftest import NARROW, Page, geometry, set_config, universe_page
+from browser.conftest import (
+    NARROW,
+    Page,
+    geometry,
+    set_config,
+    universe_page,
+    write_example_cards,
+    write_large_cards,
+)
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_routes import at_stars, crossings, lit, routes_drawn, strongest
 from browser.test_summary import (
@@ -38,6 +45,7 @@ from browser.test_summary import (
 from browser.test_trajectory_perf import median, steady, universe_payload
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 U = "views.universe"
 
@@ -148,7 +156,7 @@ def test_no_route_crosses_in_layer_mode(large_page: Opened) -> None:
 
 
 def open_narrow(tmp_path: Path, open_page: Any) -> Page:
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     return open_page(html, viewport=NARROW)
 
 
@@ -171,7 +179,7 @@ def test_blocked_routes_of_the_1500_table_payload_are_flagged_and_still_drawn(
     tmp_path: Path, open_page: Any
 ) -> None:
     """A complete graph of 30 constellations has no way round: a crossing route says `blocked`, none hides."""
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     p.page.check("#u-routes")
     drawn = routes_drawn(p)
     total = len(geometry(p)["routes"])
@@ -381,7 +389,7 @@ def test_the_text_summary_lists_business_first_then_the_source_systems_with_thei
 def test_a_route_tooltip_is_worded_in_the_page_language_with_plural_agreement(
     tmp_path: Path, open_page: Any
 ) -> None:
-    project = write_large_project(tmp_path / "p")
+    project = write_large_cards(tmp_path / "p")
     html, _ = page_of(set_config(project, language="fr"))
     p = open_page(html)
     assert p.page.text_content("#u-routes-t") == "Toutes les routes"
@@ -422,7 +430,7 @@ def test_a_relations_only_route_has_a_tooltip_without_a_lineage_part_and_no_dire
 def test_a_filter_change_and_the_page_open_stay_within_budget_on_the_large_project(
     tmp_path: Path, open_page: Any
 ) -> None:
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     t0 = time.perf_counter()
     p = open_page(html)
     routes_drawn(p)
@@ -448,7 +456,7 @@ def test_a_filter_change_and_the_page_open_stay_within_budget_on_the_large_proje
 def test_a_filter_change_with_every_route_stays_within_a_second_on_the_1500_table_payload(
     tmp_path: Path, open_page: Any
 ) -> None:
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     assert geometry(p)["layoutMs"] <= 3000
     if p.page.is_visible("#u-routes-row"):
         p.page.check("#u-routes")
@@ -477,7 +485,7 @@ def test_ten_notches_across_the_card_threshold_run_no_layout_and_each_frame_stay
 
 
 def test_two_loads_draw_the_same_routes(tmp_path: Path, open_page: Any) -> None:
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     a, b = routes_drawn(open_page(html)), routes_drawn(open_page(html))
     assert a == b and a["routes"]
 
@@ -485,7 +493,7 @@ def test_two_loads_draw_the_same_routes(tmp_path: Path, open_page: Any) -> None:
 def test_a_zoom_never_changes_the_stage_size_and_nothing_scrolls_sideways(
     tmp_path: Path, open_page: Any
 ) -> None:
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     for viewport in (None, NARROW):
         p = open_page(html, viewport=viewport)
         size = lambda p=p: p.page.evaluate(  # noqa: E731
@@ -508,7 +516,7 @@ def test_the_toolbar_does_not_change_height_whatever_the_meta_says(
 ) -> None:
     """The meta line gains `9 of 15 routes` at some zooms and loses it at others: the toolbar must not wrap
     differently, or the stage resizes and the page refits (the developer's ellipsis on `#u-meta`)."""
-    project = write_large_project(tmp_path / "p")
+    project = write_large_cards(tmp_path / "p")
     set_config(project, language=language)
     p = open_page(page_of(project)[0], viewport={"width": width, "height": 800})
     probe = (
@@ -583,7 +591,7 @@ def test_an_exported_layout_keeps_the_format_and_gains_no_key(large_page: Opened
 
 
 def test_acme_retail_has_no_source_system_no_group_and_no_crossing(tmp_path: Path, open_page: Any) -> None:
-    html, data = page_of(write_example(tmp_path / "acme"))
+    html, data = page_of(write_example_cards(tmp_path / "acme"))
     p = open_page(html)
     assert not any(d["system"] for d in data["universe"]["domains"])
     drawn = routes_drawn(p)
@@ -597,7 +605,7 @@ def test_every_directed_route_between_business_domains_runs_left_to_right(
 ) -> None:
     """D-066: a domain read by others sits left of them. On acme_retail the mean x of ranks 0 and 1 is swapped
     at `flowX` 0.1 (shared 703, marketing 356) but no directed route runs right to left: no contradiction."""
-    folder = write_example(tmp_path / "p") if project == "acme" else write_large_project(tmp_path / "p")
+    folder = write_example_cards(tmp_path / "p") if project == "acme" else write_large_cards(tmp_path / "p")
     p = open_page(page_of(folder)[0])
     by = {c["key"]: c for c in geometry(p)["constellations"]}
     directed = [r for r in geometry(p)["routes"] if r["dir"] and not by[r["source"]]["system"]]
@@ -613,7 +621,7 @@ def test_the_box_of_an_undrawn_card_outside_every_disc_has_no_card_tooltip(
     """M8.3 leftover. A card at level count / frame is listed by summariesDrawn but not drawn: no hit.
     The developer's test (test_systems.py) checks boxes outside every disc, of which 360 x 800 has none
     (each pill sits in its own disc): a 400 x 300 stage has them, so this cannot pass vacuously."""
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     p = open_page(html, viewport={"width": 400, "height": 300})
     d, cam = {c["key"]: c for c in geometry(p)["constellations"]}, p.page.evaluate(f"{U}.camera()")
     bare = [c for c in cards(p) if c["level"] in ("count", "frame") and c["label"]]

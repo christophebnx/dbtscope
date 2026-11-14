@@ -107,5 +107,5 @@ def test_payload_literals_are_the_config_literals() -> None:
 def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
     assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).fold is True
     assert NODE.parent is None
-    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).cards is True
+    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).cards is False
     assert '"parent":null' in embedded_json(UNIVERSE) and '"fold":true' in embedded_json(UNIVERSE)

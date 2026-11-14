@@ -74,7 +74,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "hiddenKinds": ["source"],
         "constellations": "domains",
         "fold": True,
-        "cards": True,
+        "cards": False,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -244,9 +244,10 @@ def test_a_node_carries_its_parents_id_last_and_the_fold_default_follows_the_con
 
 
 def test_the_cards_default_follows_the_config(shop: Project) -> None:
-    assert universe_data(shop, merge_config({}, {})).defaults.cards is True
-    off = universe_data(shop, merge_config({}, {"universe": {"cards": False}}))
-    assert off.defaults.cards is False and '"cards":false}' in embedded_json(off)
+    off = universe_data(shop, merge_config({}, {}))
+    assert off.defaults.cards is False and '"cards":false}' in embedded_json(off)  # off by default (D-075)
+    on = universe_data(shop, merge_config({}, {"universe": {"cards": True}}))
+    assert on.defaults.cards is True and '"cards":true}' in embedded_json(on)
 
 
 def test_a_project_without_roles_has_no_parent(shop: Project) -> None:

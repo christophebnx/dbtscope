@@ -386,17 +386,22 @@ def meta(p: Page) -> str:
     return p.page.inner_text("#u-meta")
 
 
-def set_config(project: Path, *, language: str | None = None, fold: bool | None = None) -> Path:
-    """Rewrite the project's `dbt-erd.yml` for the page language and / or the `universe.fold` default; return
-    the project. An existing `language:` line is replaced, else one is appended; `fold` appends a `universe:`
-    block."""
+def set_config(
+    project: Path, *, language: str | None = None, fold: bool | None = None, cards: bool | None = None
+) -> Path:
+    """Rewrite the project's `dbt-erd.yml` for the page language and / or the `universe.fold` and
+    `universe.cards` defaults; return the project. An existing `language:` line is replaced, else one is
+    appended; `fold` and `cards` append one `universe:` block (the cards are off unless `cards`, D-075)."""
     path = project / "dbt-erd.yml"
     text = path.read_text(encoding="utf-8")
     if language is not None:
         text, found = re.subn(r"^language: .*$", f"language: {language}", text, flags=re.MULTILINE)
         text += "" if found else f"language: {language}\n"
-    if fold is not None:
-        text += f"universe:\n  fold: {str(fold).lower()}\n"
+    keys = {"fold": fold, "cards": cards}
+    if any(v is not None for v in keys.values()):
+        text += "universe:\n" + "".join(
+            f"  {k}: {str(v).lower()}\n" for k, v in keys.items() if v is not None
+        )
     path.write_text(text, encoding="utf-8")
     return project
 
@@ -473,23 +478,52 @@ def build_page(dbt_project: Path) -> Callable[..., tuple[Path, dict[str, Any]]]:
 
 
 @pytest.fixture
-def shop_page(build_page: Callable[..., tuple[Path, dict[str, Any]]], open_page: Callable[..., Page]) -> Shop:
+def shop_page(
+    build_page: Callable[..., tuple[Path, dict[str, Any]]], open_page: Callable[..., Page], cards_on: bool
+) -> Shop:
     """The default shop page, opened, and its payload."""
-    html, data = build_page()
+    html, data = build_page("universe:\n  cards: true\n" if cards_on else "")
     return open_page(html), data
 
 
+def with_cards(project: Path) -> Path:
+    """The project with `universe.cards: true` in its `dbt-erd.yml`: its page opens with the summary cards on
+    (they are off by default, D-075)."""
+    return set_config(project, cards=True)
+
+
+def write_example_cards(folder: Path) -> Path:
+    """`write_example` with the summary cards on."""
+    return with_cards(write_example(folder))
+
+
+def write_large_cards(folder: Path) -> Path:
+    """`write_large_project` with the summary cards on."""
+    return with_cards(write_large_project(folder))
+
+
 @pytest.fixture
-def example_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, dict[str, Any]]:
+def cards_on(request: pytest.FixtureRequest) -> bool:
+    """Whether the pages of the test's module open with the summary cards on: a module about the cards sets
+    `CARDS_ON = True` (D-075: off by default), written into the project's config through `set_config`."""
+    return bool(getattr(request.module, "CARDS_ON", False))
+
+
+@pytest.fixture
+def example_page(
+    tmp_path: Path, open_page: Callable[..., Page], cards_on: bool
+) -> tuple[Page, dict[str, Any]]:
     """The page of the example project `acme_retail` (D-033), opened, and its payload."""
-    html, data = page_of(write_example(tmp_path / "acme_retail"))
+    project = write_example(tmp_path / "acme_retail")
+    html, data = page_of(with_cards(project) if cards_on else project)
     return open_page(html), data
 
 
 @pytest.fixture
-def large_page(tmp_path: Path, open_page: Callable[..., Page]) -> tuple[Page, dict[str, Any]]:
+def large_page(tmp_path: Path, open_page: Callable[..., Page], cards_on: bool) -> tuple[Page, dict[str, Any]]:
     """The page of the large generated Data Vault project (D-060), opened, and its payload."""
-    html, data = page_of(write_large_project(tmp_path / "large"))
+    project = write_large_project(tmp_path / "large")
+    html, data = page_of(with_cards(project) if cards_on else project)
     return open_page(html), data
 
 

@@ -17,6 +17,7 @@ from browser.test_trajectory_perf import universe_payload
 from dbtscope.domain.payload import UniversePayload
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 
 def synthetic(domains: int, per: int) -> UniversePayload:
@@ -61,7 +62,9 @@ def assert_every_constellation_has_name_and_count(p: Page) -> set[str]:
 def test_no_constellation_is_left_without_name_and_count_on_a_narrow_page(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    p = open_page(universe_page(tmp_path, universe_payload()), viewport=NARROW)  # no preset, 30 domains
+    p = open_page(
+        universe_page(tmp_path, universe_payload(cards=True)), viewport=NARROW
+    )  # no preset, 30 domains
     levels = assert_every_constellation_has_name_and_count(p)
     assert levels & {"count", "frame"}, levels  # the case this protects: cards with no room for their name
     assert all(c.get("label") for c in cards(p) if c["level"] in ("count", "frame"))
@@ -70,9 +73,9 @@ def test_no_constellation_is_left_without_name_and_count_on_a_narrow_page(
 def test_the_large_project_keeps_every_name_and_count_at_360_px(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, viewport=NARROW)
     levels = assert_every_constellation_has_name_and_count(p)
     assert levels & {"count", "frame"}, levels

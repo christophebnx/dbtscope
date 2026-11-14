@@ -32,7 +32,7 @@
       hidden_kinds: []            # kinds unticked when the page opens
       constellations: domains     # domains | layers
       fold: true                  # draw descriptive tables inside their parent (D-062)
-      cards: true                 # summary cards when zoomed out (D-074)
+      cards: false                # summary cards when zoomed out, off by default (D-074, D-075)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
@@ -178,7 +178,9 @@ class UniverseSettings(BaseModel):
     hidden_kinds: StrList = ()
     constellations: Constellations = "domains"
     fold: StrictBool = True  # descriptive tables drawn inside their parent when the page opens (D-062)
-    cards: StrictBool = True  # summary cards drawn when zoomed out, when the page opens (D-074)
+    cards: StrictBool = (
+        False  # summary cards drawn when zoomed out, when the page opens: off by default (D-075)
+    )
 
 
 class Config(BaseModel):

@@ -27,7 +27,8 @@ KINDS = [("source", "#94a3b8"), ("fact", "#2f6fb5"), ("dim", "#2e8b57")]
 HUB = 1000
 
 
-def universe_payload() -> UniversePayload:
+def universe_payload(cards: bool = False) -> UniversePayload:
+    """The 1,500-table synthetic universe; `cards` is its page default (D-075: off)."""
     rng = random.Random(7)
     nodes = [
         {
@@ -62,7 +63,7 @@ def universe_payload() -> UniversePayload:
             ],
             "layers": [{"key": k, "label": k.title()} for k in LAYERS],
             "kinds": [{"key": k, "label": k.title(), "color": c} for k, c in KINDS],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": cards},
         }
     )
 

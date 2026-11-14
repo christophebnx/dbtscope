@@ -264,6 +264,8 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 - **M8.5 — Detail skeleton.** (Done.) (D-068 to D-072.) A large group opens as core and connector tables with their folded tables as one row, in a layout that fits the drawing area.
 - **M8.6 — Summary cards can be switched off.** (Done.) (D-074.) Asked by the user on 2026-11-14: a **Summary cards** checkbox in the universe panel (ticked by default, remembered per viewer, default `universe.cards`); unticked, the universe shows stars at every zoom, source systems as their own constellations and unbundled routes. Design note `docs/architecture/2026-11-14-m8.6-cards-switch.md`.
 
+- **M8.7 — Summary cards off by default.** (Done.) (D-075.) Asked by the user on 2026-11-14 ("désactivé par défaut"): `universe.cards` defaults to `false`, the **Summary cards** checkbox is unticked on a page whose config does not set the key; a viewer ticks it, or `universe.cards: true` opens a project with cards.
+
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
 ## Later (not scheduled)

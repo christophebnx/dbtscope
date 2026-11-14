@@ -33,13 +33,14 @@ def test_fold_defaults_to_true_is_read_and_is_allowed_in_a_preset() -> None:
     assert merge_config(preset, {"universe": {"fold": True}}).universe.fold is True
 
 
-def test_cards_default_to_true_are_read_and_are_allowed_in_a_preset() -> None:
-    assert merge_config({}, {}).universe.cards is True
+def test_cards_default_to_false_are_read_and_are_allowed_in_a_preset() -> None:
+    assert merge_config({}, {}).universe.cards is False  # off by default (D-075)
+    assert merge_config({}, {"universe": {"cards": True}}).universe.cards is True
     assert merge_config({}, {"universe": {"cards": False}}).universe.cards is False
-    preset = {"universe": {"cards": False}}
+    preset = {"universe": {"cards": True}}
     assert check_preset(preset) == preset
-    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.cards is False
-    assert merge_config(preset, {"universe": {"cards": True}}).universe.cards is True  # the file wins
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.cards is True
+    assert merge_config(preset, {"universe": {"cards": False}}).universe.cards is False  # the file wins
 
 
 def test_constellations_default_to_domains_and_accept_layers() -> None:

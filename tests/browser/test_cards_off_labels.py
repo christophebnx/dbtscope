@@ -9,14 +9,14 @@ from typing import Any
 
 import pytest
 from conftest import page_of
-from large_project import write_large_project
 
-from browser.conftest import Page, geometry, summary
+from browser.conftest import Page, geometry, summary, write_large_cards
 from browser.test_cards_switch import U, disc_crossings, fit, switch
 from browser.test_routes import crossings, routes_drawn
 from browser.test_summary import BUSINESS, SYSTEMS, Opened, camera, cards
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 
 def labels(p: Page) -> list[dict[str, Any]]:
@@ -114,7 +114,7 @@ def test_on_at_fit_the_cards_guarantees_hold(large_page: Opened) -> None:
 def test_off_on_a_smaller_stage_a_crowded_label_moves_round_its_disc_and_is_never_dropped(
     tmp_path: Path, open_page: Any
 ) -> None:
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, viewport={"width": 1024, "height": 640})
     switch(p, False)
     fit(p)

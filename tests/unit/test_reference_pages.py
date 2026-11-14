@@ -37,10 +37,10 @@ NO_PRESET_BEFORE_M8 = {  # sha256 of the payloads of M3, before the `role` keys 
 }
 ROLE_KEY = re.compile(rb',"role":(?:null|"(?:core|connector|descriptive|technical)")')
 # M8.2: a node's parent, the universe's fold default; M8.6: its cards default
-FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true|,"cards":true')
+FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true|,"cards":false')
 SYSTEM_KEY = re.compile(rb',"system":(?:false|true)')  # M8.4: a domain's source-system flag (D-065)
 ENTITY_PARENT = b',"parent":null'  # M8.5: a detail entity's parent, the last key of an entity (D-068)
-CARDS_KEY = b',"cards":true'  # M8.6: the last key of the universe defaults (D-074)
+CARDS_KEY = b',"cards":false'  # M8.6: the last key of the universe defaults (D-074), false by default (D-075)
 
 
 def as_before_m8_5(payload: bytes) -> bytes:

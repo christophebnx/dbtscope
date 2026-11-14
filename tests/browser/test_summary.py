@@ -16,14 +16,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_of, write_example
+from conftest import page_of
 
-from browser.conftest import NARROW, Page, Shop, geometry, summary, universe_page
+from browser.conftest import NARROW, Page, Shop, geometry, summary, universe_page, write_example_cards
 from browser.test_export import COMPARE_UNIVERSE
 from browser.test_roles import main_rank
 from browser.test_trajectory_perf import universe_payload
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 U = "views.universe"
 ROLE_ORDER = ["core", "connector", "descriptive", "technical", None]
@@ -266,10 +267,10 @@ def test_the_rule_is_the_room_of_a_star(large_page: Opened) -> None:
 def test_at_360_px_the_state_follows_the_rule_and_a_resize_refits(
     tmp_path: Path, open_page: Callable[..., Page], name: str
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
     html, _ = page_of(
-        write_large_project(tmp_path / "p") if name == "large" else write_example(tmp_path / "p")
+        write_large_cards(tmp_path / "p") if name == "large" else write_example_cards(tmp_path / "p")
     )
     p = open_page(html, viewport=NARROW)
     s, k = summary(p), camera(p)["k"]
@@ -406,9 +407,9 @@ def test_all_six_cards_keep_their_rows_at_1280_and_the_level_only_falls_when_zoo
 def test_at_360_px_every_card_keeps_at_least_its_frame(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, viewport=NARROW)
     shown = cards(p)
     assert len(shown) == 6 and all(c["level"] in ("rows", "bar", "name", "count", "frame") for c in shown)
@@ -504,9 +505,9 @@ def test_dragging_a_card_by_its_name_moves_and_pins_the_constellation(large_page
 def test_a_touch_drag_pans_instead_of_moving_a_constellation(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, touch=True)
     before = {d["key"]: (d["x"], d["y"]) for d in geometry(p)["constellations"]}
     c = card(p, "claim")
@@ -731,9 +732,9 @@ def test_the_text_summary_in_french(tmp_path: Path, build_page: Any, open_page: 
 def test_the_text_summary_buttons_are_44_px_on_touch_and_nothing_scrolls_at_360(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, viewport=NARROW, touch=True)
     p.page.click("#u-toggle")
     p.page.locator("#u-sum-h").scroll_into_view_if_needed()
@@ -786,7 +787,7 @@ def test_the_1500_table_payload_opens_on_cards_listing_tables_by_score(
     tmp_path: Path, open_page: Any
 ) -> None:
     """No roles, no core kind: a card lists tables by role order then score (D-064); budgets of the note."""
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     s = summary(p)
     assert s["alpha"] > 0 and len(cards(p)) == 30
     assert p.page.evaluate(f"{U}.cardsMs()") <= 50

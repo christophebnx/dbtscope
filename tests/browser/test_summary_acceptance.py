@@ -48,6 +48,7 @@ from dbtscope.domain.payload import UniversePayload
 from dbtscope.storage.files import atomic_write
 
 pytestmark = pytest.mark.browser
+CARDS_ON = True  # a module about the summary cards: its pages open with them on (off by default, D-075)
 
 GOLDEN = Path(__file__).parents[1] / "fixtures" / "acme-retail-stars-at-fit" / "expected.json"
 FIRST_ROW = 6 + 16 + 14 + 4  # y of a `rows` card's first row (padding, name, counts, gap); a row is 22 px
@@ -284,9 +285,9 @@ def test_no_two_cards_overlap_at_fit_as_the_page_opens(large_page: Opened) -> No
 
 
 def test_two_loads_give_identical_card_rectangles(tmp_path: Path, open_page: Callable[..., Page]) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "p"))
+    html, _ = page_of(write_large_cards(tmp_path / "p"))
     first, second = open_page(html), open_page(html)
     assert cards(first) == cards(second) and len(cards(first)) == 6
     assert without_time(geometry(first)) == without_time(geometry(second))
@@ -461,7 +462,7 @@ def test_the_page_opens_in_3_s_and_a_frame_in_50_ms_on_the_large_project(large_p
 
 
 def test_the_1500_table_payload_keeps_its_budgets_with_cards(tmp_path: Path, open_page: Any) -> None:
-    p = open_page(universe_page(tmp_path, universe_payload()))
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
     assert page_open_ms(p) <= 3000
     s = summary(p)
     draws, routes = [], []
@@ -571,7 +572,7 @@ def payload(
                 {"key": "hub", "label": "Hub", "color": "#2f6fb5", "role": "core"},
                 {"key": "sat", "label": "Sat", "color": "#c9a227", "role": "descriptive"},
             ],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], **extra},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True, **extra},
         }
     )
 
@@ -718,8 +719,8 @@ def test_enter_on_a_summary_button_zooms_the_canvas_and_keeps_the_focus(large_pa
 def test_a_page_without_a_core_kind_lists_its_tables_by_score_inside_the_constellation(
     tmp_path: Path, open_page: Any
 ) -> None:
-    p = open_page(universe_page(tmp_path, universe_payload()))
-    domain = {n["id"]: n["domain"] for n in universe_payload().model_dump()["nodes"]}
+    p = open_page(universe_page(tmp_path, universe_payload(cards=True)))
+    domain = {n["id"]: n["domain"] for n in universe_payload(cards=True).model_dump()["nodes"]}
     s = summary(p)
     set_scale(p, s["scale"] * 0.9)
     for c in cards(p):
@@ -841,9 +842,9 @@ def test_without_time_still_compares_the_stars_and_the_constellations(large_page
 def test_the_large_project_on_a_phone_opens_on_cards_without_horizontal_scroll(
     tmp_path: Path, open_page: Callable[..., Page]
 ) -> None:
-    from large_project import write_large_project
+    from browser.conftest import write_large_cards
 
-    html, _ = page_of(write_large_project(tmp_path / "large"))
+    html, _ = page_of(write_large_cards(tmp_path / "large"))
     p = open_page(html, viewport=NARROW)
     assert scroll_width(p) <= NARROW["width"]
     assert summary(p)["alpha"] > 0 and len(cards(p)) == 6
