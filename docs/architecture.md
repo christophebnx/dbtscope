@@ -135,7 +135,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Which tables are folded now, held by an entity, drawn (page, D-063) | `render/assets/universe.js` `PARENT`, `HELD`, `wouldFold`, the passing / folded-now / drawn sets (`pass`, `FOLDNOW`, `visible`) |
-| A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
+| A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`, `cardsMemory`, `dbtscope-cards:<title>`, D-081; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
 | The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
 | Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
 | Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `stack`, `sizeOf`, `gridShown`, `SK` |
@@ -184,6 +184,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Name, scale and save an exported image (page) | `render/assets/boot.js EXPORT` |
 | Star radius and name priority by role; names offered at Fit (page, D-058) | `render/assets/universe.js starR`, `TIER`, `orderLabels`, `FIT_NAMES`, `fitNames` (over `mainTables`) |
 | When the universe draws summary cards: weight from the drawn size of the reference star (page, D-065) | `render/assets/universe.js summaryWeight`, `referenceRadius` (`refR`), `S_STARS`, `S_CARDS`, `kStars`, `kCards`, `tablesLive` |
+| Whether summary cards are drawn: the viewer's switch, default from `universe.cards` (page, D-081) | `render/assets/universe.js state.cards`, `cardsMemory`, read only by `summaryWeight` |
 | Content of a summary card: rows per layer or domain, kind split, counts, entities (page, D-066) | `render/assets/universe.js summaryOf` |
 | Main tables of a constellation, ranked by relations (page; summary cards and names at Fit) | `render/assets/universe.js mainTables` (`MAIN_MAX`) |
 | Draw a summary card and its row hit regions; what fits in its room (page) | `render/assets/universe.js drawSummary`, `planCard`, `summaryHits` |
@@ -258,7 +259,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | A table name without the fixed part of the name glob of its kind (M8.2, D-062) | **stem** (`fold.stem`) | root, base name | |
 | The detail drawing of a large group with its descriptive tables folded into their parents (M8.5, D-073) | **skeleton** (`skeleton()`, `SKELETON_MIN`) | summary, outline, overview | French UI: not shown as a word; the panel says "Entités" and the fold row. |
 | A connector table that the focus walk crosses without spending a level (M8.5, D-076) | **passage** | bridge, hop | Internal word, not in the UI. |
-| A constellation drawn at overview scale as its counts, rows and main tables instead of its stars (universe, M8.3, D-065) | **summary card** (`drawSummary`, `summaryOf`, `#u-summary`; French UI: fiche de synthèse) | tile, panel, badge | A table drawn at keys or all fields stays a **card**; say "summary card" whenever both could be meant. |
+| A constellation drawn at overview scale as its counts, rows and main tables instead of its stars; optional, off by default (universe, M8.3, D-065, D-081) | **summary card** (`drawSummary`, `summaryOf`, `#u-summary`, `universe.cards`, `#u-cards-box`; French UI: fiche de synthèse) | tile, panel, badge | A table drawn at keys or all fields stays a **card**; say "summary card" whenever both could be meant. |
 | A core table of a constellation among those with the most relations; listed on its summary card, named at Fit (universe, M8.3) | **main table** (`mainTables`, `MAIN_MAX`; French UI: table principale) | top table, key table, hub | |
 | How much the summary cards are drawn at the current scale, from 0 (stars) to 1 (cards) (universe, M8.3) | **summary weight** (`summaryWeight`) | alpha, blend | Internal word; not in the UI. |
 | Business link declared by a `relationships` test or a `foreign_key` constraint | **relation** (`Relation`, `relations`) | relationship (except dbt's test name), FK link | |

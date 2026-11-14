@@ -33,6 +33,7 @@
       hidden_kinds: []            # kinds unticked when the page opens
       constellations: domains     # domains | layers
       fold: true                  # draw descriptive tables inside the table they describe (D-062, D-063)
+      cards: false                # from afar, draw each constellation as a summary card (D-065, D-081)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
@@ -175,6 +176,7 @@ class UniverseSettings(BaseModel):
     hidden_kinds: StrList = ()
     constellations: Constellations = "domains"
     fold: StrictBool = True
+    cards: StrictBool = False
 
 
 class Config(BaseModel):

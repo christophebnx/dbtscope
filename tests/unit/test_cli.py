@@ -449,6 +449,20 @@ def test_config_content_errors_name_the_file(
     assert fails(build(dbt_project), capsys) == f"config {dbt_project / 'dbt-erd.yml'}{problem}"
 
 
+def test_a_non_boolean_universe_cards_is_one_config_line(dbt_project: Path, capsys: Capsys) -> None:
+    write_config(dbt_project, "universe:\n  cards: maybe\n")
+    line = fails(build(dbt_project), capsys)
+    assert line.startswith(f"config {dbt_project / 'dbt-erd.yml'}: universe.cards: ")
+    assert line.endswith("; fix the file") and "\n" not in line
+
+
+def test_a_preset_file_can_open_the_page_on_summary_cards(dbt_project: Path) -> None:
+    preset = write_preset(dbt_project / "team.yml", "universe:\n  cards: true\n")
+    assert main(build(dbt_project, "--preset-file", str(preset))) == 0
+    page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert page_data(page)["universe"]["defaults"]["cards"] is True
+
+
 def test_an_empty_selection_names_the_config(dbt_project: Path, capsys: Capsys) -> None:
     write_config(dbt_project, "select: ['nothing_*']\nuniverse: {select: ['nothing_*']}\n")
     assert fails(build(dbt_project), capsys) == (

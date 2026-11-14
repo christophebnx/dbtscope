@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 from conftest import empty_detail, page_of, write_config, write_example
-from large_project import write_large_project
+from large_project import LARGE_CONFIG, write_large_project
 
 from dbtscope.domain.config import merge_config
 from dbtscope.domain.payload import UniversePayload
@@ -36,6 +36,8 @@ CENTRE_WAIT_MS = 900  # zoomTo animates for 600 ms
 HERE = Path(__file__).parent
 # config text that opts out of the fold (M8.2): the example opens folded, some tests need the shown drawing
 NO_FOLD = "universe:\n  fold: false\n"
+# config text that opens the page on summary cards (M8.6, D-081): off by default, the card tests turn them on
+CARDS_ON = "universe:\n  cards: true\n"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -249,3 +251,9 @@ def large_page(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
 
     Not opened: the tests time the opening themselves (`open_page(html)`)."""
     return page_of(write_large_project(tmp_path / "large"))
+
+
+@pytest.fixture
+def large_cards_page(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    """The large project's page that opens with summary cards (`universe.cards: true`, D-081)."""
+    return page_of(write_large_project(tmp_path / "large", LARGE_CONFIG + CARDS_ON))

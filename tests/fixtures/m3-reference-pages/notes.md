@@ -40,3 +40,8 @@ are equal once those two keys are removed (checked before regenerating), and no 
 universe parent is also a detail table (the `shop` project has no hub or satellite), so every `parent` is
 empty. Every page changes by the scripts (`common.js`, `detail.js`, `universe.js`) and the markup and style of
 the detail panel (`page.html`, `page.css`).
+
+M8.6 (summary cards optional, D-081): every case gains `"cards":false` at the end of the universe defaults
+(`…,"fold":true,"cards":false}`); the old and new payloads are equal once that key is removed (checked
+before regenerating, all ten cases, one occurrence each). Every page changes by the scripts (`universe.js`) and
+the markup of the **Summary cards** row (`page.html`); `page.css` is unchanged.
