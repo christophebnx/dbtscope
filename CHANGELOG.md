@@ -4,6 +4,10 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Added
+
+- Summary cards can be switched off (M8.6, D-074): a **Summary cards** (« Cartes de synthèse ») checkbox in the universe panel, under the fold choice, ticked by default. Unticked, the universe shows stars at every zoom: each constellation keeps its name, counts and composition bar above its disc, source systems are their own neutral constellations (still left of the business domains, no group card), routes end on disc edges and are not bundled, a double-click on a disc frames it as before M8.3. Nothing is laid out again and the camera does not move when it is toggled. The choice is a viewer memory (`dbtscope-cards:<title>`, written only when it differs from the page default, never exported); `universe.cards` (bool, default `true`, also allowed in presets) is the page default, carried as `defaults.cards` (the new last key of the universe defaults: the reference pages gain `,"cards":true` and nothing else). The layout format is unchanged. With the cards off the discs are placed with room for the labels drawn above them (no label on a disc or on another label at Fit; the Fit scale of the large project falls from 0.160 to 0.147), the routes avoid the labels where they can, and a crowded label moves round its disc.
+
 ### Changed
 
 - Close of M8, fit and labels (D-073): Fit leaves 8 px free on every side of a detail or flow drawing and a detail drawing still at its Fit follows its area when the toolbar wraps; at a phone's size a constellation's label (name, counts, bar) is placed clear of every card and of the other labels, shrinking to its name when it must, and no two drawn cards overlap.

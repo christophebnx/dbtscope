@@ -176,5 +176,6 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
             hidden_kinds=universe.hidden_kinds,
             constellations=universe.constellations,
             fold=universe.fold,
+            cards=universe.cards,
         ),
     )

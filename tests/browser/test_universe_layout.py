@@ -288,10 +288,11 @@ CARD_RECT = ("x", "y", "w", "h")
 
 
 def without_time(g: Geometry) -> Geometry:
-    """The geometry minus what is not placement: the layout time, and what follows the camera (the summary
-    cards' alpha and rectangles: a card has a constant screen size, so its world size follows the zoom)."""
+    """The geometry minus what is not placement: the layout time, what follows the camera (the summary
+    cards' alpha and rectangles: a card has a constant screen size, so its world size follows the zoom) and
+    the cards switch (`on`, M8.6: the viewer's choice, which moves nothing)."""
     out = {k: v for k, v in g.items() if k != "layoutMs"}
-    out["summary"] = {k: v for k, v in g["summary"].items() if k != "alpha"}
+    out["summary"] = {k: v for k, v in g["summary"].items() if k not in ("alpha", "on")}
     out["constellations"] = [
         {**c, "summary": {k: v for k, v in c["summary"].items() if k not in CARD_RECT}}
         for c in g["constellations"]

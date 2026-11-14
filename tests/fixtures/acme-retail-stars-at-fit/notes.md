@@ -18,3 +18,5 @@ DBTSCOPE_RECORD_GOLDEN=1 uv run --group browser pytest -q -m browser tests/brows
 The test then rewrites `expected.json` through `storage/files.atomic_write`, then compares against it.
 
 M8.4 review loop 1: only `camera` changed (the toolbar's meta line wraps up to 1400 px with `min-height: 2.6em`, so the stage is 6 px shorter: 710 px instead of 716 at 1280 x 800); tables, constellations and routes are as before.
+
+M8.6 review loop (labels with the cards off): regenerated once with the command above. The collide radius of the constellations (`roomOf`) now keeps at least the height of the label drawn above a disc (76 screen px, converted to world units with the scale Fit would give on a 1000 x 700 reference stage) between two discs, so no label sits on a neighbour's disc when the cards are off. On acme_retail that room is larger than the 30 px + 15 % of the radius it had, so the force simulation settles on another arrangement: constellations, tables (their offsets inside a constellation are the same, their constellations moved), routes and camera change; the Fit scale is 0.474 (0.461 before). Nothing else reads this fixture.

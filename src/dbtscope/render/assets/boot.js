@@ -85,6 +85,8 @@ const memoryOf = prefix => {
 };
 // the grouping of the universe (D-048), passed to the universe
 const GROUPING = memoryOf('dbtscope-constellations');
+// the summary cards switch (D-074): key `dbtscope-cards:<title>`, values `shown` / `hidden`, passed to the universe
+const CARDS = memoryOf('dbtscope-cards');
 
 // The viewer's fold choice, shared by both views (D-069): the key `dbtscope-fold:<title>`, values `folded` / `shown`.
 const FOLD = (() => {
@@ -109,7 +111,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, FOLD)
-    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow, FOLD, GROUPING);
+    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow, FOLD, GROUPING, CARDS);
   else if (views[name].shown) views[name].shown();
 }
 function openInDetail(id) {

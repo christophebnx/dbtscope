@@ -33,6 +33,15 @@ def test_fold_defaults_to_true_is_read_and_is_allowed_in_a_preset() -> None:
     assert merge_config(preset, {"universe": {"fold": True}}).universe.fold is True
 
 
+def test_cards_default_to_true_are_read_and_are_allowed_in_a_preset() -> None:
+    assert merge_config({}, {}).universe.cards is True
+    assert merge_config({}, {"universe": {"cards": False}}).universe.cards is False
+    preset = {"universe": {"cards": False}}
+    assert check_preset(preset) == preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.cards is False
+    assert merge_config(preset, {"universe": {"cards": True}}).universe.cards is True  # the file wins
+
+
 def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config({}, {}).universe.constellations == "domains"
     assert merge_config({}, {"universe": {"constellations": "layers"}}).universe.constellations == "layers"
@@ -146,6 +155,8 @@ def test_config_is_immutable_and_overridden_by_copy() -> None:
         ({"universe": {"links": None}}, "universe.links: must be 'relations', 'lineage' or 'both'"),
         ({"universe": {"constellations": "rows"}}, "universe.constellations: must be 'domains' or 'layers'"),
         ({"universe": {"fold": "yes"}}, "universe.fold: must be true or false"),
+        ({"universe": {"cards": "no"}}, "universe.cards: must be true or false"),
+        ({"universe": {"cards": 1}}, "universe.cards: must be true or false"),
         ({"view": "map", "language": "de"}, "language: must be 'en' or 'fr' (and 1 more problem)"),
     ],
 )  # fmt: skip

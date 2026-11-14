@@ -31,3 +31,7 @@ Regenerated for M8.4 (D-065..D-067): every domain object gains `"system":false` 
 (sources and staging models of a preset that gives roles); the other cases give no role and have no source
 system. Nothing else differs in the payloads (`test_a_page_differs_from_the_pre_m8_4_one_only_by_the_system_key`);
 every page grows by about 49 kB of assets (`none` 199,891 → 249,381 bytes).
+
+Regenerated for M8.6 (D-074): the universe defaults gain `"cards":true` after `"fold"` (+13 bytes of payload per case) and the assets gain the **Summary cards** control; nothing else differs in the payloads (`FOLD_KEYS` of `test_reference_pages.py` strips it).
+
+Regenerated again in the M8.6 review loop (labels with the cards off): only the assets changed (`none` 274,959 → 279,796 bytes); the payloads are the same.

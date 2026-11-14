@@ -53,7 +53,7 @@ UNIVERSE = UniversePayload(
         (UNIVERSE.domains[0], ["key", "label", "color", "owner", "system"]),
         (UNIVERSE.layers[0], ["key", "label"]),
         (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold"]),
+        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold", "cards"]),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -107,4 +107,5 @@ def test_payload_literals_are_the_config_literals() -> None:
 def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
     assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).fold is True
     assert NODE.parent is None
+    assert UniverseDefaults(links="both", detail="names", hidden_kinds=()).cards is True
     assert '"parent":null' in embedded_json(UNIVERSE) and '"fold":true' in embedded_json(UNIVERSE)

@@ -258,6 +258,25 @@ def reachable(data: dict[str, Any], key: str) -> set[str]:
     return {k for pair in payload_routes(data) if key in pair for k in pair} - {key}
 
 
+def apart(r: dict[str, Any], *frames: dict[str, Any], gap: float = 14.0) -> tuple[float, float]:
+    """A sample of route `r`, the nearest to its middle, at least `gap` px from every other route of `frames`:
+    a pixel or a hit that only `r` owns, whatever the layout (two routes may cross at the middle of one)."""
+    mine = r["samples"]
+    others = [
+        (x, y)
+        for f in frames
+        for o in f["routes"]
+        if (o["source"], o["target"], o["bundled"]) != (r["source"], r["target"], r["bundled"])
+        for x, y in o["samples"]
+    ]
+    middle = len(mine) // 2
+    for i in sorted(range(len(mine)), key=lambda i: abs(i - middle)):
+        x, y = mine[i]
+        if all(math.hypot(x - a, y - b) >= gap for a, b in others):
+            return x, y
+    return mine[middle]
+
+
 @pytest.mark.parametrize("key", [*BUSINESS, GROUP])
 def test_hovering_a_card_lights_every_route_of_that_constellation(large_page: Opened, key: str) -> None:
     p, data = large_page
@@ -276,7 +295,7 @@ def test_hovering_a_card_lights_every_route_of_that_constellation(large_page: Op
         expected = {k for k in mine if k not in SYSTEMS} | ({GROUP} if mine & set(SYSTEMS) else set())
     assert got == expected and all(key in ends(r) for r in drawn["routes"] if r["hi"])
     dim = max((r for r in plain["routes"] if key not in ends(r) and not r["hi"]), key=lambda r: r["c"])
-    x, y = dim["samples"][len(dim["samples"]) // 2]
+    x, y = apart(dim, plain, drawn)
     # the same pixel of a route that is not this constellation's is lighter than before: dimmed
     p.page.mouse.move(*page_xy(p, 5, 5))
     p.page.wait_for_timeout(300)
@@ -370,7 +389,7 @@ def test_a_route_tooltip_is_worded_in_the_page_language_with_plural_agreement(
     p.page.check("#u-routes")
     drawn = routes_drawn(p)
     r = next(r for r in drawn["routes"] if not r["bundled"] and r["dir"] and r["lin"] and r["rel"])
-    p.page.mouse.move(*page_xy(p, *r["samples"][len(r["samples"]) // 2]))
+    p.page.mouse.move(*page_xy(p, *apart(r, drawn)))
     p.page.wait_for_timeout(250)
     tip = p.page.inner_text("#u-tip")
     assert " lit " in tip and "liens de lignage" in tip.replace("lien de lignage", "liens de lignage")

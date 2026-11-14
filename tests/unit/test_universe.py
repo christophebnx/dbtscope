@@ -74,6 +74,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "hiddenKinds": ["source"],
         "constellations": "domains",
         "fold": True,
+        "cards": True,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -94,7 +95,7 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))
-    assert list(data["defaults"])[-2:] == ["constellations", "fold"]
+    assert list(data["defaults"])[-3:] == ["constellations", "fold", "cards"]
     assert data["defaults"]["constellations"] == "layers"
     assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
 
@@ -240,6 +241,12 @@ def test_a_node_carries_its_parents_id_last_and_the_fold_default_follows_the_con
     nodes = json.loads(embedded_json(data))["nodes"]
     assert all(list(n)[-1] == "parent" for n in nodes)
     assert universe_data(project, merge_config(read_preset("data_vault"), {})).defaults.fold is True
+
+
+def test_the_cards_default_follows_the_config(shop: Project) -> None:
+    assert universe_data(shop, merge_config({}, {})).defaults.cards is True
+    off = universe_data(shop, merge_config({}, {"universe": {"cards": False}}))
+    assert off.defaults.cards is False and '"cards":false}' in embedded_json(off)
 
 
 def test_a_project_without_roles_has_no_parent(shop: Project) -> None:

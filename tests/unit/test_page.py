@@ -169,6 +169,21 @@ def test_the_universe_panel_has_the_source_systems_list_and_the_all_routes_contr
     assert positions == sorted(positions)
 
 
+def test_the_summary_cards_checkbox_follows_the_fold_control_and_precedes_the_links() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), {"format": "dbt-erd-layout"})
+    panel = page.split('id="u-panel"', 1)[1].split("</aside>", 1)[0]
+    order = [
+        'id="u-fold"',
+        'id="u-cards-row" class="check"',
+        'type="checkbox" id="u-cards"',
+        'id="u-cards-t"',
+        'id="u-h-links"',
+    ]
+    positions = [panel.index(m) for m in order]
+    assert positions == sorted(positions)
+    assert 'id="u-cards-row" class="check" hidden' not in panel  # always shown
+
+
 # ---------------------------------------------------------------- M2 acceptance gaps (tester)
 
 

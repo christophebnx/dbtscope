@@ -36,15 +36,18 @@ NO_PRESET_BEFORE_M8 = {  # sha256 of the payloads of M3, before the `role` keys 
     "kinds": "59aa35888c6a383a2cff78b24a2aa755aa010a283860acaa3da4a38e746417f7",
 }
 ROLE_KEY = re.compile(rb',"role":(?:null|"(?:core|connector|descriptive|technical)")')
-FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true')  # M8.2: a node's parent, the universe's fold default
+# M8.2: a node's parent, the universe's fold default; M8.6: its cards default
+FOLD_KEYS = re.compile(rb',"parent":null|,"fold":true|,"cards":true')
 SYSTEM_KEY = re.compile(rb',"system":(?:false|true)')  # M8.4: a domain's source-system flag (D-065)
 ENTITY_PARENT = b',"parent":null'  # M8.5: a detail entity's parent, the last key of an entity (D-068)
+CARDS_KEY = b',"cards":true'  # M8.6: the last key of the universe defaults (D-074)
 
 
-def without_entity_parents(payload: bytes) -> bytes:
-    """The payload without the `parent` key of its detail entities (the detail comes before the universe)."""
+def as_before_m8_5(payload: bytes) -> bytes:
+    """The payload as it was before M8.5: without the `parent` key of its detail entities (the detail comes
+    before the universe) and, since M8.6, without the cards default: the form of the older hashes."""
     detail, universe, rest = payload.partition(b'"universe":{')
-    return detail.replace(ENTITY_PARENT, b"") + universe + rest
+    return detail.replace(ENTITY_PARENT, b"") + universe + rest.replace(CARDS_KEY, b"")
 
 
 NO_FOLD_BEFORE_M8_2 = {  # sha256 of the payloads before M8.2 (D-061, D-062), every case
@@ -97,7 +100,7 @@ SYSTEMS_OF = {
 def test_a_page_differs_from_the_pre_m8_4_one_only_by_the_system_key(case: str) -> None:
     payload = (FOLDER / "payloads" / f"{case}.json").read_bytes()
     assert payload.count(b',"system":') == len(json.loads(payload)["universe"]["domains"])
-    pre_m8_5 = without_entity_parents(payload)
+    pre_m8_5 = as_before_m8_5(payload)
     assert hashlib.sha256(SYSTEM_KEY.sub(b"", pre_m8_5)).hexdigest() == NO_SYSTEM_BEFORE_M8_4[case]
     domains = json.loads(payload)["universe"]["domains"]
     assert [d["key"] for d in domains if d["system"]] == SYSTEMS_OF.get(
@@ -126,4 +129,4 @@ def test_a_page_differs_from_the_pre_m8_5_one_only_by_the_parent_of_its_detail_e
     assert all(
         list(e)[-1] == "parent" and e["parent"] is None for e in detail
     )  # no descriptive table in the shop
-    assert hashlib.sha256(without_entity_parents(payload)).hexdigest() == NO_ENTITY_PARENT_BEFORE_M8_5[case]
+    assert hashlib.sha256(as_before_m8_5(payload)).hexdigest() == NO_ENTITY_PARENT_BEFORE_M8_5[case]

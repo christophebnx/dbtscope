@@ -4,7 +4,7 @@
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, FOLD, GROUPING) {
+function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, FOLD, GROUPING, CARDS) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
     en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
@@ -33,6 +33,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
           summary: 'Summary', zoomBtn: 'Zoom', zoomOn: name => `Zoom on ${name}`, mainTables: 'Main tables',
           zoomRow: 'Zoom on this layer', zoomRowC: 'Zoom on this domain', layerOne: 'Layer',
           rowZoom: 'click a row: zoom on it', groupHint: 'Click a row: zoom on it · double-click: frame the systems', zoomed: name => `Zoomed on ${name}`,
+          cards: 'Summary cards', cardsTitle: 'From afar, draw each constellation as a card: its counts, layers and main tables',
+          cardsOn: 'Summary cards shown when zoomed out', cardsOff: 'Summary cards hidden: stars at every zoom',
           hintCards: ' · from afar each constellation is a summary card: double-click it, or click one of its rows, to see its tables',
           // source systems and routes (M8.4, D-065..D-067)
           systems: 'Source systems', systemsN: ['system', 'systems'], systemOne: 'Source system',
@@ -71,6 +73,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
           summary: 'Synthèse', zoomBtn: 'Cadrer', zoomOn: name => `Cadrer ${name}`, mainTables: 'Tables principales',
           zoomRow: 'Cadrer cette couche', zoomRowC: 'Cadrer ce domaine', layerOne: 'Couche',
           rowZoom: 'clic sur une ligne\u00a0: la cadrer', groupHint: 'Clic sur une ligne\u00a0: la cadrer · double-clic\u00a0: cadrer les systèmes', zoomed: name => `Cadré sur ${name}`,
+          cards: 'Cartes de synthèse', cardsTitle: 'De loin, dessiner chaque constellation comme une carte\u00a0: ses effectifs, ses couches et ses tables principales',
+          cardsOn: 'Cartes de synthèse affichées de loin', cardsOff: 'Cartes de synthèse masquées\u00a0: des étoiles à tout zoom',
           hintCards: ' · de loin, chaque constellation est une carte de synthèse\u00a0: double-clic dessus, ou clic sur une de ses lignes, pour voir ses tables',
           systems: 'Systèmes sources', systemsN: ['système', 'systèmes'], systemOne: 'Système source',
           routesN: ['route', 'routes'], routesShownN: ['route affichée', 'routes affichées'], allRoutes: 'Toutes les routes',
@@ -153,6 +157,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const IDX = new Map(N.map(n => [n.id, n.i]));
   const PARENT = N.map(n => (n.parent == null ? null : IDX.get(n.parent) ?? null));
   const FOLDABLE = PARENT.some(p => p != null);
+  // the viewer's choice of summary cards (D-074): CARDS (boot.js, key `dbtscope-cards:<title>`), never exported
+  const CARDS_WORDS = ['shown', 'hidden'], cardsWord = on => (on ? 'shown' : 'hidden');
   const state = {
     domains: new Set(DATA.domains.map(d => d.key)),
     layers: new Set(DATA.layers.map(l => l.key)),
@@ -160,6 +166,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? GROUPING.get(BY_WORDS) || DEFAULT_BY : 'domains',
     fold: FOLDABLE && FOLD.on(),
+    cards: (CARDS.get(CARDS_WORDS) ?? cardsWord(DATA.defaults.cards)) === 'shown',   // the viewer's choice, else the page default (D-074)
     allRoutes: false,   // exploration, not a lasting choice: never stored nor exported
   };
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
@@ -208,7 +215,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   $u('fold-n').textContent = num(PARENT.filter(p => p != null).length);
   $u('fold').querySelector('label').title = T.foldTitle;
   $u('fold-on').checked = state.fold;
-  const hintText = () => T.hint + (state.fold ? T.hintFold : '') + T.hintCards + T.hintRoutes;
+  const hintText = () => T.hint + (state.fold ? T.hintFold : '') + (state.cards ? T.hintCards : '') + T.hintRoutes;
   $u('fold-on').onchange = ev => {
     FOLD.set(ev.target.checked, applyFold);
     applyFold(ev.target.checked);
@@ -231,6 +238,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   $u('routes').onchange = ev => {
     state.allRoutes = ev.target.checked; draw();
     live.textContent = state.allRoutes ? T.allRoutesOn : T.allRoutesOff;
+  };
+  // the summary cards switch (D-074): no layout and no camera move, the stars layer is drawn at every zoom when off
+  $u('cards-t').textContent = T.cards; $u('cards-row').title = T.cardsTitle; $u('cards').checked = state.cards;
+  $u('cards').onchange = ev => {
+    state.cards = ev.target.checked; CARDS.set(cardsWord(state.cards), cardsWord(DATA.defaults.cards));
+    $u('hint').textContent = hintText(); overCard = null; tip.style.display = 'none';
+    live.textContent = state.cards ? T.cardsOn : T.cardsOff; draw();
   };
   $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = hintText();
 
@@ -285,7 +299,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     placeShown();   // a folded table is shown on an orbit round its entity, nothing is laid out again
     if (foldedSet.has(n.i)) live.textContent = T.foundFolded(n.name, N[PARENT[n.i]].name);
     const p = posOf(n.i);
-    zoomTo(p.x, p.y, Math.max(t.k, 1.5, starsScale * 1.05));   // past the summary cards: the table is seen as a star
+    zoomTo(p.x, p.y, Math.max(t.k, 1.5, starsFloor()));   // past the summary cards: the table is seen as a star
     draw();
   };
 
@@ -447,23 +461,35 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       FLOWRANK = domainRanks(business, whole, routes);
       business.forEach(d => { d.rank = FLOWRANK.get(d.k); });
     }
-    const rand = d3.randomLcg(42), W = (d3.mean(business, d => d.r) || 1) * 2.4;
+    const W = (d3.mean(business, d => d.r) || 1) * 2.4;
     const inSim = new Set(business.map(d => d.k));
-    const links = routes.filter(r => inSim.has(r.source) && inSim.has(r.target)).map(r => ({ source: r.source, target: r.target, c: r.c }));
-    const sim = d3.forceSimulation(business).randomSource(rand)
-      // the padding leaves room for the domain name drawn above each constellation
-      .force('collide', d3.forceCollide(roomOf).iterations(3))
-      .force('link', d3.forceLink(links).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
-        .strength(l => Math.min(0.4, 0.03 + Math.log1p(l.c) * 0.04)))
-      .force('x', d3.forceX(d => d.rank * W).strength(G.flowX))
-      .force('y', d3.forceY(0).strength(0.06))
-      .force('charge', d3.forceManyBody().strength(-20))
-      .stop();
-    for (let k = 0; k < 400; k++) sim.tick();
-    // settle with collisions only, so link forces can't leave constellations overlapping
-    sim.force('link', null).force('x', null).force('y', null).force('charge', null);
-    for (let k = 0; k < 100; k++) sim.tick();
-    stackSystems(systems, business, byKey);
+    const placeAll = () => {
+      constellations.forEach(d => { d.x = d.y = d.vx = d.vy = undefined; });   // a fresh start: the same input gives the same positions
+      const rand = d3.randomLcg(42);
+      const links = routes.filter(r => inSim.has(r.source) && inSim.has(r.target)).map(r => ({ source: r.source, target: r.target, c: r.c }));
+      const sim = d3.forceSimulation(business).randomSource(rand)
+        // the padding leaves room for the domain name drawn above each constellation
+        .force('collide', d3.forceCollide(roomOf).iterations(3))
+        .force('link', d3.forceLink(links).id(d => d.k).distance(l => l.source.r + l.target.r + 60)
+          .strength(l => Math.min(0.4, 0.03 + Math.log1p(l.c) * 0.04)))
+        .force('x', d3.forceX(d => d.rank * W).strength(G.flowX))
+        .force('y', d3.forceY(0).strength(0.06))
+        .force('charge', d3.forceManyBody().strength(-20))
+        .stop();
+      for (let k = 0; k < 400; k++) sim.tick();
+      // settle with collisions only, so link forces can't leave constellations overlapping
+      sim.force('link', null).force('x', null).force('y', null).force('charge', null);
+      for (let k = 0; k < 100; k++) sim.tick();
+      stackSystems(systems, business, byKey);
+    };
+    // The label drawn above each disc keeps its screen size, so the room it needs in the world depends on the scale Fit will give
+    // (M8.6): placed once without room, the scale Fit would give on the reference stage sizes the room, then placed again with it.
+    // The same positions serve both states of the summary cards: nothing here reads `state.cards`, and the stage's real size is
+    // never read, so a layout is deterministic.
+    pxWorld = 0;
+    placeAll();
+    pxWorld = 1 / refScale(constellations);
+    placeAll();
     GROUPED = systems.length >= 2 ? systems : [];
     if (GROUPED.length) placeGroup();
     // the control for every route: only when some are left out, evaluated per layout so it never flickers while zooming
@@ -498,12 +524,22 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // the columns (the first nearest the business box), each column keeping every disc as close to that y as the room between two
   // discs allows (an isotonic fit, pool-adjacent-violators). A pinned system stays at its pin; a free one steps over it.
   const STACK_GAP = 30;
+  // constellation names sit above the halos at a fixed screen size: keep that strip free at the top. The scale that frames a world
+  // box in a stage of w x h px (h: below the trajectory bar)
+  const NAME_STRIP = 46;
+  const fitScale = (w, h, bx0, by0, bx1, by1, kMax = Infinity) => Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), (h - NAME_STRIP) / (by1 - by0)));
   const stackOrder = (a, b) => a.y - b.y || b.x - a.x;   // the order of the source systems, top to bottom (the stack, the group card, the text summary)
   // The direction of a route (the one threshold): the sign of its net lineage flow when that exceeds 20 % of its weight. `flow` is
   // that, whatever Links shows (it places the business domains along the data flow); `dir`, what is drawn and said (arrowhead,
   // "reads"), is `flow` only while the route carries lineage on screen
   const netFlow = r => (Math.abs(r.f) > r.c * 0.2 ? Math.sign(r.f) : 0);
-  const roomOf = d => d.r + 30 + d.r * 0.15;   // the collide radius
+  // the room round a disc, as a radius: the collide radius. Two discs keep the gap of the padding twice, at least the label's height
+  // (`LABEL_PX` in world px) so a label drawn above a disc never sits on the disc above it
+  const LABEL_PX = 46 + 30, CHANNEL_PX = 24, REF_STAGE = [1000, 700];   // screen px: the strip of a label (46) and of a corridor for a route (30) above a disc, the lane between two columns of systems; the stage they are sized for
+  let pxWorld = 0;   // the world length of one screen px at the Fit scale of the reference stage, set by layout() (0: not yet known)
+  const roomOf = d => d.r + Math.max(30 + d.r * 0.15, LABEL_PX * pxWorld / 2);
+  // the scale Fit gives the discs on the reference stage (the shape of `frameScale`)
+  const refScale = list => fitScale(REF_STAGE[0], REF_STAGE[1], d3.min(list, d => d.x - d.r), d3.min(list, d => d.y - d.r), d3.max(list, d => d.x + d.r), d3.max(list, d => d.y + d.r));
   function stackSystems(systems, business, byKey) {
     systems.filter(d => d.fx != null).forEach(d => { d.x = d.fx; d.y = d.fy; });
     const free = systems.filter(d => d.fx == null), pinned = systems.filter(d => d.fx != null);
@@ -523,11 +559,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const order = free.map((d, i) => ({ d, i, y: bary(d) })).sort((a, b) => a.y - b.y || a.i - b.i);
     const cols = Array.from({ length: ncol }, () => []);
     order.forEach((e, j) => cols[j % ncol].push(e));
-    let right = (business.length ? d3.min(business, d => d.x - d.r) : 0) - STACK_GAP;
+    const gap = Math.max(STACK_GAP, CHANNEL_PX * pxWorld);   // between two columns, and the last one and the business domains: a route runs through it
+    let right = (business.length ? d3.min(business, d => d.x - d.r) : 0) - gap;
     cols.forEach(col => {
       if (!col.length) return;
       const wide = d3.max(col, e => e.d.r), cx = right - wide;
-      right = cx - wide - STACK_GAP;
+      right = cx - wide - gap;
       // y_i = z_i + cum_i, z non-decreasing: the isotonic fit of (wanted y - cum) keeps the order and the room
       let cum = 0;
       const blocks = [];
@@ -869,13 +906,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     // of cards and of the labels already placed. When none is, the name alone is put where no card is: a name is never lost at overview
     const cardBoxes = placed && cardsOnAt(a) ? placed.items.filter(e => e.lv <= 3).map(e => [e.px - e.w / 2 + t.x, e.py - e.h / 2 + t.y, e.w, e.h, e.key]) : [];
     const onCard = (x, y, w, h, key) => cardBoxes.some(r => r[4] !== key && x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
+    // with the cards off a label is also kept off every other constellation's disc (the last resort of the rule: the room that
+    // layout() keeps above each disc is sized for a reference stage, a smaller one may still crowd a label)
+    const onDisc = (x, y, w, h, key) => !state.cards && constellations.some(c => {
+      if (c.k === key) return false;
+      const [cx, cy] = screen(c.x, c.y), nx = Math.max(x, Math.min(cx, x + w)), ny = Math.max(y, Math.min(cy, y + h));
+      return Math.hypot(nx - cx, ny - cy) < c.r * k;
+    });
     const discLabel = (d, alpha, counts = plural(d.n, L.tables), avoid = false) => {
-      const sys = isSystem(d.k);   // a source system: 13 px, neutral (D-066)
-      const [cx0, rim] = screen(d.x, d.y - d.r), fs = sys ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
-      const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`, sub = `12px ${FONT}`;
-      const nameW = textW(font, name), countsW = textW(sub, counts);
-      // the three forms of a label: whole (name, counts, bar), compact (name and counts) and the name alone; [w, h, lift of its lines]
-      const forms = [[Math.max(nameW, countsW, 80) + 8, fs + 22, 0], [Math.max(nameW, countsW) + 8, fs + 16, 8], [nameW + 8, fs + 6, 16]];
+      const sys = isSystem(d.k), { fs, name, font, sub, forms } = labelForms(d, k, counts), [cx0, rim] = screen(d.x, d.y - d.r);
       let sx = cx0, sy = rim - (byLayers ? NAME_LIFT : 0), form = 0, [w, bh] = forms[0];
       if (avoid) {
         const [, mid] = screen(d.x, d.y), edge = d.r * k + 4, dirs = [[0, 1], [1, 0], [-1, 0], [1, 1], [-1, 1], [0, -1], [1, -1], [-1, -1]];
@@ -889,7 +928,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
             return at(f, Math.max(cw / 2 + 2, Math.min(W - cw / 2 - 2, x)), Math.max(ch + 2, Math.min(H - 2, y)));
           }))];
         });
-        const clear = o => !onCard(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k);
+        const clear = o => !onCard(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k) && !onDisc(o.x - o.w / 2, o.y - o.h, o.w, o.h, d.k);
         // the name is never lost: when no place is free of the other labels too, the name alone goes where no card is
         const spot = spots.find(o => clear(o) && free(o.x - o.w / 2, o.y - o.h, o.w, o.h)) || spots.find(o => o.f === 2 && clear(o)) || spots.find(o => o.f === 2);
         ({ x: sx, y: sy, f: form, w, h: bh } = spot);
@@ -908,7 +947,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
       taken.push([sx - w / 2, sy - bh, w, bh]);
       return { d, x: sx - w / 2, y: sy - bh, w, h: bh };
     };
-    if (LA > 0) constellations.forEach(d => { if (!bare(d)) hits.push(discLabel(d, ctxAlpha(d) * LA)); });
+    if (LA > 0) constellations.forEach(d => { if (!bare(d)) hits.push(discLabel(d, ctxAlpha(d) * LA, undefined, !state.cards)); });
     // a badge's pill is an obstacle for every name below: its number is never hidden (the far arc has no digits and
     // is no obstacle: from afar names are rare and the arc is a mark on the star's rim)
     if (k >= OVERVIEW_K && LA > 0) badges.forEach(([p, r, held]) => {
@@ -943,6 +982,21 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     hover = null; routeFocus = null;
     try { draw(c.getContext('2d'), s); } finally { hover = pointer; routeFocus = focus; }
     return EXPORT.png(c);
+  }
+
+  // the three forms of a constellation's label above its disc at scale k: whole (name, counts, bar), compact (name and counts) and
+  // the name alone; [w, h, lift of its lines] in screen px. A source system's name is 13 px, neutral (D-066)
+  function labelForms(d, k, counts = plural(d.n, L.tables)) {
+    const fs = isSystem(d.k) ? 13 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
+    const name = constellationLabel(d.k), font = `600 ${fs}px ${FONT}`, sub = `12px ${FONT}`;
+    const nameW = textW(font, name), countsW = textW(sub, counts);
+    return { fs, name, font, sub, forms: [[Math.max(nameW, countsW, 80) + 8, fs + 22, 0], [Math.max(nameW, countsW) + 8, fs + 16, 8], [nameW + 8, fs + 6, 16]] };
+  }
+  // the rectangle of a constellation's whole label at its usual place, screen px from the camera's translation (the routes avoid it
+  // while the cards are off: a label is part of its constellation's outline)
+  function labelRect(d, k) {
+    const [w, h] = labelForms(d, k).forms[0];
+    return { shape: 'card', soft: true, key: LABEL + d.k, x: d.x * k - w / 2, y: (d.y - d.r) * k - (state.by === 'layers' ? NAME_LIFT : 0) - h, w, h };
   }
 
   // the layer markers of a domain: a faint line in the middle of each gap between two bands, clipped to the disc
@@ -1224,7 +1278,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const motionMs = ms => (reduceMotion.matches ? 0 : ms);
   // the card layer's opacity at scale k: 1 up to summaryScale, 0 from starsScale, linear in log k between. A pure function
   // of the zoom: no timer, no state, the same image zooming in and out
-  const summaryAlpha = k => Math.max(0, Math.min(1, Math.log(starsScale / k) / Math.log(SUMMARY_FADE)));
+  const summaryAlpha = k => (state.cards ? Math.max(0, Math.min(1, Math.log(starsScale / k) / Math.log(SUMMARY_FADE))) : 0);
+  // the least scale of a zoom on a constellation: past the cards, only while they are drawn (D-074)
+  const starsFloor = () => (state.cards ? starsScale * 1.05 : 0);
   const cardsOnAt = a => a >= CARDS_ALPHA;   // at card alpha a, the cards are the ones in play
   const cardsOn = () => cardsOnAt(summaryAlpha(t.k));   // the card interactions; below CARDS_ALPHA the stars' ones
 
@@ -1442,10 +1498,11 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // as a curve around the other constellations, with an arrowhead at the reader (net lineage direction), dashed when it carries
   // relations only; by default only the strongest ones, all of a constellation's on hover or keyboard focus.
   const ROUTE = { W_MIN: 1, W_MAX: 3, W_SAT: 128, BOW: 0.08, MARGIN: 6, PASSES: 6, WAYPOINTS: 4, SAMPLES: 24, CLEAR: 12, GAP: 2,
-                  DIM: 0.15, DETOUR_WORK: 12000, BUILDS: 250, DASH: [6, 4], INK: '#7b8494', INK_HI: '#475569', HIT: 6 };
+                  DIM: 0.15, DETOUR_WORK: 12000, BUILDS: 250, LABEL_BUILDS: 80, SOFT: 6, DASH: [6, 4], INK: '#7b8494', INK_HI: '#475569', HIT: 6 };
   const routeInk = hi => CONTRAST.edge(hi ? ROUTE.INK_HI : ROUTE.INK, C.bg);
   const routeWidth = c => ROUTE.W_MIN + (ROUTE.W_MAX - ROUTE.W_MIN) * Math.min(1, Math.log2(Math.max(1, c)) / Math.log2(ROUTE.W_SAT));
   // the pseudo constellation of the group card: key GROUP, the bounding circle of its members (world); refreshed with each card layout
+  const LABEL = 'label:';   // the key prefix of a label's obstacle: never in a route's `skip`, so a route avoids its own ends' labels too
   const GROUPD = { k: GROUP, members: [], x: 0, y: 0, r: 0 };
   const isMember = key => GROUPED.some(d => d.k === key);
   // the constellation (or the group) a route's end names
@@ -1515,7 +1572,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const placed = a > 0 ? cardLayout(k) : null, cards = cardsOnAt(a), out = [];
     const disc = d => out.push({ shape: 'disc', key: d.k, x: d.x * k, y: d.y * k, r: d.r * k });
     constellations.forEach(d => {
-      if (!cards) return disc(d);
+      if (!cards) { disc(d); if (!state.cards) out.push(labelRect(d, k)); return; }   // cards off: the drawn label belongs to the outline
       if (GROUPED.includes(d)) return;
       const e = placed.byKey.get(d.k);
       if (e.lv >= 4 && !e.tj) return disc(d);
@@ -1561,7 +1618,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // key, so two routes never coincide); else up to ROUTE.PASSES passes, each taking the first obstacle the curve enters and adding a
   // waypoint beside it on the side that penetrates less (at most ROUTE.WAYPOINTS); when none clears, the least penetrating
   // candidate is kept and the route is `blocked`. Never loops, never throws.
-  function routePath(spec, obstacles, k) {
+  function routePath(spec, obstacles, k, limit = ROUTE.BUILDS) {
     const skip = new Set([spec.from.k, spec.to.k]);
     if (isMember(spec.from.k) || isMember(spec.to.k)) skip.add(GROUP);
     const obs = obstacles.filter(o => !skip.has(o.key)), world = p => ({ x: p[0] / k, y: p[1] / k });
@@ -1584,8 +1641,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const penetration = pts => {
       let sum = 0, worst = null, most = 0, crossing = 0;
       obs.forEach(o => {
-        const real = depthInto(o, pts, 0), own = real * 100 + depthInto(o, pts, ROUTE.MARGIN);
-        crossing += real; sum += own;
+        const real = depthInto(o, pts, 0), own = real * (o.soft ? ROUTE.SOFT : 100) + depthInto(o, pts, ROUTE.MARGIN);
+        if (!o.soft) crossing += real;
+        sum += own;
         if (own > most) { most = own; worst = o; }
       });
       return { sum, worst, crossing };
@@ -1612,7 +1670,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     // on the other side; each side is tried, down to ROUTE.WAYPOINTS of them; the first curve that clears everything wins, else
     // the least penetrating one (the route is then `blocked` if it still crosses an outline)
     const search = cand => {
-      if (cand.sum === 0 || cand.wps.length >= ROUTE.WAYPOINTS || builds >= ROUTE.BUILDS) return cand;   // BUILDS: a fixed budget per layout, so a hairball stays cheap
+      if (cand.sum === 0 || cand.wps.length >= ROUTE.WAYPOINTS || builds >= limit) return cand;   // BUILDS: a fixed budget per layout, so a hairball stays cheap
       const o = cand.worst, c0 = o.shape === 'disc' ? [o.x, o.y] : [o.x + o.w / 2, o.y + o.h / 2];
       const R = (o.shape === 'disc' ? o.r + ROUTE.MARGIN : Math.hypot(o.w / 2 + ROUTE.MARGIN, o.h / 2 + ROUTE.MARGIN)) + ROUTE.CLEAR;
       const unit = p => { const l = Math.hypot(p[0] - c0[0], p[1] - c0[1]) || 1; return [(p[0] - c0[0]) / l, (p[1] - c0[1]) / l]; };
@@ -1690,13 +1748,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
 
   // the paths of the routes in play at (k, a, focus), cached like the cards (a pan reuses them): by the zoom, the layout, the moved
   // constellations, the card layout, the route set shown and the focus. -> { specs, lit, focus, obstacles }
-  let routeCache = null, builds = 0, detourWork = 0;   // builds: the curves tried by this layout's searches; detourWork: segment tests spent by the detours of this layout (a fixed budget: deterministic)
+  let routeCache = null, builds = 0, labelBuilds = 0, detourWork = 0;   // builds: the curves tried by this layout's searches; detourWork: segment tests spent by the detours of this layout (a fixed budget: deterministic)
   function routeLayout(k, a, focus) {
     const cl = a > 0 ? cardLayout(k) : null, key = `${k}|${layoutRuns}|${dragRev}|${state.allRoutes}|${focus}|${traj ? 1 : 0}`;
     if (routeCache && routeCache.key === key && routeCache.cl === cl) return routeCache;
     const t0 = performance.now(), set = routeSpecs(a, focus), obstacles = outlines(a, k);
-    detourWork = 0; builds = 0;
-    set.specs.forEach(sp => { Object.assign(sp, routePath(sp, obstacles, k)); });
+    detourWork = 0; builds = 0; labelBuilds = 0;
+    const hard = obstacles.filter(o => !o.soft), labels = obstacles.filter(o => o.soft);
+    set.specs.forEach(sp => {
+      const route = routePath(sp, hard, k);
+      // a drawn label is part of its outline (cards off), but a route is first laid out as if there were none: the route that clears
+      // every disc is never traded for one that clears the labels; it is laid out again with the labels only when it crosses one,
+      // and the new route is kept when it clears the discs too and runs less through the labels
+      const through = pts => d3.sum(labels, o => d3.sum(pts, ([x, y]) => (depth(o, x, y, 0) > 0 ? 1 : 0)));
+      const room = ROUTE.LABEL_BUILDS - labelBuilds, before = builds;   // a fixed budget of curves per layout, so a hairball stays cheap
+      const again = labels.length && room > 0 && through(route.pts) ? routePath(sp, obstacles, k, builds + Math.min(room, 16)) : null;
+      labelBuilds += builds - before;
+      Object.assign(sp, again && !again.blocked && through(again.pts) < through(route.pts) ? again : route);
+    });
     routeCache = { ...set, key, cl, obstacles };
     perf.routes = performance.now() - t0;
     return routeCache;
@@ -1939,9 +2008,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     const w = stage.clientWidth, h = stage.clientHeight - top();
     if (d.members) {   // the source systems together: their box, at least where stars are drawn
       const bx = groupBox(d.members).box;
-      return zoomTo((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2, Math.max(0.92 * Math.min(w / (bx[2] - bx[0] + 60), h / (bx[3] - bx[1] + 60)), starsScale * 1.05));
+      return zoomTo((bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2, Math.max(0.92 * Math.min(w / (bx[2] - bx[0] + 60), h / (bx[3] - bx[1] + 60)), starsFloor()));
     }
-    zoomTo(d.x, d.y, Math.max(0.92 * Math.min(w, h) / (2 * d.r + 60), starsScale * 1.05));
+    zoomTo(d.x, d.y, Math.max(0.92 * Math.min(w, h) / (2 * d.r + 60), starsFloor()));
   }
   // a row's band (domain mode: a layer; layer mode: a domain); the constellation when that band is not drawn
   function zoomOnRow(d, key) {
@@ -1949,7 +2018,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
     if (!b) return zoomOnConstellation(d);
     const w = stage.clientWidth, h = stage.clientHeight - top(), mid = d.x + (b.s0 + b.s1) / 2;
     const half = rimHalf(d, b.s0 <= 0 && b.s1 >= 0 ? 0 : Math.min(Math.abs(b.s0), Math.abs(b.s1)));
-    zoomTo(mid, d.y, Math.max(0.92 * Math.min(w / (b.s1 - b.s0 + 30), h / (2 * half + 60)), starsScale * 1.05));
+    zoomTo(mid, d.y, Math.max(0.92 * Math.min(w / (b.s1 - b.s0 + 30), h / (2 * half + 60)), starsFloor()));
   }
 
   // The summary as text, in the panel (D-064): a closed-by-default section, built only while open. Per constellation, left to
@@ -2052,10 +2121,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
   const top = () => traj ? bar.offsetHeight : 0;
   // frame a world-space box, at most at scale kMax
-  // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
-  const NAME_STRIP = 46;
-  const frameScale = (bx0, by0, bx1, by1, kMax = Infinity) =>
-    Math.min(kMax, 0.95 * Math.min(stage.clientWidth / (bx1 - bx0), (stage.clientHeight - top() - NAME_STRIP) / (by1 - by0)));
+  const frameScale = (bx0, by0, bx1, by1, kMax = Infinity) => fitScale(stage.clientWidth, stage.clientHeight - top(), bx0, by0, bx1, by1, kMax);
   const FIT_PAD = 4;   // the least room Fit leaves between a card and the stage's side, screen px
   function frame(bx0, by0, bx1, by1, animate, kMax = Infinity, kFixed = null) {
     const NAME = NAME_STRIP, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
@@ -2357,9 +2423,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   // constellations with their bands) and the time of the last layout: read-only, for the browser tests
   function geometry() {
     return { by: state.by, layoutMs: perf.layout,
-      summary: { cell: CELL, scale: summaryScale, stars: starsScale, alpha: summaryAlpha(t.k) },
+      summary: { cell: CELL, scale: summaryScale, stars: starsScale, alpha: summaryAlpha(t.k), on: state.cards },
       routes: routes.map(r => ({ source: r.source, target: r.target, c: r.c, dir: r.dir, rel: r.rel, lin: r.lin, strong: r.strong,
-        bundle: GROUPED.some(d => d.k === r.source || d.k === r.target) && !(isMember(r.source) && isMember(r.target)) ? GROUP : null })),
+        bundle: state.cards && GROUPED.some(d => d.k === r.source || d.k === r.target) && !(isMember(r.source) && isMember(r.target)) ? GROUP : null })),
       systems: { keys: DATA.domains.filter(d => d.system).map(d => d.key), grouped: GROUPED.map(d => d.k) },
       tables: [...drawn, ...[...SP.keys()].map(i => N[i])].map(n => ({ id: n.id, domain: n.domain, layer: n.layer,
         x: posOf(n.i).x, y: posOf(n.i).y, w: boxOf(n.i).w, h: boxOf(n.i).h, oy: boxOf(n.i).oy, r: starR(n),
@@ -2381,6 +2447,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const summariesDrawn = () => summaryAll.map(c => ({ key: c.key, x: c.x, y: c.y, w: c.w, h: c.h, shift: c.shift, level: c.level, name: c.name,
     counts: c.counts, rows: c.rows, main: c.main, traj: c.traj, fonts: c.fonts, label: !!c.label, labelShown: !!c.label && c.labelShown !== false, labelAt: c.labelAt || null }));
 
+  // the constellation labels the last screen frame drew and hit-tests, in screen px (the labels of the discs, or the cards' headers)
+  const labelsDrawn = () => labelHits.map(h => ({ key: h.d.k, x: h.x, y: h.y, w: h.w, h: h.h }));
+
   // the d3 zoom transform; camera({x, y, k}) moves it first, through the zoom (the browser tests frame a domain)
   function camera(to) {
     if (to) sel.call(zoom.transform, d3.zoomIdentity.translate(to.x, to.y).scale(to.k));
@@ -2394,8 +2463,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow, 
   const routesDrawn = () => ({
     routes: routeSeen.list.map(e => ({ source: e.sp.r.source, target: e.sp.r.target, bundled: e.sp.bundle, c: e.sp.r.c, rel: e.sp.r.rel, lin: e.sp.r.lin,
       dir: e.sp.r.dir, alpha: e.sp.alpha, dashed: !e.sp.r.lin, blocked: e.sp.blocked, hi: e.sp.hi, arrow: e.arrow, samples: e.pts })),
-    obstacles: routeSeen.obstacles.map(o => (o.shape === 'disc' ? { key: o.key, kind: 'disc', x: o.x, y: o.y, r: o.r } : { key: o.key, kind: 'card', x: o.x, y: o.y, w: o.w, h: o.h })) });
+    obstacles: routeSeen.obstacles.map(o => (o.shape === 'disc' ? { key: o.key, kind: 'disc', x: o.x, y: o.y, r: o.r } : { key: o.key, kind: o.soft ? 'label' : 'card', x: o.x, y: o.y, w: o.w, h: o.h })) });
   return { shown: () => { resize(); if (foldStale) { foldStale = false; relayout(); } }, relayout, trajectoryState, image, camera, place, geometry, drawnNames: () => drawnNames, placeMs: () => perf.place,
-    summariesDrawn, cardsMs: () => perf.cards, layoutCardsMs: () => perf.cardLayout, drawMs: () => perf.draw, routesDrawn, routesMs: () => perf.routes,
+    summariesDrawn, labelsDrawn, cardsMs: () => perf.cards, layoutCardsMs: () => perf.cardLayout, drawMs: () => perf.draw, routesDrawn, routesMs: () => perf.routes,
     focus: key => { focusByMouse = false; focusOn(key ?? null); } };
 }
