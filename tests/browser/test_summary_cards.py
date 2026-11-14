@@ -25,6 +25,7 @@ from colours import contrast
 from conftest import write_example
 
 from browser.conftest import (
+    CARDS_ON,
     CENTRE_WAIT_MS,
     NARROW,
     VIEWPORT,
@@ -209,9 +210,9 @@ def inside(card: dict[str, Any], k: float, x: float, y: float) -> bool:
 
 
 def test_the_large_project_opens_on_cards_and_acme_and_shop_on_stars(
-    large_page: Any, example_page: Any, shop_page: Any, open_page: Any
+    large_cards_page: Any, tmp_path: Path, build_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     s = summary(p)
     print(
         f"large: fit {camera(p)['k']:.3f}, refR {s['refR']:.2f}, "
@@ -221,7 +222,7 @@ def test_the_large_project_opens_on_cards_and_acme_and_shop_on_stars(
         s["weight"] == 1 and len(s["cards"]) == 6
     )  # five business cards and the one group card of the seven systems
     assert p.page.evaluate("views.universe.drawnNames()") == []
-    acme, _ = example_page
+    acme = open_page(write_example_page(tmp_path))
     a = summary(acme)
     print(
         f"acme: fit {camera(acme)['k']:.3f}, refR {a['refR']:.2f}, "
@@ -229,14 +230,14 @@ def test_the_large_project_opens_on_cards_and_acme_and_shop_on_stars(
     )
     assert a["weight"] == 0 and acme.page.evaluate("views.universe.drawnNames()")
     assert camera(acme)["k"] > a["kStars"]
-    shop, _ = shop_page
+    shop = open_page(build_page(CARDS_ON)[0])
     assert summary(shop)["weight"] == 0 and shop.page.evaluate("views.universe.drawnNames()")
 
 
 def test_the_weight_is_a_function_of_the_scale_alone_in_a_band_of_one_and_a_half(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     s = summary(p)
     assert s["kStars"] / s["kCards"] == pytest.approx(1.5)
     # the reference star drawn at 3 px and at 2 px
@@ -248,8 +249,8 @@ def test_the_weight_is_a_function_of_the_scale_alone_in_a_band_of_one_and_a_half
     assert summary(p)["weight"] == pytest.approx(0.5, abs=1e-9)  # linear in log k
 
 
-def test_zooming_across_the_band_moves_nothing_but_the_weight(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_zooming_across_the_band_moves_nothing_but_the_weight(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     lo, hi = s["kCards"] / 1.2, s["kStars"] * 1.2
     scales = [lo * (hi / lo) ** (i / 29) for i in range(30)]
@@ -272,8 +273,8 @@ def test_zooming_across_the_band_moves_nothing_but_the_weight(large_page: Any, o
     assert weights[0] in (0, 1) or True  # the sweep ends at the scale it started from
 
 
-def test_the_wheel_crosses_the_band_by_its_own_factor_only(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_wheel_crosses_the_band_by_its_own_factor_only(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     set_k(p, s["kStars"] * 1.2)
     b = p.page.locator("#u-canvas").bounding_box()
@@ -295,9 +296,9 @@ def test_the_wheel_crosses_the_band_by_its_own_factor_only(large_page: Any, open
 
 @pytest.mark.parametrize("by", ["domains", "layers"])
 def test_cards_stay_inside_the_collision_radius_and_never_overlap(
-    large_page: Any, open_page: Any, by: str
+    large_cards_page: Any, open_page: Any, by: str
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     choose(p, by)
     p.page.evaluate(NEXT_FRAME)
     k = camera(p)["k"]
@@ -319,8 +320,8 @@ def test_cards_stay_inside_the_collision_radius_and_never_overlap(
             assert not any(inside(a, k, x, y) and inside(b, k, x, y) for x, y in points), (a["key"], b["key"])
 
 
-def test_double_click_on_a_card_lands_on_its_stars_centred(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_double_click_on_a_card_lands_on_its_stars_centred(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     before = first_card(p, "claim")
     s = summary(p)
     x, y = blank_point(before)
@@ -338,9 +339,9 @@ def test_double_click_on_a_card_lands_on_its_stars_centred(large_page: Any, open
 
 
 def test_double_click_on_a_card_of_a_narrow_screen_still_lands_on_stars(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0], viewport=NARROW)
+    p = open_page(large_cards_page[0], viewport=NARROW)
     s = summary(p)
     card = max(hits(p)["cards"], key=lambda c: c["w"])
     p.page.mouse.dblclick(*canvas_xy(p, *blank_point(card)))
@@ -352,9 +353,9 @@ def test_double_click_on_a_card_of_a_narrow_screen_still_lands_on_stars(
 
 
 def test_a_card_says_the_counts_of_its_constellation_by_layer_and_kind(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     s = summary(p)
     order = kind_order(data)
@@ -382,9 +383,9 @@ def test_a_card_says_the_counts_of_its_constellation_by_layer_and_kind(
 
 
 def test_in_layer_mode_the_rows_are_the_domains_in_the_order_of_the_panel(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     choose(p, "layers")
     p.page.evaluate(NEXT_FRAME)
@@ -399,8 +400,8 @@ def test_in_layer_mode_the_rows_are_the_domains_in_the_order_of_the_panel(
             assert dict(r["kinds"]) == dict(want[c["key"]]["rows"][r["key"]])
 
 
-def test_the_entity_count_follows_the_fold_and_no_row_does(large_page: Any, open_page: Any) -> None:
-    html, data = large_page
+def test_the_entity_count_follows_the_fold_and_no_row_does(large_cards_page: Any, open_page: Any) -> None:
+    html, data = large_cards_page
     p = open_page(html)
     roles = role_of(data)
     kinds = {n["id"]: n["kind"] for n in data["universe"]["nodes"]}
@@ -424,8 +425,8 @@ def test_the_entity_count_follows_the_fold_and_no_row_does(large_page: Any, open
     assert hits(p)["cards"][0]["count"].count("·") == 0  # no entities on the count line
 
 
-def test_the_main_tables_are_the_ranking_of_the_names_at_fit(large_page: Any, open_page: Any) -> None:
-    html, data = large_page
+def test_the_main_tables_are_the_ranking_of_the_names_at_fit(large_cards_page: Any, open_page: Any) -> None:
+    html, data = large_cards_page
     p = open_page(html)
     s = summary(p)
     visible = {t["id"] for t in p.page.evaluate("views.universe.geometry().tables")}
@@ -456,8 +457,8 @@ def test_the_main_tables_are_the_ranking_of_the_names_at_fit(large_page: Any, op
         assert named and set(named) <= set(ids[:FIT_NAMES])  # the names at Fit are the first of the same list
 
 
-def test_cards_are_the_size_of_the_design_and_show_what_fits(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_cards_are_the_size_of_the_design_and_show_what_fits(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     drawn = {c["k"]: c for c in hits(p)["cards"]}
     assert set(drawn) == {c["key"] for c in s["cards"]}
@@ -478,9 +479,9 @@ def test_cards_are_the_size_of_the_design_and_show_what_fits(large_page: Any, op
 
 
 def test_the_widest_row_fills_the_bar_and_no_kind_is_thinner_than_two_pixels(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     p.page.evaluate(RECORD_CARD)
     p.page.evaluate("views.universe.shown()")
     bars = p.page.evaluate("window.__bars")
@@ -509,8 +510,8 @@ def untick(p: Page, panel: str, label: str) -> float:
     return time.perf_counter() - start
 
 
-def test_the_filters_change_every_count_row_and_card(large_page: Any, open_page: Any) -> None:
-    html, data = large_page
+def test_the_filters_change_every_count_row_and_card(large_cards_page: Any, open_page: Any) -> None:
+    html, data = large_cards_page
     p = open_page(html)
     before = summary(p)
     seconds = untick(p, "kinds", "Satellite")
@@ -530,8 +531,10 @@ def test_the_filters_change_every_count_row_and_card(large_page: Any, open_page:
     assert "claim" not in {c["key"] for c in cards} and len(cards) == 5
 
 
-def test_a_filter_change_at_the_stars_scale_takes_a_second_at_most(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_filter_change_at_the_stars_scale_takes_a_second_at_most(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     on_stars(p)
     assert summary(p)["weight"] == 0
     assert untick(p, "kinds", "Satellite") <= 1
@@ -541,9 +544,9 @@ def test_a_filter_change_at_the_stars_scale_takes_a_second_at_most(large_page: A
 
 
 def test_hovering_a_card_gives_the_domain_tooltip_and_a_row_gives_its_action(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     card = first_card(p, "vehicle")
     move_to(p, *blank_point(card))
@@ -566,8 +569,8 @@ def test_hovering_a_card_gives_the_domain_tooltip_and_a_row_gives_its_action(
     assert "Click: show its trajectory" not in tip(p) and "Double-click: open in the Detail tab" not in tip(p)
 
 
-def test_hovering_a_layer_card_gives_the_layer_tooltip(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_hovering_a_layer_card_gives_the_layer_tooltip(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     choose(p, "layers")
     p.page.evaluate(NEXT_FRAME)
     card = hits(p)["cards"][0]
@@ -578,8 +581,8 @@ def test_hovering_a_layer_card_gives_the_layer_tooltip(large_page: Any, open_pag
     assert "Click: zoom on" in tip(p)
 
 
-def test_the_header_of_a_card_moves_and_pins_its_constellation(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_header_of_a_card_moves_and_pins_its_constellation(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     k = camera(p)["k"]
     card = first_card(p, "claim")
@@ -602,8 +605,8 @@ def test_the_header_of_a_card_moves_and_pins_its_constellation(large_page: Any, 
     assert set(pins) == {c["key"] for c in p.page.evaluate("views.universe.geometry().constellations")}
 
 
-def test_a_click_on_a_row_frames_its_band_on_stars(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_click_on_a_row_frames_its_band_on_stars(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     row = next(r for r in rows_of(p, "vehicle") if r["row"] == "vault")
     p.page.mouse.click(*canvas_xy(p, row["x"] + 12, row["y"] + row["h"] / 2))
@@ -668,15 +671,15 @@ def other_payload() -> UniversePayload:
             "domains": [{"key": "d", "label": "D", "color": "#2f6fb5", "owner": ""}],
             "layers": [{"key": "raw", "label": "Raw"}, {"key": "other", "label": "Other"}],
             "kinds": [{"key": "hub", "label": "Hub", "color": "#2f6fb5", "role": "core"}],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
 
 
 def test_a_click_on_a_card_outside_its_rows_does_nothing_and_keeps_the_trajectory(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     overview = camera(p)
     enter(p, "car_hub")
     assert p.state()["active"]
@@ -695,8 +698,10 @@ def test_a_click_on_a_card_outside_its_rows_does_nothing_and_keeps_the_trajector
     assert not p.state()["active"]
 
 
-def test_a_pinch_over_a_card_zooms_and_a_tap_on_a_row_frames_it(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0], touch=True)
+def test_a_pinch_over_a_card_zooms_and_a_tap_on_a_row_frames_it(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0], touch=True)
     b = p.page.locator("#u-canvas").bounding_box()
     before = camera(p)["k"]
     pinch(p, b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
@@ -713,8 +718,8 @@ def test_a_pinch_over_a_card_zooms_and_a_tap_on_a_row_frames_it(large_page: Any,
 # ---------------------------------------------------------------- search and trajectory
 
 
-def test_a_search_from_afar_ends_on_the_table_drawn_as_a_star(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_search_from_afar_ends_on_the_table_drawn_as_a_star(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     p.page.fill("#u-q", "car_hub")
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
@@ -751,9 +756,9 @@ def expected_trajectory(
 
 
 def test_a_trajectory_at_overview_marks_cards_and_aggregates_its_arrows(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     overview = camera(p)
     enter(p, "car_hub")
@@ -790,9 +795,9 @@ def test_a_trajectory_at_overview_marks_cards_and_aggregates_its_arrows(
 
 @pytest.mark.parametrize("step", ["cards", "crossfade", "trajectory"])
 def test_the_exported_image_is_what_is_on_screen_at_every_weight(
-    large_page: Any, open_page: Any, step: str
+    large_cards_page: Any, open_page: Any, step: str
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     if step == "crossfade":
         s = summary(p)
         set_k(p, math.sqrt(s["kStars"] * s["kCards"]))
@@ -833,9 +838,9 @@ def text_summary(p: Page) -> dict[str, Any]:
 
 
 def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_cards(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     s = summary(p)
     text = text_summary(p)
@@ -863,8 +868,8 @@ def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_card
     )  # all five, none cut
 
 
-def test_the_text_summary_follows_the_filters_and_the_grouping(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_text_summary_follows_the_filters_and_the_grouping(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     assert len(text_summary(p)["items"]) == 6  # five business constellations and the source systems block
     untick(p, "domains", "Claim")
     assert len(text_summary(p)["items"]) == 5
@@ -905,7 +910,7 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
 
 
 def test_french_texts_and_plurals(tmp_path: Path, open_page: Any) -> None:
-    p, _ = acme_page(tmp_path, open_page, "fr")
+    p, _ = acme_page(tmp_path, open_page, "fr", CARDS_ON)
     text = text_summary(p)
     assert text["heading"] == "Synthèse des constellations"
     s = summary(p)
@@ -929,8 +934,10 @@ def test_french_cards_say_main_tables_and_the_row_action(tmp_path: Path, open_pa
     assert "Clic\u00a0: cadrer" in tip(p)
 
 
-def test_english_heading_of_the_main_tables_is_drawn_on_the_card(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_english_heading_of_the_main_tables_is_drawn_on_the_card(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     p.page.evaluate(RECORD_CARD)
     p.page.evaluate("views.universe.shown()")
     texts = [t["text"] for t in p.page.evaluate("window.__texts")]
@@ -974,7 +981,7 @@ def hostile_payload() -> UniversePayload:
             ],
             "layers": [{"key": "l0", "label": "Zero"}, {"key": "l1", "label": "One"}],
             "kinds": kinds,
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
 
@@ -1012,9 +1019,9 @@ def colours_of(payload: UniversePayload) -> set[str]:
 
 @pytest.mark.parametrize("project", ["large", "acme"])
 def test_at_360_px_cards_keep_their_headers_and_nothing_scrolls_sideways(
-    project: str, large_page: Any, tmp_path: Path, open_page: Any
+    project: str, large_cards_page: Any, tmp_path: Path, open_page: Any
 ) -> None:
-    html = large_page[0] if project == "large" else write_example_page(tmp_path)
+    html = large_cards_page[0] if project == "large" else write_example_page(tmp_path)
     p = open_page(html, viewport=NARROW)
     if project == "acme":
         set_k(p, summary(p)["kCards"] / 1.5)  # a Fit that is below the band would show cards: force them
@@ -1027,9 +1034,14 @@ def test_at_360_px_cards_keep_their_headers_and_nothing_scrolls_sideways(
 
 
 def write_example_page(tmp_path: Path) -> Path:
+    """The example project's page opening with summary cards (`CARDS_ON`; its config has no `universe:`)."""
     from conftest import page_of
 
-    return page_of(write_example(tmp_path / "acme_retail"))[0]
+    project = write_example(tmp_path / "acme_retail")
+    config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
+    assert "\nuniverse:" not in config
+    (project / "dbt-erd.yml").write_text(config + CARDS_ON, encoding="utf-8")
+    return page_of(project)[0]
 
 
 # ---------------------------------------------------------------- budgets (large project, 1280 x 800)
@@ -1043,8 +1055,8 @@ def draw_times(p: Page, n: int = 7) -> list[float]:
     return out
 
 
-def test_the_summary_and_the_frames_stay_inside_their_budgets(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_summary_and_the_frames_stay_inside_their_budgets(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     summaries = []
     for label in ("Satellite", "Hub", "Link"):  # three relayouts
         untick(p, "kinds", label)
@@ -1091,7 +1103,7 @@ def sized_payload(*sizes: int) -> UniversePayload:
             ],
             "layers": [{"key": "l0", "label": "Zero"}],
             "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
 
@@ -1122,8 +1134,8 @@ def test_a_one_table_constellation_is_a_card_that_fits_its_footprint(tmp_path: P
     assert "1 table" in tip(p)
 
 
-def test_a_resize_across_the_band_keeps_the_cards_consistent(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_resize_across_the_band_keeps_the_cards_consistent(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     for size in (NARROW, {"width": 1600, "height": 900}, VIEWPORT):
         p.page.set_viewport_size(size)
         p.page.evaluate(NEXT_FRAME)
@@ -1137,8 +1149,8 @@ def test_a_resize_across_the_band_keeps_the_cards_consistent(large_page: Any, op
         assert scroll_width(p) <= size["width"]
 
 
-def test_the_fold_toggled_at_card_scale_redraws_the_counts(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_fold_toggled_at_card_scale_redraws_the_counts(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     for _ in range(2):
         for checked in (False, True):
             p.page.set_checked("#u-fold-box", checked)
@@ -1151,9 +1163,9 @@ def test_the_fold_toggled_at_card_scale_redraws_the_counts(large_page: Any, open
 
 
 def test_a_card_is_as_high_as_its_content_and_stays_centred_on_the_constellation(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     s = summary(p)
     k, cam = camera(p)["k"], camera(p)
     shorter = 0
@@ -1164,8 +1176,8 @@ def test_a_card_is_as_high_as_its_content_and_stays_centred_on_the_constellation
     assert shorter >= 1  # the roomy cards are cut to their rows, the footprint (width) is unchanged
 
 
-def test_mid_crossfade_the_surface_is_opaque_before_the_text(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_mid_crossfade_the_surface_is_opaque_before_the_text(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     s = summary(p)
     set_k(p, s["kCards"] * (s["kStars"] / s["kCards"]) ** 0.75)  # weight 0.25
     p.page.evaluate(RECORD_MARKS)

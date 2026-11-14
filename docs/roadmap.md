@@ -255,13 +255,14 @@ Asked by the user on 2026-11-12, after a failed first run on Windows: "dbtscope 
 
 ## M8 — A synthetic view of large projects
 
-Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project, then on the real Openlane manifest: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order:
+Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the user on 2026-11-12 after an audit of the page on a 1,374-table Data Vault project, then on the real Openlane manifest: the page draws every table everywhere and never aggregates. Five sub-milestones, each through `/feature`, in this order (and M8.6, asked on 2026-11-14):
 
 - **M8.1 — Roles, complete presets, the large test project (done).** A kind has a role (`core`, `connector`, `descriptive`, `technical`) that drives star size and name priority; the presets classify staging, dimensions and facts and set default layers that group folders by pattern (`raw_*`); selectors may gain negation (`!vw_*`, optional); a generated large Data Vault project enters the tests.
 - **M8.2 — Entities (done).** Descriptive tables (satellites) fold into their parent hub or link, found by declared relations, else by name; every folded table stays reachable.
 - **M8.3 — Summary cards (done).** At overview scale a constellation is a card (counts per layer and kind, main core tables), stars when zooming in.
 - **M8.4 — Source systems apart, readable routes (done).** Domains made only of technical tables are set apart upstream; routes are curved from edge to edge, the strongest only by default, all of a domain's on hover.
 - **M8.5 — Detail skeleton (done).** A large group (more than 60 tables with parents) opens as core and connector tables with their folded tables as one row, on a grid of columns that fits the drawing area (D-072 to D-077). Closing items of M8: the retaken screenshots of `docs/images/` and the `data_vault` `select` question (D-077) go to the user.
+- **M8.6 — Summary cards are optional, off by default (done).** Asked by the user on 2026-11-14 after trying M8 (D-081, design note `docs/architecture/2026-11-14-m8.6-cards-switch.md`): a **Summary cards** checkbox in the universe panel, unticked by default (stars at every zoom, everything else of M8 kept; ticked, today's cards), the viewer's choice kept in `dbtscope-cards:<title>`, and `universe.cards: true | false` (default false, also in presets) as the last key of the universe defaults.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 

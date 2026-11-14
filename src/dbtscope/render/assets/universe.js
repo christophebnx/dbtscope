@@ -23,6 +23,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           entitiesN: ['entity', 'entities'], foldsInto: 'Folds into',
           openedLive: (t, p) => `${t} is folded into ${p}: shown`,
           foldLiveOn: n => `Descriptive tables folded${L.colon}${n}`,
+          cards: 'Summary cards', cardsTitle: 'From afar, draw each constellation as a card: its counts by layer and its main tables',
+          cardsLiveOn: 'Summary cards on: they replace the stars from afar', cardsLiveOff: 'Summary cards off: stars at every zoom',
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
           systemsN: ['source system', 'source systems'], groupTip: 'Click a row to zoom on it',
@@ -55,6 +57,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           entitiesN: ['entité', 'entités'], foldsInto: 'Se replie dans',
           openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
           foldLiveOn: n => `Tables descriptives repliées${L.colon}${n}`,
+          cards: 'Fiches de synthèse', cardsTitle: 'De loin, dessiner chaque constellation comme une fiche\u00a0: ses effectifs par couche et ses tables principales',
+          cardsLiveOn: 'Fiches de synthèse activées\u00a0: elles remplacent les étoiles de loin', cardsLiveOff: 'Fiches de synthèse désactivées\u00a0: des étoiles à tous les zooms',
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
           systemsN: ['système source', 'systèmes sources'], groupTip: 'Clic sur une ligne pour la cadrer',
@@ -105,6 +109,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
   const byMemory = viewerMemory('dbtscope-constellations', ['domains', 'layers']);
   const foldMemory = viewerMemory('dbtscope-fold', ['folded', 'shown']);
+  const cardsMemory = viewerMemory('dbtscope-cards', ['on', 'off']);   // D-081: the viewer's summary cards switch
   // Entities (D-062, D-063): the parent of a descriptive table is computed in Python (`n.parent`, an id);
   // PARENT[i] is its index or -1. Without any parent nothing below changes the page.
   const ID = new Map(N.map(n => [n.id, n.i]));
@@ -124,6 +129,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
     fold: CAN_FOLD && (foldMemory.get() ? foldMemory.get() === 'folded' : DATA.defaults.fold),
+    cards: cardsMemory.get() ? cardsMemory.get() === 'on' : DATA.defaults.cards,
   };
   const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
   let opened = null;   // the entity opened by the last search: its folded tables are drawn (index), at most one
@@ -190,6 +196,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('sys-all').setAttribute('aria-label', T.allSystems); $u('sys-none').setAttribute('aria-label', T.noneSystems);
   }
   $u('routes-label').textContent = T.allRoutes;
+  // the summary cards switch (D-081): no layout, no camera move; summaryWeight is the one place that reads it
+  $u('cards-label').textContent = T.cards; $u('cards-row').title = T.cardsTitle; $u('cards-box').checked = state.cards;
+  $u('cards-box').onchange = ev => {
+    state.cards = ev.target.checked; hoverCard = hoverRow = null;
+    cardsMemory.set(state.cards ? 'on' : 'off', DATA.defaults.cards ? 'on' : 'off');
+    $u('live').textContent = state.cards ? T.cardsLiveOn : T.cardsLiveOff;
+    draw();
+  };
   $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
 
   // `by`: the grouping whose constellation a row stands for; hovering or focusing the row spotlights its routes
@@ -1156,22 +1170,27 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const taken = [], hits = [];
     const free = (x, y, w, h) => !taken.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1]);
     ctx.textAlign = 'center';
-    if (starsOn) constellations.forEach(d => {
+    // business labels first, then the source systems in grid order; one that would cover another is skipped (its
+    // name stays in the tooltip and the text summary): at the Fit of a small screen, without cards, the systems' discs are close
+    const labelOrder = [...constellations.filter(d => !isSystem(d.k)), ...inGridOrder(constellations.filter(d => isSystem(d.k)))];
+    if (starsOn) labelOrder.forEach(d => {
       const [sx, rim] = screen(d.x, d.y - d.r), neutral = isSystem(d.k), fs = neutral ? 12 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const sy = rim - (byLayers ? NAME_LIFT : 0);
       const name = constellationLabel(d.k);
+      ctx.font = `600 ${fs}px ${FONT}`;
+      const w = Math.max(ctx.measureText(name).width, 80) + 8, box = [sx - w / 2, sy - 22 - fs, w, fs + 22];
+      if (!free(...box)) return;
       ctx.globalAlpha = ctxAlpha(d) * fade;
       // a domain name in its colour, readable on the page (D-037); a layer name in the text colour
-      ctx.font = `600 ${fs}px ${FONT}`; ctx.fillStyle = byLayers || neutral ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
+      ctx.fillStyle = byLayers || neutral ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
       ctx.fillText(name, sx, sy - 22);
-      const w = Math.max(ctx.measureText(name).width, 80) + 8;
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
       ctx.fillText(plural(d.n, L.tables), sx, sy - 8);
       // composition by type, readable before any single star is
       let bx = sx - 40;
       d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
-      taken.push([sx - w / 2, sy - 22 - fs, w, fs + 22]);
-      if (a < 0.5) hits.push({ d, x: sx - w / 2, y: sy - 22 - fs, w, h: fs + 22 });
+      taken.push(box);
+      if (a < 0.5) hits.push({ d, x: box[0], y: box[1], w, h: box[3] });
     });
     if (byLayers && k >= 0.6 && starsOn) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d) * fade; drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
@@ -1292,7 +1311,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return d3.median(visible.filter(n => TIER_ORDER[tierOf(n)] === tier), starR) || 1;
   };
   const kStars = () => S_STARS / refR, kCards = () => S_CARDS / refR;
-  const summaryWeight = k => Math.max(0, Math.min(1, Math.log(S_STARS / (k * refR)) / Math.log(S_STARS / S_CARDS)));
+  const summaryWeight = k => (state.cards ? Math.max(0, Math.min(1, Math.log(S_STARS / (k * refR)) / Math.log(S_STARS / S_CARDS))) : 0);
   const tablesLive = () => summaryWeight(t.k) < 0.5;   // the pointer acts on stars below half a card, on cards above
   // what a card says (over the tables that pass the filters): rows by layer (domain mode) or by domain (layer
   // mode), each with its kinds in the order of the Types list, the entities drawn while the fold is on, the main tables
@@ -2044,11 +2063,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the summary cards as the page computed them: the rule's numbers, per card (the group card standing for its source
   // systems) its world rectangle, counts, rows, main tables (ids)
   function summaryGeometry() {
-    const cards = cardOwners().map(d => ({ key: d.k, x: d.x, y: d.y, w: 1.8 * d.r, h: d.group ? d.gridH : 1.8 * d.r, r: d.r, n: d.n,
+    const cards = (state.cards ? cardOwners() : []).map(d => ({ key: d.k, x: d.x, y: d.y, w: 1.8 * d.r, h: d.group ? d.gridH : 1.8 * d.r, r: d.r, n: d.n,
       entities: d.sum.entities, rows: d.sum.rows.map(r => ({ key: r.key, n: r.n, kinds: r.kinds })),
       main: d.sum.main.map(i => N[i].id) }));
-    return { weight: summaryWeight(t.k), refR, kStars: kStars(), kCards: kCards(), cards };
+    return { on: state.cards, weight: summaryWeight(t.k), refR, kStars: kStars(), kCards: kCards(), cards };
   }
+  // the rectangles (screen px) of the constellation labels the last screen frame drew, for the browser tests
+  const labelRects = () => labelHits.map(h => ({ k: h.d.k, x: h.x, y: h.y, w: h.w, h: h.h }));
   // what the last screen frame drew (screen px), for the click, room and trajectory tests: the rows (hit rectangles),
   // per card its lines, the trajectory marks per constellation and the aggregated arrows (kept apart from geometry(),
   // which a trajectory never changes)
@@ -2067,5 +2088,5 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
   // Reset layout and an import call relayout: they close the entity a search opened
-  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
+  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
 }

@@ -210,10 +210,10 @@ def assert_graphviz_texts_pass(svg: str, where: str) -> int:
     return len(texts)
 
 
-def acme_page(tmp_path: Path, open_page: Any, lang: str) -> tuple[Page, dict[str, Any]]:
+def acme_page(tmp_path: Path, open_page: Any, lang: str, extra: str = "") -> tuple[Page, dict[str, Any]]:
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
-    write_config(project, config.replace("language: en\n", f"language: {lang}\n"))
+    write_config(project, config.replace("language: en\n", f"language: {lang}\n") + extra)
     html, data = page_of(project)
     return open_page(html), data
 

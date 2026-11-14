@@ -275,7 +275,7 @@ uv tool uninstall dbtscope      # A, B2 and C
 uv cache clean dbtscope         # optional: what uvx and uv keep in their cache
 ```
 
-For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page), the last **Constellations** choice (`dbtscope-constellations:<title>`) and the last fold choice (`dbtscope-fold:<title>`), which **Reset layout** keeps; the browser's site data clears all of them.
+For B1, delete the clone folder. What stays, because it belongs to your projects: the generated pages (`erd_output/`), `dbt-erd.yml` and `dbt-erd-layout.json`, and what your browser keeps for each page title: the arrangements (cleared with **Reset layout** in the page), the last **Constellations** choice (`dbtscope-constellations:<title>`), the last fold choice (`dbtscope-fold:<title>`) and the last **Summary cards** choice (`dbtscope-cards:<title>`), which **Reset layout** keeps; the browser's site data clears all of them.
 
 ## Usage modes
 
@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (291 kB)
+  page:     opens on universe, en, libraries from CDNs (293 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (294 kB)
+  page:     opens on universe, en, libraries from CDNs (296 kB)
   config:   none (built-in defaults)
 ```
 
@@ -528,7 +528,7 @@ view: detail          # the tab shown at opening: universe (default) or detail
 language: fr          # the page in French; en (default) or fr
 ```
 
-`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and what the browser keeps for the page: your arrangements (`dbt-erd-layout:<title>`) your last **Constellations** choice (`dbtscope-constellations:<title>`) and your last fold choice (`dbtscope-fold:<title>`). Changing the title starts from a fresh arrangement and from the configured grouping and fold in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
+`--view detail` on the command line wins over `view:`. The title names the exported images (`ACME-retail-universe.png`) and what the browser keeps for the page: your arrangements (`dbt-erd-layout:<title>`) your last **Constellations** choice (`dbtscope-constellations:<title>`), your last fold choice (`dbtscope-fold:<title>`) and your last **Summary cards** choice (`dbtscope-cards:<title>`). Changing the title starts from a fresh arrangement and from the configured grouping, fold and cards in the browser, while a committed `dbt-erd-layout.json` still applies. Messages of the command stay in English.
 
 ### Try it on the example project
 
@@ -550,7 +550,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (291 kB)
+  page:     opens on universe, en, libraries from CDNs (293 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -638,6 +638,7 @@ universe:
   hidden_kinds: []            # kinds unticked at opening (the page's Types boxes)
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
   fold: true                  # true | false: descriptive tables drawn inside their parent at opening, switchable in the page
+  cards: false                # true | false: summary cards when zooming out, at opening, switchable in the page (off by default)
 ```
 
 `kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
@@ -650,7 +651,7 @@ A `kinds` list in `dbt-erd.yml` replaces the preset's list, but a rule of yours 
 
 ### Source systems
 
-A domain made only of technical tables (by default sources, seeds and snapshots, and any kind whose role is `technical`) is a **source system**: the page sets it apart on the left, in grey, and groups the source systems in one card from afar ([Source systems and routes](#source-systems-and-routes)). dbtscope decides this once, when it builds the page, and the page's filters never change it. To override it, add `system: true` or `system: false` to a `domains` rule of that domain; any domain can be named, also one that comes from a dbt group, `meta.domain` or `group_by`, with a rule that selects nothing:
+A domain made only of technical tables (by default sources, seeds and snapshots, and any kind whose role is `technical`) is a **source system**: the page sets it apart on the left, in grey, and groups the source systems in one card from afar when summary cards are on ([Source systems and routes](#source-systems-and-routes)). dbtscope decides this once, when it builds the page, and the page's filters never change it. To override it, add `system: true` or `system: false` to a `domains` rule of that domain; any domain can be named, also one that comes from a dbt group, `meta.domain` or `group_by`, with a rule that selects nothing:
 
 ```yaml
 domains:
@@ -662,7 +663,7 @@ When several rules share a key (one per schema of a domain), write `system` once
 
 ### Checks and errors
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline` and `universe.fold` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline`, `universe.fold` and `universe.cards` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
 
 ### Walkthrough: the example's dbt-erd.yml
 
@@ -772,7 +773,7 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 ### Reading the map
 
 - **From afar**: the domains, their size, and the routes between them: the strongest ones, from edge to edge and curved around the other domains, as thick as the number of links, with an arrow at the reader's end when lineage says which way it goes ([Source systems and routes](#source-systems-and-routes)). A bar under each domain name shows its mix of kinds.
-- **Summary cards, on a large project**: when zooming out makes the stars too small to tell apart (the reference star drawn under about 2 px), each domain turns into a **summary card**: its name, its number of tables (and entities), one row per layer (per domain when grouping by layer) with a bar split by kind, and its **main tables** (the core tables with the most relations). Stars and cards fade into each other over about three wheel notches, in both directions; nothing moves and there is no control. The 1,419-table example opens on cards, a project the size of the example opens on stars. Details: [Summary cards](#summary-cards).
+- **Summary cards, if you switch them on**: with the **Summary cards** box ticked (off by default), when zooming out makes the stars too small to tell apart (the reference star drawn under about 2 px), each domain turns into a **summary card**: its name, its number of tables (and entities), one row per layer (per domain when grouping by layer) with a bar split by kind, and its **main tables** (the core tables with the most relations). Stars and cards fade into each other over about three wheel notches, in both directions; nothing moves. Without the box, the map stays on stars at every zoom (from afar, a few names and the constellation names). Details: [Summary cards](#summary-cards).
 - **Closer**: each table, coloured by kind, with its name. Inside each domain, tables sit in **layer bands**, left to right along the data flow (in the example: Sources, Bronze, Silver, Gold); faint lines separate the bands when you zoom in, and hovering a domain lists its layers. From afar, a name that would cover another table is hidden; zooming in brings it back.
 - **Size and names by role**: stars of core tables (hubs, dimensions, facts) are the largest, connectors (links) medium, descriptive and technical tables (satellites, staging, sources, seeds, snapshots) the smallest; inside a role, the more links a table has, the larger its star. Names follow: core tables first. From afar, each constellation names only its three core tables with the most relations; zooming in names the others.
 - **Entities**: when the project has descriptive tables (satellites, PITs), each is drawn inside the hub or link it describes, so a large Data Vault reads as its entities: [Entities](#entities-descriptive-tables-folded-into-their-parent).
@@ -785,27 +786,29 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - **Links**: business relations (`relationships` tests, FK constraints), lineage (`ref` / `source`), or both. The layout is recomputed on the fly. The opening choice is `universe.links` in the config.
 - **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser (`dbtscope-constellations:<title>`, kept by **Reset layout**, never exported), and keeps a separate manual arrangement for each grouping.
 - **Entities**: one checkbox, **Fold** and the descriptive kinds that fold (`Fold Satellite · PIT`), with the number of tables that have a parent. It sits under **Constellations** and only exists when at least one table has a parent. Ticked, descriptive tables are folded; unticked, every table is a star of its own. The default is `universe.fold`; the page remembers each viewer's last choice in the browser (`dbtscope-fold:<title>`, kept by **Reset layout**, never exported).
+- **Summary cards**: a checkbox under **Tables**, always there, unticked by default: ticked, zooming out turns each constellation into a [summary card](#summary-cards). The default is `universe.cards`; the page remembers each viewer's choice in the browser (`dbtscope-cards:<title>`, written only when it differs from the default, kept by **Reset layout**, never exported). Ticking or unticking redraws at once: no layout, the camera does not move. In French the box reads **Fiches de synthèse**.
 - **Show all routes**: a checkbox under **Links**, there only while the page hides some routes; see [Source systems and routes](#source-systems-and-routes).
 - **Side panel**: tick **Layers**, **Types** (the kinds, core kinds first, then connectors, descriptive, technical and the others) and **Domains** on and off, with "all" and "none" for domains. With source systems the list is two: **Business domains** and **Source systems**, each with its own "all" and "none". All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
 - The count line above the map says how many tables, links and domains are shown, and, while the descriptive tables are folded, how many entities. Folding never lowers a count: the tables, the links, the numbers under each domain name and the bars count every table that passes the filters, folded ones included.
 
 ### Summary cards
 
-On a large project the map opens on one **summary card** per constellation instead of a swarm of stars:
+An option, **off by default**: tick **Summary cards** in the side panel (or set `universe.cards: true` in `dbt-erd.yml` or in a preset file to open with it) and zooming out replaces the swarm of stars of each constellation by one **summary card**. Unticked, the map shows stars, names and routes at every zoom, a source system is a grey disc of its own and the routes of the source systems are not bundled.
+
 
 - **What a card says**: the name (in the domain's colour), `299 tables · 152 entities` (entities only while the descriptive tables are folded), then one row per layer in flow order (one per domain when grouping by layer, with its colour dot): the label, a bar split by kind in the order of the Types list (the widest row fills the bar; a kind is never thinner than 2 px) and the number of tables; then **Main tables**, up to five core tables with the most relations, each with its kind dot. A constellation with no core table (a source system) shows no main table. Every count includes the folded tables and follows the filters.
-- **When it appears**: the card replaces the stars when the reference star (the median core star, or the median star of the highest role present) would be drawn under about 2 px; it is fully drawn there and the stars are fully drawn from about 3 px up, with a crossfade in between. On a screen too narrow to tell stars apart, or after zooming out past **Fit**, even a small project shows cards. No setting turns it off.
+- **When it appears**: the card replaces the stars when the reference star (the median core star, or the median star of the highest role present) would be drawn under about 2 px; it is fully drawn there and the stars are fully drawn from about 3 px up, with a crossfade in between. On a screen too narrow to tell stars apart, or after zooming out past **Fit**, even a small project shows cards. Unticking **Summary cards** (or leaving `universe.cards` at `false`) turns the cards off at every zoom; the hidden text summary below stays.
 - **Small cards** keep the name, then the count, the rows and the main tables as far as they fit; "+ 2 layers" stands for the rows left out. The full text is always in the hidden summary below.
 - **Pointer**: hovering a card gives the domain's (or layer's) tooltip, and over a row "Click: zoom on Raw vault". A click on a row frames that layer band (that domain band, grouping by layer) down to its stars; a double-click on a card frames the constellation on its stars; dragging its header moves and pins it, as dragging the name did. A click elsewhere on a card does nothing.
 - **Trajectory from afar**: cards holding trajectory tables get a dark frame and "5 upstream · 2 downstream", the start's card a double frame, the others fade; one arrow per pair of cards (dashed upstream, solid downstream, thicker for more links, with the count from 2) stands for the lineage between them.
 - **Screen readers**: a hidden section, "Summary of the constellations", lists each constellation with its counts, one line per row and its main tables (all five), at every zoom. Search, **Trajectory** and **Fit** remain the keyboard paths to a table.
-- **Image export** shows the view as on screen, cards and crossfade included.
+- **Image export** shows the view as on screen, cards and crossfade included, none when the box is unticked.
 
 ### Source systems and routes
 
-- **Source systems apart** (domain mode): domains made only of technical tables sit in a grid on the far left, upstream of the business domains, drawn in grey (their colour stays on the panel dot and in the layer view). They are ordered by the business domains they feed, in one column or the fewest that fit the height of the business domains. From afar, two or more of them are **one card**, "Source systems" with one row per system; a click on a row frames that system, a double-click the whole grid, dragging the header moves them all. Zoomed in, each is a neutral disc of its own. A source system you drag among the business domains gets its own card again. **Reset layout** gives the placement back; a saved arrangement loads exactly as it was saved.
+- **Source systems apart** (domain mode): domains made only of technical tables sit in a grid on the far left, upstream of the business domains, drawn in grey (their colour stays on the panel dot and in the layer view). They are ordered by the business domains they feed, in one column or the fewest that fit the height of the business domains. With summary cards on, from afar two or more of them are **one card**, "Source systems" with one row per system; a click on a row frames that system, a double-click the whole grid, dragging the header moves them all. Zoomed in, each is a neutral disc of its own. A source system you drag among the business domains gets its own card again. **Reset layout** gives the placement back; a saved arrangement loads exactly as it was saved.
 - **Business domains along the data flow**: a domain read by others sits left of its readers (a route is directed when most of its lineage goes one way).
-- **Routes**: one per pair of domains linked by their tables, from the edge of one to the edge of the other, curved around the domains in between, as thick as the number of links, with an arrowhead at the reader's end when the lineage goes one way (two heads when each reads the other, none for business relations only, which have no direction). By default the strongest are drawn: those among the three heaviest of either of their ends; a source system draws at most its three heaviest, none of weight 1, and a route the page cannot draw clear of the other domains is left out too. When some are hidden the count line says so ("18 of 40 routes", in place of the number of links, so the line stays on one line) and **Show all routes** draws them all (kept for the session only); pointing at a domain draws all its routes anyway. From afar the routes of the source systems are bundled into one route per business domain.
+- **Routes**: one per pair of domains linked by their tables, from the edge of one to the edge of the other, curved around the domains in between, as thick as the number of links, with an arrowhead at the reader's end when the lineage goes one way (two heads when each reads the other, none for business relations only, which have no direction). By default the strongest are drawn: those among the three heaviest of either of their ends; a source system draws at most its three heaviest, none of weight 1, and a route the page cannot draw clear of the other domains is left out too. When some are hidden the count line says so ("18 of 40 routes", in place of the number of links, so the line stays on one line) and **Show all routes** draws them all (kept for the session only); pointing at a domain draws all its routes anyway. With summary cards on, from afar the routes of the source systems are bundled into one route per business domain.
 - **Hover or focus**: pointing at a domain, or hovering or focusing its row in the panel (Tab to the row), draws **all** its routes, keeps its neighbours bright and dims the rest. Hovering a route gives its tooltip: its ends (upstream first), its relations and lineage links (only those **Links** counts), who reads whom, and for a bundled route the systems it sums.
 - **Screen readers**: the hidden summary lists the source systems as one block and, for each constellation, every route with its counts and direction.
 

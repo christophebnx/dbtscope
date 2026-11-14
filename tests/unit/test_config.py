@@ -24,6 +24,24 @@ def test_defaults_alone_are_valid() -> None:
     assert config == Config()
 
 
+def test_cards_default_to_false_and_are_a_strict_boolean_allowed_in_presets() -> None:
+    assert merge_config({}, {}).universe.cards is False
+    assert merge_config({}, {"universe": {"cards": True}}).universe.cards is True
+    preset = {"universe": {"cards": True}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {"universe": {"links": "lineage"}}).universe.cards is True
+    assert merge_config(preset, {"universe": {"cards": False}}).universe.cards is False
+
+
+@pytest.mark.parametrize("value", ["maybe", 1, "yes", None])
+def test_a_non_boolean_cards_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError) as info:
+        merge_config({}, {"universe": {"cards": value}})
+    assert str(info.value).startswith("universe.cards: ") and "\n" not in str(info.value)
+    with pytest.raises(ConfigError, match=r"^universe\.cards: "):
+        check_preset({"universe": {"cards": value}})
+
+
 def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config({}, {}).universe.constellations == "domains"
     assert merge_config({}, {"universe": {"constellations": "layers"}}).universe.constellations == "layers"

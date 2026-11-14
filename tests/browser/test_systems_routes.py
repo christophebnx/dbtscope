@@ -186,8 +186,8 @@ def direction(rel: int, lin: int, f: int, links: str) -> int:
 # ---------------------------------------------------------------- the flag in the payload
 
 
-def test_the_payload_flags_the_seven_raw_domains(large_page: Any) -> None:
-    domains = large_page[1]["universe"]["domains"]
+def test_the_payload_flags_the_seven_raw_domains(large_cards_page: Any) -> None:
+    domains = large_cards_page[1]["universe"]["domains"]
     assert sorted(d["key"] for d in domains if d["system"]) == SYSTEMS
     assert all(list(d)[-1] == "system" for d in domains)
 
@@ -195,8 +195,10 @@ def test_the_payload_flags_the_seven_raw_domains(large_page: Any) -> None:
 # ---------------------------------------------------------------- placement
 
 
-def test_source_systems_are_a_grid_left_of_every_business_domain(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_source_systems_are_a_grid_left_of_every_business_domain(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     g = geometry(p)
     by = centres(p)
@@ -221,9 +223,9 @@ def test_source_systems_are_a_grid_left_of_every_business_domain(large_page: Any
 
 
 def test_the_grid_is_ordered_by_the_barycentre_of_the_business_domains_they_feed(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)  # the individual routes: system to business domain
     g, by = geometry(p), centres(p)
@@ -271,7 +273,7 @@ def test_the_flow_columns_put_a_reader_right_of_what_it_reads(tmp_path: Path, op
             "domains": [{"key": d, "label": d, "color": "#2f6fb5", "owner": ""} for d in domains],
             "layers": [{"key": "l0", "label": "Zero"}],
             "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
     html = universe_page(tmp_path, payload, view="universe")
@@ -297,9 +299,9 @@ def test_a_page_without_a_source_system_keeps_one_heading_and_no_group(
 
 
 def test_a_saved_arrangement_loads_unchanged_and_reset_gives_the_new_placement(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     placed = {k: [c["x"], c["y"]] for k, c in centres(p).items()}
     pins = {k: [v[0] + 7, v[1] - 5] for k, v in placed.items()}  # an M8.3 drag pinned every constellation
@@ -311,8 +313,8 @@ def test_a_saved_arrangement_loads_unchanged_and_reset_gives_the_new_placement(
     }
 
 
-def test_a_pinned_system_stays_and_the_others_fill_the_grid(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_pinned_system_stays_and_the_others_fill_the_grid(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     first = centres(p)["raw_crm"]
     pin = [first["x"] - 900, first["y"] + 1500]
@@ -327,8 +329,8 @@ def test_a_pinned_system_stays_and_the_others_fill_the_grid(large_page: Any, ope
 # ---------------------------------------------------------------- the group card
 
 
-def test_the_seven_systems_are_one_group_card_at_fit(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_seven_systems_are_one_group_card_at_fit(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     g, s = geometry(p), summary(p)
     group = next(o for o in g["outlines"] if o["k"] == "@systems")
@@ -351,8 +353,8 @@ def test_the_seven_systems_are_one_group_card_at_fit(large_page: Any, open_page:
     assert drawn["@systems"]["w"] * drawn["@systems"]["h"] < seven / 2
 
 
-def test_zoomed_in_each_system_is_its_own_neutral_disc(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_zoomed_in_each_system_is_its_own_neutral_disc(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     g = geometry(p)
@@ -376,9 +378,9 @@ def test_zoomed_in_each_system_is_its_own_neutral_disc(large_page: Any, open_pag
 
 
 def test_a_row_click_frames_its_system_and_a_double_click_frames_the_grid(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     s = summary(p)
     row = next(r for r in hits(p)["rows"] if r["k"] == "@systems" and r["row"] == "raw_tms")
@@ -399,8 +401,10 @@ def test_a_row_click_frames_its_system_and_a_double_click_frames_the_grid(
     assert camera(p)["k"] >= s["kStars"] and summary(p)["weight"] == 0
 
 
-def test_the_group_header_moves_every_system_and_pins_the_scope(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_group_header_moves_every_system_and_pins_the_scope(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     before, k = centres(p), camera(p)["k"]
     card = first_card(p, "@systems")
@@ -419,8 +423,10 @@ def test_the_group_header_moves_every_system_and_pins_the_scope(large_page: Any,
     assert set(pins) == set(after)
 
 
-def test_a_system_dragged_among_business_domains_leaves_no_group(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_system_dragged_among_business_domains_leaves_no_group(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     by = centres(p)
     pins = {k: [c["x"], c["y"]] for k, c in by.items()}
@@ -442,8 +448,8 @@ def test_the_acme_single_system_has_its_own_card_and_no_group(example_page: Any)
 # ---------------------------------------------------------------- the panel
 
 
-def test_two_headings_each_with_their_own_all_and_none(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_two_headings_each_with_their_own_all_and_none(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     assert p.page.text_content("#u-h-domains") == "Business domains"
     assert p.page.text_content("#u-h-systems") == "Source systems"
     assert p.page.get_attribute("#u-sys-none", "aria-label") == "No source system"
@@ -490,9 +496,9 @@ def test_the_panel_strings_in_french_and_at_360_px(tmp_path: Path, open_page: An
 
 @pytest.mark.parametrize("links", ["relations", "lineage", "both"])
 def test_the_routes_carry_the_counts_and_the_direction_of_the_payload(
-    large_page: Any, open_page: Any, links: str
+    large_cards_page: Any, open_page: Any, links: str
 ) -> None:
-    html, data = large_page
+    html, data = large_cards_page
     p = open_page(html)
     reset(p)
     p.page.select_option("#u-links", links)
@@ -512,8 +518,8 @@ def test_the_routes_carry_the_counts_and_the_direction_of_the_payload(
         assert r["dir"] == direction(v["rel"], v["lin"], v["f"], links)
 
 
-def test_a_fold_never_changes_the_counts_of_a_route(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_fold_never_changes_the_counts_of_a_route(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     at_stars(p)
     counts = ("a", "b", "rel", "lin", "c", "dir")
     folded = [{k: r[k] for k in counts} for r in geometry(p)["routes"]]
@@ -522,8 +528,8 @@ def test_a_fold_never_changes_the_counts_of_a_route(large_page: Any, open_page: 
     assert [{k: r[k] for k in counts} for r in geometry(p)["routes"]] == folded and folded
 
 
-def test_the_arrowheads_follow_the_lineage_only(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_arrowheads_follow_the_lineage_only(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     at_stars(p)
     assert any(r["dir"] for r in geometry(p)["routes"])
     p.page.select_option("#u-links", "relations")
@@ -545,9 +551,9 @@ def measure(p: Page) -> tuple[int, int, int]:
 
 @pytest.mark.parametrize("by", ["domains", "layers"])
 def test_no_route_crosses_another_constellation_on_the_large_project(
-    large_page: Any, open_page: Any, by: str
+    large_cards_page: Any, open_page: Any, by: str
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     p.page.check(f"#u-by input[value={by}]")
     p.page.evaluate(NEXT_FRAME)
     reset(p)
@@ -578,8 +584,8 @@ def test_no_route_crosses_another_constellation_on_acme_at_stars(example_page: A
     assert total and crossed == 0 and unclear == 0
 
 
-def test_every_drawn_path_runs_edge_to_edge(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_every_drawn_path_runs_edge_to_edge(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     g = geometry(p)
     rects = {o["k"]: o["rect"] for o in g["outlines"]}
@@ -627,9 +633,9 @@ def meta(p: Page) -> str:
 
 
 def test_the_strongest_routes_are_drawn_and_the_meta_line_counts_the_rest(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     g = geometry(p)
     drawn = {(r["a"], r["b"]) for r in g["routes"] if r["drawn"]}
@@ -667,7 +673,7 @@ def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
             ],
             "layers": [{"key": "l0", "label": "Zero"}],
             "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
     p = open_page(universe_page(tmp_path, payload, view="universe"))
@@ -678,8 +684,8 @@ def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
     )  # nothing is hidden: no entry, no control
 
 
-def test_show_all_routes_draws_them_all_and_is_not_remembered(large_page: Any, open_page: Any) -> None:
-    html = large_page[0]
+def test_show_all_routes_draws_them_all_and_is_not_remembered(large_cards_page: Any, open_page: Any) -> None:
+    html = large_cards_page[0]
     p = open_page(html)
     assert p.page.is_visible("#u-routes-row") and p.page.inner_text("#u-routes-label") == "Show all routes"
     assert p.page.inner_text("#u-routes-n") == str(len(geometry(p)["routes"]))
@@ -707,8 +713,8 @@ def test_the_count_of_routes_in_french(tmp_path: Path, open_page: Any) -> None:
 # ---------------------------------------------------------------- the spotlight and the tooltip
 
 
-def test_hovering_a_card_draws_all_its_routes(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_hovering_a_card_draws_all_its_routes(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     hover_card(p, "vehicle")
     mine = [r for r in geometry(p)["routes"] if "vehicle" in (r["a"], r["b"])]
@@ -721,8 +727,8 @@ def test_hovering_a_card_draws_all_its_routes(large_page: Any, open_page: Any) -
     )
 
 
-def test_focusing_a_domain_row_spotlights_it_like_the_pointer(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_focusing_a_domain_row_spotlights_it_like_the_pointer(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     p.page.focus("#u-domains label:nth-child(2) input")  # auction
     p.page.evaluate(NEXT_FRAME)
@@ -734,8 +740,8 @@ def test_focusing_a_domain_row_spotlights_it_like_the_pointer(large_page: Any, o
     assert not all(r["drawn"] for r in geometry(p)["routes"])
 
 
-def test_hovering_the_group_card_spotlights_its_bundled_routes(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_hovering_the_group_card_spotlights_its_bundled_routes(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     hover_card(p, "@systems")
     routes = geometry(p)["routes"]
@@ -744,8 +750,8 @@ def test_hovering_the_group_card_spotlights_its_bundled_routes(large_page: Any, 
     assert "Source systems" in tip(p) and "Click a row to zoom on it" in tip(p)
 
 
-def test_the_tooltip_of_a_route_names_its_ends_and_its_counts(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_tooltip_of_a_route_names_its_ends_and_its_counts(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     g, k, cam = geometry(p), camera(p)["k"], camera(p)
     route = next(r for r in g["routes"] if r["drawn"] and not r["bundled"] and len(r["pts"]) > 4)
@@ -763,8 +769,10 @@ def test_the_tooltip_of_a_route_names_its_ends_and_its_counts(large_page: Any, o
 # ---------------------------------------------------------------- trajectory, export, text
 
 
-def test_a_trajectory_turns_the_spotlight_off_and_keeps_the_density(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_trajectory_turns_the_spotlight_off_and_keeps_the_density(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     p.page.fill("#u-q", "car_hub")
     p.page.click("#u-traj")
@@ -784,8 +792,8 @@ def test_a_trajectory_turns_the_spotlight_off_and_keeps_the_density(large_page: 
     p.page.click("#u-tj-leave")
 
 
-def test_the_export_is_the_screen_without_the_spotlight(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_export_is_the_screen_without_the_spotlight(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     first = p.page.evaluate(
         "views.universe.image().then(b => b.arrayBuffer().then(a => [...new Uint8Array(a)].length))"
@@ -797,8 +805,10 @@ def test_the_export_is_the_screen_without_the_spotlight(large_page: Any, open_pa
     assert first == second  # the spotlight is pointer state: left out, as hover is
 
 
-def test_the_text_summary_lists_the_source_systems_and_every_route(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_text_summary_lists_the_source_systems_and_every_route(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     text = text_summary(p)
     names = [i["name"] for i in text["items"]]
     assert names[-1] == "Source systems" and names.count("Source systems") == 1
@@ -834,8 +844,8 @@ def test_arrowheads_reach_three_to_one_and_the_spotlight_ink_more() -> None:
 # ---------------------------------------------------------------- budgets
 
 
-def test_the_route_budgets_on_the_large_project(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_route_budgets_on_the_large_project(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     timings: dict[str, list[float]] = defaultdict(list)
     for _ in range(3):
         p.page.evaluate("views.universe.relayout()")
@@ -867,8 +877,8 @@ def test_the_route_budgets_on_the_large_project(large_page: Any, open_page: Any)
     assert filter_s <= 1
 
 
-def test_a_drag_step_recomputes_the_paths_within_a_frame(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_drag_step_recomputes_the_paths_within_a_frame(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     card = first_card(p, "vehicle")
     hx, hy = card["header"]["x"] + 20, card["header"]["y"] + 8
@@ -886,10 +896,10 @@ def test_a_drag_step_recomputes_the_paths_within_a_frame(large_page: Any, open_p
     assert median(steps) <= 50
 
 
-def test_the_same_payload_gives_the_same_routes_twice(large_page: Any, open_page: Any) -> None:
+def test_the_same_payload_gives_the_same_routes_twice(large_cards_page: Any, open_page: Any) -> None:
     runs = []
     for _ in range(2):
-        p = open_page(large_page[0])
+        p = open_page(large_cards_page[0])
         g = geometry(p)
         runs.append(
             [
@@ -931,9 +941,9 @@ def arrowheads(p: Page) -> int:
 
 
 def test_arrowheads_are_drawn_with_lineage_and_not_with_relations_only(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     at_stars(p)
     p.page.check("#u-routes-box")
     p.page.evaluate(NEXT_FRAME)
@@ -947,8 +957,8 @@ def test_arrowheads_are_drawn_with_lineage_and_not_with_relations_only(
     assert arrowheads(p) == 0
 
 
-def test_a_route_without_lineage_has_no_direction(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_route_without_lineage_has_no_direction(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     at_stars(p)
     routes = geometry(p)["routes"]
     assert all((r["dir"] == 0) == (r["lin"] == 0) or r["dir"] != 0 for r in routes)
@@ -963,8 +973,10 @@ def centre_alphas(p: Page, labels: list[str]) -> dict[str, float]:
     return alphas
 
 
-def test_the_spotlight_keeps_neighbours_bright_and_dims_the_others(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_spotlight_keeps_neighbours_bright_and_dims_the_others(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     g, cam = geometry(p), camera(p)
@@ -977,7 +989,7 @@ def test_the_spotlight_keeps_neighbours_bright_and_dims_the_others(large_page: A
     key = min((k for k in everyone if partners[k]), key=lambda k: (len(partners[k]), k))
     me = by[key]
     near, far = partners[key], set(everyone) - partners[key] - {key}
-    labels = {d["key"]: d["label"] or d["key"] for d in large_page[1]["universe"]["domains"]}
+    labels = {d["key"]: d["label"] or d["key"] for d in large_cards_page[1]["universe"]["domains"]}
     names = [labels[k] for k in everyone]
     before = centre_alphas(p, names)
     assert set(before.values()) == {1}
@@ -1002,8 +1014,10 @@ def test_the_spotlight_keeps_neighbours_bright_and_dims_the_others(large_page: A
     assert far and all(during[labels[k_]] == pytest.approx(0.45) for k_ in far)
 
 
-def test_a_row_of_the_layers_panel_spotlights_its_constellation(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_a_row_of_the_layers_panel_spotlights_its_constellation(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     p.page.check("#u-by input[value=layers]")
     p.page.evaluate(NEXT_FRAME)
     reset(p)
@@ -1029,9 +1043,9 @@ def long_routes(p: Page) -> list[dict[str, Any]]:
 
 
 def test_the_route_tooltip_has_the_direction_words_the_plurals_and_follows_links(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     p.page.check("#u-routes-box")
@@ -1091,9 +1105,9 @@ def png(p: Page) -> list[int]:
 
 @pytest.mark.parametrize("where", ["fit", "stars"])
 def test_the_export_is_byte_identical_with_and_without_the_spotlight(
-    large_page: Any, open_page: Any, where: str
+    large_cards_page: Any, open_page: Any, where: str
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     if where == "stars":
         at_stars(p)
@@ -1107,8 +1121,8 @@ def test_the_export_is_byte_identical_with_and_without_the_spotlight(
     assert any(r["drawn"] for r in geometry(p)["routes"]) and png(p) == plain
 
 
-def test_the_export_follows_the_all_routes_state(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_export_follows_the_all_routes_state(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     strongest = png(p)
     p.page.check("#u-routes-box")
@@ -1121,9 +1135,9 @@ def test_the_export_follows_the_all_routes_state(large_page: Any, open_page: Any
 
 
 def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     p.page.fill("#u-q", "car_hub")
     p.page.click("#u-traj")
@@ -1140,10 +1154,10 @@ def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
     p.page.click("#u-tj-leave")
 
 
-def first_draw_times(large_page: Any, open_page: Any, runs: int = 8) -> list[float]:
+def first_draw_times(large_cards_page: Any, open_page: Any, runs: int = 8) -> list[float]:
     times = []
     for _ in range(runs):
-        p = open_page(large_page[0])
+        p = open_page(large_cards_page[0])
         reset(p)
         at_stars(p)  # the first draw at the stars scale finds the paths of the 40-odd individual routes
         times.append(p.page.evaluate("views.universe.perf()")["routes"])
@@ -1152,15 +1166,15 @@ def first_draw_times(large_page: Any, open_page: Any, runs: int = 8) -> list[flo
 
 
 def test_the_route_computation_stays_within_its_budget_over_several_runs(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
     """Budget: 30 ms per layout at the stars scale on the large project (design note § 4). Eight first draws
     at that scale are reported (alone: worst 15, median 12 ms; inside the parallel suite, the machine shared:
     worst up to 46, median 23 ms). A median above 30 ms or a worst above 45 ms fails, unless a second batch,
     taken because the machine was busy, passes."""
-    batches = [first_draw_times(large_page, open_page)]
+    batches = [first_draw_times(large_cards_page, open_page)]
     if median(batches[0]) > 30 or max(batches[0]) > 45:
-        batches.append(first_draw_times(large_page, open_page))
+        batches.append(first_draw_times(large_cards_page, open_page))
     for runs in batches:
         print(
             f"perf.routes over {len(runs)} runs (ms): worst {max(runs):.1f}, median {median(runs):.1f}, "
@@ -1170,9 +1184,9 @@ def test_the_route_computation_stays_within_its_budget_over_several_runs(
     assert any(median(runs) <= 30 and max(runs) <= 45 for runs in batches)
 
 
-def test_a_drag_step_recomputes_the_routes_within_their_budget(large_page: Any, open_page: Any) -> None:
+def test_a_drag_step_recomputes_the_routes_within_their_budget(large_cards_page: Any, open_page: Any) -> None:
     """Budget: a drag step of a constellation (paths recomputed) at most 16 ms (design note § 4)."""
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     card = first_card(p, "vehicle")
     hx, hy = card["header"]["x"] + 20, card["header"]["y"] + 8
@@ -1236,9 +1250,9 @@ def drawn_of_system(g: dict[str, Any], key: str) -> list[dict[str, Any]]:
 
 
 def test_a_source_system_draws_at_most_three_routes_none_of_weight_one(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     g = geometry(p)
@@ -1253,8 +1267,8 @@ def test_a_source_system_draws_at_most_three_routes_none_of_weight_one(
     assert all(r["drawn"] for r in geometry(p)["routes"])
 
 
-def test_the_spotlight_draws_the_hidden_routes_of_a_system(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_spotlight_draws_the_hidden_routes_of_a_system(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     g, cam = geometry(p), camera(p)
@@ -1266,8 +1280,10 @@ def test_the_spotlight_draws_the_hidden_routes_of_a_system(large_page: Any, open
     assert mine and all(r["drawn"] for r in mine)
 
 
-def test_the_show_all_row_is_there_only_while_a_route_is_hidden(large_page: Any, open_page: Any) -> None:
-    p = open_page(large_page[0])
+def test_the_show_all_row_is_there_only_while_a_route_is_hidden(
+    large_cards_page: Any, open_page: Any
+) -> None:
+    p = open_page(large_cards_page[0])
     reset(p)
     at_stars(p)
     p.page.select_option("#u-links", "lineage")
@@ -1307,7 +1323,7 @@ def crowd_payload(side: int) -> UniversePayload:
             ],
             "layers": [{"key": "l0", "label": "Zero"}],
             "kinds": [{"key": "k0", "label": "Kind", "color": "#1f77b4", "role": "core"}],
-            "defaults": {"links": "both", "detail": "names", "hidden_kinds": []},
+            "defaults": {"links": "both", "detail": "names", "hidden_kinds": [], "cards": True},
         }
     )
 
@@ -1337,19 +1353,21 @@ def group_texts(p: Page) -> list[str]:
     return [t for kind, t, _ in frame_calls(p) if kind == "text"]
 
 
-def test_the_group_card_says_sources_when_it_is_narrow(large_page: Any, open_page: Any) -> None:
+def test_the_group_card_says_sources_when_it_is_narrow(large_cards_page: Any, open_page: Any) -> None:
     """At 460 px the group card is about 62 px wide (inner width below 60): its heading is the short word."""
-    p = open_page(large_page[0], viewport={"width": 460, "height": 800})
+    p = open_page(large_cards_page[0], viewport={"width": 460, "height": 800})
     reset(p)
     texts = group_texts(p)
     assert "Sources" in texts and "Source systems" not in texts
-    q = open_page(large_page[0])
+    q = open_page(large_cards_page[0])
     assert "Source systems" in group_texts(q)
 
 
-def test_the_meta_line_is_one_line_with_its_whole_text_in_the_title(large_page: Any, open_page: Any) -> None:
+def test_the_meta_line_is_one_line_with_its_whole_text_in_the_title(
+    large_cards_page: Any, open_page: Any
+) -> None:
     for viewport in ({"width": 1280, "height": 800}, NARROW):
-        p = open_page(large_page[0], viewport=viewport)
+        p = open_page(large_cards_page[0], viewport=viewport)
         reset(p)
         box = p.page.locator("#u-meta").bounding_box()
         assert box["height"] <= 32, (viewport, box)
@@ -1359,15 +1377,15 @@ def test_the_meta_line_is_one_line_with_its_whole_text_in_the_title(large_page: 
         title = p.page.get_attribute("#u-meta", "title")
         assert "links" in title and title.endswith(meta(p).split(" · ")[-1])
         p.page.close()
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     set_k(p, 1.0)
     assert "routes" not in meta(p) and "links" in meta(p)  # nothing is hidden: the line is the old one
 
 
 def test_the_domain_tooltip_stays_in_the_stage_and_clear_of_the_pointer(
-    large_page: Any, open_page: Any
+    large_cards_page: Any, open_page: Any
 ) -> None:
-    p = open_page(large_page[0])
+    p = open_page(large_cards_page[0])
     reset(p)
     card = first_card(p, "vehicle")
     stage = p.page.locator("#u-stage").bounding_box()

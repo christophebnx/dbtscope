@@ -74,6 +74,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "hiddenKinds": ["source"],
         "constellations": "domains",
         "fold": True,
+        "cards": False,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -94,7 +95,7 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))
-    assert list(data["defaults"])[-2:] == ["constellations", "fold"]
+    assert list(data["defaults"])[-3:] == ["constellations", "fold", "cards"]
     assert data["defaults"]["constellations"] == "layers"
     assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
 
@@ -124,6 +125,11 @@ def test_a_descriptive_table_gets_the_parent_the_rule_finds(shop: Project) -> No
     domains = [{"key": "other_dom", "match": ["fct_orders"]}]
     data = _folded(shop, None, {"kinds": [kinds[0], *elsewhere], "domains": domains})
     assert {n["parent"] for n in data["nodes"]} == {""}  # the parent is in another domain
+
+
+def test_universe_cards_follow_the_config(shop: Project) -> None:
+    assert _folded(shop, None, {})["defaults"]["cards"] is False
+    assert _folded(shop, None, {"universe": {"cards": True}})["defaults"]["cards"] is True
 
 
 def test_universe_fold_false_is_copied_to_the_defaults(shop: Project) -> None:

@@ -110,9 +110,8 @@ class UniverseDefaults(BaseModel):
     detail: DetailLevel
     hidden_kinds: tuple[str, ...] = Field(serialization_alias="hiddenKinds")  # built by its Python name
     constellations: Constellations = "domains"  # last key: the grouping the page opens in (D-048)
-    fold: bool = (
-        True  # last key: `universe.fold`, whether the page opens with descriptive tables folded (D-063)
-    )
+    fold: bool = True  # `universe.fold`, whether the page opens with descriptive tables folded (D-063)
+    cards: bool = False  # last key: `universe.cards`, whether the page opens with summary cards (D-081)
 
 
 class UniversePayload(BaseModel):
