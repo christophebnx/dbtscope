@@ -10,6 +10,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Fixed
 
+- Page defects found retaking the screenshots. The Detail and Universe count lines wrap instead of being cut with an ellipsis (no count is lost at 1280 or 360 px; the toolbar grows, the stage keeps its size while zooming); a constellation label is never drawn partly outside the canvas and slides sideways rather than reach more than 1 px into another disc, the source-systems grid keeps room for the labels, and a label is painted over the routes with a halo in the page colour; Fit with a trajectory on frames its tables and their constellations' discs below the trajectory bar.
 - Audit fixes (M8.5, D-079, D-080). A `system` override rule after a domain's own rule no longer replaces its label and colour (the first rule of a key that sets each gives it); a focus on a hub draws the satellites folded into it by name only; the folded-tables tooltip lines and `foldLiveOff` are shared by both views.
 
 ### Added

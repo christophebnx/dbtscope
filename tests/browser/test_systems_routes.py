@@ -1363,14 +1363,14 @@ def test_the_group_card_says_sources_when_it_is_narrow(large_cards_page: Any, op
     assert "Source systems" in group_texts(q)
 
 
-def test_the_meta_line_is_one_line_with_its_whole_text_in_the_title(
-    large_cards_page: Any, open_page: Any
-) -> None:
+def test_the_meta_line_wraps_with_its_whole_text_in_the_title(large_cards_page: Any, open_page: Any) -> None:
     for viewport in ({"width": 1280, "height": 800}, NARROW):
         p = open_page(large_cards_page[0], viewport=viewport)
         reset(p)
-        box = p.page.locator("#u-meta").bounding_box()
-        assert box["height"] <= 32, (viewport, box)
+        meta_box = p.page.locator("#u-meta")
+        assert meta_box.evaluate("m => m.scrollWidth <= m.clientWidth && m.scrollHeight <= m.clientHeight"), (
+            viewport
+        )
         assert re.search(r"\d+ of \d+ routes$", meta(p)) and "links" not in meta(
             p
         )  # the routes entry replaces links

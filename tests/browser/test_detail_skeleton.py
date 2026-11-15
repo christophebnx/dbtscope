@@ -901,11 +901,13 @@ def test_a_window_resize_does_not_lay_out_again(vehicle: tuple[Page, dict[str, A
     )
 
 
-def test_the_detail_toolbar_keeps_one_row_at_1280(vehicle: tuple[Page, dict[str, Any]]) -> None:
+def test_the_detail_meta_line_wraps_and_is_whole_at_1280(vehicle: tuple[Page, dict[str, Any]]) -> None:
+    """The counts line is never cut (the 2026-11-15 fix replaces M8.5's one-line form): it wraps, the toolbar
+    grows, the export group stays at the right end of its row, a skeleton's title still holds its tally."""
     p, _ = vehicle
-    first = p.page.locator("#d-toggle").bounding_box()
-    group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()
-    assert group["y"] == first["y"] or abs(group["y"] - first["y"]) < 8
     meta = p.page.locator("#d-meta")
-    assert meta.evaluate("m => getComputedStyle(m).whiteSpace") == "nowrap"
-    assert meta.get_attribute("title"), "a line cut with an ellipsis says itself in its title"
+    assert meta.evaluate("m => getComputedStyle(m).whiteSpace") != "nowrap"
+    assert meta.evaluate("m => m.scrollWidth <= m.clientWidth && m.scrollHeight <= m.clientHeight")
+    assert meta.get_attribute("title"), "a skeleton's title holds the tally by kind"
+    group = p.page.locator("#d-export-png").locator("xpath=..").bounding_box()
+    assert group["x"] + group["width"] <= 1280

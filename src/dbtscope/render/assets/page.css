@@ -62,9 +62,13 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .stage { flex:1; min-width:0; display:flex; flex-direction:column; }
 .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
 .toolbar .meta { color:var(--muted); font-size:13px; }
-/* the universe's and the detail's counts are one line in a box of fixed height (a longer line never wraps the toolbar, so the stage keeps
-   its size and the camera its place while the zoom crosses 0.6): cut with an ellipsis, the title holds the whole text */
-#u-meta, #d-meta { flex:100 1 8em; min-width:0; height:30px; line-height:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* the universe's and the detail's counts wrap: never cut, so no count is lost to the reader. The line takes the room it needs
+   (a basis wide enough that it drops to its own row when the controls leave little), the toolbar grows with it, and the
+   stage under it keeps that size while the zoom runs (the text changes with the filters, not with the zoom) */
+#u-meta, #d-meta { flex:100 1 20em; min-width:min(20em,100%); padding:6px 0; line-height:18px; overflow-wrap:anywhere; }
+/* the universe's line changes with the zoom (the routes entry replaces "N links"): universe.js gives its box the height of the
+   longest form as a min-height, so the toolbar never changes height while zooming */
+#u-meta { box-sizing:border-box; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */

@@ -449,7 +449,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // ---- constellation routes and placement (M8.4, D-069 to D-071)
   const isSystem = key => HAS_SYS && state.by === 'domains' && SYS.has(key);   // a source system in this drawing
   const collideR = d => d.r + 30 + d.r * 0.15;   // the room the placement keeps around a disc, name included
-  const GRID_GAP = 120, FLOW_X_BUSINESS = 0.15, DIRECTED = 0.2;   // grid gap (world px), x strength of a business domain, direction threshold
+  const GRID_GAP = 120, GRID_LABEL = 40, FLOW_X_BUSINESS = 0.15, DIRECTED = 0.2;   // grid gap and the room under a system for the next one's label (world px), x strength of a business domain, direction threshold
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
   // The routes of the grouping: one per pair of constellations linked through tables that pass the filters (folded
   // ones included). rel / lin: relations and lineage links; c: the count the Links selector shows; f: net lineage
@@ -517,7 +517,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     };
     const order = free.map(d => ({ d, y: bary(d) }))
       .sort((a, b) => (a.y === b.y ? DOM_POS[a.d.k] - DOM_POS[b.d.k] : a.y < b.y ? -1 : 1)).map(o => o.d);
-    const diam = d => 2 * collideR(d), cell = d3.max(order, diam);
+    const diam = d => 2 * collideR(d) + GRID_LABEL, cell = d3.max(order, diam);
     const top = sim.length ? d3.min(sim, d => d.y - collideR(d)) : 0, bottom = sim.length ? d3.max(sim, d => d.y + collideR(d)) : 0;
     const height = Math.max(cell, bottom - top), cy = (top + bottom) / 2, cols = [];
     let col = null, used = 0;
@@ -703,6 +703,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // layer mode: the constellation name, count and composition bar are raised by this many screen pixels, so
   // the bar ends 4 px above the outer edge of the rim arcs
   const NAME_LIFT = 8;
+  const LABEL_BAR = 80, LABEL_BAR_H = 4, BAR_HALO = 2;   // a label's composition bar (px) and the page-colour margin under it
+  const LABEL_REACH = 1;   // how far (screen px) a label may reach into another constellation's disc
   const TIP_DOMAINS = 12;   // layer mode tooltip: the domains listed before "+ N"
 
   // on the tab, so the trajectory bar and the flow view (an overlay of the tab) both inherit them
@@ -886,8 +888,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     let members = constellations.filter(d => isSystem(d.k));
     if (members.length >= 2) {
       const x0 = d3.min(members, d => d.x - d.r), x1 = d3.max(members, d => d.x + d.r), y0 = d3.min(members, d => d.y - d.r), y1 = d3.max(members, d => d.y + d.r);
-      const meets = d => { const cx = Math.max(x0, Math.min(d.x, x1)), cy = Math.max(y0, Math.min(d.y, y1)); return Math.hypot(d.x - cx, d.y - cy) < d.r; };
-      if (!constellations.some(d => !isSystem(d.k) && meets(d))) {
+      if (!constellations.some(d => !isSystem(d.k) && discReach(x0, y0, x1, y1, d.x, d.y, d.r) > 0)) {
         members = inGridOrder(members);
         const rows = members.map(d => ({ key: d.k, n: d.n, kinds: inKindOrder(d.mix) }));
         g = { k: GROUP, group: true, members, x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: d3.max(members, d => d.r), gridW: x1 - x0, gridH: y1 - y0, n: d3.sum(members, d => d.n),
@@ -1103,8 +1104,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       // one line: while the routes entry shows (some routes are hidden) it replaces the links count, so it stays in view;
       // the title always holds the whole line
       const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables), ...entities];
-      $u('meta').textContent = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
+      const text = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
       $u('meta').title = [...counts, links, groups, ...hidden].join(' · ');
+      const most = Math.max(0, ...view.sets.map(s => s.list.length));   // a project without routes never shows the entry
+      setMeta(text, [[...counts, links, groups], ...(most ? [[...counts, groups, T.routesOf(most, most)]] : [])].map(f => f.join(' · ')));
       lastView = view; syncRoutesRow(view);
     }
     if (!visible.length) {
@@ -1174,21 +1177,30 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // name stays in the tooltip and the text summary): at the Fit of a small screen, without cards, the systems' discs are close
     const labelOrder = [...constellations.filter(d => !isSystem(d.k)), ...inGridOrder(constellations.filter(d => isSystem(d.k)))];
     if (starsOn) labelOrder.forEach(d => {
-      const [sx, rim] = screen(d.x, d.y - d.r), neutral = isSystem(d.k), fs = neutral ? 12 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
+      const [sx0, rim] = screen(d.x, d.y - d.r), neutral = isSystem(d.k), fs = neutral ? 12 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const sy = rim - (byLayers ? NAME_LIFT : 0);
       const name = constellationLabel(d.k);
       ctx.font = `600 ${fs}px ${FONT}`;
-      const w = Math.max(ctx.measureText(name).width, 80) + 8, box = [sx - w / 2, sy - 22 - fs, w, fs + 22];
-      if (!free(...box)) return;
+      const w = Math.max(ctx.measureText(name).width, LABEL_BAR) + 8, at = x => [x - w / 2, sy - 22 - fs, w, fs + 22];
+      const sx = labelX(d, sx0, at, W, free, screen, k);
+      if (sx == null) return;
+      const box = at(sx);
       ctx.globalAlpha = ctxAlpha(d) * fade;
+      // painted over the routes: a halo in the page colour under the letters and the bar, so a route crossing a label never
+      // runs through it
+      ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = C.bg; ctx.fillStyle = C.bg;
+      ctx.strokeText(name, sx, sy - 22);
+      ctx.font = `12px ${FONT}`; ctx.strokeText(plural(d.n, L.tables), sx, sy - 8);
+      ctx.fillRect(sx - LABEL_BAR / 2 - BAR_HALO, sy - LABEL_BAR_H - BAR_HALO, LABEL_BAR + 2 * BAR_HALO, LABEL_BAR_H + BAR_HALO);
+      ctx.font = `600 ${fs}px ${FONT}`;
       // a domain name in its colour, readable on the page (D-037); a layer name in the text colour
       ctx.fillStyle = byLayers || neutral ? C.text : CONTRAST.ink(DOM[d.k].color, C.bg);
       ctx.fillText(name, sx, sy - 22);
       ctx.font = `12px ${FONT}`; ctx.fillStyle = C.muted;
       ctx.fillText(plural(d.n, L.tables), sx, sy - 8);
       // composition by type, readable before any single star is
-      let bx = sx - 40;
-      d.mix.forEach(([kind, c]) => { const bw = 80 * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - 4, bw, 4); bx += bw; });
+      let bx = sx - LABEL_BAR / 2;
+      d.mix.forEach(([kind, c]) => { const bw = LABEL_BAR * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - LABEL_BAR_H, bw, LABEL_BAR_H); bx += bw; });
       taken.push(box);
       if (a < 0.5) hits.push({ d, x: box[0], y: box[1], w, h: box[3] });
     });
@@ -1761,8 +1773,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function fit(animate) {
     const tj = trajMembers().filter(i => P[i]);
     if (tj.length) {
-      return frame(d3.min(tj, i => P[i].x - B[i].w / 2), d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2),
-        d3.max(tj, i => P[i].x + B[i].w / 2), d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2), animate, 2);
+      // the trajectory's tables and the discs of the constellations that hold them, all in the area the bar leaves visible
+      const G = grouping(), held = new Set(tj.map(i => G.of(N[i]))), discs = constellations.filter(d => held.has(d.k));
+      return frame(d3.min([...tj.map(i => P[i].x - B[i].w / 2), ...discs.map(d => d.x - d.r)]),
+        d3.min([...tj.map(i => P[i].y + B[i].oy - B[i].h / 2), ...discs.map(d => d.y - d.r)]),
+        d3.max([...tj.map(i => P[i].x + B[i].w / 2), ...discs.map(d => d.x + d.r)]),
+        d3.max([...tj.map(i => P[i].y + B[i].oy + B[i].h / 2), ...discs.map(d => d.y + d.r)]), animate, 2);
     }
     if (!constellations.length) return draw();
     frame(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
@@ -1782,6 +1798,42 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ? Math.abs(wx - p.x) <= b.w / 2 && Math.abs(wy - p.y) <= b.h / 2
       : Math.hypot(wx - p.x, wy - p.y) <= Math.max(8, 8 / t.k);
     return hit ? n : null;
+  }
+  // The counts line wraps and changes with the zoom (the routes entry replaces "N links"): its box is kept as high as the
+  // higher of its two forms, measured once per forms and width, so the toolbar never changes height while zooming and
+  // the stage under it never resizes.
+  let metaKey = '';
+  function setMeta(text, forms) {
+    const m = $u('meta'), key = forms.join('|') + '|' + m.clientWidth;
+    if (key !== metaKey) {
+      metaKey = key; m.style.minHeight = '';
+      m.style.minHeight = Math.max(...forms.map(f => { m.textContent = f; return m.offsetHeight; })) + 'px';
+    }
+    m.textContent = text;
+  }
+  // Where a constellation's label sits, as the x of its centre, or null when it is not drawn. Centred over the disc, but
+  // never partly outside the canvas (a label whose centre is on the canvas is shifted inside it) and never reaching into
+  // another constellation's disc by more than LABEL_REACH px: it slides sideways to the nearest place that is free of both
+  // (the centred one when none is, so a label is only moved, never lost to a disc).
+  function labelX(d, x0, at, W, free, screen, k) {
+    const reachOf = (b, o) => { const [ox, oy] = screen(o.x, o.y); return discReach(b[0], b[1], b[0] + b[2], b[1] + b[3], ox, oy, o.r * k); };
+    const inside = x => { const [bx, , bw] = at(x); return bx >= 0 && bx + bw <= W; };
+    const clamp = x => { const [, , bw] = at(x); return x0 >= 0 && x0 <= W ? Math.max(bw / 2, Math.min(W - bw / 2, x)) : x; };
+    const clear = x => { const b = at(x); return free(...b) && constellations.every(o => o === d || reachOf(b, o) <= LABEL_REACH); };
+    const [, , bw] = at(x0), STEP = 4, steps = Math.ceil(bw / 2 / STEP);
+    for (let i = 0; i <= steps; i++) {
+      for (const dx of i ? [i * STEP, -i * STEP] : [0]) {
+        const x = clamp(x0 + dx);
+        if (clear(x) && (x0 < 0 || x0 > W || inside(x))) return x;
+      }
+    }
+    const x = clamp(x0), b = at(x);
+    return free(...b) ? x : null;
+  }
+  // how far a disc (centre cx, cy, radius r) reaches into the rectangle x0..x1, y0..y1: its radius minus the distance from its
+  // centre to the rectangle (positive: they meet); the one such measure, for the group card's box and the labels
+  function discReach(x0, y0, x1, y1, cx, cy, r) {
+    return r - Math.hypot(Math.max(x0 - cx, 0, cx - x1), Math.max(y0 - cy, 0, cy - y1));
   }
   // the constellation name under a screen point, if any
   const labelAt = (x, y) => labelHits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
