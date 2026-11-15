@@ -679,8 +679,9 @@ def test_flow_cap_message_groups_its_numbers(tmp_path: Path, open_page: Any, lan
 
 # ---------------------------------------------------------------- M5.4: detail panel, narrow screens (D-038)
 
-# the height of #d-graph with the detail panel open at 360 x 800, fine pointer (recorded for M5.4)
-GRAPH_HEIGHT = {"en": 299, "fr": 268}
+# the height of #d-graph with the detail panel open at 360 x 800, fine pointer (recorded for M5.4; 20 px less
+# since the counts line wraps to a second line there instead of being cut, the 2026-11-15 fix)
+GRAPH_HEIGHT = {"en": 279, "fr": 248}
 
 
 @pytest.mark.parametrize("touch", [False, True])

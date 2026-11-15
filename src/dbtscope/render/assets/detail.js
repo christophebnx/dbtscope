@@ -132,12 +132,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   $d('clear').onclick = () => setFocus(null);
   $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
-  const refit = () => { metaTitle(); if (zv) zv.fit(); };
-  // the meta line is one line cut with an ellipsis: when it is cut and says nothing more, its title holds it whole
-  function metaTitle() {
-    const m = $d('meta');
-    if (!m.title && m.scrollWidth > m.clientWidth) m.title = m.textContent;
-  }
+  const refit = () => { if (zv) zv.fit(); };
   $d('fit').onclick = refit;
   window.addEventListener('resize', refit);
   sidePanel('d', refit);
@@ -478,7 +473,6 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     $d('meta').textContent = sk ? `${num(ids.size)} / ${all} · ${plural(mine.folded.size, T.foldedShort)} · ${rels}${foreign}`
       : `${num(ids.size)} / ${all} · ${rels}${foreign}`;
     $d('meta').title = sk ? tally(ids) + (mine.folded.size ? ` · ${T.foldedMeta}${L.colon}${tally(mine.folded)}` : '') : '';
-    metaTitle();
     $d('focus-info').textContent = state.focus ? T.focused + entityName(byId.get(state.focus)) : '';
     const view = keepView && zv ? zv.get() : null;
     if (zv) { zv.destroy(); zv = null; }

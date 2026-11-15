@@ -2,9 +2,9 @@
 
 Interactive map of a dbt project, in one self-contained HTML page: a **universe** view of every table grouped by data domain, and a **detail** view with the entity-relationship diagram of the tables you pick.
 
-Warehouses built with dbt rarely declare foreign keys, so database tools draw tables with no links between them. `dbtscope` reads the dbt **manifest** instead: every `relationships` test (and every `foreign_key` constraint of a model contract) becomes a relation, drawn as a link. Which models are drawn, how they are coloured and how they are grouped is driven by naming conventions, tags, paths or schemas — Data Vault and star schema presets are built in, any other convention is a few lines of YAML.
+Warehouses built with dbt rarely declare foreign keys, so database tools draw tables with no links between them. `dbtscope` reads the dbt **manifest** instead: every `relationships` test (and every `foreign_key` constraint of a model contract) becomes a relation, drawn as a link. Which models are drawn, how they are coloured and how they are grouped is driven by naming conventions, tags, paths or schemas — Data Vault and star schema presets are built in, any other convention is a few lines of YAML. A large project stays readable: satellites fold into their entity, source systems sit apart, routes between domains are curved and the strongest are drawn first, optional summary cards replace the stars from afar, and a large group opens in the detail as a skeleton.
 
-![The universe of the example project: seven domains, their tables by layer, and the routes between domains](docs/images/universe-overview.png)
+![The universe of the example project: seven domains, their tables by layer with the satellites folded into their hubs, and the routes between domains](docs/images/universe-overview.png)
 
 ## Quick start
 
@@ -44,7 +44,7 @@ The page itself is tested in headless Chromium (`tests/browser/`, marker `browse
 
 The example project `examples/acme_retail/` is also a test input: its `dbt parse` manifest is committed in `tests/fixtures/acme_retail/`, and a check against a fresh `dbt parse` runs when `DBTSCOPE_DBT` names a dbt with dbt-duckdb (D-033).
 
-How the code is built (the run, the layers and their allowed imports, the responsibility map): [`docs/architecture.md`](docs/architecture.md). Why: [`docs/decisions.md`](docs/decisions.md). CI runs on Ubuntu, Windows and macOS (D-043, D-044, `.github/workflows/ci.yml`).
+How the code is built (the run, the layers and their allowed imports, the responsibility map): [`docs/architecture.md`](docs/architecture.md). Why: [`docs/decisions.md`](docs/decisions.md). The CI is local (`uv run python tools/ci.py`, run by the pre-push hook); the GitHub workflow only runs when started by hand (D-053).
 
 ### Working with Claude Code
 
