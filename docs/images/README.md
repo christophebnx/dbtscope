@@ -36,6 +36,8 @@ The M6.1 images were taken this way by a Playwright script and a Pillow script k
 
 All ten were taken the same way on 2026-11-15 (after M8: roles, entities, summary cards off by default, source systems and routes, the detail skeleton), by scripts kept in the session scratchpad. The Playwright states: `universe-domain.png` ticks `keys` in the Tables select, then double-clicks an empty spot of the Sales disc, then moves the pointer off the canvas so that no tooltip shows; `trajectory.png` and `flow.png` fill `#u-q`, click `#u-traj` (direction `both`, depth `dall`), **Fit**, then **Flow** and its **Fit**; the detail images pick the group, untick kinds through the panel, click **Fit** and use `mouse.wheel` (100 per step) over the diagram; no image shows a tooltip or a hover state. Images taken with a quantised palette: `universe-domain`, `trajectory`, `large-overview`, `large-detail-skeleton`; the others are lossless.
 
+Nine of the ten were retaken again on 2026-11-15 with the page of D-082 (counts lines that wrap, constellation labels kept inside the canvas and off neighbouring discs, labels on a halo over the routes, room for the source-system labels, Fit framed below the trajectory bar), same states and scripts; `flow.png` was pixel-identical and kept. Approval of the retake: pending (user).
+
 ## The large project
 
 `large-*.png` come from the generated project of `tests/large_project.py` (1,419 tables, 7 source systems, 5 business domains, its own `dbt-erd.yml` with `LARGE_CONFIG`, no `universe.cards`, so the cards are off at opening). Build and open it like this (the writer, `write_large_project(folder)`, is run from `tests/` because it imports `conftest`):
