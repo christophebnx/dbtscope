@@ -53,7 +53,7 @@ UNIVERSE = UniversePayload(
         (UNIVERSE.domains[0], ["key", "label", "color", "owner", "system"]),
         (UNIVERSE.layers[0], ["key", "label"]),
         (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold", "cards"]),
+        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold", "cards", "routes"]),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -96,8 +96,8 @@ def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
 
 def test_cards_default_to_false_and_are_the_last_universe_default() -> None:
     defaults = UniverseDefaults(links="both", detail="names", hidden_kinds=())
-    assert defaults.cards is False and list(defaults.model_dump())[-1] == "cards"
-    assert embedded_json(UNIVERSE).count(',"fold":true,"cards":false}') == 1
+    assert defaults.cards is False and list(defaults.model_dump())[-2:] == ["cards", "routes"]
+    assert embedded_json(UNIVERSE).count(',"fold":true,"cards":false,"routes":true}') == 1
 
 
 def test_payloads_are_closed_and_immutable() -> None:

@@ -135,7 +135,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Refresh the vendored libraries | `tools/vendor_libraries.py` |
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Which tables are folded now, held by an entity, drawn (page, D-063) | `render/assets/universe.js` `PARENT`, `HELD`, `wouldFold`, the passing / folded-now / drawn sets (`pass`, `FOLDNOW`, `visible`) |
-| A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`, `cardsMemory`, `dbtscope-cards:<title>`, D-081; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
+| A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`, `cardsMemory`, `dbtscope-cards:<title>`, D-081; `routesMemory`, `dbtscope-routes:<title>`, D-083; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
 | The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
 | Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
 | Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `stack`, `sizeOf`, `gridShown`, `SK` |
@@ -194,6 +194,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Business domains' columns along the data flow from the directed routes (page, D-070) | `render/assets/universe.js flowColumns`, `byFlow` (over `common.js flowRanks`; `FLOW_X_BUSINESS`) |
 | Routes between constellations: counts (relations, lineage, Links value), direction, path around the others, ends on the outlines, arrowheads (page, D-071) | `render/assets/universe.js routePairs`, `routePath`, `pathBetween`, `routeLine` (clip; replaces the straight M8.3 route), `drawRoutes`, `headAt` with `arrowAt` |
 | Which routes are drawn by default; bundling of the source systems' routes; their tooltip (page, D-071) | `render/assets/universe.js strongOf` (`ROUTES_PER`), `bundleRoutes`, `routeView`, `routeAt`, `routeTip`, `routeWords` |
+| Whether routes are drawn: the viewer's switch, default from `universe.routes` (page, D-083) | `render/assets/universe.js state.routes`, `routesMemory`, combined with the zoom rule only by `routesDrawn` |
 | The constellation whose routes are spotlit (page, D-071) | `render/assets/universe.js spot`, `routeView` |
 | The source-systems group card: members, bounding box, rows; its text (page, D-069) | `render/assets/universe.js systemsGroup`, `cardPlans`, `cardOwners`, `renderSummaryText` |
 | Trajectory seen from afar: counts per card, edges aggregated per pair of constellations (page, D-066) | `render/assets/universe.js trajSummary`, `cardMark`, `drawTrajectoryArrows` |
@@ -271,7 +272,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
 | The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-048) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. |
 | A domain made only of technical tables, or so declared (universe, M8.4, D-068) | **source system** (`UniverseDomain.system`, `DomainRule.system`, `is_source_system`, `SYS`; French UI: système source); its opposite in the panel is **business domain** (French UI: domaine métier) | raw domain, source domain, landing | |
-| What the universe draws between two constellations for the links between their tables (M8.4, D-071) | **route** (`routes`, `routePath`, `routeLine`; French UI: route); a route is **directed** when its lineage mostly flows one way, its downstream end being the **reader** | edge, arc, connection | |
+| What the universe draws between two constellations for the links between their tables (M8.4, D-071) | **route** (`routes`, `routePath`, `routeLine`; French UI: route); a route is **directed** when its lineage mostly flows one way, its downstream end being the **reader**; optional, on by default (D-083) | edge, arc, connection | |
 | The constellation whose routes are all drawn while the others dim (M8.4) | **spotlight** (`spot`) | highlight, focus | Internal word; not in the UI. |
 | Position along the data flow | **layer** | stage, level | "level" is the trajectory depth. |
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |

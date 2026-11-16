@@ -321,7 +321,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (297 kB)
+  page:     opens on universe, en, libraries from CDNs (299 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -445,7 +445,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (300 kB)
+  page:     opens on universe, en, libraries from CDNs (302 kB)
   config:   none (built-in defaults)
 ```
 
@@ -550,7 +550,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (297 kB)
+  page:     opens on universe, en, libraries from CDNs (299 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -639,6 +639,7 @@ universe:
   constellations: domains     # domains | layers: grouping at opening, switchable in the page (domains below two layers)
   fold: true                  # true | false: descriptive tables drawn inside their parent at opening, switchable in the page
   cards: false                # true | false: summary cards when zooming out, at opening, switchable in the page (off by default)
+  routes: true                # true | false: draw the routes between constellations, switchable in the page (on by default)
 ```
 
 `kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
@@ -663,7 +664,7 @@ When several rules share a key (one per schema of a domain), write `system` once
 
 ### Checks and errors
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline`, `universe.fold` and `universe.cards` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline`, `universe.fold`, `universe.cards` and `universe.routes` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
 
 ### Walkthrough: the example's dbt-erd.yml
 
@@ -787,7 +788,8 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - **Constellations**: **Domains** (one constellation per domain, the default) or **Layers** (one constellation per layer, left to right along the data flow, with the tables of each domain in a band tinted in the domain's colour). The switch heads the side panel; it is hidden when the project has fewer than two layers. The default is `universe.constellations`; the page remembers each viewer's last choice in the browser (`dbtscope-constellations:<title>`, kept by **Reset layout**, never exported), and keeps a separate manual arrangement for each grouping.
 - **Entities**: one checkbox, **Fold** and the descriptive kinds that fold (`Fold Satellite · PIT`), with the number of tables that have a parent. It sits under **Constellations** and only exists when at least one table has a parent. Ticked, descriptive tables are folded; unticked, every table is a star of its own. The default is `universe.fold`; the page remembers each viewer's last choice in the browser (`dbtscope-fold:<title>`, kept by **Reset layout**, never exported).
 - **Summary cards**: a checkbox under **Tables**, always there, unticked by default: ticked, zooming out turns each constellation into a [summary card](#summary-cards). The default is `universe.cards`; the page remembers each viewer's choice in the browser (`dbtscope-cards:<title>`, written only when it differs from the default, kept by **Reset layout**, never exported). Ticking or unticking redraws at once: no layout, the camera does not move. In French the box reads **Fiches de synthèse**.
-- **Show all routes**: a checkbox under **Links**, there only while the page hides some routes; see [Source systems and routes](#source-systems-and-routes).
+- **Routes between constellations**: a checkbox under **Links**, ticked by default (French **Routes entre constellations**): unticked, no route or arrow is drawn at any zoom, no route tooltip, hovering a constellation dims nothing, and **Show all routes** disappears; the map and camera do not move, the text summary keeps the routes. The default is `universe.routes`; the page remembers each viewer's choice (`dbtscope-routes:<title>`, written only when it differs from the default, kept by **Reset layout**, never exported).
+- **Show all routes**: a checkbox under **Routes between constellations**, there only while the page hides some routes; see [Source systems and routes](#source-systems-and-routes).
 - **Side panel**: tick **Layers**, **Types** (the kinds, core kinds first, then connectors, descriptive, technical and the others) and **Domains** on and off, with "all" and "none" for domains. With source systems the list is two: **Business domains** and **Source systems**, each with its own "all" and "none". All layers are shown by default; `universe.hidden_kinds` unticks kinds at opening.
 - The count line above the map says how many tables, links and domains are shown, and, while the descriptive tables are folded, how many entities. Folding never lowers a count: the tables, the links, the numbers under each domain name and the bars count every table that passes the filters, folded ones included.
 

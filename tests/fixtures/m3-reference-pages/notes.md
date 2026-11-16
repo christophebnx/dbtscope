@@ -45,3 +45,9 @@ M8.6 (summary cards optional, D-081): every case gains `"cards":false` at the en
 (`…,"fold":true,"cards":false}`); the old and new payloads are equal once that key is removed (checked
 before regenerating, all ten cases, one occurrence each). Every page changes by the scripts (`universe.js`) and
 the markup of the **Summary cards** row (`page.html`); `page.css` is unchanged.
+
+M8.7 (routes optional, D-083): every case gains `"routes":true` at the end of the universe defaults
+(`…,"cards":false,"routes":true}`); the old and new payloads are equal once that key is removed (checked
+before regenerating, all eight CDN cases, one occurrence each; the offline cases embed their twin's block).
+Every page changes by the script (`universe.js`) and the markup of the **Routes between constellations** row
+(`page.html`); `page.css` is unchanged.
