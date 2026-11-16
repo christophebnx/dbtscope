@@ -24,6 +24,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           openedLive: (t, p) => `${t} is folded into ${p}: shown`,
           foldLiveOn: n => `Descriptive tables folded${L.colon}${n}`,
           cards: 'Summary cards', cardsTitle: 'From afar, draw each constellation as a card: its counts by layer and its main tables',
+          routesSwitch: 'Routes between constellations', routesSwitchTitle: 'Draw the arrows that sum up the links between constellations',
+          routesLiveOn: 'Routes shown', routesLiveOff: 'Routes hidden: their list stays in the text summary',
           cardsLiveOn: 'Summary cards on: they replace the stars from afar', cardsLiveOff: 'Summary cards off: stars at every zoom',
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
@@ -58,6 +60,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
           foldLiveOn: n => `Tables descriptives repliées${L.colon}${n}`,
           cards: 'Fiches de synthèse', cardsTitle: 'De loin, dessiner chaque constellation comme une fiche\u00a0: ses effectifs par couche et ses tables principales',
+          routesSwitch: 'Routes entre constellations', routesSwitchTitle: 'Dessiner les flèches qui résument les liens entre constellations',
+          routesLiveOn: 'Routes affichées', routesLiveOff: 'Routes masquées\u00a0: leur liste reste dans la synthèse textuelle',
           cardsLiveOn: 'Fiches de synthèse activées\u00a0: elles remplacent les étoiles de loin', cardsLiveOff: 'Fiches de synthèse désactivées\u00a0: des étoiles à tous les zooms',
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
@@ -109,6 +113,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const COUNT = { domain: counts('domain'), layer: counts('layer'), kind: counts('kind') };
   const byMemory = viewerMemory('dbtscope-constellations', ['domains', 'layers']);
   const foldMemory = viewerMemory('dbtscope-fold', ['folded', 'shown']);
+  const routesMemory = viewerMemory('dbtscope-routes', ['on', 'off']);   // D-083: the viewer's routes switch
   const cardsMemory = viewerMemory('dbtscope-cards', ['on', 'off']);   // D-081: the viewer's summary cards switch
   // Entities (D-062, D-063): the parent of a descriptive table is computed in Python (`n.parent`, an id);
   // PARENT[i] is its index or -1. Without any parent nothing below changes the page.
@@ -129,6 +134,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     links: DATA.defaults.links, detail: DATA.defaults.detail,
     by: CAN_BY ? byMemory.get() || DEFAULT_BY : 'domains',
     fold: CAN_FOLD && (foldMemory.get() ? foldMemory.get() === 'folded' : DATA.defaults.fold),
+    routes: routesMemory.get() ? routesMemory.get() === 'on' : DATA.defaults.routes,
     cards: cardsMemory.get() ? cardsMemory.get() === 'on' : DATA.defaults.cards,
   };
   const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
@@ -196,6 +202,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('sys-all').setAttribute('aria-label', T.allSystems); $u('sys-none').setAttribute('aria-label', T.noneSystems);
   }
   $u('routes-label').textContent = T.allRoutes;
+  // the routes switch (D-083): no layout, no camera move; routesDrawn is the one place that combines it with the zoom rule (the routes row and the test hook also read it)
+  $u('routes-on-label').textContent = T.routesSwitch; $u('routes-on-row').title = T.routesSwitchTitle; $u('routes-on-box').checked = state.routes;
+  $u('routes-on-box').onchange = ev => {
+    state.routes = ev.target.checked; spot = null; tip.style.display = 'none';
+    routesMemory.set(state.routes ? 'on' : 'off', DATA.defaults.routes ? 'on' : 'off');
+    $u('live').textContent = state.routes ? T.routesLiveOn : T.routesLiveOff;
+    draw();
+  };
   // the summary cards switch (D-081): no layout, no camera move; summaryWeight is the one place that reads it
   $u('cards-label').textContent = T.cards; $u('cards-row').title = T.cardsTitle; $u('cards-box').checked = state.cards;
   $u('cards-box').onchange = ev => {
@@ -956,6 +970,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return new Set(list.filter(r => (systems(r).length ? systems(r).every(k => chosen.get(k).has(r))
       : r.c >= floor(r.source) || r.c >= floor(r.target))));
   }
+  // are routes drawn at zoom k and summary weight a: the viewer's switch, then from afar or with the cards (D-071, D-083)
+  const routesDrawn = (k, a) => state.routes && (k < 0.6 || a >= 0.02);
   // What the frame draws of the routes at summary weight a: the sets (with their alpha), the one the pointer and the
   // counts act on, the spotlight and the constellations it keeps lit
   function routeView(a, routesOn) {
@@ -1009,7 +1025,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
   // the "Show all routes" row: there only while some set hides a route; its count is the current set's routes
   function syncRoutesRow(view) {
-    const hide = !view.hides, row = $u('routes-row');
+    const hide = !view.hides || !state.routes, row = $u('routes-row');
     if (row.hidden !== hide) row.hidden = hide;
     $u('routes-n').textContent = num(view.cur.list.length);
   }
@@ -1091,7 +1107,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     if (onScreen) { summaryHits = []; cardInfo = []; routeHits = []; }
     // the crossfade (D-065): stars, links, names and halos at 1 - a, the summary cards at a, one rule for the universe
-    const a = summaryWeight(k), cardsOn = a >= 0.02, starsOn = a <= 0.98, routesOn = k < 0.6 || cardsOn;
+    const a = summaryWeight(k), cardsOn = a >= 0.02, starsOn = a <= 0.98, routesOn = routesDrawn(k, a);
     fade = 1 - a;
     const view = routeView(a, routesOn), grp = view.rm.grp;
     if (onScreen) {
@@ -1105,10 +1121,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       // the title always holds the whole line
       const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables), ...entities];
       const text = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
+      // the routes form of the meta line keeps its reserved height while routes are off: no resize (D-082)
       $u('meta').title = [...counts, links, groups, ...hidden].join(' · ');
       const most = Math.max(0, ...view.sets.map(s => s.list.length));   // a project without routes never shows the entry
       setMeta(text, [[...counts, links, groups], ...(most ? [[...counts, groups, T.routesOf(most, most)]] : [])].map(f => f.join(' · ')));
       lastView = view; syncRoutesRow(view);
+      $u('routes-on-row').hidden = !routes.length;   // a page without any route pair has no switch
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -2088,7 +2106,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
                                   w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: R[n.i],
                                   held: (HELD.get(n.i) || []).map(i => N[i].id) })),
       edges: edges.map(([a, b]) => [N[a].id, N[b].id]),
-      routes: routeGeometry(), outlines: outlineGeometry(),
+      routes: routeGeometry(), routesOn: state.routes, spotlight: { spot, lit: lastView ? lastView.sp : null }, outlines: outlineGeometry(),
       constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r, n: d.n, mix: d.mix,
                                    bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })),
       summary: summaryGeometry(), systems: systemsGeometry() };
@@ -2097,9 +2115,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // whether the frame draws it, whether its path clears every other constellation, and its path clipped at the outlines
   // of its ends (world points), for the tests
   function routeGeometry() {
-    const a = summaryWeight(t.k), view = routeView(a, t.k < 0.6 || a >= 0.02), rm = view.rm, plans = a >= 0.02 ? cardPlans(rm.grp, rm) : new Map();
+    const a = summaryWeight(t.k), view = routeView(a, routesDrawn(t.k, a)), rm = view.rm, plans = a >= 0.02 ? cardPlans(rm.grp, rm) : new Map();
     return view.cur.list.map(r => ({ a: r.source, b: r.target, rel: r.rel, lin: r.lin, c: r.c, dir: r.dir, bundled: !!r.bundled,
-      drawn: view.sp ? r.source === view.sp || r.target === view.sp : view.cur.shown.includes(r), clear: pathOf(r).clear,
+      drawn: state.routes && (view.sp ? r.source === view.sp || r.target === view.sp : view.cur.shown.includes(r)), clear: pathOf(r).clear,
       pts: routeLine(pathOf(r).pts, outlineOf(r.source, rm, plans), outlineOf(r.target, rm, plans), a) || [] }));
   }
   // the outline each drawn constellation has now: its disc below half weight, its card rectangle (world px) above;

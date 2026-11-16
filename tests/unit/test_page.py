@@ -229,6 +229,12 @@ def test_the_universe_panel_has_the_source_systems_list_and_the_all_routes_row()
     heading = re.search(r'<h3 id="u-systems-h">(.*?)</h3>', panel, re.S)
     assert heading is not None
     assert 'id="u-sys-all"' in heading.group(1) and 'id="u-sys-none"' in heading.group(1)
+    assert re.search(
+        r'<select id="u-links"[^>]*></select>\s*<label id="u-routes-on-row" hidden>'
+        r'<input type="checkbox" id="u-routes-on-box"><span id="u-routes-on-label"></span></label>\s*'
+        r'<label id="u-routes-row"',
+        panel,
+    )
     assert panel.index('id="u-links"') < panel.index('id="u-routes-row"') < panel.index('id="u-h-detail"')
     assert re.search(
         r'<select id="u-detail"[^>]*></select>\s*<label id="u-cards-row">'

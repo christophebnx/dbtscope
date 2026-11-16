@@ -34,6 +34,7 @@
       constellations: domains     # domains | layers
       fold: true                  # draw descriptive tables inside the table they describe (D-062, D-063)
       cards: false                # from afar, draw each constellation as a summary card (D-065, D-081)
+      routes: true                # draw the routes between constellations (D-071, D-083)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
@@ -177,6 +178,7 @@ class UniverseSettings(BaseModel):
     constellations: Constellations = "domains"
     fold: StrictBool = True
     cards: StrictBool = False
+    routes: StrictBool = True
 
 
 class Config(BaseModel):

@@ -42,6 +42,24 @@ def test_a_non_boolean_cards_is_a_one_line_error(value: Any) -> None:
         check_preset({"universe": {"cards": value}})
 
 
+def test_routes_default_to_true_and_are_a_strict_boolean_allowed_in_presets() -> None:
+    assert merge_config({}, {}).universe.routes is True
+    assert merge_config({}, {"universe": {"routes": False}}).universe.routes is False
+    preset = {"universe": {"routes": False}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {}).universe.routes is False
+    assert merge_config(preset, {"universe": {"routes": True}}).universe.routes is True
+
+
+@pytest.mark.parametrize("value", ["maybe", 0, "yes", None])
+def test_a_non_boolean_routes_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(ConfigError, match=r"^universe\.routes: ") as info:
+        merge_config({}, {"universe": {"routes": value}})
+    assert "\n" not in str(info.value)
+    with pytest.raises(ConfigError, match=r"^universe\.routes: "):
+        check_preset({"universe": {"routes": value}})
+
+
 def test_constellations_default_to_domains_and_accept_layers() -> None:
     assert merge_config({}, {}).universe.constellations == "domains"
     assert merge_config({}, {"universe": {"constellations": "layers"}}).universe.constellations == "layers"
