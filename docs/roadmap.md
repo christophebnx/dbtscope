@@ -267,6 +267,18 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
+## M9 — Drill-down navigation, UI coherence, printable schema sheets
+
+Brief: `docs/briefs/2026-11-17-visualization-optimization.md` (read it in full, with the UI review `docs/briefs/2026-11-17-ui-review.md` it builds on). Asked by the user on 2026-11-17 after showing the page on the real OpenLane Data Vault: the universe is not clear on 1,474 tables (no drill-down, no sense of place), and Thomas asks for a navigable, printable 3NF-style schema view (up to a wall poster). Scope decided with the user the same day (brief § 3): renaming approved, entering a domain relayouts it full screen, single click opens a table panel, the schema view is a third tab, printing goes through a paged print document. Audience: data engineers, data analysts, data architects. Five sub-milestones, each through `/feature`, in this order:
+
+- **M9.1 — UI coherence.** The review's fix-list: renaming in the audience's words (Lineage, Dependencies between domains, Table kind, one "Show" wording), the universe panel regrouped Navigate / Display / Filters, accessibility and small defects, a way back from the Detail tab.
+- **M9.2 — Drill-down.** Map landing on large projects, entering a domain (full-screen relayout, layer headers, links only on hover or selection), a breadcrumb with `Esc` stepping back one level, keyboard path.
+- **M9.3 — Table panel.** Single click on a table opens a side panel (columns, description, clickable relations, Open in Detail, Lineage); supersedes click-starts-trajectory (D-018).
+- **M9.4 — Schema tab.** 3NF-style sheets on a swimlane grid (layers × domains), scroll-first navigation, minimap, inter-lane relation summaries on large scopes.
+- **M9.5 — Print.** Paper model with a minimum font size and an announced physical size, one-sheet poster output, tiled A4/A3 sheets with crop marks, coordinates and an index page.
+
+Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
+
 ## Later (not scheduled)
 
 - Documentation round after M8 (user, 2026-11-13) (done, 2026-11-15; screenshot approval pending): the ten screenshots of `docs/images/` retaken (acme_retail and the large generated project; three new `large-*` images), a pass over the user guide and how it works.
