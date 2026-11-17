@@ -26,6 +26,7 @@ const STRINGS = {
         foldRow: 'Draw inside their table', foldKinds: names => `Draw ${names} inside their table`,
         foldLiveOff: 'Descriptive tables shown',
         foldTitle: 'Draws these tables inside the table they describe; a table and its descriptions read as one entity',
+        levelNames: 'names', levelKeys: 'key columns', levelAll: 'all columns',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
@@ -48,6 +49,7 @@ const STRINGS = {
         foldRow: 'Dessiner dans leur table', foldKinds: names => `Dessiner ${names} dans leur table`,
         foldLiveOff: 'Tables descriptives affichées',
         foldTitle: 'Dessine ces tables dans la table qu\'elles décrivent\u00a0: une table et ses descriptions forment une entité',
+        levelNames: 'noms', levelKeys: 'colonnes clés', levelAll: 'toutes les colonnes',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
@@ -258,6 +260,20 @@ function detailIndex(detail) {
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
 
+// The three Show levels of the universe and the Schema tab, as [value, label] pairs for fillSelect (D-084).
+const LEVELS = () => [['names', L.levelNames], ['keys', L.levelKeys], ['all', L.levelAll]];
+
+// The domains of a payload in the page's order (D-068, D-092): business domains first, then the source systems (set apart
+// only while some domain is not one), each in payload order. Pure; the one place that orders domains for a panel, the
+// layer bands, the card rows and the Schema's rows. -> { systems: Set(keys), hasSystems, business, systemList, list }
+function domainOrder(universe) {
+  const systems = new Set(universe.domains.filter(d => d.system).map(d => d.key));
+  const hasSystems = systems.size > 0 && systems.size < universe.domains.length;
+  const business = universe.domains.filter(d => !hasSystems || !systems.has(d.key));
+  const systemList = universe.domains.filter(d => hasSystems && systems.has(d.key));
+  return { systems, hasSystems, business, systemList, list: [...business, ...systemList] };
+}
+
 // Folded tables a tooltip lists before "+ N": the one limit of the universe's entity tooltip and the detail's.
 const TIP_FOLDED = 12;
 
@@ -408,6 +424,106 @@ function flowRanks(members, edges, layerOf) {
   return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
 }
 
+// ---------------------------------------------------------------- grid dealing (D-074, D-092)
+// Tables dealt over a grid of K columns in pairs [hubs | links], as the detail's skeleton and the Schema's cells draw them.
+// Pure and deterministic. tables: [{id, name}]; rels: [{child, parent}] among them; size: Map(id -> [w, h]);
+// opts: { gap, gutter, minAspect, maxAspect, sweeps, scan }; fit: { aspect } (the P whose width / height is nearest the aspect,
+// clamped to [minAspect, maxAspect], ties to the smaller P) or { height } (the smallest P whose tallest column is at most
+// the height, the largest scanned P when none is). The referenced tables (hubs) are dealt over the hub columns in a snake
+// by degree, each referencing table goes to the link column beside its first (highest-degree) parent, then barycentre
+// sweeps order the rows and `stackColumn` aligns them. -> { K, rows: ids of each column top to bottom, widths, height,
+// y: id -> centre y (down, from 0), size }
+function gridDeal(tables, rels, size, fit, opts) {
+  const byNameId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const byId = new Map(tables.map(e => [e.id, e]));
+  const degree = new Map(tables.map(e => [e.id, 0])), parentsOf = new Map(tables.map(e => [e.id, []]));
+  const near = new Map(tables.map(e => [e.id, []]));
+  rels.forEach(r => {
+    degree.set(r.child, degree.get(r.child) + 1); degree.set(r.parent, degree.get(r.parent) + 1);
+    parentsOf.get(r.child).push(r.parent); near.get(r.child).push(r.parent); near.get(r.parent).push(r.child);
+  });
+  const byDegree = (a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b);
+  const asChild = new Set(rels.map(r => r.child));
+  let hubs = tables.filter(e => !asChild.has(e.id)).sort(byDegree), links = tables.filter(e => asChild.has(e.id)).sort(byNameId);
+  if (!hubs.length) [hubs, links] = [links.sort(byDegree), []];   // only cycles: no side to tell
+  const paired = links.length > 0;
+  for (const ps of parentsOf.values()) ps.sort((a, b) => byDegree(byId.get(a), byId.get(b)));
+  const target = Math.log(Math.min(opts.maxAspect, Math.max(opts.minAspect, fit.aspect || 1.6)));
+  // P pairs [hubs | links] (P plain columns of hubs when nothing references a table)
+  function deal(P) {
+    const K = paired ? 2 * P : P, rows = Array.from({ length: K }, () => []), pair = new Map();
+    const heights = new Array(K).fill(0), widths = new Array(K).fill(0), col = new Map();
+    const put = (e, c) => {
+      const [w, h] = size.get(e.id);
+      col.set(e.id, c); rows[c].push(e.id); heights[c] += h + opts.gap; widths[c] = Math.max(widths[c], w);
+    };
+    hubs.forEach((e, i) => {   // the highest degrees first, dealt in a snake: 0..P-1, P-1..0, 0..P-1...
+      const p = Math.floor(i / P) % 2 ? P - 1 - i % P : i % P;
+      pair.set(e.id, p); put(e, paired ? 2 * p : p);
+    });
+    let pending = links;
+    while (pending.length) {
+      const rest = pending.filter(e => {
+        const anchor = parentsOf.get(e.id)[0];
+        if (!pair.has(anchor)) return true;
+        pair.set(e.id, pair.get(anchor)); put(e, 2 * pair.get(anchor) + 1);
+        return false;
+      });
+      if (rest.length === pending.length) {   // a cycle of links: the first one goes to the shortest link column
+        const c = [...Array(P).keys()].reduce((a, b) => (heights[2 * b + 1] < heights[2 * a + 1] ? b : a));
+        pair.set(rest[0].id, c); put(rest[0], 2 * c + 1); rest.shift();
+      }
+      pending = rest;
+    }
+    const w = widths.reduce((x, y) => x + y, 0) + (K - 1) * opts.gutter, tall = Math.max(1, ...heights) - opts.gap;
+    return { K, rows, col, widths, ratio: w / Math.max(1, ...heights), tall };
+  }
+  let best = null;
+  const most = paired ? Math.min(hubs.length, opts.scan / 2) : Math.min(hubs.length, opts.scan);
+  for (let P = 1; P <= most; P++) {
+    const d = deal(P);
+    if (fit.height !== undefined) {   // the smallest P that fits the height; else the last one scanned
+      best = d;
+      if (d.tall <= fit.height) break;
+    } else {
+      const score = Math.abs(Math.log(d.ratio) - target);
+      if (!best || score < best.score - 1e-9) best = { ...d, score };
+    }
+  }
+  if (!best) return { K: 0, rows: [], widths: [], height: 0, y: new Map(), size };
+  // the centre y of the tables of a column, in this order, as near as possible to `want` while keeping their gaps
+  // (pool adjacent violators: the least squares fit of non-decreasing offsets)
+  function stackColumn(ids, want) {
+    const off = ids.map(() => 0), blocks = [];
+    for (let i = 1; i < ids.length; i++) off[i] = off[i - 1] + (size.get(ids[i - 1])[1] + size.get(ids[i])[1]) / 2 + opts.gap;
+    ids.forEach((id, i) => {
+      blocks.push({ sum: want[i] - off[i], n: 1 });
+      while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
+        const top = blocks.pop(), under = blocks[blocks.length - 1];
+        under.sum += top.sum; under.n += top.n;
+      }
+    });
+    return blocks.flatMap(bl => Array.from({ length: bl.n }, () => bl.sum / bl.n)).map((v, i) => v + off[i]);
+  }
+  // the rows: every column packed and centred on 0, then barycentre sweeps: the hubs by the mean y of the tables
+  // across their relations, then the links by the mean y of theirs, each column stacked as near as it can to its
+  // wish; the last step settles the links on their hubs, so a long relation runs in the gap between rows
+  const y = new Map(), rows = best.rows;
+  const settle = (c, order, want) => { rows[c] = order; stackColumn(order, order.map(want)).forEach((v, i) => y.set(order[i], v)); };
+  rows.forEach((ids, c) => settle(c, ids, () => 0));
+  const wish = (c, id) => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => y.get(n)) : y.get(id); };
+  const sweep = cols => cols.forEach(c => {
+    const keyed = rows[c].map(id => [wish(c, id), id]).sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1));
+    settle(c, keyed.map(k => k[1]), id => wish(c, id));
+  });
+  const side = first => rows.map((r, c) => c).filter(c => !paired || c % 2 === first);
+  for (let i = 0; i < opts.sweeps; i++) { sweep(side(0)); if (paired) sweep(side(1)); }
+  const top = Math.min(...tables.map(e => y.get(e.id) - size.get(e.id)[1] / 2));
+  const bottom = Math.max(...tables.map(e => y.get(e.id) + size.get(e.id)[1] / 2));
+  tables.forEach(e => y.set(e.id, y.get(e.id) - top));
+  return { K: best.K, rows, widths: best.widths, height: bottom - top, y, size };
+}
+
 // ---------------------------------------------------------------- Graphviz views (detail, flow)
 // The one DOT-string escaper: ids and quoted strings of a DOT text.
 const dotStr = s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n');
@@ -438,8 +554,22 @@ const ZOOM_EXTENT = [0.01, 12];
 // are cancelled and scale the d3 zoom around the pointer, by the ratio of the gesture scale between two
 // events, through the zoom behaviour (D-045). A touch pinch (iPad Safari fires gesture events with it)
 // is left to d3's touch handling: the gestures only stop the page zoom while fingers are down.
-function zoomOn(sel, zoom) {
+// opts.scroll (the Schema tab, D-093): a wheel scrolls instead of zooming, Shift turning a vertical wheel into a horizontal
+// one; only ctrl+wheel (a trackpad pinch in Chromium, Firefox and Edge) reaches d3's zoom. Every move is still the d3 zoom's.
+function zoomOn(sel, zoom, opts = {}) {
   let last = 1, touches = 0;
+  if (opts.scroll) {
+    zoom.filter(ev => (ev.type === 'wheel' ? ev.ctrlKey : !ev.ctrlKey && !ev.button));
+    sel.on('wheel.scroll', ev => {
+      if (ev.ctrlKey) return;   // a zoom: d3's own wheel handler
+      ev.preventDefault();
+      const node = sel.node(), unit = ev.deltaMode === 1 ? 16 : 1, k = d3.zoomTransform(node).k;
+      let dx = ev.deltaX * unit, dy = ev.deltaY * unit;
+      if (ev.deltaMode === 2) { dx = ev.deltaX * node.clientWidth; dy = ev.deltaY * node.clientHeight; }
+      if (ev.shiftKey && !dx) [dx, dy] = [dy, 0];
+      zoom.translateBy(sel, -dx / k, -dy / k);
+    }, { passive: false });
+  }
   // in the capture phase: a d3.drag or d3.zoom touch handler on the same element stops the later ones
   sel.on('touchstart.gesture touchmove.gesture touchend.gesture', ev => { touches = ev.touches.length; }, true)
     .on('touchcancel.gesture', () => { touches = 0; }, true);
@@ -481,12 +611,14 @@ function graphZoom(box, svg, isCurrent, onZoom) {
   });
 }
 // The zoom of a mounted Graphviz diagram (see graphZoom).
-function zoomHandle(box, layer, size, onZoom) {
+// opts is passed to zoomOn; with opts.scroll the translation is limited to the drawing grown by one box on each side.
+function zoomHandle(box, layer, size, onZoom, opts) {
   const [w, h] = size, sel = d3.select(box);
   const fitScale = () => Math.min(box.clientWidth / w, box.clientHeight / h);
   const zoom = d3.zoom().scaleExtent([Math.min(ZOOM_EXTENT[0], fitScale()), ZOOM_EXTENT[1]]).clickDistance(3)
     .on('zoom', ev => { layer.setAttribute('transform', ev.transform); if (onZoom) onZoom(ev.transform); });
-  zoomOn(sel, zoom);
+  if (opts && opts.scroll) zoom.translateExtent([[-box.clientWidth, -box.clientHeight], [w + box.clientWidth, h + box.clientHeight]]);
+  zoomOn(sel, zoom, opts);
   const set = ({ x, y, k }) => zoom.transform(sel, d3.zoomIdentity.translate(x, y).scale(k));
   const zv = {
     layer,
@@ -504,7 +636,7 @@ function zoomHandle(box, layer, size, onZoom) {
       const [px, py] = t.invert([rect.left + rect.width / 2 - b.left, rect.top + rect.height / 2 - b.top]);
       set({ x: box.clientWidth / 2 - px * s, y: box.clientHeight / 2 - py * s, k: s });
     },
-    destroy() { sel.on('.zoom .gesture', null); },
+    destroy() { sel.on('.zoom .gesture .scroll', null); },
   };
   zv.fit();
   return zv;

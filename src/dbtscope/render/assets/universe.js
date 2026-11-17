@@ -8,7 +8,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
     en: { links: 'Links', relations: 'relations (tests, foreign keys)', lineage: 'lineage (ref, source)', detail: 'Show',
-          names: 'names', keys: 'key columns', all: 'all columns', layers: 'Layers', domains: 'Domains',
+          layers: 'Layers', domains: 'Domains',
           every: 'all', nothing: 'none', search: 'Find a table…', searchLabel: 'Find a table', linksN: ['link', 'links'], owner: 'owner',
           navigate: 'Navigate', display: 'Display', filters: 'Filters', moreDisplay: 'More display options',
           openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
@@ -71,7 +71,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
               + 'double-tap a table: its detail · the location line takes you back',
           cardsLiveOffMap: layers => `Summary cards off: named ${layers ? 'layers' : 'domains'} from afar` },
     fr: { links: 'Liens', relations: 'relations (tests, clés étrangères)', lineage: 'lignage (ref, source)', detail: 'Afficher',
-          names: 'noms', keys: 'colonnes clés', all: 'toutes les colonnes', layers: 'Couches', domains: 'Domaines',
+          layers: 'Couches', domains: 'Domaines',
           every: 'tout', nothing: 'aucun', search: 'Chercher une table…', searchLabel: 'Chercher une table', linksN: ['lien', 'liens'],
           owner: 'propriétaire',
           navigate: 'Naviguer', display: 'Affichage', filters: 'Filtres', moreDisplay: 'Plus d\'options d\'affichage',
@@ -161,10 +161,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const DOM = Object.fromEntries(DATA.domains.map(d => [d.key, d]));
   // Source systems (M8.4, D-068, D-069): the flag is computed in Python. They are set apart only while some domain
   // is not one; the panel order (DOM_POS: layer bands, card rows, the text summary) lists business domains first.
-  const SYS = new Set(DATA.domains.filter(d => d.system).map(d => d.key));
-  const HAS_SYS = SYS.size > 0 && SYS.size < DATA.domains.length;
-  const BUSINESS = DATA.domains.filter(d => !HAS_SYS || !SYS.has(d.key)), SYSTEMS = DATA.domains.filter(d => HAS_SYS && SYS.has(d.key));
-  const DOM_LIST = [...BUSINESS, ...SYSTEMS];   // the panel order: a domain's position is its index here, never in the payload
+  const { systems: SYS, hasSystems: HAS_SYS, business: BUSINESS, systemList: SYSTEMS, list: DOM_LIST } = domainOrder(DATA);   // the panel order: a domain's position is its index in DOM_LIST, never in the payload
   const DOM_POS = Object.fromEntries(DOM_LIST.map((d, i) => [d.key, i]));
   const GROUP = '@systems';   // the key of the source-systems group card (not a domain key in practice)
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
@@ -230,7 +227,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   // a select of string keys, each labelled by the view's T or the shared L
   const options = (el, values, current) => fillSelect(el, values.map(v => [v, v in T ? T[v] : L[v]]), current);
   options($u('links'), ['relations', 'lineage', 'both'], state.links);
-  options($u('detail'), ['names', 'keys', 'all'], state.detail);
+  fillSelect($u('detail'), LEVELS(), state.detail);
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
   $u('detail').onchange = ev => { state.detail = ev.target.value; if (panel) panel.cols = null; relayout(); };
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;

@@ -301,91 +301,12 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
     if (shown.length) w = Math.max(w, ...shown.map(c => (c[0].length + c[1].length) * 7 + 40));
     return [w, h];
   }
-  const byNameId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-  // The centre y of the tables of a column, in this order, as near as possible to `want` while keeping their gaps
-  // (pool adjacent violators: the least squares fit of non-decreasing offsets).
-  function stack(ids, size, want) {
-    const off = ids.map(() => 0), blocks = [];
-    for (let i = 1; i < ids.length; i++) off[i] = off[i - 1] + (size.get(ids[i - 1])[1] + size.get(ids[i])[1]) / 2 + SK.gap;
-    ids.forEach((id, i) => {
-      blocks.push({ sum: want[i] - off[i], n: 1 });
-      while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
-        const top = blocks.pop(), under = blocks[blocks.length - 1];
-        under.sum += top.sum; under.n += top.n;
-      }
-    });
-    return blocks.flatMap(bl => Array.from({ length: bl.n }, () => bl.sum / bl.n)).map((v, i) => v + off[i]);
-  }
   // tables: the drawn entities; rels: the drawn relations. Returns { K, rows: the table ids of each column from top to
-  // bottom, y: id -> centre y (down, from 0), widths, height, size: id -> [w, h] }.
+  // bottom, y: id -> centre y (down, from 0), widths, height, size: id -> [w, h] }: the shared `gridDeal`, for the aspect
+  // of the drawing area.
   function skeletonColumns(tables, rels) {
     const size = new Map(tables.map(e => [e.id, sizeOf(e)]));
-    const degree = new Map(tables.map(e => [e.id, 0])), parentsOf = new Map(tables.map(e => [e.id, []]));
-    const near = new Map(tables.map(e => [e.id, []]));
-    rels.forEach(r => {
-      degree.set(r.child, degree.get(r.child) + 1); degree.set(r.parent, degree.get(r.parent) + 1);
-      parentsOf.get(r.child).push(r.parent); near.get(r.child).push(r.parent); near.get(r.parent).push(r.child);
-    });
-    const byDegree = (a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b);
-    const asChild = new Set(rels.map(r => r.child));
-    let hubs = tables.filter(e => !asChild.has(e.id)).sort(byDegree), links = tables.filter(e => asChild.has(e.id)).sort(byNameId);
-    if (!hubs.length) [hubs, links] = [links.sort(byDegree), []];   // only cycles: no side to tell
-    const paired = links.length > 0;
-    for (const ps of parentsOf.values()) ps.sort((a, b) => byDegree(byId.get(a), byId.get(b)));
-    const target = Math.log(Math.min(SK.maxAspect, Math.max(SK.minAspect, box.clientWidth / Math.max(1, box.clientHeight) || 1.6)));
-    // P pairs [hubs | links] (P plain columns of hubs when nothing references a table)
-    function deal(P) {
-      const K = paired ? 2 * P : P, rows = Array.from({ length: K }, () => []), pair = new Map();
-      const heights = new Array(K).fill(0), widths = new Array(K).fill(0), col = new Map();
-      const put = (e, c) => {
-        const [w, h] = size.get(e.id);
-        col.set(e.id, c); rows[c].push(e.id); heights[c] += h + SK.gap; widths[c] = Math.max(widths[c], w);
-      };
-      hubs.forEach((e, i) => {   // the highest degrees first, dealt in a snake: 0..P-1, P-1..0, 0..P-1...
-        const p = Math.floor(i / P) % 2 ? P - 1 - i % P : i % P;
-        pair.set(e.id, p); put(e, paired ? 2 * p : p);
-      });
-      let pending = links;
-      while (pending.length) {
-        const rest = pending.filter(e => {
-          const anchor = parentsOf.get(e.id)[0];
-          if (!pair.has(anchor)) return true;
-          pair.set(e.id, pair.get(anchor)); put(e, 2 * pair.get(anchor) + 1);
-          return false;
-        });
-        if (rest.length === pending.length) {   // a cycle of links: the first one goes to the shortest link column
-          const c = [...Array(P).keys()].reduce((a, b) => (heights[2 * b + 1] < heights[2 * a + 1] ? b : a));
-          pair.set(rest[0].id, c); put(rest[0], 2 * c + 1); rest.shift();
-        }
-        pending = rest;
-      }
-      const w = widths.reduce((x, y) => x + y, 0) + (K - 1) * SK.gutter;
-      return { K, rows, col, widths, ratio: w / Math.max(1, ...heights) };
-    }
-    let best = null;
-    const most = paired ? Math.min(hubs.length, SK.scan / 2) : Math.min(hubs.length, SK.scan);
-    for (let P = 1; P <= most; P++) {
-      const d = deal(P), score = Math.abs(Math.log(d.ratio) - target);
-      if (!best || score < best.score - 1e-9) best = { ...d, score };
-    }
-    if (!best) return { K: 0, rows: [], widths: [], height: 0, y: new Map(), size };
-    // the rows: every column packed and centred on 0, then barycentre sweeps: the hubs by the mean y of the tables
-    // across their relations, then the links by the mean y of theirs, each column stacked as near as it can to its
-    // wish; the last step settles the links on their hubs, so a long relation runs in the gap between rows
-    const y = new Map(), rows = best.rows;
-    const settle = (c, order, want) => { rows[c] = order; stack(order, size, order.map(want)).forEach((v, i) => y.set(order[i], v)); };
-    rows.forEach((ids, c) => settle(c, ids, () => 0));
-    const wish = (c, id) => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => y.get(n)) : y.get(id); };
-    const sweep = cols => cols.forEach(c => {
-      const keyed = rows[c].map(id => [wish(c, id), id]).sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1));
-      settle(c, keyed.map(k => k[1]), id => wish(c, id));
-    });
-    const side = first => rows.map((r, c) => c).filter(c => !paired || c % 2 === first);
-    for (let i = 0; i < SK.sweeps; i++) { sweep(side(0)); if (paired) sweep(side(1)); }
-    const top = Math.min(...tables.map(e => y.get(e.id) - size.get(e.id)[1] / 2));
-    const bottom = Math.max(...tables.map(e => y.get(e.id) + size.get(e.id)[1] / 2));
-    tables.forEach(e => y.set(e.id, y.get(e.id) - top));
-    return { K: best.K, rows, widths: best.widths, height: bottom - top, y, size };
+    return gridDeal(tables, rels, size, { aspect: box.clientWidth / Math.max(1, box.clientHeight) }, SK);
   }
   // the centre of every table of the grid, in Graphviz points (y up): columns left to right
   function skeletonPositions(grid) {
