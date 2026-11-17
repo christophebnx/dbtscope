@@ -281,11 +281,7 @@ function startFlow(DATA, EXPORT, close) {
       + tableDesc(n)
       + (i === st.start ? '' : `<div class="a">${T.clickFlow}</div>`);
     tip.style.display = 'block';
-    const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
-    let left = x - b.left + 14, top = y - b.top + 14;
-    if (left + w > b.width - 8) left = x - b.left - 14 - w;   // flips left, then up, near the edges
-    if (top + h > b.height - 8) top = y - b.top - 14 - h;
-    tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+    placeTooltip(tip, box, { clientX: x, clientY: y });
   }
   function hideTip() { tip.style.display = 'none'; }
 

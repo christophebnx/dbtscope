@@ -25,7 +25,8 @@ PAGE_BG = "#ffffff"
 SURFACE = "#ffffff"
 ACCENT = "#2f6fb5"
 ACCENT_SOFT = "#e8f0fa"
-EDGE = "#8a8f98"
+EDGE = "#767c86"  # LOOK.edge: 3:1 on white and on a lane tint, full opacity
+CHIP_BORDER = "#8a8f98"
 FG = "#1f2933"
 
 
@@ -978,7 +979,7 @@ def test_the_colours_of_chips_links_and_lanes_reach_their_contrast(
     look = p.page.evaluate(
         "[LOOK.accent, LOOK.accentSoft, LOOK.edge, LOOK.chipBorder, LOOK.surface, LOOK.ink]"
     )
-    assert look == [ACCENT, ACCENT_SOFT, EDGE, EDGE, SURFACE, FG]
+    assert look == [ACCENT, ACCENT_SOFT, EDGE, CHIP_BORDER, SURFACE, FG]
     assert contrast(look[3], SURFACE) >= 3
     # the drawn text of the sheet: types inked against the box tint, head text against the kind colour
     bad = p.page.evaluate(

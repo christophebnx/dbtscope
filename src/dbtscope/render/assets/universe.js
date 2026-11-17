@@ -1556,14 +1556,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   // a "+ N" row), then the main tables (with their heading when three fit under it). Fonts are set on ctx to measure.
   const CARD = { PAD: 5, HEAD: 15, LINE: 12, GAP: 3, ROW: COARSE ? 18 : 14, BAR: 6, BAR_MIN: 24, SEG_MIN: 2, DOT: 7 };
   const HOVER_TINT = 'rgba(31,41,51,.06)';
-  const textW = (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
-  function ellipsis(text, width, font) {
-    if (width < 8) return '';
-    if (textW(text, font) <= width) return text;
-    let s = text;
-    while (s.length > 1 && textW(s + '…', font) > width) s = s.slice(0, -1);
-    return s + '…';
-  }
+  const textW = measure;   // common.js: the one canvas text measure; `ellipsis` is common.js too
   // the corner radius in screen px: 0.4 r, but at most max(28 px, 0.24 r), so that the corners stay within 1.18 r of the
   // centre (the collision radius of the layout) at every zoom and the text can be inset from them
   const cardRadius = w => Math.min(0.4 * w / 1.8, Math.max(28, 0.24 * w / 1.8));
@@ -2073,18 +2066,10 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     }
     return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
   }
-  // The tooltip TIP_GAP px below and right of the pointer; flipped to the left and above where it would leave the stage,
-  // and, when one of the four places is clear of `avoid` (the hovered card, in canvas px), taken in that order
-  const TIP_GAP = 12;
+  // The tooltip (common.js placeTooltip); `avoid` (the hovered card) is in canvas px
   function placeTip(ev, avoid) {
-    const r = stage.getBoundingClientRect(), c = canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
-    const w = tip.offsetWidth, h = tip.offsetHeight, g = TIP_GAP;
-    const fits = ([l, tp]) => l >= 0 && tp >= 0 && l + w <= r.width && tp + h <= r.height;
-    const apart = ([l, tp]) => !avoid || l + w <= avoid.x + c.left - r.left || l >= avoid.x + avoid.w + c.left - r.left
-      || tp + h <= avoid.y + c.top - r.top || tp >= avoid.y + avoid.h + c.top - r.top;
-    const spots = [[x + g, y + g], [x - g - w, y + g], [x + g, y - g - h], [x - g - w, y - g - h]];
-    const [left, top] = spots.find(q => fits(q) && apart(q)) || spots.find(fits) || [Math.max(0, Math.min(x + g, r.width - w)), Math.max(0, Math.min(y + g, r.height - h))];
-    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    const r = stage.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    placeTooltip(tip, stage, ev, avoid && { x: avoid.x + c.left - r.left, y: avoid.y + c.top - r.top, w: avoid.w, h: avoid.h });
   }
   canvas.addEventListener('mousemove', ev => {
     const [px, py] = d3.pointer(ev, canvas), ghost = nav.inside ? ghostAt(px, py) : null;

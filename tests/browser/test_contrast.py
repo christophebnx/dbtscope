@@ -122,10 +122,12 @@ def test_an_unparsable_colour_never_throws(shop_page: Any, bad: str | None) -> N
 def test_theme_matches_the_style_sheet_and_its_greys_pass(shop_page: Any) -> None:
     p, _ = shop_page
     css = p.page.evaluate(
-        "() => Object.fromEntries(['bg', 'fg', 'muted'].map(k => "
+        "() => Object.fromEntries(['bg', 'fg', 'muted', 'surface', 'accent', 'accent-soft'].map(k => "
         "[k, getComputedStyle(document.documentElement).getPropertyValue('--' + k).trim()]))"
     )
-    assert css == p.page.evaluate("THEME") == {"bg": BG, "fg": "#1f2933", "muted": "#5f6774"}
+    theme = {"bg": BG, "fg": "#1f2933", "muted": "#5f6774", "surface": "#ffffff", "accent": "#2f6fb5"}
+    assert css == {**theme, "accent-soft": "#e8f0fa"}  # THEME (M9.4) also copies the Schema's accent tokens
+    assert p.page.evaluate("THEME") == {**theme, "accentSoft": "#e8f0fa"}
     probes = p.page.evaluate(
         """() => {
           const probe = (parent, cls) => { const e = document.createElement('div'); e.className = cls;

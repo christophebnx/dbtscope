@@ -13,26 +13,17 @@ const S = {
 };
 // The look of a sheet (colours, rules, ends of a relation); the same values draw the screen, the exports and the print.
 const LOOK = {
-  font: 'Arial, Helvetica, sans-serif', ink: THEME.fg, muted: THEME.muted, surface: '#ffffff', accent: '#2f6fb5', accentSoft: '#e8f0fa',
-  edge: '#8a8f98', edgeAlpha: 0.5, edgeW: 1, litW: 2, crow: 8, crowSpread: 5, arrow: 7, arrowHalf: 3.5, ring: 3, dim: 0.25,
-  rule: '#c4cad3', rowAlpha: 0.07, bar: 4, chipBorder: '#8a8f98', bars: '#9aa0a8',
+  font: 'Arial, Helvetica, sans-serif', ink: THEME.fg, muted: THEME.muted, surface: THEME.surface, accent: THEME.accent, accentSoft: THEME.accentSoft,
+  edge: '#767c86', edgeAlpha: 1, edgeW: 1, litW: 2, crow: 8, crowSpread: 5, arrow: 7, arrowHalf: 3.5, ring: 3, dim: 0.25,
+  rule: '#c4cad3', rowAlpha: 0.07, bar: 4, badgePx: 14, chipBorder: '#8a8f98', bars: '#9aa0a8',
 };
 LOOK.accentInk = CONTRAST.ink(LOOK.accent, LOOK.accentSoft);   // the accent as text on an expanded chip: 4.5:1 (D-037)
 const SHEET_TEXT = { en: { outside: '(outside this scope)' }, fr: { outside: '(hors de ce périmètre)' } }[PAGE.lang];
 const GRID = { gap: S.GAP, gutter: S.GUTTER, minAspect: 0.5, maxAspect: 3, sweeps: 6, scan: 60 };
 
-// Text widths measured once per distinct string in the sheet's font (a printed name must not leave its box).
-const textW = (() => {
-  const ctx = document.createElement('canvas').getContext('2d'), cache = new Map();
-  return (text, size, weight = 400, italic = false) => {
-    const key = `${weight}|${size}|${italic ? 1 : 0}|${text}`;
-    if (!cache.has(key)) {
-      ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${LOOK.font}`;
-      cache.set(key, ctx.measureText(text).width);
-    }
-    return cache.get(key);
-  };
-})();
+// Text widths measured once per distinct string in the sheet's font (a printed name must not leave its box): common.js `measure`.
+const fontOf = (size, weight = 400, italic = false) => `${italic ? 'italic ' : ''}${weight} ${size}px ${LOOK.font}`;
+const textW = (text, size, weight, italic) => measure(text, fontOf(size, weight, italic));
 const shortType = t => { const s = t == null ? '' : String(t); return s.length > S.TYPE_MAX ? s.slice(0, S.TYPE_MAX - 1) + '…' : s; };
 
 // The rows a box draws at a Show level, with the number of columns it hides: names (header only), keys (key columns), all
@@ -67,7 +58,7 @@ function wrapLabel(label, max, size, weight) {
     else if (lines.length < 2) lines.push(word);
     else lines[1] = next;
   });
-  return lines.map(l => { let t = l; while (t.length > 1 && textW(t, size, weight) > max) t = t.slice(0, -2) + '…'; return t; });
+  return lines.map(l => ellipsis(l, max, fontOf(size, weight)));
 }
 
 // The sheet model of a scope (pure; D-092, D-094). universe: the payload; nodes: the universe nodes of the scope; level: names |
@@ -236,6 +227,18 @@ function relationPath(e, simple) {
   return { main: line, line: `${line}M${f1(x1 + c)} ${y1}L${x1} ${f1(y1 - sp)}M${f1(x1 + c)} ${y1}L${x1} ${y1}M${f1(x1 + c)} ${y1}L${x1} ${f1(y1 + sp)}`,
     head: `M${x2} ${y2}L${f1(x2 + a)} ${f1(y2 - h)}L${f1(x2 + a)} ${f1(y2 + h)}Z` };
 }
+// The chips of each side of each cell, as one badge each (the simple form): { chips: indexes, n: their total, x, y: the middle of them }.
+function sideBadges(model) {
+  const sides = new Map();
+  model.chips.forEach((ch, i) => {
+    const key = ch.cell + ch.side;
+    if (!sides.has(key)) sides.set(key, { chips: [], n: 0, x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
+    const g = sides.get(key);
+    g.chips.push(i); g.n += ch.n;
+    g.x0 = Math.min(g.x0, ch.x); g.y0 = Math.min(g.y0, ch.y); g.x1 = Math.max(g.x1, ch.x + ch.w); g.y1 = Math.max(g.y1, ch.y + ch.h);
+  });
+  return [...sides.values()].map(g => ({ chips: g.chips, n: g.n, x: (g.x0 + g.x1) / 2, y: (g.y0 + g.y1) / 2 }));
+}
 // The markup of everything of the sheet that meets `rect` ({x, y, w, h}, sheet units), to put inside an <svg>: lanes and their
 // titles, relations (<g class="edge" id="e<i>">), boxes (<g class="node" id="<unique_id>">) and chips. form: 'full' (text) or
 // 'simple' (far zoom: boxes without row text). marks: { k (scale, for hairlines and text that would be unreadable), selected,
@@ -272,9 +275,9 @@ function sheetSvg(model, rect, form, marks = {}) {
   model.edges.forEach((e, i) => {
     const on = lit.has(i);
     if (!(e.drawn || on) || !meets(e.box[0], e.box[1], e.box[2] - e.box[0], e.box[3] - e.box[1])) return;
-    const { line, head, main } = relationPath(e, simple), dim = litIds && !litIds.has(i) && !on ? ' dim' : '';
+    const { line, head, main } = relationPath(e, simple), dim = litIds && !litIds.has(i) && !on ? ` class="edge dim" opacity="${LOOK.dim}"` : ' class="edge"';
     const color = on ? LOOK.accent : LOOK.edge, w = on ? Math.max(LOOK.litW, width) : width, alpha = on ? 1 : LOOK.edgeAlpha;
-    out.push(`<g class="edge${dim}" id="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${f1(w)}" stroke-opacity="${alpha}"/>`
+    out.push(`<g${dim} id="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${f1(w)}" stroke-opacity="${alpha}"/>`
       + (head ? `<path d="${head}" fill="${color}" stroke="none"/>` : '')
       + (marks.hit ? `<path class="hit" d="${main}" fill="none" stroke="transparent" stroke-width="${f1(8 / k)}"/>` : '') + '</g>');
   });
@@ -285,8 +288,8 @@ function sheetSvg(model, rect, form, marks = {}) {
       const b = model.boxes.get(id);
       if (!meets(b.x - 4, b.y - 4, b.w + 8, b.h + 8)) return;
       const st = model.kinds.get(b.kind) || { color: '#cccccc', bg: '#ffffff', head: '#000000', edge: '#888888', type: LOOK.muted };
-      const dim = marks.selected && !related.has(id) ? ' dim' : '';
-      let g = `<g class="node${dim}" id="${esc(id)}"><rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
+      const dim = marks.selected && !related.has(id) ? ` class="node dim" opacity="${LOOK.dim}"` : ' class="node"';
+      let g = `<g${dim} id="${esc(id)}"><rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
         + `<rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${S.HEAD_H}" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`;
       if (!simple || words) g += text(b.x + S.PAD_X, b.y + S.HEAD_H / 2 + 4.5, S.HEAD_FONT, st.head, b.name, ' font-weight="600"');
       if (!simple) {
@@ -306,12 +309,21 @@ function sheetSvg(model, rect, form, marks = {}) {
       out.push(g + '</g>');
     });
   });
-  // chips: a count at a cell border
-  model.chips.forEach((ch, i) => {
+  // chips: a count at a cell border. From afar (simple form) the chips of one side of a cell would be a pixel high and a pile:
+  // each side is one badge with their total, kept at a constant size on screen (LOOK.badgePx text), over the middle of its chips
+  if (!simple) model.chips.forEach((ch, i) => {
     if (!meets(ch.x, ch.y, ch.w, ch.h)) return;
     const on = marks.expanded && marks.expanded.has(i), dash = ch.out ? ' stroke-dasharray="4 3"' : '';
     out.push(`<g class="chip" data-chip="${i}"><rect x="${ch.x}" y="${ch.y}" width="${ch.w}" height="${ch.h}" rx="10" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"${dash}/>`
-      + (small ? text(ch.x + 10, ch.y + 14, S.ROW_FONT, on ? LOOK.accentInk : LOOK.ink, simple ? ch.count : `${on ? '▾ ' : ''}${ch.label}  ${ch.count}`) : '') + '</g>');
+      + (small ? text(ch.x + 10, ch.y + 14, S.ROW_FONT, on ? LOOK.accentInk : LOOK.ink, `${on ? '▾ ' : ''}${ch.label}  ${ch.count}`) : '') + '</g>');
+  });
+  else sideBadges(model).forEach(g => {
+    const k2 = LOOK.badgePx / (S.ROW_FONT * k), room = 40 / k;
+    if (!meets(g.x - room, g.y - room, 2 * room, 2 * room)) return;
+    const on = g.chips.some(i => marks.expanded && marks.expanded.has(i)), label = num(g.n), w = textW(label, S.ROW_FONT, 600) + 10;
+    out.push(`<g class="chip" data-chip="${g.chips[0]}" transform="translate(${f1(g.x)} ${f1(g.y)}) scale(${f1(k2)})">`
+      + `<rect x="${f1(-w / 2)}" y="-9" width="${f1(w)}" height="18" rx="9" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"/>`
+      + text(-w / 2 + 5, 4, S.ROW_FONT, on ? LOOK.accentInk : LOOK.ink, label, ' font-weight="600"') + '</g>');
   });
   return out.join('');
 }
@@ -374,7 +386,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   const state = { scope: { kind: 'all' }, level: 'keys', selected: null, expanded: new Set(), hover: null, pop: null, all: false };
   const perf = { model: 0, emit: 0, firstFrame: 0, recull: 0, built: 0 };   // ms of the last of each; built counts the finished sheets
   let model = null, nodes = [], zv = null, layer = null, emitted = null, seq = 0, painting = 0, pendingSelect = null, filterKey = '';
-  let mini = null;
+  let mini = null, badgeOf = null;   // badgeOf: the side badge of each chip, for the simple form
 
   // --- static text and controls
   $s('h-scope').textContent = T.scope; $s('h-show').textContent = T.show;
@@ -447,7 +459,6 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
     const items = [{ label: kind === 'layer' ? T.crumbsLayers : T.crumbsAll, title: $s('meta').textContent, go: kind === 'all' ? here : () => setScope({ kind: 'all' }), current: kind === 'all' && !sel }];
     if (kind !== 'all') items.push({ label: scopeName(), go: here, current: !sel });
     if (sel) items.push({ label: sel.name, go: () => frame(sel.id), current: true });
-    if (kind === 'all' && !sel) items[0].go = here;
     crumbs($s('crumbs'), items);
   }
   function renderMeta() {
@@ -564,6 +575,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   // --- chips: buttons over the SVG chips (HTML, never exported), their list, expansion
   const chipsEl = $s('chips'), pop = $s('pop');
   function buildChips() {
+    badgeOf = null;
     chipsEl.replaceChildren(...model.chips.map((ch, i) => {
       const b = document.createElement('button'), mine = DOM.get(model.rows[model.cells.find(c => c.key === ch.cell).row].key), other = DOM.get(ch.otherDomain);
       b.type = 'button'; b.dataset.chip = i; b.setAttribute('aria-expanded', 'false');
@@ -581,11 +593,13 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   }
   function syncChips(v) {
     if (!v || !model) return chipsEl.replaceChildren();
-    const coarse = matchMedia('(pointer: coarse)').matches, min = coarse ? 44 : 24;
+    const coarse = matchMedia('(pointer: coarse)').matches, min = coarse ? 44 : 24, simple = formFor(v.k) === 'simple';
+    if (simple && !badgeOf) { badgeOf = []; sideBadges(model).forEach(g => g.chips.forEach(i => { badgeOf[i] = g; })); }
     [...chipsEl.children].forEach((b, i) => {
-      const ch = model.chips[i], w = Math.max(ch.w * v.k, min), h = Math.max(ch.h * v.k, min);
+      const ch = model.chips[i], at = simple ? { x: badgeOf[i].x, y: badgeOf[i].y } : { x: ch.x + ch.w / 2, y: ch.y + ch.h / 2 };
+      const w = simple ? Math.max(LOOK.badgePx * 2.2, min) : Math.max(ch.w * v.k, min), h = simple ? Math.max(LOOK.badgePx * 1.4, min) : Math.max(ch.h * v.k, min);
       b.style.width = w + 'px'; b.style.height = h + 'px';
-      b.style.transform = `translate(${ch.x * v.k + v.tx + ch.w * v.k / 2 - w / 2}px,${ch.y * v.k + v.ty + ch.h * v.k / 2 - h / 2}px)`;
+      b.style.transform = `translate(${at.x * v.k + v.tx - w / 2}px,${at.y * v.k + v.ty - h / 2}px)`;
       b.setAttribute('aria-expanded', String(state.expanded.has(i)));
     });
   }
@@ -711,8 +725,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
     const node = el.closest('g.node');
     if (node) {
       const n = NODE.get(node.id), d = DETAIL.entity(n.id);
-      const desc = d && d.description ? `<div class="desc">${esc(d.description.length > 400 ? d.description.slice(0, 399) + '…' : d.description)}</div>` : tableDesc(n);
-      return { id: n.id, html: tableTip(DATA, n) + desc };
+      return { id: n.id, html: tableTip(DATA, n) + tableDesc(n, d && d.description) };
     }
     const edge = el.closest('g.edge');
     if (edge) {
@@ -721,17 +734,11 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
     }
     return null;
   }
-  function placeTip(ev) {
-    const r = stage.getBoundingClientRect();
-    tip.style.display = 'block';
-    tip.style.left = Math.max(8, Math.min(ev.clientX - r.left + 12, r.width - tip.offsetWidth - 8)) + 'px';
-    tip.style.top = Math.max(8, Math.min(ev.clientY - r.top + 12, r.height - tip.offsetHeight - 8)) + 'px';
-  }
   box.addEventListener('mousemove', ev => {
     if (!model || ev.buttons) return;
     const hit = tipFor(ev.target);
     if (!hit) { tip.style.display = 'none'; if (state.hover) { state.hover = null; repaint(); } return; }
-    tip.innerHTML = hit.html; placeTip(ev);
+    tip.innerHTML = hit.html; tip.style.display = 'block'; placeTooltip(tip, stage, ev);
     if (hit.id !== state.hover && layer.childElementCount < 3000) { state.hover = hit.id; repaint(); }
   });
   box.addEventListener('mouseleave', () => { tip.style.display = 'none'; if (state.hover) { state.hover = null; repaint(); } });
@@ -762,9 +769,18 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
     const text = $s('q').value;
     if (!text.trim()) return;
     const n = findNode(text);
-    if (n) { $s('q').title = ''; select(n.id, true); }
-    else { $s('q').title = T.notInScope(text); say(T.notInScope(text)); }
+    if (n) { $s('q').title = ''; showMiss(''); select(n.id, true); }
+    else { $s('q').title = T.notInScope(text); showMiss(T.notInScope(text)); say(T.notInScope(text)); }
   }
+  // a search miss, also in plain sight next to the stage's top (the live region says it to screen readers)
+  let missTimer = 0;
+  function showMiss(text) {
+    const el = $s('miss');
+    clearTimeout(missTimer);
+    el.textContent = text; el.hidden = !text;
+    if (text) missTimer = setTimeout(() => showMiss(''), 8000);
+  }
+  $s('q').addEventListener('input', () => showMiss(''));
   $s('q').addEventListener('change', submitSearch);
   $s('q').addEventListener('keydown', ev => { if (ev.key === 'Enter') submitSearch(); });
 

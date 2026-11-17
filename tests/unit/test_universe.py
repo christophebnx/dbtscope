@@ -221,7 +221,7 @@ def _payload(project: Project, file_config: dict[str, Any], preset: dict[str, An
     return universe_data(project, config).model_dump(mode="json", by_alias=True)
 
 
-def test_kinds_carry_their_role_last_and_keep_their_order() -> None:
+def test_kinds_carry_their_role_then_the_body_tint_and_keep_their_order() -> None:
     project = _projects(_model("a_sat"), _model("a_hub"), _model("z"), _model("s", kind="seed"))
     file_config = {
         "kinds": [

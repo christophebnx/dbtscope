@@ -74,8 +74,8 @@ const num = n => n.toLocaleString(PAGE.lang);
 // "1 table", "2 tables"; forms is [singular, plural]. English: singular for 1; French: for 0 and 1.
 const plural = (n, forms) => `${num(n)} ${forms[n === 1 || (n === 0 && PAGE.lang === 'fr') ? 0 : 1]}`;
 
-// The theme colours the scripts draw with: a copy of --bg, --fg and --muted of page.css :root.
-const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774' };
+// The theme colours the scripts draw with: a copy of --bg, --fg, --muted, --surface, --accent and --accent-soft of page.css :root.
+const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774', surface: '#ffffff', accent: '#2f6fb5', accentSoft: '#e8f0fa' };
 
 // Text on colours (D-037), pure and cached by arguments (the universe asks for every card in every frame).
 // Colours are '#rgb', '#rrggbb' or '#rrggbbaa' (alpha ignored: the colour counts as opaque).
@@ -325,7 +325,38 @@ function tableTip(DATA, n) {
     + `${esc(label(DATA.kinds, n.kind))} · ${plural(n.cols.length, L.columns)}</div>`;
 }
 // The description line of a table's tooltip (universe payload), escaped; '' without a description.
-const tableDesc = n => (n.desc ? `<div class="desc">${esc(n.desc)}</div>` : '');
+// `full` (the Detail's full description of the table, when it has one) replaces the universe's, which is cut in Python.
+const tableDesc = (n, full) => ((full || n.desc) ? `<div class="desc">${esc(full || n.desc)}</div>` : '');
+
+// One canvas text measure of the page (the universe's cards, the Schema's boxes): the width of `text` in the CSS `font`, cached.
+const measure = (() => {
+  const ctx = document.createElement('canvas').getContext('2d'), cache = new Map();
+  return (text, font) => {
+    const key = font + '|' + text;
+    if (!cache.has(key)) { ctx.font = font; cache.set(key, ctx.measureText(text).width); }
+    return cache.get(key);
+  };
+})();
+// `text` cut with an ellipsis to fit `width` px in `font` ('' under 8 px).
+function ellipsis(text, width, font) {
+  if (width < 8) return '';
+  if (measure(text, font) <= width) return text;
+  let s = text;
+  while (s.length > 1 && measure(s + '…', font) > width) s = s.slice(0, -1);
+  return s + '…';
+}
+// The one tooltip placement (universe, lineage graph, Schema): `gap` px below and right of the pointer, flipped left and above
+// where it would leave `stage`; when one of the four places is clear of `avoid` ({x, y, w, h} in stage px, the hovered card), taken
+// in that order. The tooltip must be displayed (it is measured).
+function placeTooltip(tip, stage, ev, avoid, gap = 12) {
+  const r = stage.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, w = tip.offsetWidth, h = tip.offsetHeight;
+  const fits = ([l, t]) => l >= 0 && t >= 0 && l + w <= r.width && t + h <= r.height;
+  const apart = ([l, t]) => !avoid || l + w <= avoid.x || l >= avoid.x + avoid.w || t + h <= avoid.y || t >= avoid.y + avoid.h;
+  const spots = [[x + gap, y + gap], [x - gap - w, y + gap], [x + gap, y - gap - h], [x - gap - w, y - gap - h]];
+  const [left, top] = spots.find(q => fits(q) && apart(q)) || spots.find(fits)
+    || [Math.max(0, Math.min(x + gap, r.width - w)), Math.max(0, Math.min(y + gap, r.height - h))];
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
 
 // ---------------------------------------------------------------- trajectory (lineage from one table)
 // Colours of the trajectory: upstream (dashed marks), downstream (solid marks); the universe and the flow.

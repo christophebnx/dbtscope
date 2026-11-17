@@ -304,7 +304,6 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #s-graph:active { cursor:grabbing; }
 #s-graph:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
 #s-graph svg { display:block; }
-#s-graph .dim { opacity:.25; }
 #s-graph g.node, #s-graph g.chip { cursor:pointer; }
 #s-heads { position:absolute; inset:0; pointer-events:none; z-index:1; overflow:hidden; }
 #s-heads .colhead { position:absolute; top:0; height:28px; box-sizing:border-box; padding:5px 8px; background:var(--surface); border-bottom:1px solid var(--border);
@@ -333,3 +332,15 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #s-summary ul { margin:0; padding:0; }
 @media (pointer:coarse) { #s-pop li button { min-height:44px; } #s-crumbs { min-height:44px; } }
 #l-reset-why { padding:2px 6px; font-size:12px; color:var(--muted); }
+#s-miss { position:absolute; z-index:3; top:8px; right:8px; max-width:calc(100% - 16px); box-sizing:border-box; padding:6px 10px; background:var(--surface);
+          border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:13px; color:var(--fg); }
+#s-miss[hidden] { display:none; }
+#s-tip .desc { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:8; overflow:hidden; }
+/* 360 px: the toolbar is two rows: the crumbs, then the search, Help, Fit and the two export buttons (their label is the group's name) */
+@media (max-width:600px) {
+  #tab-schema .export > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  #tab-schema .export { margin-left:0; }
+  #tab-schema .toolbar { gap:6px; }
+  #s-q { flex:1 1 60px; }
+  #tab-schema .toolbar button, #tab-schema .help > summary { padding-left:7px; padding-right:7px; }
+}
