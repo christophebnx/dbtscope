@@ -52,8 +52,11 @@ UNIVERSE = UniversePayload(
         (NODE, ["id", "name", "domain", "layer", "kind", "desc", "cols", "parent"]),
         (UNIVERSE.domains[0], ["key", "label", "color", "owner", "system"]),
         (UNIVERSE.layers[0], ["key", "label"]),
-        (UNIVERSE.kinds[0], ["key", "label", "color", "role"]),
-        (UNIVERSE.defaults, ["links", "detail", "hiddenKinds", "constellations", "fold", "cards", "routes"]),
+        (UNIVERSE.kinds[0], ["key", "label", "color", "role", "bg"]),
+        (
+            UNIVERSE.defaults,
+            ["links", "detail", "hiddenKinds", "constellations", "fold", "cards", "routes", "mapAbove"],
+        ),
     ],
 )
 def test_keys_dump_in_the_order_the_page_reads(model: BaseModel, keys: list[str]) -> None:
@@ -72,7 +75,11 @@ def test_page_payload_wraps_both_views() -> None:
     page = PagePayload(
         title="t", lang="fr", view="detail", detail=DETAIL, universe=empty_universe(), layout={}
     )
-    assert list(json.loads(embedded_json(page))) == ["title", "lang", "view", "detail", "universe", "layout"]
+    keys = ["title", "lang", "view", "detail", "universe", "layout", "generatedAt"]
+    assert list(json.loads(embedded_json(page))) == keys
+    assert json.loads(embedded_json(page))["generatedAt"] is None
+    dated = page.model_copy(update={"generated_at": "2026-11-17T08:00:00.000000Z"})
+    assert json.loads(embedded_json(dated))["generatedAt"] == "2026-11-17T08:00:00.000000Z"
 
 
 def test_defaults_are_built_by_their_python_name_only() -> None:
@@ -96,8 +103,8 @@ def test_fold_defaults_to_true_and_a_node_has_no_parent_by_default() -> None:
 
 def test_cards_default_to_false_and_are_the_last_universe_default() -> None:
     defaults = UniverseDefaults(links="both", detail="names", hidden_kinds=())
-    assert defaults.cards is False and list(defaults.model_dump())[-2:] == ["cards", "routes"]
-    assert embedded_json(UNIVERSE).count(',"fold":true,"cards":false,"routes":true}') == 1
+    assert defaults.cards is False and list(defaults.model_dump())[-3:] == ["cards", "routes", "map_above"]
+    assert embedded_json(UNIVERSE).count(',"fold":true,"cards":false,"routes":true,"mapAbove":300}') == 1
 
 
 def test_payloads_are_closed_and_immutable() -> None:

@@ -29,6 +29,7 @@ from browser.test_summary_cards import (
     NEXT_FRAME,
     camera,
     canvas_xy,
+    enter,
     first_card,
     hits,
     move_to,
@@ -377,28 +378,26 @@ def test_zoomed_in_each_system_is_its_own_neutral_disc(large_cards_page: Any, op
     )  # neutral, 12 px
 
 
-def test_a_row_click_frames_its_system_and_a_double_click_frames_the_grid(
+def test_a_row_click_enters_its_system_and_a_double_click_on_the_group_card_enters_nothing(
     large_cards_page: Any, open_page: Any
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    s = summary(p)
     row = next(r for r in hits(p)["rows"] if r["k"] == "@systems" and r["row"] == "raw_tms")
     p.page.mouse.click(*canvas_xy(p, row["x"] + 10, row["y"] + row["h"] / 2))
     p.page.wait_for_timeout(900)
-    c, d = camera(p), centres(p)["raw_tms"]
-    assert c["k"] >= s["kStars"] and summary(p)["weight"] == 0
-    box = p.page.evaluate("(b => [b.clientWidth, b.clientHeight])(document.getElementById('u-canvas'))")
     assert (
-        abs((box[0] / 2 - c["x"]) / c["k"] - d["x"]) < d["r"]
-        and abs((box[1] / 2 - c["y"]) / c["k"] - d["y"]) < d["r"]
-    )
+        p.page.evaluate("views.universe.location().inside") == "raw_tms" and summary(p)["weight"] == 0
+    )  # D-088
+    assert {t["domain"] for t in geometry(p)["tables"]} == {"raw_tms"}
+    p.page.evaluate("views.universe.go(0)")
+    p.page.wait_for_timeout(900)
     p.page.evaluate("views.universe.relayout()")
     p.page.evaluate(NEXT_FRAME)
     card = first_card(p, "@systems")
     p.page.mouse.dblclick(*canvas_xy(p, card["x"] + card["w"] - 2, card["y"] + card["h"] - 3))
     p.page.wait_for_timeout(900)
-    assert camera(p)["k"] >= s["kStars"] and summary(p)["weight"] == 0
+    assert p.page.evaluate("views.universe.location().level") == 0  # the group card is not a domain
 
 
 def test_the_group_header_moves_every_system_and_pins_the_scope(
@@ -640,13 +639,13 @@ def test_the_strongest_routes_are_drawn_and_the_meta_line_counts_the_rest(
     g = geometry(p)
     drawn = {(r["a"], r["b"]) for r in g["routes"] if r["drawn"]}
     assert drawn == expected_drawn(g["routes"]) and 0 < len(drawn) < len(g["routes"])
-    assert meta(p).endswith(f"{len(drawn)} of {len(g['routes'])} routes")
+    assert meta(p).endswith(f"{len(drawn)} of {len(g['routes'])} dependencies")
     at_stars(p)
     g = geometry(p)
     assert {(r["a"], r["b"]) for r in g["routes"] if r["drawn"]} == expected_drawn(g["routes"])
-    assert re.search(r"\d+ of \d+ routes$", meta(p))
+    assert re.search(r"\d+ of \d+ dependencies$", meta(p))
     set_k(p, 1.0)
-    assert "routes" not in meta(p)  # no route is drawn from that scale up
+    assert "dependencies" not in meta(p)  # no route is drawn from that scale up
 
 
 def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
@@ -679,22 +678,22 @@ def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
     p = open_page(universe_page(tmp_path, payload, view="universe"))
     g = geometry(p)
     assert len(g["routes"]) == 4 and all(r["drawn"] for r in g["routes"])
-    assert "routes" not in meta(p) and p.page.is_hidden(
-        "#u-routes-row"
-    )  # nothing is hidden: no entry, no control
+    assert "dependencies" not in meta(p) and p.page.is_disabled(
+        "#u-routes-box"
+    )  # nothing is hidden: no entry, the "all (N)" toggle disabled with its reason
 
 
 def test_show_all_routes_draws_them_all_and_is_not_remembered(large_cards_page: Any, open_page: Any) -> None:
     html = large_cards_page[0]
     p = open_page(html)
-    assert p.page.is_visible("#u-routes-row") and p.page.inner_text("#u-routes-label") == "Show all routes"
-    assert p.page.inner_text("#u-routes-n") == str(len(geometry(p)["routes"]))
+    n = len(geometry(p)["routes"])
+    assert p.page.is_enabled("#u-routes-box") and p.page.inner_text("#u-routes-label") == f"all ({n})"
+    assert p.page.get_attribute("#u-routes-box", "aria-label") == f"Show all {n} dependencies"
     p.page.check("#u-routes-box")
     p.page.evaluate(NEXT_FRAME)
-    assert all(r["drawn"] for r in geometry(p)["routes"]) and "routes" not in meta(p)
-    assert re.match(r"All \d+ routes shown", p.page.inner_text("#u-live"))
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+    assert all(r["drawn"] for r in geometry(p)["routes"]) and "dependencies" not in meta(p)
+    assert re.match(r"All \d+ dependencies shown", p.page.inner_text("#u-live"))
+    p.reload()
     assert not p.page.is_checked("#u-routes-box") and not all(r["drawn"] for r in geometry(p)["routes"])
 
 
@@ -706,8 +705,8 @@ def test_the_count_of_routes_in_french(tmp_path: Path, open_page: Any) -> None:
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     (project / "dbt-erd.yml").write_text(config + "\nlanguage: fr\n", encoding="utf-8")
     p = open_page(page_of(project)[0])
-    assert re.search(r"\d+ routes sur \d+$", meta(p)), meta(p)
-    assert p.page.inner_text("#u-routes-label") == "Afficher toutes les routes"
+    assert re.search(r"\d+ dépendances sur \d+$", meta(p)), meta(p)
+    assert re.fullmatch(r"toutes \(\d+\)", p.page.inner_text("#u-routes-label"))
 
 
 # ---------------------------------------------------------------- the spotlight and the tooltip
@@ -730,7 +729,7 @@ def test_hovering_a_card_draws_all_its_routes(large_cards_page: Any, open_page: 
 def test_focusing_a_domain_row_spotlights_it_like_the_pointer(large_cards_page: Any, open_page: Any) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.focus("#u-domains label:nth-child(2) input")  # auction
+    p.page.focus("#u-domains > *:nth-child(2) input")  # auction
     p.page.evaluate(NEXT_FRAME)
     mine = [r for r in geometry(p)["routes"] if "auction" in (r["a"], r["b"])]
     assert mine and all(r["drawn"] for r in mine)
@@ -774,8 +773,7 @@ def test_a_trajectory_turns_the_spotlight_off_and_keeps_the_density(
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.fill("#u-q", "car_hub")
-    p.page.click("#u-traj")
+    enter(p, "car_hub")
     overview = camera(p)
     p.page.evaluate(
         "c => views.universe.camera(c)",
@@ -813,13 +811,13 @@ def test_the_text_summary_lists_the_source_systems_and_every_route(
     names = [i["name"] for i in text["items"]]
     assert names[-1] == "Source systems" and names.count("Source systems") == 1
     vehicle = next(i for i in text["items"] if i["name"] == "Vehicle")
-    routes = next(q for q in vehicle["p"] if q.startswith("Routes: "))
+    routes = next(q for q in vehicle["p"] if q.startswith("Dependencies: "))
     assert (
         routes.count("(") == len([r for r in geometry(p)["routes"] if "vehicle" in (r["a"], r["b"])])
         or routes.count("(") >= 4
     )
     group = next(i for i in text["items"] if i["name"] == "Source systems")
-    assert any(q.startswith("Routes: ") for q in group["p"]) and len(group["li"]) == 7
+    assert any(q.startswith("Dependencies: ") for q in group["p"]) and len(group["li"]) == 7
 
 
 # ---------------------------------------------------------------- contrast
@@ -1022,7 +1020,7 @@ def test_a_row_of_the_layers_panel_spotlights_its_constellation(
     p.page.evaluate(NEXT_FRAME)
     reset(p)
     assert not geometry(p)["systems"]["grouped"]  # layer mode: no group card
-    p.page.focus("#u-layers label:nth-child(2) input")
+    p.page.focus("#u-layers > *:nth-child(2) input")
     p.page.evaluate(NEXT_FRAME)
     drawn = [r for r in geometry(p)["routes"] if r["drawn"]]
     keys = {k for r in drawn for k in (r["a"], r["b"])}
@@ -1092,7 +1090,7 @@ def test_the_route_tooltip_in_french(tmp_path: Path, open_page: Any) -> None:
         text = tip_at_middle(p, r)
         if "lien" in text or "relation" in text:
             assert "lineage" not in text and " reads " not in text
-            assert "lien" in text and ("lit" in text or "Aucune lignée" in text), text
+            assert "lien" in text and ("lit" in text or "Aucun lignage" in text), text
             return
     pytest.fail("no route tooltip")
 
@@ -1139,8 +1137,7 @@ def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.fill("#u-q", "car_hub")
-    p.page.click("#u-traj")
+    enter(p, "car_hub")
     overview = camera(p)
     p.page.evaluate("c => views.universe.camera(c)", {**overview, "k": summary(p)["kCards"]})
     p.page.evaluate(NEXT_FRAME)
@@ -1150,7 +1147,7 @@ def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
     routes = geometry(p)["routes"]
     assert {(r["a"], r["b"]) for r in routes if r["drawn"]} == expected_drawn(routes)
     assert 0 < sum(r["drawn"] for r in routes) < len(routes)
-    assert re.search(r"\d+ of \d+ routes", meta(p))
+    assert re.search(r"\d+ of \d+ dependencies", meta(p))
     p.page.click("#u-tj-leave")
 
 
@@ -1290,7 +1287,7 @@ def test_the_show_all_row_is_there_only_while_a_route_is_hidden(
     p.page.evaluate(NEXT_FRAME)
     g = geometry(p)
     hidden = sum(not r["drawn"] for r in g["routes"])
-    assert p.page.is_visible("#u-routes-row") == bool(hidden), (hidden, len(g["routes"]))
+    assert p.page.is_enabled("#u-routes-box") == bool(hidden), (hidden, len(g["routes"]))
     assert ("of" in meta(p)) == bool(hidden)
 
 
@@ -1371,7 +1368,7 @@ def test_the_meta_line_wraps_with_its_whole_text_in_the_title(large_cards_page: 
         assert meta_box.evaluate("m => m.scrollWidth <= m.clientWidth && m.scrollHeight <= m.clientHeight"), (
             viewport
         )
-        assert re.search(r"\d+ of \d+ routes$", meta(p)) and "links" not in meta(
+        assert re.search(r"\d+ of \d+ dependencies$", meta(p)) and "links" not in meta(
             p
         )  # the routes entry replaces links
         title = p.page.get_attribute("#u-meta", "title")
@@ -1379,7 +1376,7 @@ def test_the_meta_line_wraps_with_its_whole_text_in_the_title(large_cards_page: 
         p.page.close()
     p = open_page(large_cards_page[0])
     set_k(p, 1.0)
-    assert "routes" not in meta(p) and "links" in meta(p)  # nothing is hidden: the line is the old one
+    assert "dependencies" not in meta(p) and "links" in meta(p)  # nothing is hidden: the line is the old one
 
 
 def test_the_domain_tooltip_stays_in_the_stage_and_clear_of_the_pointer(

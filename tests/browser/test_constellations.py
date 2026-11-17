@@ -67,8 +67,7 @@ def stored_universe(p: Page) -> dict[str, Any]:
 
 
 def reload(p: Page) -> None:
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
 
 
 def far_corner(c: dict[str, Any], t: dict[str, Any]) -> float:
@@ -106,11 +105,15 @@ def test_switch_is_hidden_and_ignored_below_two_layers(tmp_path: Path, open_page
 def test_switch_shows_both_choices_and_their_counts(acme: tuple[Page, dict[str, Any]]) -> None:
     p, data = acme
     assert p.page.is_visible("#u-by") and checked(p) == "domains"
-    assert p.page.inner_text("#u-h-by").lower() == "constellations"
+    assert p.page.inner_text("#u-h-by").lower() == "organise by"
     assert p.page.inner_text("#u-by-domains-n") == str(len(data["universe"]["domains"]))
     assert p.page.inner_text("#u-by-layers-n") == str(len(data["universe"]["layers"]))
-    # first in the panel, above Links
-    assert p.page.evaluate("document.getElementById('u-panel').firstElementChild.id") == "u-by"
+    # first in the panel (Navigate, under its heading), above the Domains list
+    assert p.page.evaluate("document.querySelector('#u-panel').firstElementChild.id") == "u-nav"
+    assert (
+        p.page.evaluate("document.querySelector('#u-nav').children[1].id") == "u-meta"
+    )  # the counts line, then the switch
+    assert p.page.evaluate("document.querySelector('#u-nav').children[2].id") == "u-by"
 
 
 # ---------------------------------------------------------------- layer mode on the example
@@ -254,21 +257,27 @@ def drag_first_table(p: Page) -> str:
     return t["id"]
 
 
+def layout_only(g: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in without_time(g).items() if k != "spotlight"}
+
+
 def test_a_drag_in_layer_mode_saves_the_layers_scope_only(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
     domains = without_time(geometry(p))
     choose(p, "layers")
     uid = drag_first_table(p)
-    dragged = without_time(geometry(p))
+    dragged = layout_only(
+        geometry(p)
+    )  # the pointer still rests on the table: its spotlight is hover, not layout
     saved = stored_universe(p)
     assert set(saved) == {"layers:names"}
     scope = saved["layers:names"]
     assert set(scope["layers"]) == {c["key"] for c in dragged["constellations"]}
     assert uid in scope["nodes"]
     reload(p)
-    assert without_time(geometry(p)) == dragged
+    assert layout_only(geometry(p)) == dragged
     choose(p, "domains")
-    assert without_time(geometry(p)) == domains  # a drag in one grouping never moves the other
+    assert layout_only(geometry(p)) == layout_only(domains)  # a drag in one grouping never moves the other
 
 
 def test_an_old_layout_file_loads_in_both_modes(acme: tuple[Page, dict[str, Any]], tmp_path: Path) -> None:
@@ -299,7 +308,7 @@ def test_export_import_and_reset_cover_both_groupings(
     name, body = p.download("#l-export")
     assert json.loads(body)["universe"] == both
     p.page.on("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     assert stored_universe(p) == {}
     exported = tmp_path / name
     exported.write_bytes(body)
@@ -314,8 +323,8 @@ def test_export_import_and_reset_cover_both_groupings(
 @pytest.mark.parametrize(
     ("lang", "domains", "domain", "action"),
     [
-        ("en", "Domains: ", "Domain: ", "Double-click: zoom on this constellation"),
-        ("fr", "Domaines" + FR, "Domaine" + FR, "Double-clic" + FR + "cadrer cette constellation"),
+        ("en", "Domains: ", "Domain: ", "Click: enter this layer"),
+        ("fr", "Domaines" + FR, "Domaine" + FR, "Clic" + FR + "entrer dans cette couche"),
     ],
 )
 def test_layer_tooltip_lists_its_domains_and_names_the_band(
@@ -337,15 +346,20 @@ def test_layer_tooltip_lists_its_domains_and_names_the_band(
     n = sum(1 for t in g["tables"] if t["layer"] == c["key"] and t["domain"] == first)
     assert f"{domain}{label[first]} · {n} " in text, text
     assert text.endswith(action), text
-    hint = p.page.inner_text("#u-hint")
-    assert "constellation" in hint and ("domain by its name" not in hint)
+    hint = p.page.text_content("#u-hint")
+    layer, domain = (
+        ("layer by its name", "domain by its name")
+        if lang == "en"
+        else ("une couche par son nom", "un domaine par son nom")
+    )
+    assert layer in hint and domain not in hint
 
 
 # ---------------------------------------------------------------- unchanged behaviour in layer mode
 
 
 def box(p: Page, panel: str, label: str) -> Any:
-    return p.page.locator(f"#u-{panel} label", has_text=label).locator("input")
+    return p.page.locator(f"#u-{panel} > *", has_text=label).locator("input")
 
 
 def test_unticking_a_layer_or_a_domain_removes_a_constellation_or_a_band(
@@ -398,12 +412,18 @@ def test_switching_keeps_the_trajectory_and_frames_it(acme: tuple[Page, dict[str
 def test_flow_opens_and_closes_unchanged_in_layer_mode(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
     choose(p, "layers")
-    g = without_time(geometry(p))
+    p.page.fill("#u-q", "fct_orders")
+    p.page.dispatch_event(
+        "#u-q", "change"
+    )  # the search enters the table's layer (no tween), the camera goes to it
+    p.page.wait_for_timeout(900)
+    # the links drawn inside an entered domain are those of the table in view: not what the flow leaves
+    g = {**without_time(geometry(p)), "edges": None}
     s = open_flow(p, "fct_orders")
     assert s["open"]
     p.page.click("#f-back")
     assert not p.page.evaluate("flow.state().open")
-    assert without_time(geometry(p)) == g and checked(p) == "layers"
+    assert {**without_time(geometry(p)), "edges": None} == g and checked(p) == "layers"
 
 
 def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page, dict[str, Any]]) -> None:
@@ -413,7 +433,12 @@ def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(900)
     b = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.dblclick(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        "fct_orders",
+    )
+    p.page.mouse.dblclick(b["x"] + x, b["y"] + y)  # the panel of the search leaves the table left of centre
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
 
 
@@ -422,16 +447,16 @@ def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page
 
 def test_arrow_keys_switch_and_the_group_is_named(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
-    group = p.page.get_by_role("group", name="Constellations")
+    group = p.page.get_by_role("group", name="Organise by")
     assert group.count() == 1
     assert group.get_by_role("radio").count() == 2
-    p.page.get_by_role("radio", name="Domains").focus()
+    p.page.get_by_role("radio", name="Domain").focus()
     p.page.keyboard.press("ArrowDown")
     assert checked(p) == "layers" and geometry(p)["by"] == "layers"
     assert p.page.evaluate("document.activeElement.value") == "layers"  # focus stays on the radio
     p.page.keyboard.press("ArrowUp")
     assert checked(p) == "domains" and geometry(p)["by"] == "domains"
-    for select, name in (("#u-links", "links"), ("#u-detail", "tables")):
+    for select, name in (("#u-links", "links"), ("#u-detail", "show")):
         assert (
             p.page.get_by_role("combobox", name=re.compile(name, re.I)).evaluate("e => '#' + e.id") == select
         )
@@ -444,7 +469,7 @@ def test_no_horizontal_scroll_at_360_px_in_french(tmp_path: Path, open_page: Any
     assert scroll_width(p) <= NARROW["width"]
     p.page.click("#u-toggle")
     assert p.page.is_visible("#u-by")
-    assert p.page.inner_text("#u-by-layers") == "Couches"
+    assert p.page.inner_text("#u-by-layers") == "Couche"
     choose(p, "layers")
     assert scroll_width(p) <= NARROW["width"]
     assert re.search(r"\b\d+ couches\b", p.page.inner_text("#u-meta"))

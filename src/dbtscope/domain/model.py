@@ -82,3 +82,4 @@ class Project(BaseModel):
     lineage: tuple[LineageEdge, ...]
     groups: dict[str, Group]  # dbt group name -> group
     root: str | None  # root project name
+    generated_at: str | None = None  # `metadata.generated_at` of the manifest, verbatim (D-095)

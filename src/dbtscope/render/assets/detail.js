@@ -1,34 +1,42 @@
 // Detail view: entity-relationship diagram with columns, laid out by Graphviz (Viz.js).
 // Started the first time its tab is shown; the returned handle lets the universe view open a table here.
-function startDetail(DATA, LAYOUT, EXPORT) {
+// DOMAINS (common.js detailDomains): the groups as universe domains (Map group key -> display name), or null (D-084).
+function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
   const $d = id => document.getElementById('d-' + id);
   const T = {
-    en: { all: 'All groups', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels', clear: 'Show all',
-          cols: 'All columns', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
-          foreign: 'dashed: other group',
-          hGroup: 'Group', hDepth: 'Around the focused table', hCols: 'Columns',
+    en: { all: 'All groups', allDomains: 'All domains', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels',
+          clear: 'Clear focus', noFocus: 'No table is focused', needFocus: 'Focus on a table to use this',
+          keyCols: 'key columns', allCols: 'all columns', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
+          focusLabel: 'Focus on a table', qLabel: 'Highlight tables whose name contains',
+          foreign: 'dashed outline = other group', foreignDomain: 'dashed outline = other domain',
+          hGroup: 'Group', hDomain: 'Domain', hDepth: 'Around the focused table', hCols: 'Show',
+          groupTitle: 'Tables grouped by the group_by setting of dbt-erd.yml; a universe domain may hold several groups',
           pngTitle: 'Save the visible diagram as a PNG image (high resolution)',
           svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
           hint: 'Wheel or pinch: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus',
           touchHint: 'Pinch: zoom · drag: pan · tap a table: highlight its links',
-          foldedShort: ['folded', 'folded'], foldedMeta: 'folded', keysN: ['key', 'keys'],
+          foldedShort: ['drawn inside', 'drawn inside'], foldedMeta: 'drawn inside', keysN: ['key', 'keys'],
           foldFocused: 'A focus draws every table',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}the drawing will be hard to read`,
-          foldLiveOn: n => `Descriptive tables folded${L.colon}${plural(n, L.tables)} drawn`,
+          foldLiveOn: n => `Descriptive tables drawn inside their table${L.colon}${plural(n, L.tables)} drawn`,
           passNote: kinds => `Passing through ${kinds} costs no level` },
-    fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
-          cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
-          foreign: 'pointillé\u00a0: autre groupe',
-          hGroup: 'Groupe', hDepth: 'Autour de la table ciblée', hCols: 'Colonnes',
+    fr: { all: 'Tous les groupes', allDomains: 'Tous les domaines', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux',
+          d3: '3 niveaux', clear: 'Retirer le ciblage', noFocus: 'Aucune table n\'est ciblée',
+          needFocus: 'Ciblez une table pour l\'utiliser',
+          keyCols: 'colonnes clés', allCols: 'toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
+          focusLabel: 'Cibler une table', qLabel: 'Surligner les tables dont le nom contient',
+          foreign: 'contour en pointillés = autre groupe', foreignDomain: 'contour en pointillés = autre domaine',
+          hGroup: 'Groupe', hDomain: 'Domaine', hDepth: 'Autour de la table ciblée', hCols: 'Afficher',
+          groupTitle: 'Tables regroupées selon le paramètre group_by de dbt-erd.yml\u202f; un domaine de l\'univers peut contenir plusieurs groupes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
           hint: 'Molette ou pincement\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
               + 'clic\u00a0: surligner ses liens · double-clic\u00a0: cibler',
           touchHint: 'Pincement\u00a0: zoom · glisser\u00a0: déplacer la vue · toucher une table\u00a0: surligner ses liens',
-          foldedShort: ['repliée', 'repliées'], foldedMeta: 'repliées', keysN: ['clé', 'clés'],
+          foldedShort: ['incluse', 'incluses'], foldedMeta: 'incluses', keysN: ['clé', 'clés'],
           foldFocused: 'Une table ciblée affiche toutes les tables',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}le schéma sera difficile à lire`,
-          foldLiveOn: n => `Tables descriptives repliées${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
+          foldLiveOn: n => `Tables descriptives dessinées dans leur table${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
           passNote: kinds => `Passer par ${kinds} ne coûte aucun niveau` },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
@@ -62,18 +70,22 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   }
   computeScope();
   const isForeign = e => state.group && e.group !== state.group;
-  const entityName = e => isForeign(e) ? `${e.group} · ${e.name}` : e.name;
+  const groupName = g => (DOMAINS ? DOMAINS.get(g) ?? g : g);   // the display name of a group: its domain's, when groups are domains
+  const entityName = e => isForeign(e) ? `${groupName(e.group)} · ${e.name}` : e.name;
 
   // --- controls -------------------------------------------------------------
-  $d('focus').placeholder = T.focus;
+  $d('focus').placeholder = T.focus; $d('focus').setAttribute('aria-label', T.focusLabel);
   fillSelect($d('depth'), [T.d1, T.d2, T.d3].map((t, i) => [String(i + 1), t]));
   $d('clear').textContent = T.clear;
-  $d('cols').textContent = T.cols;
+  fillSelect($d('cols'), [['keys', T.keyCols], ['all', T.allCols]], state.allColumns ? 'all' : 'keys');
   $d('fit').textContent = L.fit;
-  $d('q').placeholder = T.q;
+  $d('q').placeholder = T.q; $d('q').setAttribute('aria-label', T.qLabel);
   // on touch a drag on a table pans (tables move with the mouse only): a hint of its own
   $d('hint').textContent = matchMedia('(pointer: coarse)').matches ? T.touchHint : T.hint;
-  $d('h-group').textContent = T.hGroup; $d('h-depth').textContent = T.hDepth;
+  const help = $d('help-t');
+  help.textContent = '?'; help.title = L.help; help.setAttribute('aria-label', L.help);
+  dismissable(help.parentNode);
+  $d('h-group').textContent = DOMAINS ? T.hDomain : T.hGroup; $d('h-depth').textContent = T.hDepth;
   $d('h-cols').textContent = T.hCols; $d('h-kinds').textContent = L.kinds;
   $d('h-fold').textContent = L.foldH;
   // the fold control (D-073): shown for a group that can be a skeleton; its own memory, applied when the focus is cleared
@@ -98,13 +110,15 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     $d('fold-box').disabled = !!state.focus;
     $d('fold-row').title = state.focus ? T.foldFocused : L.foldTitle;
     const warn = !state.fold && !state.focus && visibleCount > SKELETON_MIN;
-    $d('fold-warn').textContent = warn ? T.foldWarn(visibleCount) : '';
+    // the disabled checkbox says why, as a visible line (D-085)
+    $d('fold-warn').textContent = warn ? T.foldWarn(visibleCount) : state.focus ? T.foldFocused : '';
     $d('fold-now').hidden = !warn;
   }
 
   const groupSel = $d('group');
   if (DATA.grouped && GROUPS.length > 1) {
-    fillSelect(groupSel, [['', T.all], ...GROUPS.map(g => [g, g])]);
+    fillSelect(groupSel, [['', DOMAINS ? T.allDomains : T.all], ...GROUPS.map(g => [g, groupName(g)])]);
+    if (!DOMAINS) groupSel.title = T.groupTitle;
     groupSel.onchange = () => {
       state.group = groupSel.value;
       computeScope();
@@ -130,7 +144,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   focusInput.addEventListener('keydown', ev => { if (ev.key === 'Enter') submitFocus(); });
   $d('depth').onchange = ev => { state.depth = +ev.target.value; if (state.focus) render(); };
   $d('clear').onclick = () => setFocus(null);
-  $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
+  $d('cols').onchange = ev => { state.allColumns = ev.target.value === 'all'; render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
   const refit = () => { if (zv) zv.fit(); };
   $d('fit').onclick = refit;
@@ -156,8 +170,18 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     focusInput.value = state.focus ? entityName(byId.get(state.focus)) : '';
     // a connector kind of the group costs no level around a focused table (D-076)
     const passing = DATA.kinds.filter(k => ROLE[k.key] === 'connector' && inScope.some(e => e.kind === k.key));
-    $d('depth-note').hidden = !passing.length;
-    $d('depth-note').textContent = passing.length ? T.passNote(passing.map(labelOf).join(' · ')) : '';
+    passText = passing.length ? T.passNote(passing.map(labelOf).join(' · ')) : '';
+    syncFocusControls();
+  }
+  // The controls that need a focus are disabled without one, each with its reason (D-085): the depth select (its note
+  // reads the reason; once focused, the passage rule of D-076) and Clear focus (its title)
+  let passText = '';
+  function syncFocusControls() {
+    const note = $d('depth-note'), text = state.focus ? passText : T.needFocus;
+    $d('depth').disabled = !state.focus;
+    note.hidden = !text; note.textContent = text;
+    $d('clear').disabled = !state.focus;
+    $d('clear').title = state.focus ? '' : T.noFocus;
   }
 
   function setFocus(id) {
@@ -246,7 +270,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (heldIds.length) rows += note(dotText(foldedText(heldIds)));
     const border = e.id === state.focus ? 4 : 1;
     const style = isForeign(e) ? ' style="dashed"' : '';
-    const tip = [[e.group, e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : ''),
+    const tip = [[groupName(e.group), e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : ''),
       cur.skeleton ? skeletonTip(e, heldIds) : ''].filter(Boolean).join('\n\n');
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);
@@ -277,91 +301,12 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (shown.length) w = Math.max(w, ...shown.map(c => (c[0].length + c[1].length) * 7 + 40));
     return [w, h];
   }
-  const byNameId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-  // The centre y of the tables of a column, in this order, as near as possible to `want` while keeping their gaps
-  // (pool adjacent violators: the least squares fit of non-decreasing offsets).
-  function stack(ids, size, want) {
-    const off = ids.map(() => 0), blocks = [];
-    for (let i = 1; i < ids.length; i++) off[i] = off[i - 1] + (size.get(ids[i - 1])[1] + size.get(ids[i])[1]) / 2 + SK.gap;
-    ids.forEach((id, i) => {
-      blocks.push({ sum: want[i] - off[i], n: 1 });
-      while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
-        const top = blocks.pop(), under = blocks[blocks.length - 1];
-        under.sum += top.sum; under.n += top.n;
-      }
-    });
-    return blocks.flatMap(bl => Array.from({ length: bl.n }, () => bl.sum / bl.n)).map((v, i) => v + off[i]);
-  }
   // tables: the drawn entities; rels: the drawn relations. Returns { K, rows: the table ids of each column from top to
-  // bottom, y: id -> centre y (down, from 0), widths, height, size: id -> [w, h] }.
+  // bottom, y: id -> centre y (down, from 0), widths, height, size: id -> [w, h] }: the shared `gridDeal`, for the aspect
+  // of the drawing area.
   function skeletonColumns(tables, rels) {
     const size = new Map(tables.map(e => [e.id, sizeOf(e)]));
-    const degree = new Map(tables.map(e => [e.id, 0])), parentsOf = new Map(tables.map(e => [e.id, []]));
-    const near = new Map(tables.map(e => [e.id, []]));
-    rels.forEach(r => {
-      degree.set(r.child, degree.get(r.child) + 1); degree.set(r.parent, degree.get(r.parent) + 1);
-      parentsOf.get(r.child).push(r.parent); near.get(r.child).push(r.parent); near.get(r.parent).push(r.child);
-    });
-    const byDegree = (a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b);
-    const asChild = new Set(rels.map(r => r.child));
-    let hubs = tables.filter(e => !asChild.has(e.id)).sort(byDegree), links = tables.filter(e => asChild.has(e.id)).sort(byNameId);
-    if (!hubs.length) [hubs, links] = [links.sort(byDegree), []];   // only cycles: no side to tell
-    const paired = links.length > 0;
-    for (const ps of parentsOf.values()) ps.sort((a, b) => byDegree(byId.get(a), byId.get(b)));
-    const target = Math.log(Math.min(SK.maxAspect, Math.max(SK.minAspect, box.clientWidth / Math.max(1, box.clientHeight) || 1.6)));
-    // P pairs [hubs | links] (P plain columns of hubs when nothing references a table)
-    function deal(P) {
-      const K = paired ? 2 * P : P, rows = Array.from({ length: K }, () => []), pair = new Map();
-      const heights = new Array(K).fill(0), widths = new Array(K).fill(0), col = new Map();
-      const put = (e, c) => {
-        const [w, h] = size.get(e.id);
-        col.set(e.id, c); rows[c].push(e.id); heights[c] += h + SK.gap; widths[c] = Math.max(widths[c], w);
-      };
-      hubs.forEach((e, i) => {   // the highest degrees first, dealt in a snake: 0..P-1, P-1..0, 0..P-1...
-        const p = Math.floor(i / P) % 2 ? P - 1 - i % P : i % P;
-        pair.set(e.id, p); put(e, paired ? 2 * p : p);
-      });
-      let pending = links;
-      while (pending.length) {
-        const rest = pending.filter(e => {
-          const anchor = parentsOf.get(e.id)[0];
-          if (!pair.has(anchor)) return true;
-          pair.set(e.id, pair.get(anchor)); put(e, 2 * pair.get(anchor) + 1);
-          return false;
-        });
-        if (rest.length === pending.length) {   // a cycle of links: the first one goes to the shortest link column
-          const c = [...Array(P).keys()].reduce((a, b) => (heights[2 * b + 1] < heights[2 * a + 1] ? b : a));
-          pair.set(rest[0].id, c); put(rest[0], 2 * c + 1); rest.shift();
-        }
-        pending = rest;
-      }
-      const w = widths.reduce((x, y) => x + y, 0) + (K - 1) * SK.gutter;
-      return { K, rows, col, widths, ratio: w / Math.max(1, ...heights) };
-    }
-    let best = null;
-    const most = paired ? Math.min(hubs.length, SK.scan / 2) : Math.min(hubs.length, SK.scan);
-    for (let P = 1; P <= most; P++) {
-      const d = deal(P), score = Math.abs(Math.log(d.ratio) - target);
-      if (!best || score < best.score - 1e-9) best = { ...d, score };
-    }
-    if (!best) return { K: 0, rows: [], widths: [], height: 0, y: new Map(), size };
-    // the rows: every column packed and centred on 0, then barycentre sweeps: the hubs by the mean y of the tables
-    // across their relations, then the links by the mean y of theirs, each column stacked as near as it can to its
-    // wish; the last step settles the links on their hubs, so a long relation runs in the gap between rows
-    const y = new Map(), rows = best.rows;
-    const settle = (c, order, want) => { rows[c] = order; stack(order, size, order.map(want)).forEach((v, i) => y.set(order[i], v)); };
-    rows.forEach((ids, c) => settle(c, ids, () => 0));
-    const wish = (c, id) => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => y.get(n)) : y.get(id); };
-    const sweep = cols => cols.forEach(c => {
-      const keyed = rows[c].map(id => [wish(c, id), id]).sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1));
-      settle(c, keyed.map(k => k[1]), id => wish(c, id));
-    });
-    const side = first => rows.map((r, c) => c).filter(c => !paired || c % 2 === first);
-    for (let i = 0; i < SK.sweeps; i++) { sweep(side(0)); if (paired) sweep(side(1)); }
-    const top = Math.min(...tables.map(e => y.get(e.id) - size.get(e.id)[1] / 2));
-    const bottom = Math.max(...tables.map(e => y.get(e.id) + size.get(e.id)[1] / 2));
-    tables.forEach(e => y.set(e.id, y.get(e.id) - top));
-    return { K: best.K, rows, widths: best.widths, height: bottom - top, y, size };
+    return gridDeal(tables, rels, size, { aspect: box.clientWidth / Math.max(1, box.clientHeight) }, SK);
   }
   // the centre of every table of the grid, in Graphviz points (y up): columns left to right
   function skeletonPositions(grid) {
@@ -451,6 +396,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
 
   // keepView: redraw without moving the camera (after a drop)
   function render(keepView) {
+    showTrail();
     canExport(false);
     const t0 = performance.now(), visible = visibleIds(), sk = skeleton(), sets = drawingSets(visible, sk);
     const gridded = sk || gridShown(sets.drawn);
@@ -469,7 +415,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const { dot, relCount } = buildDot(ids, grid, gridded ? mine.splines : undefined);
     mine.prepMs = performance.now() - t0;
     refreshFold(visible.size);
-    const foreign = state.group ? ` · ${T.foreign}` : '', rels = plural(relCount, T.rels), all = plural(scope.size, L.tables);
+    syncFocusControls();
+    const foreign = state.group ? ` · ${DOMAINS ? T.foreignDomain : T.foreign}` : '', rels = plural(relCount, T.rels), all = plural(scope.size, L.tables);
     $d('meta').textContent = sk ? `${num(ids.size)} / ${all} · ${plural(mine.folded.size, T.foldedShort)} · ${rels}${foreign}`
       : `${num(ids.size)} / ${all} · ${rels}${foreign}`;
     $d('meta').title = sk ? tally(ids) + (mine.folded.size ? ` · ${T.foldedMeta}${L.colon}${tally(mine.folded)}` : '') : '';
@@ -525,6 +472,20 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (q.value) q.oninput();
   }
 
+  // the location trail of the toolbar (D-086, D-089): crumbs items, or a function of the focused id that is re-evaluated on every
+  // render, so its last segment follows the focus; Esc calls the last segment's go
+  let trail = null, trailItems = [];
+  function showTrail() {
+    if (!trail) return;
+    trailItems = typeof trail === 'function' ? trail(state.focus) : trail;
+    crumbs($d('crumbs'), trailItems);
+  }
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape' || ev.defaultPrevented || !trailItems.length || !document.getElementById('tab-detail').classList.contains('on')) return;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(ev.target.tagName)) return;
+    trailItems[trailItems.length - 1].go();
+  });
+  $d('crumbs').setAttribute('aria-label', L.location);
   refreshControls();
   render();
 
@@ -532,13 +493,26 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   return {
     shown: refit,
     relayout: () => render(),
-    // show a table in its own group, focused with its direct links
-    focus(id) {
+    // the focused table's id, or null
+    focused: () => state.focus,
+    // show a table in its own group, focused with its direct links; `arg` (common.js crumbs items, or a function of the focused
+    // id returning them) replaces the location trail of the toolbar, when given (D-086, D-089)
+    focus(id, arg) {
       const e = byId.get(id);
       if (!e) return;
+      if (arg) trail = arg;
       if (groupSel.style.display !== 'none') { groupSel.value = e.group; state.group = e.group; computeScope(); }
       state.focus = id;
       refreshControls();
+      render();
+    },
+    // follow the universe's location (D-089): show its trail and, when the viewer has not focused a table, its group
+    follow(group, arg) {
+      trail = arg; trailItems = [];
+      if (!arg || !arg.length) crumbs($d('crumbs'), []);
+      if (group && !state.focus && groupSel.style.display !== 'none' && GROUPS.includes(group) && state.group !== group) {
+        groupSel.value = group; state.group = group; computeScope(); refreshControls();
+      }
       render();
     },
     svgImage: scale => svgImage(box, zv, scale),

@@ -51,3 +51,18 @@ M8.7 (routes optional, D-083): every case gains `"routes":true` at the end of th
 before regenerating, all eight CDN cases, one occurrence each; the offline cases embed their twin's block).
 Every page changes by the script (`universe.js`) and the markup of the **Routes between constellations** row
 (`page.html`); `page.css` is unchanged.
+
+M9.1 (UI coherence, D-084 to D-086): no payload key changes; every `payloads/*.json` is byte-identical (checked
+before regenerating) and only `expected.json` is regenerated. Every page changes by the assets (`common.js`,
+`detail.js`, `universe.js`, `flow.js`, `boot.js`, `page.html`, `page.css`): the words, the panel's three groups,
+the Layout menu, the Help popovers, the location trail.
+
+M9.2 (map landing, D-087): every universe payload gains `"mapAbove":300` as the new last key of the universe
+defaults; the old and new payloads are equal once that key is removed (checked before regenerating). Every
+page also changes by the script, the markup and `page.css` (drill-down).
+
+M9.4 (Schema tab, D-092): every universe kind gains `"bg"` (last key, the body tint `classify.background(color)`); the old and
+new payloads are equal once that key is removed (checked before regenerating, all eight CDN cases). Every page changes by
+the script (`schema.js`, `common.js`, `universe.js`, `detail.js`, `boot.js`), the markup (`#tab-schema`, the third tab, `#l-reset-why`)
+and `page.css`.
+

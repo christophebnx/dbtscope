@@ -96,7 +96,7 @@ def test_level_one_over_the_cap_is_cut(tmp_path: Path, open_page: Any) -> None:
     assert p.page.locator("#f-graph g.node").count() == FLOW_MAX
     assert "model.fan.m000" in s["down"] and "model.fan.m199" not in s["down"]  # sorted by name
     assert p.page.inner_text("#f-cap") == (
-        f"Only {FLOW_MAX - 1} of the 200 tables at level 1 are drawn (at most {FLOW_MAX} per flow)"
+        f"Only {FLOW_MAX - 1} of the 200 tables at level 1 are drawn (at most {FLOW_MAX} per lineage graph)"
     )
     assert p.page.input_value("#f-depth") == "d1"
 
@@ -104,11 +104,15 @@ def test_level_one_over_the_cap_is_cut(tmp_path: Path, open_page: Any) -> None:
 @pytest.mark.parametrize(
     ("lang", "message"),
     [
-        ("en", f"Depth reduced to 1 level: the chosen depth has 201 tables, a flow draws at most {FLOW_MAX}"),
+        (
+            "en",
+            f"Depth reduced to 1 level: the chosen depth has 201 tables, "
+            f"a lineage graph draws at most {FLOW_MAX}",
+        ),
         (
             "fr",
             "Profondeur réduite à 1 niveau\u00a0: la profondeur choisie compte 201 tables, "  # D-039
-            f"un flux en dessine au plus {FLOW_MAX}",
+            f"un graphe de lignage en dessine au plus {FLOW_MAX}",
         ),
     ],
 )

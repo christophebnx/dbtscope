@@ -78,7 +78,9 @@ def live(p: Page) -> str:
 
 def assert_no_card(p: Page) -> None:
     s = summary(p)
-    assert s["on"] is False and s["weight"] == 0 and s["cards"] == []
+    assert (
+        s["on"] is False and s["cards"] == []
+    )  # on a map page the weight is that of the named discs (D-087)
     drawn = hits(p)
     assert drawn["cards"] == [] and drawn["rows"] == []
     g = p.page.evaluate(GEOMETRY)
@@ -116,8 +118,9 @@ def test_the_large_project_opens_without_cards_at_any_zoom(
     assert not p.page.is_checked(BOX) and stored(p) is None
     fit = camera(p)["k"]
     assert summary(p)["kCards"] > fit  # a Fit that would have been a card
-    if viewport == VIEWPORT:
-        assert p.page.evaluate("views.universe.drawnNames()")
+    assert (
+        summary(p)["weight"] == 1 and p.page.evaluate("views.universe.drawnNames()") == []
+    )  # named discs, no star name
     labels = len(p.page.evaluate("views.universe.labelRects()"))
     assert 1 <= labels <= len(p.page.evaluate(GEOMETRY)["outlines"])
     if viewport == VIEWPORT:
@@ -211,7 +214,7 @@ def test_ticking_shows_the_cards_in_place_and_stores_the_choice(large_page: Any,
     assert_no_card(p)
     assert camera(p) == before and runs(p) == runs_before
     assert stored(p) is None  # the page default is reached: nothing is kept
-    assert live(p) == "Summary cards off: stars at every zoom"
+    assert live(p) == "Summary cards off: named domains from afar"  # a map page (D-087)
 
 
 def test_a_reload_restores_the_choice(large_page: Any, open_page: Any) -> None:
@@ -221,7 +224,7 @@ def test_a_reload_restores_the_choice(large_page: Any, open_page: Any) -> None:
     assert p.page.is_checked(BOX) and summary(p)["weight"] == 1 and len(summary(p)["cards"]) == 6
     untick_cards(p)
     reload(p)
-    assert not p.page.is_checked(BOX) and summary(p)["weight"] == 0
+    assert not p.page.is_checked(BOX) and summary(p)["on"] is False
 
 
 def test_a_garbage_memory_is_ignored(large_page: Any, open_page: Any) -> None:
@@ -240,7 +243,7 @@ def test_the_choice_is_never_exported_and_reset_layout_keeps_it(large_page: Any,
     assert b"dbtscope-cards" not in body and b"cards" not in body
     assert set(json.loads(body)) <= {"format", "version", "savedAt", "universe", "detail"}
     p.page.once("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     p.page.evaluate(NEXT_FRAME)
     assert stored(p) == "on" and p.page.is_checked(BOX) and summary(p)["on"]
 
@@ -252,7 +255,7 @@ def test_the_switch_works_when_storage_throws(large_page: Any, open_page: Any) -
     tick(p)
     assert summary(p)["weight"] == 1
     untick_cards(p)
-    assert summary(p)["weight"] == 0  # open_page's close checks that no error was reported
+    assert summary(p)["on"] is False  # open_page's close checks that no error was reported
 
 
 def test_unticking_while_hovering_a_card_leaves_no_stale_hover(large_page: Any, open_page: Any) -> None:
@@ -271,7 +274,7 @@ def test_toggling_mid_crossfade_and_in_layer_mode(large_page: Any, open_page: An
     p = open_page(large_page[0])
     s = summary(p)
     set_k(p, math.sqrt(s["kStars"] * s["kCards"]))
-    assert summary(p)["weight"] == 0
+    assert 0.3 < summary(p)["weight"] < 0.7  # a map page: the named discs have the cards' weight
     tick(p)
     assert 0.3 < summary(p)["weight"] < 0.7
     choose(p, "layers")
@@ -297,9 +300,9 @@ def test_the_config_key_opens_the_page_with_cards(large_cards_page: Any, open_pa
     assert p.page.is_checked(BOX) and stored(p) is None
     assert summary(p)["weight"] == 1 and len(summary(p)["cards"]) == 6
     untick_cards(p)
-    assert stored(p) == "off" and summary(p)["weight"] == 0
+    assert stored(p) == "off" and summary(p)["on"] is False
     reload(p)
-    assert not p.page.is_checked(BOX) and summary(p)["weight"] == 0
+    assert not p.page.is_checked(BOX) and summary(p)["on"] is False
     tick(p)
     assert stored(p) is None  # back to the page default
 
@@ -331,14 +334,14 @@ def test_the_key_in_a_preset_file_opens_the_page_with_cards(
         (
             "",
             "Summary cards",
-            "From afar, draw each constellation as a card: its counts by layer and its main tables",
+            "From afar, draw each domain as a card: its counts by layer and its main tables",
             "Summary cards on: they replace the stars from afar",
             "Summary cards off: stars at every zoom",
         ),
         (
             "language: fr\n",
             "Fiches de synthèse",
-            f"De loin, dessiner chaque constellation comme une fiche{NBSP}: "
+            f"De loin, dessiner chaque domaine comme une fiche{NBSP}: "
             "ses effectifs par couche et ses tables principales",
             f"Fiches de synthèse activées{NBSP}: elles remplacent les étoiles de loin",
             f"Fiches de synthèse désactivées{NBSP}: des étoiles à tous les zooms",
@@ -361,8 +364,11 @@ def test_the_label_the_title_and_the_announcements_in_both_languages(
 
 def test_tab_reaches_the_box_and_space_toggles_it(build_page: Any, open_page: Any) -> None:
     p = shop(build_page, open_page)
-    p.page.focus("#u-detail")
-    p.page.keyboard.press("Tab")
+    p.page.focus("#u-links")  # the Dependencies row (its switch, then its disabled "all (N)") comes between
+    for _ in range(3):
+        p.page.keyboard.press("Tab")
+        if p.page.evaluate("document.activeElement.id") == "u-cards-box":
+            break
     assert p.page.evaluate("document.activeElement.id") == "u-cards-box"
     p.page.keyboard.press("Space")
     p.page.evaluate(NEXT_FRAME)
@@ -394,7 +400,9 @@ def test_a_trajectory_from_afar_draws_table_edges_and_no_aggregated_arrows(
     p.page.evaluate("c => views.universe.camera(c)", overview)
     p.page.evaluate(NEXT_FRAME)
     start = next(n["id"] for n in large_page[1]["universe"]["nodes"] if n["name"] == "car_hub")
-    assert p.state()["active"] and summary(p)["weight"] == 0
+    assert (
+        p.state()["active"] and summary(p)["weight"] == 1
+    )  # the named discs of a map page; the lineage is not faded
     assert hits(p)["cards"] == [] and start in p.page.evaluate("views.universe.drawnNames()")
     assert p.page.evaluate(COMPARE_UNIVERSE)["diff"] < 6  # the image is the screen
     tick(p)

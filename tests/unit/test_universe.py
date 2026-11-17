@@ -76,6 +76,7 @@ def test_universe_groups_tables_by_domain_layer_and_kind(shop: Project) -> None:
         "fold": True,
         "cards": False,
         "routes": True,
+        "mapAbove": 300,
     }
 
     index = {n["name"]: i for i, n in enumerate(data["nodes"])}
@@ -96,7 +97,7 @@ def test_configured_layers_keep_their_order_and_other_comes_last(shop: Project) 
 def test_the_configured_constellations_are_the_last_default(shop: Project) -> None:
     config = merge_config({}, {"universe": {"constellations": "layers"}})
     data = json.loads(embedded_json(universe_data(shop, config)))
-    assert list(data["defaults"])[-4:] == ["constellations", "fold", "cards", "routes"]
+    assert list(data["defaults"])[-5:] == ["constellations", "fold", "cards", "routes", "mapAbove"]
     assert data["defaults"]["constellations"] == "layers"
     assert universe_data(shop, merge_config({}, {})).defaults.constellations == "domains"
 
@@ -220,7 +221,7 @@ def _payload(project: Project, file_config: dict[str, Any], preset: dict[str, An
     return universe_data(project, config).model_dump(mode="json", by_alias=True)
 
 
-def test_kinds_carry_their_role_last_and_keep_their_order() -> None:
+def test_kinds_carry_their_role_then_the_body_tint_and_keep_their_order() -> None:
     project = _projects(_model("a_sat"), _model("a_hub"), _model("z"), _model("s", kind="seed"))
     file_config = {
         "kinds": [
@@ -236,7 +237,16 @@ def test_kinds_carry_their_role_last_and_keep_their_order() -> None:
         ("seed", "technical"),
         ("other", "none"),
     ]
-    assert list(kinds[0]) == ["key", "label", "color", "role"]
+    assert list(kinds[0]) == ["key", "label", "color", "role", "bg"]  # `bg` joined as the last key (D-092)
+
+
+def test_every_universe_kind_carries_the_body_tint_of_its_colour() -> None:
+    from dbtscope.domain.classify import background
+
+    project = _projects(_model("a_hub"), _model("z"), _model("s", kind="seed"))
+    kinds = _payload(project, {"kinds": [{"key": "hub", "match": ["*_hub"], "color": "#2f6fb5"}]})["kinds"]
+    assert {k["key"] for k in kinds} >= {"hub", "seed", "other"}
+    assert all(k["bg"] == background(k["color"]) for k in kinds)
 
 
 def test_without_a_preset_or_role_kinds_are_none_and_resource_kinds_technical() -> None:
@@ -404,3 +414,8 @@ def test_a_domain_carries_system_last_and_the_order_is_unchanged() -> None:
     domains = _payload(project, {"group_by": "schema"})["domains"]
     assert list(domains[0]) == ["key", "label", "color", "owner", "system"]
     assert [d["key"] for d in domains] == ["crm", ""]
+
+
+def test_universe_map_above_follows_the_config(shop: Project) -> None:
+    assert _folded(shop, None, {})["defaults"]["mapAbove"] == 300
+    assert _folded(shop, None, {"universe": {"map_above": 0}})["defaults"]["mapAbove"] == 0

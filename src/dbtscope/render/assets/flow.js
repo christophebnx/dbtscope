@@ -8,19 +8,19 @@ function startFlow(DATA, EXPORT, close) {
   const START_RING = { gap: 6, width: 3, glow: 10 };   // screen pixels: the start's ring and glow at every zoom
   const $f = id => document.getElementById('f-' + id);
   const T = {
-    en: { flowOf: 'Flow of', back: 'Universe', backTitle: 'Back to the universe (Esc)', fitTitle: 'Show the whole flow',
-          clickFlow: 'Click: show its flow', levelsN: ['level', 'levels'], closed: 'Flow closed',
-          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a flow draws at most ${num(FLOW_MAX)}`,
-          capCut: (shown, total) => `Only ${num(shown)} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${num(FLOW_MAX)} per flow)`,
-          pngTitle: 'Save the visible flow as a PNG image (high resolution)',
-          svgTitle: 'Save the visible flow as an SVG image (vector, opens in any browser)',
+    en: { flowOf: 'Lineage graph of', back: 'Universe', backTitle: 'Back to the universe (Esc)', fitTitle: 'Show the whole graph',
+          clickFlow: 'Click: show its lineage graph', levelsN: ['level', 'levels'], closed: 'Lineage graph closed',
+          capDepth: (e, total) => `Depth reduced to ${plural(e, T.levelsN)}: the chosen depth has ${plural(total, L.tables)}, a lineage graph draws at most ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Only ${num(shown)} of the ${plural(total, L.tables)} at level 1 are drawn (at most ${num(FLOW_MAX)} per lineage graph)`,
+          pngTitle: 'Save the visible lineage graph as a PNG image (high resolution)',
+          svgTitle: 'Save the visible lineage graph as an SVG image (vector, opens in any browser)',
           startTitle: 'Centre the view on the start table' },
-    fr: { flowOf: 'Flux de', back: 'Univers', backTitle: 'Revenir à l\'univers (Échap)', fitTitle: 'Afficher tout le flux',
-          clickFlow: 'Clic\u00a0: afficher son flux', levelsN: ['niveau', 'niveaux'], closed: 'Flux fermé',
-          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)}\u00a0: la profondeur choisie compte ${plural(total, L.tables)}, un flux en dessine au plus ${num(FLOW_MAX)}`,
-          capCut: (shown, total) => `Seules ${num(shown)} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${num(FLOW_MAX)} par flux)`,
-          pngTitle: 'Enregistrer le flux visible en image PNG (haute résolution)',
-          svgTitle: 'Enregistrer le flux visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
+    fr: { flowOf: 'Graphe de lignage de', back: 'Univers', backTitle: 'Revenir à l\'univers (Échap)', fitTitle: 'Afficher tout le graphe',
+          clickFlow: 'Clic\u00a0: afficher son graphe de lignage', levelsN: ['niveau', 'niveaux'], closed: 'Graphe de lignage fermé',
+          capDepth: (e, total) => `Profondeur réduite à ${plural(e, T.levelsN)}\u00a0: la profondeur choisie compte ${plural(total, L.tables)}, un graphe de lignage en dessine au plus ${num(FLOW_MAX)}`,
+          capCut: (shown, total) => `Seules ${num(shown)} des ${plural(total, L.tables)} du niveau 1 sont dessinées (au plus ${num(FLOW_MAX)} par graphe de lignage)`,
+          pngTitle: 'Enregistrer le graphe de lignage visible en image PNG (haute résolution)',
+          svgTitle: 'Enregistrer le graphe de lignage visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
           startTitle: 'Centrer la vue sur la table de départ' },
   }[PAGE.lang];
   const N = DATA.nodes, INDEX = new Map(N.map((n, i) => [n.id, i]));
@@ -281,11 +281,7 @@ function startFlow(DATA, EXPORT, close) {
       + tableDesc(n)
       + (i === st.start ? '' : `<div class="a">${T.clickFlow}</div>`);
     tip.style.display = 'block';
-    const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
-    let left = x - b.left + 14, top = y - b.top + 14;
-    if (left + w > b.width - 8) left = x - b.left - 14 - w;   // flips left, then up, near the edges
-    if (top + h > b.height - 8) top = y - b.top - 14 - h;
-    tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+    placeTooltip(tip, box, { clientX: x, clientY: y });
   }
   function hideTip() { tip.style.display = 'none'; }
 

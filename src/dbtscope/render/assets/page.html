@@ -8,13 +8,17 @@
   <span class="brand">{{TITLE}}</span>
   <button data-tab="universe"></button>
   <button data-tab="detail"></button>
+  <button data-tab="schema"></button>
   <span class="grow"></span>
-  <span class="layout-actions">
-    <button id="l-reset"></button>
-    <button id="l-export"></button>
-    <button id="l-import"></button>
-    <input type="file" id="l-file" accept=".json,application/json" hidden>
-  </span>
+  <details id="l-menu" class="menu"><summary><span id="l-menu-t"></span> <span aria-hidden="true">▾</span></summary>
+    <div class="menu-pop">
+      <button id="l-reset" type="button"></button>
+      <span class="hint" id="l-reset-why" hidden></span>
+      <button id="l-export" type="button"></button>
+      <button id="l-import" type="button"></button>
+    </div>
+  </details>
+  <input type="file" id="l-file" accept=".json,application/json" hidden>
   <span class="sr-only" id="export-live" role="status" aria-live="polite"></span>
 </nav>
 
@@ -37,37 +41,50 @@
     <div class="canvas-box"><div id="f-graph"></div><div class="tip" id="f-tip"></div></div>
   </section>
   <aside class="panel" id="u-panel">
-    <fieldset id="u-by" hidden><legend id="u-h-by"></legend>
-      <label><input type="radio" name="u-by" value="domains"><span id="u-by-domains"></span><small id="u-by-domains-n"></small></label>
-      <label><input type="radio" name="u-by" value="layers"><span id="u-by-layers"></span><small id="u-by-layers-n"></small></label>
-    </fieldset>
-    <fieldset id="u-fold" hidden><legend id="u-h-fold"></legend>
-      <label id="u-fold-row"><input type="checkbox" id="u-fold-box"><span id="u-fold-label"></span><small id="u-fold-n"></small></label>
-    </fieldset>
-    <h3 id="u-h-links"></h3>
-    <select id="u-links" aria-labelledby="u-h-links"></select>
-    <label id="u-routes-on-row" hidden><input type="checkbox" id="u-routes-on-box"><span id="u-routes-on-label"></span></label>
-    <label id="u-routes-row" hidden><input type="checkbox" id="u-routes-box"><span id="u-routes-label"></span><small id="u-routes-n"></small></label>
-    <h3 id="u-h-detail"></h3>
-    <select id="u-detail" aria-labelledby="u-h-detail"></select>
-    <label id="u-cards-row"><input type="checkbox" id="u-cards-box"><span id="u-cards-label"></span></label>
-    <h3><span id="u-h-layers"></span></h3>
-    <div id="u-layers"></div>
-    <h3><span id="u-h-kinds"></span></h3>
-    <div id="u-kinds"></div>
-    <h3><span id="u-h-domains"></span><span><a id="u-all"></a> · <a id="u-none"></a></span></h3>
-    <div id="u-domains"></div>
-    <h3 id="u-systems-h"><span id="u-h-systems"></span><span><a id="u-sys-all"></a> · <a id="u-sys-none"></a></span></h3>
-    <div id="u-systems"></div>
-    <div class="hint" id="u-hint"></div>
+    <section id="u-nav" aria-labelledby="u-h-nav">
+      <h2 id="u-h-nav"></h2>
+      <div class="meta" id="u-meta"></div>
+      <fieldset id="u-by" hidden><legend id="u-h-by"></legend>
+        <label><input type="radio" name="u-by" value="domains"><span id="u-by-domains"></span><small id="u-by-domains-n"></small></label>
+        <label><input type="radio" name="u-by" value="layers"><span id="u-by-layers"></span><small id="u-by-layers-n"></small></label>
+      </fieldset>
+      <h3><span id="u-h-domains"></span><span><a id="u-all"></a> · <a id="u-none"></a></span></h3>
+      <div id="u-domains"></div>
+      <h3 id="u-systems-h"><span id="u-h-systems"></span><span><a id="u-sys-all"></a> · <a id="u-sys-none"></a></span></h3>
+      <div id="u-systems"></div>
+    </section>
+    <section id="u-display" aria-labelledby="u-h-display">
+      <h2 id="u-h-display"></h2>
+      <h3 id="u-h-detail"></h3>
+      <select id="u-detail" aria-labelledby="u-h-detail"></select>
+      <details id="u-more"><summary id="u-more-t"></summary>
+        <fieldset id="u-fold" hidden><legend class="sr-only" id="u-h-fold"></legend>
+          <label id="u-fold-row"><input type="checkbox" id="u-fold-box"><span id="u-fold-label"></span><small id="u-fold-n"></small></label>
+        </fieldset>
+        <h3 id="u-h-links"></h3>
+        <select id="u-links" aria-labelledby="u-h-links"></select>
+        <div id="u-routes-on-row" hidden>
+          <label id="u-routes-on-line"><input type="checkbox" id="u-routes-on-box"><span id="u-routes-on-label"></span></label>
+          <label id="u-routes-all"><input type="checkbox" id="u-routes-box" aria-describedby="u-routes-why"><span id="u-routes-label"></span><span class="sr-only" id="u-routes-why"></span></label>
+        </div>
+        <label id="u-cards-row"><input type="checkbox" id="u-cards-box"><span id="u-cards-label"></span></label>
+      </details>
+    </section>
+    <section id="u-filters" aria-labelledby="u-h-filters">
+      <h2 id="u-h-filters"></h2>
+      <h3><span id="u-h-layers"></span></h3>
+      <div id="u-layers"></div>
+      <h3><span id="u-h-kinds"></span></h3>
+      <div id="u-kinds"></div>
+    </section>
   </aside>
   <div class="stage">
     <div class="toolbar">
       <button id="u-toggle" type="button" aria-controls="u-panel" aria-expanded="true">☰</button>
-      <span class="meta" id="u-meta"></span>
-      <span class="grow"></span>
+      <nav id="u-crumbs" class="crumbs" aria-label="Location"></nav>
       <input id="u-q" list="u-names" autocomplete="off"><datalist id="u-names"></datalist>
       <button id="u-traj" type="button" disabled></button>
+      <details class="help"><summary id="u-help-t"></summary><div class="help-pop" id="u-hint"></div></details>
       <button id="u-fit"></button>
       <span class="export" role="group" aria-labelledby="u-export-h"><span id="u-export-h"></span>
         <button id="u-export" type="button"></button></span>
@@ -91,6 +108,8 @@
       <span class="sr-only" id="u-tj-live" role="status" aria-live="polite"></span>
       <span class="sr-only" id="u-live" role="status" aria-live="polite"></span>
       <canvas id="u-canvas"></canvas>
+      <section class="tpanel" id="u-tpanel" role="region" aria-labelledby="u-tp-name" hidden></section>
+      <div class="inside-note" id="u-inside-note" hidden></div>
       <section class="sr-only" id="u-summary" aria-labelledby="u-summary-h"><h2 id="u-summary-h"></h2></section>
       <div class="tip" id="u-tip"></div>
     </div>
@@ -107,23 +126,24 @@
       <button id="d-fold-now" type="button" hidden></button>
     </fieldset>
     <h3 id="d-h-depth"></h3>
-    <select id="d-depth" aria-labelledby="d-h-depth"></select>
+    <select id="d-depth" aria-labelledby="d-h-depth" aria-describedby="d-depth-note"></select>
     <div class="hint" id="d-depth-note" hidden></div>
     <h3 id="d-h-cols"></h3>
-    <button id="d-cols"></button>
+    <select id="d-cols" aria-labelledby="d-h-cols"></select>
     <h3 id="d-h-kinds"></h3>
     <div id="d-types"></div>
-    <div class="hint" id="d-hint"></div>
   </aside>
   <div class="stage">
     <div class="toolbar">
       <button id="d-toggle" type="button" aria-controls="d-panel" aria-expanded="true">☰</button>
+      <nav id="d-crumbs" class="crumbs" hidden></nav>
       <span class="meta" id="d-meta"></span>
       <span class="focus-info" id="d-focus-info"></span>
       <span class="grow"></span>
       <input id="d-focus" list="d-tables" autocomplete="off"><datalist id="d-tables"></datalist>
       <button id="d-clear"></button>
       <input id="d-q">
+      <details class="help"><summary id="d-help-t"></summary><div class="help-pop" id="d-hint"></div></details>
       <button id="d-fit"></button>
       <span class="export" role="group" aria-labelledby="d-export-h"><span id="d-export-h"></span>
         <button id="d-export-png" type="button" disabled></button><button id="d-export-svg" type="button" disabled></button></span>
@@ -131,6 +151,73 @@
     <span class="sr-only" id="d-live" role="status" aria-live="polite"></span>
     <div class="canvas-box"><div id="d-graph"></div></div>
   </div>
+</section>
+
+<section class="tab" id="tab-schema">
+  <aside class="panel" id="s-panel">
+    <section aria-labelledby="s-h-scope">
+      <h2 id="s-h-scope"></h2>
+      <select id="s-scope"></select>
+      <div class="hint" id="s-scope-why"></div>
+    </section>
+    <section aria-labelledby="s-h-show">
+      <h2 id="s-h-show"></h2>
+      <select id="s-level"></select>
+      <div class="hint" id="s-meta"></div>
+      <div class="hint" id="s-note" hidden></div>
+    </section>
+  </aside>
+  <div class="stage">
+    <div class="toolbar">
+      <button id="s-toggle" type="button" aria-controls="s-panel" aria-expanded="true">☰</button>
+      <nav id="s-crumbs" class="crumbs" aria-label="Location"></nav>
+      <input id="s-q" list="s-tables" autocomplete="off"><datalist id="s-tables"></datalist>
+      <details class="help" id="s-help"><summary id="s-help-t"></summary><div class="help-pop" id="s-hint"></div></details>
+      <button id="s-fit" type="button"></button>
+      <span class="export" role="group" aria-labelledby="s-export-h"><span id="s-export-h"></span>
+        <button id="s-export-png" type="button" disabled></button><button id="s-export-svg" type="button" disabled></button></span>
+      <button id="s-print-btn" type="button" disabled></button><span class="sr-only" id="s-print-why"></span>
+    </div>
+    <div class="canvas-box" id="s-stage">
+      <div id="s-graph" role="group" tabindex="0"></div>
+      <div id="s-heads"></div>
+      <div id="s-chips"></div>
+      <canvas id="s-mini" aria-hidden="true" hidden></canvas>
+      <div class="tip" id="s-tip"></div>
+      <div id="s-pop" role="region" aria-label="" hidden></div>
+      <div id="s-miss" aria-hidden="true" hidden></div>
+      <div id="s-empty" role="status" hidden></div>
+      <button id="s-back-all" type="button" hidden></button>
+      <section class="sr-only" id="s-summary"></section>
+      <span class="sr-only" id="s-live" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+  <dialog id="s-print" aria-labelledby="p-title" aria-describedby="p-needs">
+    <form method="dialog" id="p-form" novalidate>
+      <div class="p-body">
+        <h2 id="p-title"></h2>
+        <div class="hint" id="p-scope"></div>
+        <div id="p-needs" role="status" aria-live="polite" aria-atomic="true"><div id="p-size"></div><div id="p-verdict"></div><div id="p-recommend"></div></div>
+        <div class="row"><label id="p-h-level" for="p-level"></label><select id="p-level" autofocus></select></div>
+        <div class="hint" id="p-level-why"></div>
+        <div class="row"><label id="p-h-floor" for="p-floor"></label><span><input id="p-floor" type="number" inputmode="decimal" min="5" max="14" step="0.5" aria-describedby="p-floor-err"> <span id="p-floor-unit"></span></span></div>
+        <div class="hint err" id="p-floor-err"></div>
+        <fieldset class="row" id="p-out"><legend id="p-h-out"></legend>
+          <span><label><input type="radio" name="p-out" value="sheet"><span id="p-out-sheet"></span></label>
+          <label><input type="radio" name="p-out" value="tiles"><span id="p-out-tiles"></span></label></span></fieldset>
+        <div class="row"><label id="p-h-paper" for="p-paper"></label><select id="p-paper"></select></div>
+        <div class="hint" id="p-paper-why"></div>
+        <div class="row" id="p-custom" hidden><span id="p-h-custom"></span>
+          <span><input id="p-w" type="number" inputmode="numeric" min="100" max="5080" step="1" aria-describedby="p-custom-err"> × <input id="p-h" type="number" inputmode="numeric" min="100" max="5080" step="1" aria-describedby="p-custom-err"> mm</span></div>
+        <div class="hint err" id="p-custom-err"></div>
+        <fieldset class="row" id="p-orient"><legend id="p-h-orient"></legend>
+          <span><label><input type="radio" name="p-orient" value="portrait"><span id="p-orient-portrait"></span></label>
+          <label><input type="radio" name="p-orient" value="landscape"><span id="p-orient-landscape"></span></label></span></fieldset>
+        <div class="hint" id="p-hint"></div>
+      </div>
+      <div class="p-buttons"><button type="button" id="p-cancel"></button><button type="submit" id="p-go" class="on"></button></div>
+    </form>
+  </dialog>
 </section>
 
 <script type="application/json" id="data">{{DATA}}</script>
@@ -145,9 +232,17 @@
 {{UNIVERSE_JS}}
 </script>
 <script>
+{{SCHEMA_JS}}
+</script>
+<script>
+{{PRINT_JS}}
+</script>
+<script>
 {{FLOW_JS}}
 </script>
 <script>
 {{BOOT_JS}}
 </script>
+<div id="print-doc" hidden></div>
+<style id="print-page"></style>
 </body></html>

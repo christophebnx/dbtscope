@@ -383,7 +383,8 @@ def test_detail_buttons_are_disabled_while_laying_out(build_page: Any, open_page
     show_detail(p)
     # a new layout (all columns) disables both until the new drawing is zoomed
     during = p.page.evaluate(
-        """() => { document.getElementById('d-cols').click();
+        """() => { const c = document.getElementById('d-cols'); c.value = 'all';
+          c.dispatchEvent(new Event('change'));
           return ['d-export-png', 'd-export-svg'].map(i => document.getElementById(i).disabled); }"""
     )
     assert during == [True, True]
@@ -523,7 +524,7 @@ EN = {
     "#d-export-h": "Export image",
     "#d-export-png": "PNG",
     "#d-export-svg": "SVG",
-    "#l-reset": "Reset layout",
+    "#l-reset": "Reset this tab's layout",
     "#l-export": "Export layout",
     "#l-import": "Import layout",
 }
@@ -533,7 +534,7 @@ FR = {
     "#d-export-h": "Exporter l'image",
     "#d-export-png": "PNG",
     "#d-export-svg": "SVG",
-    "#l-reset": "Réinitialiser la disposition",
+    "#l-reset": "Réinitialiser la disposition de cet onglet",
     "#l-export": "Exporter la disposition",
     "#l-import": "Importer une disposition",
 }
@@ -570,7 +571,7 @@ def test_export_and_layout_labels(build_page: Any, open_page: Any, lang: str, la
 
 @pytest.mark.parametrize(
     ("lang", "name", "viewport"),
-    [("en", "Filters", None), ("fr", "Filtres", NARROW)],
+    [("en", "Panel", None), ("fr", "Panneau", NARROW)],
     ids=["en-1280", "fr-360"],
 )
 def test_panel_toggles_have_a_name_and_aria_expanded(

@@ -99,6 +99,7 @@ class UniverseKind(BaseModel):
     label: str | None
     color: str
     role: Role = "none"
+    bg: str = ""  # the light tint of a table body, `classify.background(color)` (D-092)
 
 
 class UniverseDefaults(BaseModel):
@@ -113,6 +114,9 @@ class UniverseDefaults(BaseModel):
     fold: bool = True  # `universe.fold`, whether the page opens with descriptive tables folded (D-063)
     cards: bool = False  # `universe.cards`, whether the page opens with summary cards (D-081)
     routes: bool = True  # last key: `universe.routes`, whether the page opens with the routes drawn (D-083)
+    map_above: int = Field(
+        300, serialization_alias="mapAbove"
+    )  # last key: `universe.map_above`, the map page threshold (D-087)
 
 
 class UniversePayload(BaseModel):
@@ -141,3 +145,6 @@ class PagePayload(BaseModel):
     detail: DetailPayload
     universe: UniversePayload
     layout: dict[str, Any]  # a `dbt-erd-layout` file, checked by `layout.check_layout`, not modelled
+    generated_at: str | None = Field(
+        None, serialization_alias="generatedAt"
+    )  # last key: the manifest's `metadata.generated_at`, verbatim (D-095)

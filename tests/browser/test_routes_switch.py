@@ -58,10 +58,12 @@ def test_unticking_hides_every_route_without_moving_the_camera(acme: Page) -> No
     assert geo["routesOn"] is False and drawn(acme) == 0
     assert len(geo["routes"]) == len(before)
     assert acme.state()["layoutRuns"] == runs and camera(acme) == view
-    assert acme.page.is_hidden("#u-routes-row")
-    assert "routes" not in acme.page.inner_text("#u-meta") and "links" in acme.page.inner_text("#u-meta")
+    assert acme.page.is_disabled("#u-routes-box")
+    assert "dependencies" not in acme.page.inner_text("#u-meta") and "links" in acme.page.inner_text(
+        "#u-meta"
+    )
     assert stored(acme) == "off"
-    assert acme.page.inner_text("#u-live") == "Routes hidden: their list stays in the text summary"
+    assert acme.page.inner_text("#u-live") == "Dependencies hidden: their list stays in the text summary"
     acme.page.check(BOX)
     assert stored(acme) is None and drawn(acme) == sum(1 for r in before if r["drawn"])
 
@@ -107,7 +109,7 @@ def test_no_spotlight_while_routes_are_off(large_cards_page: Any, open_page: Any
     hover_card(p, "vehicle")
     p.page.evaluate(NEXT_FRAME)
     assert lit(p) == ("vehicle", None) and drawn(p) == 0
-    p.page.focus("#u-domains label:nth-child(2) input")
+    p.page.focus("#u-domains > *:nth-child(2) input")
     p.page.evaluate(NEXT_FRAME)
     spot, painted = lit(p)
     assert spot is not None and painted is None
@@ -136,10 +138,10 @@ def test_show_all_routes_keeps_its_value_across_off_and_on(large_cards_page: Any
     reset(p)
     p.page.check("#u-routes-box")
     p.page.uncheck(BOX)
-    assert p.page.is_hidden("#u-routes-row")
+    assert p.page.is_disabled("#u-routes-box")
     p.page.check(BOX)
     p.page.evaluate(NEXT_FRAME)
-    assert p.page.is_checked("#u-routes-box") and p.page.is_visible("#u-routes-row")
+    assert p.page.is_checked("#u-routes-box") and p.page.is_enabled("#u-routes-box")
     assert all(r["drawn"] for r in p.page.evaluate(GEOMETRY)["routes"])
 
 
@@ -155,16 +157,17 @@ def test_the_switch_in_french(tmp_path: Path, open_page: Any) -> None:
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     (project / "dbt-erd.yml").write_text(config.replace("language: en\n", "language: fr\n"), encoding="utf-8")
     p = open_page(page_of(project)[0])
-    assert p.page.inner_text("#u-routes-on-label") == "Routes entre constellations"
+    assert p.page.inner_text("#u-routes-on-label") == "Dépendances entre domaines"
     assert p.page.get_attribute("#u-routes-on-row", "title") == (
-        "Dessiner les flèches qui résument les liens entre constellations"
+        "Dessiner les flèches qui résument les liens entre domaines"
     )
     p.page.uncheck(BOX)
     assert (
-        p.page.inner_text("#u-live") == "Routes masquées\u00a0: leur liste reste dans la synthèse textuelle"
+        p.page.inner_text("#u-live")
+        == "Dépendances masquées\u00a0: leur liste reste dans la synthèse textuelle"
     )
     p.page.check(BOX)
-    assert p.page.inner_text("#u-live") == "Routes affichées"
+    assert p.page.inner_text("#u-live") == "Dépendances affichées"
 
 
 def test_the_row_is_hidden_when_no_route_pair_exists(tmp_path: Path, open_page: Any) -> None:

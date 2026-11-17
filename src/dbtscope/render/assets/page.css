@@ -15,18 +15,55 @@ button:disabled { color:var(--muted); border-color:var(--border); cursor:default
 button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 
 /* ---- tabs ---- */
-#tabs { display:flex; align-items:stretch; gap:4px; padding:0 16px; background:var(--surface); border-bottom:1px solid var(--border); }
+#tabs { position:relative; display:flex; align-items:stretch; gap:4px; padding:0 16px; background:var(--surface); border-bottom:1px solid var(--border); }
 #tabs .brand { font-weight:600; font-size:15px; margin-right:16px; align-self:center; }
 #tabs button { border:none; border-bottom:2px solid transparent; border-radius:0; background:none; color:var(--muted); padding:11px 12px 9px; }
 #tabs button.on { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 #tabs .grow { flex:1; }
-#tabs .layout-actions { display:flex; gap:6px; align-items:center; }
-#tabs .layout-actions button { font-size:12px; padding:4px 9px; color:var(--muted); }
-#tabs .layout-actions button:hover { color:var(--accent); }
 @media (max-width:600px) {
-  #tabs { flex-wrap:wrap; padding:0 8px; }
-  #tabs .layout-actions { flex-wrap:wrap; }
+  #tabs { flex-wrap:nowrap; padding:0 8px; gap:0; }
+  /* three tabs and the Layout menu stay on one row at 360 px: the title shrinks with an ellipsis, the tabs pack closer */
+  #tabs .brand { flex:0 1 auto; min-width:0; margin-right:6px; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #tabs button { padding:11px 7px 9px; }
 }
+/* the Layout menu and the Help popovers (D-085): native <details>; the pop hangs from the toolbar or the tab bar (the
+   positioned ancestor), is capped to the viewport, and is never inside .canvas-box, so never in an exported image */
+.menu, .help { position:static; align-self:center; }
+.menu > summary, .help > summary { list-style:none; cursor:pointer; box-sizing:border-box; border:1px solid var(--border);
+                                    border-radius:var(--radius); background:var(--surface); color:var(--fg); font-size:13px; }
+.menu > summary::-webkit-details-marker, .help > summary::-webkit-details-marker { display:none; }
+.menu > summary { padding:4px 9px; font-size:12px; color:var(--muted); white-space:nowrap; }
+.menu > summary span[aria-hidden] { margin-left:.3em; }
+.menu > summary:hover { color:var(--accent); border-color:#c3c9d2; }
+.help > summary { display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px; padding:0 10px; }
+.help > summary:hover { border-color:#c3c9d2; }
+.menu-pop, .help-pop { position:absolute; top:100%; right:12px; z-index:4; box-sizing:border-box; max-width:min(360px, calc(100vw - 24px));
+                       max-height:60vh; overflow:auto; padding:9px 11px; background:var(--surface); border:1px solid var(--border);
+                       border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; line-height:1.5; }
+.help-pop { color:var(--muted); }
+.menu-pop { display:flex; flex-direction:column; gap:4px; min-width:14em; padding:6px; }
+.menu-pop button { width:100%; text-align:left; font-size:13px; }
+/* the way back from the Detail tab (D-086): a trail in the toolbar, empty (hidden) until a hand-off */
+.crumbs { display:inline-flex; align-items:center; gap:6px; font-size:13px; }
+.crumbs[hidden] { display:none; }
+.crumbs [aria-current] { color:var(--fg); }
+/* the universe's location line (D-089): one row that never wraps and never changes the toolbar's height (a basis of 0 and a
+   fixed minimum, so the wrapping of the toolbar never depends on the text); segments shrink with an ellipsis, middle ones first */
+#u-crumbs { flex:1 1 0; min-width:10em; display:flex; flex-wrap:nowrap; overflow:hidden; gap:0; min-height:32px; line-height:18px; align-items:center; }
+.crumbs button { flex:1 1 auto; min-width:0; max-width:max-content; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; background:none;
+                 padding:4px 6px; font:inherit; font-size:13px; color:var(--accent); border-radius:var(--radius); }
+#u-crumbs button { flex-shrink:4; }
+/* a narrow screen: the location line takes the rest of the first row (a basis that does not depend on its text), the controls wrap below */
+@media (max-width:600px) { #u-crumbs { flex-basis:calc(100% - 64px); } }
+#u-crumbs button:first-child { flex-shrink:3; min-width:4em; }
+#u-crumbs button[aria-current] { flex-shrink:1; min-width:4em; }
+.crumbs button:hover, .crumbs button:focus-visible { text-decoration:underline; border:0; }
+.crumbs button[aria-current] { color:var(--fg); font-weight:600; text-decoration:none; }
+.crumbs .sep { flex:none; color:var(--muted); }
+/* hint of an entered domain: HTML, so never in an exported image */
+.inside-note { position:absolute; left:50%; transform:translateX(-50%); bottom:54px; z-index:1; white-space:nowrap; font-size:12px; line-height:18px; color:var(--muted); pointer-events:none; }
+.inside-note[hidden] { display:none; }
+@media (max-width:600px) { .inside-note { display:none; } }
 .tab { flex:1; min-height:0; display:none; }
 .tab.on { display:flex; }
 #tab-universe { position:relative; }
@@ -35,9 +72,20 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .panel { width:260px; flex:none; overflow-y:auto; background:var(--surface); border-right:1px solid var(--border); padding:12px 14px; font-size:13px; }
 .panel.closed { display:none; }
 .panel h3, .panel legend { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:16px 0 6px; display:flex; justify-content:space-between; align-items:center; }
-/* no top margin on a panel's first visible heading: the first child, or the first one after the leading hidden
-   fieldsets (the universe panel starts with at most two: #u-by and #u-fold-box) */
-.panel h3:first-child, .panel fieldset[hidden]:first-child + h3, .panel fieldset[hidden]:first-child + fieldset[hidden] + h3 { margin-top:0; }
+/* no top margin on a panel's first visible heading: the first child, or the first one after a leading hidden fieldset
+   or a section's title (the universe panel is three sections: Navigate, Display, Filters, D-085) */
+.panel h3:first-child, .panel fieldset[hidden]:first-child + h3, .panel h2 + h3, .panel h2 + fieldset[hidden] + h3,
+#u-more > summary + h3, #u-more > summary + fieldset[hidden] + h3 { margin-top:0; }
+.panel h2 { font-size:13px; font-weight:600; color:var(--fg); margin:16px 0 8px; padding-top:12px; border-top:1px solid var(--border); }
+.panel section:first-child > h2 { margin-top:0; padding-top:0; border-top:0; }
+.panel h2 + fieldset:not([hidden]) { margin-top:0; }
+#u-by:not([hidden]) + h3 { margin-top:16px; }
+#u-more { margin-top:12px; }
+#u-more > summary { cursor:pointer; font-size:13px; color:var(--fg); padding:2px 0; }
+#u-more[open] > summary { margin-bottom:10px; }
+#u-routes-on-row span, #u-routes-all span { white-space:normal; }
+#u-routes-all { margin-left:24px; flex-wrap:wrap; }
+#u-routes-all.off { color:var(--muted); cursor:default; }
 .panel fieldset { border:0; margin:0; padding:0; min-width:0; }
 .panel legend { padding:0; margin-top:0; }
 .panel fieldset:not([hidden]) + fieldset { margin-top:16px; }
@@ -47,28 +95,37 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #d-fold-warn:empty { margin:0; }
 #d-fold-now { margin-top:6px; }
 #d-depth-note { margin-top:6px; }
-.panel h3[hidden], .panel label[hidden] { display:none; }
+.panel h3[hidden], .panel label[hidden], .panel div[hidden] { display:none; }
 .panel h3 a { color:var(--muted); cursor:pointer; text-transform:none; letter-spacing:0; font-weight:400; }
 .panel h3 a:hover { color:var(--accent); }
 .panel select, .panel > button { width:100%; }
-.panel label { display:flex; align-items:center; gap:7px; padding:2px 0; cursor:pointer; user-select:none; }
+.panel label, .panel .row { display:flex; align-items:center; gap:7px; padding:2px 0; cursor:pointer; user-select:none; }
 .panel input[type=radio] { margin:3px 3px 3px 4px; }   /* the checkbox's default margin: rows of one height */
-.panel label i { width:10px; height:10px; border-radius:50%; flex:none; }
+.panel .row { cursor:default; }
+.panel .row button.go { flex:1; min-width:0; padding:0; border:0; border-radius:0; background:none; font:inherit; font-size:13px; color:inherit; text-align:left;
+                        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+.panel .row button.go:hover, .panel .row button.go:focus-visible { text-decoration:underline; border:0; }
+.panel .row button.go:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.panel .row:has(button.go[aria-current]) { box-shadow:inset 2px 0 0 var(--accent); padding-left:4px; }
+.panel .row button.go[aria-current] { font-weight:600; }
+.panel label i, .panel .row i { width:10px; height:10px; border-radius:50%; flex:none; }
 .panel label span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.panel label small { color:var(--muted); margin-left:auto; }
+.panel label small, .panel .row small { color:var(--muted); margin-left:auto; }
 .panel .hint { color:var(--muted); font-size:12px; line-height:1.5; margin-top:18px; }
 
 /* ---- drawing area ---- */
 .stage { flex:1; min-width:0; display:flex; flex-direction:column; }
-.toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
+.toolbar { position:relative; display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 12px; background:var(--surface); border-bottom:1px solid var(--border); }
 .toolbar .meta { color:var(--muted); font-size:13px; }
 /* the universe's and the detail's counts wrap: never cut, so no count is lost to the reader. The line takes the room it needs
    (a basis wide enough that it drops to its own row when the controls leave little), the toolbar grows with it, and the
    stage under it keeps that size while the zoom runs (the text changes with the filters, not with the zoom) */
-#u-meta, #d-meta { flex:100 1 20em; min-width:min(20em,100%); padding:6px 0; line-height:18px; overflow-wrap:anywhere; }
+#d-meta { flex:100 1 20em; min-width:min(20em,100%); padding:6px 0; line-height:18px; overflow-wrap:anywhere; }
 /* the universe's line changes with the zoom (the routes entry replaces "N links"): universe.js gives its box the height of the
    longest form as a min-height, so the toolbar never changes height while zooming */
-#u-meta { box-sizing:border-box; }
+#u-meta { box-sizing:border-box; margin:0 0 12px; color:var(--muted); font-size:13px; line-height:18px; overflow-wrap:anywhere; }
+#u-meta + h3, #u-meta + fieldset[hidden] + h3 { margin-top:0; }
+#u-meta + fieldset:not([hidden]) { margin-top:0; }
 .toolbar .focus-info { color:var(--accent); font-size:13px; }
 .toolbar .grow { flex:1; }
 /* export image: a muted label, then one button per format; the group never splits when the toolbar wraps */
@@ -86,7 +143,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #d-graph g.node { cursor:grab; }
 
 /* ---- universe view ---- */
-#u-q { width:220px; }
+#u-q { width:140px; }
 #u-canvas { position:absolute; inset:0; display:block; touch-action:none; }
 .tip { position:absolute; z-index:3; pointer-events:none; max-width:360px; padding:9px 11px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:12px; display:none; }
 .tip b { font-size:13px; }
@@ -122,7 +179,56 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .mk.start { border:3px double var(--fg); }
 .mk.up { border:2px dashed var(--traj-up); }
 .mk.down { border:2px solid var(--traj-down); }
-.trajbar :focus-visible, #u-traj:focus-visible, .export button:focus-visible, #f-view :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.trajbar :focus-visible, #u-traj:focus-visible, .export button:focus-visible, #f-view :focus-visible, .menu summary:focus-visible,
+.help summary:focus-visible, #u-more > summary:focus-visible, .crumbs button:focus-visible, .menu-pop button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* table panel (M9.3, D-091): an overlay of the universe stage, never in an exported image and never resizing the stage; a
+   panel on the right of a wide stage, a bottom sheet on a narrow one (header and actions stay in view) */
+#u-tpanel { position:absolute; z-index:2; top:var(--tp-top,0); right:0; bottom:0; width:min(340px,40%); box-sizing:border-box;
+            overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; background:var(--surface); border-left:1px solid var(--border);
+            box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:13px; padding:0 14px; }
+#u-tpanel[hidden] { display:none; }
+#u-tpanel { overflow-wrap:anywhere; }
+#u-tpanel *:not(button) { min-width:0; }
+#u-tpanel header { position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:8px; padding:8px 0 4px; background:var(--surface); }
+#u-tpanel h2 { flex:1; margin:0; font-size:14px; font-weight:600; }
+#u-tpanel h3 { margin:14px 0 6px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
+#u-tpanel .tp-dot { width:10px; height:10px; border-radius:50%; flex:none; }
+#u-tpanel .tp-close { flex:none; padding:2px 9px; font-size:16px; line-height:1.2; }
+.tp-facts { display:grid; grid-template-columns:90px 1fr; gap:3px 8px; margin:0; }
+.tp-facts dt { color:var(--muted); }
+.tp-facts dd { margin:0; }
+#u-tpanel p { margin:6px 0; }
+.tp-holds { color:var(--fg); }
+.tp-muted, .tp-note, .tp-type, .tp-cdesc, .tp-why { color:var(--muted); }
+.tp-desc.clamp { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:6; overflow:hidden; }
+.tp-colhead { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 8px; }
+.tp-colhead h3 { margin-right:auto; }
+.tp-toggle { display:flex; }
+.tp-toggle button { padding:3px 8px; border-radius:0; font-size:12px; }
+.tp-toggle button:first-child { border-radius:var(--radius) 0 0 var(--radius); }
+.tp-toggle button:last-child { border-radius:0 var(--radius) var(--radius) 0; margin-left:-1px; }
+.tp-toggle button[aria-pressed=true] { color:var(--accent); font-weight:600; box-shadow:inset 0 -2px 0 var(--accent); }
+.tp-cols, .tp-nb ul { margin:0; padding:0; list-style:none; }
+.tp-col { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 8px; }
+.tp-type { font-size:12px; font-variant-numeric:tabular-nums; }
+.tp-cdesc { font-size:12px; }
+.tp-badge { font-size:12px; padding:0 5px; border:1px solid var(--border); border-radius:4px; color:var(--fg); }
+#u-tpanel .tp-nb button, #u-tpanel .tp-all, #u-tpanel .tp-link, #u-tpanel .tp-more { display:block; width:100%; padding:3px 0; border:0; border-radius:0; background:none;
+            font:inherit; font-size:13px; color:var(--accent); text-align:left; }
+#u-tpanel .tp-link { display:inline; width:auto; padding:0; }
+#u-tpanel .tp-more { width:auto; padding:0; }
+#u-tpanel .tp-nb button .tp-note { font-size:12px; }
+#u-tpanel .tp-nb button:hover, #u-tpanel .tp-nb button:focus-visible, #u-tpanel .tp-all:hover, #u-tpanel .tp-link:hover, #u-tpanel .tp-more:hover { text-decoration:underline; border:0; }
+#u-tpanel footer { position:sticky; bottom:0; display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; padding:6px 0 8px; background:var(--surface); border-top:1px solid var(--border); }
+#u-tpanel footer .tp-act { flex:1 1 0; }
+#u-tpanel .tp-why { font-size:12px; }
+#u-tpanel :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+#u-tp-name:focus { outline:none; }
+#u-tp-name:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (max-width:600px) {
+  #u-tpanel { top:auto; left:0; width:auto; max-height:50%; border-left:0; border-top:1px solid var(--border); border-radius:12px 12px 0 0; }
+}
 
 /* flow view (D-036): an overlay over the whole Universe tab, its own toolbar and Graphviz canvas */
 #f-view { position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; background:var(--bg); }
@@ -172,8 +278,119 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 /* touch screens: every control is a 44 px target (D-035); fine pointers are unchanged */
 @media (pointer:coarse) {
   button, select, input:not([type=checkbox]):not([type=radio]):not([type=file]), #u-tj-counts summary, #f-domains summary,
-  .panel label, .panel h3 a { min-height:44px; }
-  button { min-width:44px; }
+  .panel label, .panel .row, .panel h3 a, .menu > summary, .help > summary, #u-more > summary { min-height:44px; }
+  button, .help > summary { min-width:44px; }
+  .menu > summary, #u-more > summary { display:flex; align-items:center; }
+  .crumbs button { min-width:44px; min-height:44px; }
+  #u-crumbs { min-height:44px; }
   input:not([type=checkbox]):not([type=radio]):not([type=file]) { box-sizing:border-box; }
   .panel h3 a { display:inline-flex; align-items:center; padding:0 8px; }
+  #u-tpanel .tp-nb button, #u-tpanel .tp-all, #u-tpanel .tp-more, #u-tpanel .tp-link { min-height:44px; min-width:44px; display:inline-flex; align-items:center; }
+  #u-tpanel .tp-nb button { display:flex; flex-wrap:wrap; }
+}
+
+/* ---- Schema tab (M9.4, D-092 to D-094): a document scrolled inside the stage, the page itself never scrolls sideways ---- */
+#s-crumbs { flex:1 1 0; min-width:10em; display:flex; flex-wrap:nowrap; overflow:hidden; gap:0; min-height:32px; line-height:18px; align-items:center; }
+#s-crumbs button { flex-shrink:4; }
+#s-crumbs button:first-child { flex-shrink:3; min-width:4em; }
+#s-crumbs button[aria-current] { flex-shrink:1; min-width:4em; }
+@media (max-width:600px) { #s-crumbs { flex-basis:calc(100% - 64px); } #s-q { flex:1 1 140px; width:auto; min-width:0; } }
+#s-q { width:160px; }
+#s-scope-why:empty, #s-note[hidden] { display:none; }
+#s-scope-why { margin-top:6px; }
+#s-meta { margin-top:14px; }
+#s-note { margin-top:8px; }
+#s-graph { position:absolute; inset:0; touch-action:none; cursor:grab; }
+#s-graph:active { cursor:grabbing; }
+#s-graph:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+#s-graph svg { display:block; }
+#s-graph g.node, #s-graph g.chip { cursor:pointer; }
+#s-heads { position:absolute; inset:0; pointer-events:none; z-index:1; overflow:hidden; }
+#s-heads .colhead { position:absolute; top:0; height:28px; box-sizing:border-box; padding:5px 8px; background:var(--surface); border-bottom:1px solid var(--border);
+                    border-left:1px solid var(--border); font-size:13px; font-weight:600; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#s-heads .rowhead { position:absolute; left:6px; max-width:40%; display:flex; align-items:center; gap:6px; box-sizing:border-box; padding:2px 8px;
+                    background:rgba(255,255,255,.9); border:1px solid var(--border); border-radius:4px; font-size:12px; color:var(--fg); white-space:nowrap; }
+#s-heads .rowhead i { width:10px; height:10px; border-radius:50%; flex:none; }
+#s-chips { position:absolute; inset:0; pointer-events:none; z-index:1; overflow:hidden; }
+#s-chips button { position:absolute; left:0; top:0; pointer-events:auto; padding:0; border:0; border-radius:12px; background:transparent; }
+#s-chips button:hover { background:rgba(47,111,181,.08); }
+#s-chips button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+#s-mini { position:absolute; right:12px; bottom:12px; z-index:2; box-sizing:content-box; background:rgba(255,255,255,.95); border:1px solid var(--border); border-radius:4px; touch-action:none; cursor:pointer; }
+#s-mini[hidden], #s-pop[hidden], #s-empty[hidden] { display:none; }
+#s-pop { position:absolute; z-index:3; left:var(--px,8px); top:var(--py,8px); box-sizing:border-box; width:320px; max-width:calc(100% - 16px); max-height:50%; overflow:auto;
+         padding:8px 12px 10px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:13px; }
+#s-pop h3 { margin:0 28px 6px 0; font-size:13px; }
+#s-pop > button:first-of-type { position:absolute; right:8px; top:6px; padding:0 8px; font-size:16px; line-height:1.4; }
+#s-pop ul { margin:0; padding:0; list-style:none; }
+#s-pop li button { display:block; width:100%; min-height:28px; padding:3px 0; border:0; border-radius:0; background:none; color:var(--accent); text-align:left; overflow-wrap:anywhere; }
+#s-pop li button:hover, #s-pop li button:focus-visible { text-decoration:underline; }
+#s-pop li button:disabled { color:var(--muted); text-decoration:none; }
+#s-pop li small { display:block; color:var(--muted); font-size:12px; margin-top:-2px; padding-bottom:3px; }
+#s-pop :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (max-width:600px) { #s-pop { left:0; right:0; top:auto; bottom:0; width:auto; max-width:none; border-radius:12px 12px 0 0; } #s-mini { display:none; } }
+#s-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:10px; padding:24px; color:var(--muted); background:var(--bg); z-index:2; }
+#s-summary ul { margin:0; padding:0; }
+@media (pointer:coarse) { #s-pop li button { min-height:44px; } #s-crumbs { min-height:44px; } }
+#l-reset-why { padding:2px 6px; font-size:12px; color:var(--muted); }
+#s-miss { position:absolute; z-index:3; top:8px; right:8px; max-width:calc(100% - 16px); box-sizing:border-box; padding:6px 10px; background:var(--surface);
+          border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:13px; color:var(--fg); }
+#s-miss[hidden] { display:none; }
+#s-tip .desc { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:8; overflow:hidden; }
+/* 360 px: the toolbar is two rows: the crumbs, then the search, Help, Fit and the two export buttons (their label is the group's name) */
+@media (max-width:600px) {
+  #tab-schema .export > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  #tab-schema .export { margin-left:0; }
+  #s-q { flex:1 1 60px; box-sizing:border-box; }
+  #tab-schema .toolbar button, #tab-schema .help > summary { padding-left:7px; padding-right:7px; }
+  #tab-schema .toolbar { gap:4px; }   /* 4 px: Print… joins the second row at 360 px */
+  #tab-schema .toolbar #s-print-btn, #tab-schema .toolbar #s-fit, #tab-schema .export button { padding-left:4px; padding-right:4px; }   /* Print… joins the second row, in French too */
+}
+
+/* ---- Print (M9.5, D-095, D-096): the Print dialog, and the print document, shown only while a print runs (html.printing) ---- */
+#s-print { box-sizing:border-box; width:min(560px, 100vw); max-width:100vw; max-height:90vh; padding:0; border:1px solid var(--border); border-radius:var(--radius);
+           background:var(--surface); color:var(--fg); overflow:hidden; }
+#s-print[open] { display:flex; flex-direction:column; }
+#s-print::backdrop { background:rgba(0,0,0,.35); }
+#p-form { display:flex; flex-direction:column; min-height:0; max-height:90vh; margin:0; }
+#s-print .p-body { overflow-y:auto; overflow-x:hidden; padding:0 16px 8px; }
+#s-print h2 { margin:16px 0 4px; font-size:16px; }
+#p-needs { position:sticky; top:0; z-index:1; box-sizing:border-box; max-height:30vh; overflow:auto; margin:8px 0; padding:8px 0; background:var(--surface);
+           border-bottom:1px solid var(--border); font-size:13px; line-height:1.5; font-variant-numeric:tabular-nums; }
+#p-needs > div:empty { display:none; }
+#p-needs > div + div { margin-top:2px; }
+#s-print .row { display:grid; grid-template-columns:200px minmax(0,1fr); gap:6px 12px; align-items:center; margin:8px 0; padding:0; border:0; min-width:0; font-size:13px; }
+#s-print fieldset.row { display:block; overflow:hidden; }
+#s-print fieldset.row legend { float:left; width:200px; padding:0; margin-right:12px; }
+#s-print fieldset.row > span { display:block; overflow:hidden; }
+#s-print label { display:inline-flex; align-items:center; gap:6px; margin-right:14px; }
+#s-print label[for] { margin-right:0; }
+#s-print select, #s-print input:not([type=radio]) { max-width:100%; box-sizing:border-box; }
+#p-floor { width:6ch; text-align:right; font-variant-numeric:tabular-nums; }
+#p-w, #p-h { width:8ch; text-align:right; font-variant-numeric:tabular-nums; }
+#s-print .hint { margin:2px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+#s-print .hint:empty, #p-custom[hidden] { display:none; }
+#s-print .hint.err { color:var(--fg); }
+#s-print .p-buttons { display:flex; justify-content:flex-end; gap:8px; padding:10px 16px; border-top:1px solid var(--border); background:var(--surface); }
+#s-print :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (max-width:600px) {
+  #s-print { width:100vw; margin:auto 0 0; border-radius:12px 12px 0 0; }
+  #s-print .row { grid-template-columns:minmax(0,1fr); }
+  #s-print fieldset.row legend { float:none; width:auto; margin:0 0 4px; }
+}
+@media (pointer:coarse) {
+  #s-print button, #s-print select, #s-print input:not([type=radio]) { min-height:44px; }
+  #s-print label { min-height:44px; }
+  #s-print input[type=radio] { width:24px; height:24px; }
+}
+/* the print document: built on demand into #print-doc, one <section class="pp"> of the paper's exact size per page; only while a print
+   runs (html.printing) does it replace the page, so a Ctrl+P without the dialog prints the page as before */
+#print-doc { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+#print-doc[hidden] { display:none; }
+#print-doc .pp { box-sizing:border-box; position:relative; overflow:hidden; background:#fff; break-after:page; break-inside:avoid; }
+#print-doc .pp:last-child { break-after:auto; }
+#print-doc svg { display:block; }
+@media print {
+  html.printing, html.printing body { display:block; height:auto; overflow:visible; background:#fff; }
+  html.printing body > :not(#print-doc) { display:none; }
+  html.printing #print-doc { display:block; }
 }

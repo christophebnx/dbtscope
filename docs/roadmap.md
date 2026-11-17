@@ -267,7 +267,22 @@ Brief: `docs/briefs/2026-11-12-m8-synthesis.md` (read it in full). Asked by the 
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
+## M9 — Drill-down navigation, UI coherence, printable schema sheets
+
+Brief: `docs/briefs/2026-11-17-visualization-optimization.md` (read it in full, with the UI review `docs/briefs/2026-11-17-ui-review.md` it builds on). Asked by the user on 2026-11-17 after showing the page on the real OpenLane Data Vault: the universe is not clear on 1,474 tables (no drill-down, no sense of place), and Thomas asks for a navigable, printable 3NF-style schema view (up to a wall poster). Scope decided with the user the same day (brief § 3): renaming approved, entering a domain relayouts it full screen, single click opens a table panel, the schema view is a third tab, printing goes through a paged print document. Audience: data engineers, data analysts, data architects. Five sub-milestones, each through `/feature`, in this order:
+
+- **M9.1 — UI coherence (done, 2026-11-17; D-084 to D-086, design note `docs/architecture/2026-11-17-m9.1-ui-coherence.md`).** The review's fix-list: renaming in the audience's words (Lineage, Dependencies between domains, Table kind, one "Show" wording), the universe panel regrouped Navigate / Display / Filters, accessibility and small defects, a way back from the Detail tab.
+- **M9.2 — Drill-down (done, 2026-11-17; D-087 to D-090, design note `docs/architecture/2026-11-17-m9.2-drill-down.md`).** Map landing on large projects (`universe.map_above`, default 300), entering a domain (full-stage spread, band headers, ghosts of the other domains, links only on hover or selection), a breadcrumb with `Esc` stepping back one level, the same path in the Detail tab, panel rows that go, keyboard and touch paths.
+- **M9.3 — Table panel (done, 2026-11-17; D-091, design note `docs/architecture/2026-11-17-m9.3-table-panel.md`).** Single click on a table opens a side panel (columns, description, clickable relations, Open in Detail, Lineage); supersedes click-starts-trajectory (D-018).
+- **M9.4 — Schema tab (done, 2026-11-17; D-092 to D-094, design note `docs/architecture/2026-11-17-m9.4-schema-tab.md`).** 3NF-style sheets on a swimlane grid (layers × domains), scroll-first navigation, minimap, inter-lane relation summaries on large scopes (chips above 300 tables or 16 relations between cells, measured). Its sheet model and SVG emitter are what M9.5 prints.
+- **M9.5 — Print (done, 2026-11-17; D-095, D-096, design note `docs/architecture/2026-11-17-m9.5-print.md`).** Paper model with a minimum font size and an announced physical size, one-sheet poster output, tiled A4/A3 sheets with crop marks, coordinates and an index page; kind tags and a legend for black and white; `PagePayload.generatedAt`. Chromium's page-size limit measured: none (the 5,080 mm limit is the PDF viewers').
+- **M9 close (2026-11-17).** All five phases done. Documentation round: the screenshots of `docs/images/` retaken with the M9 page and three added (table panel, Schema tab, Print dialog); approval by the user pending.
+
+Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
+
 ## Later (not scheduled)
+
+- Names inside a layer of several hundred tables (M9.2 follow-up, `docs/progress.md` open points): at Fit, Raw vault shows 47 of 388 names and Staging 34 of 277 (half is the brief's target; Vehicle's 153 tables stop just under it at 76, 49.7 %, and a layer of 250 reaches 185). Options: a spread larger than the stage that scrolls, or names by priority with a hint of how many are hidden.
 
 - Documentation round after M8 (user, 2026-11-13) (done, 2026-11-15; screenshot approval pending): the ten screenshots of `docs/images/` retaken (acme_retail and the large generated project; three new `large-*` images), a pass over the user guide and how it works.
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
@@ -276,4 +291,4 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
 - Universe interaction: a shareable link to a table (`erd.html#table=…`). (Curved routes that avoid the circles, with their counts on hover, and neighbours lit on hover were built by M8.4, D-071.)
 - Flow view: the paths between two chosen tables.
-- Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).
+- Print stylesheet for the Universe and Detail tabs: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules). The Schema tab's print is M9.5 (D-095, which supersedes this item for that tab).

@@ -4,78 +4,137 @@
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
+function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
-    en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
-          names: 'names', keys: 'keys', all: 'all fields', layers: 'Layers', domains: 'Domains',
-          every: 'all', nothing: 'none', search: 'Find a table…', linksN: ['link', 'links'], owner: 'owner',
+    en: { links: 'Links', relations: 'relations (tests, foreign keys)', lineage: 'lineage (ref, source)', detail: 'Show',
+          layers: 'Layers', domains: 'Domains',
+          every: 'all', nothing: 'none', search: 'Find a table…', searchLabel: 'Find a table', linksN: ['link', 'links'], owner: 'owner',
+          navigate: 'Navigate', display: 'Display', filters: 'Filters', moreDisplay: 'More display options',
           openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
-          frame: 'Double-click: zoom on this domain', frameC: 'Double-click: zoom on this constellation',
-          by: 'Constellations', layersN: ['layer', 'layers'], domainOne: 'Domain',
-          trajectory: 'Trajectory', trajFound: 'Trajectory of the table found', trajOf: 'Trajectory of',
-          brought: ['table brought back by the trajectory', 'tables brought back by the trajectory'],
+          enterD: 'Click: enter this domain', enterL: 'Click: enter this layer',
+          rootDomains: 'All domains', rootLayers: 'All layers',
+          segTitle: (d, layers, deps) => `${plural(d.n, L.tables)}${d.sum.entities != null ? ` (${plural(d.sum.entities, T.entitiesDrawn)})` : ''} · `
+              + `${layers ? plural(d.bands.length, L.domainsN) : plural(d.bands.length, T.layersN)} · ${plural(deps, T.routesN)}`,
+          goName: l => `Go to ${l}`, goTitle: (l, n) => `Enter ${l}: ${n}`, showName: l => `Show ${l}`,
+          liveEntered: (l, n, m) => `${l}: ${n} in ${m}`, liveLeft: layers => (layers ? 'All layers' : 'All domains'),
+          liveFiltered: (l, layers) => `${l} hidden by a filter: back to all ${layers ? 'layers' : 'domains'}`,
+          insideNote: 'Hover a table to see its links', ghostWord: 'Dependency',
+          by: 'Organise by', byDomain: 'Domain', byLayer: 'Layer', layersN: ['layer', 'layers'], domainOne: 'Domain',
+          trajectory: 'Lineage', trajFound: 'Lineage of the table found', trajOf: 'Lineage of',
+          needTable: 'Find a table first, or use Lineage in a table\'s panel',
+          brought: ['table brought back by the lineage', 'tables brought back by the lineage'],
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
-          leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
-          fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
-          clickTraj: 'Click: show its trajectory',
-          mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`, summaryH: 'Summary of the constellations',
-          entitiesN: ['entity', 'entities'], foldsInto: 'Folds into',
-          openedLive: (t, p) => `${t} is folded into ${p}: shown`,
-          foldLiveOn: n => `Descriptive tables folded${L.colon}${n}`,
-          cards: 'Summary cards', cardsTitle: 'From afar, draw each constellation as a card: its counts by layer and its main tables',
-          routesSwitch: 'Routes between constellations', routesSwitchTitle: 'Draw the arrows that sum up the links between constellations',
-          routesLiveOn: 'Routes shown', routesLiveOff: 'Routes hidden: their list stays in the text summary',
+          leave: 'Leave', leaveTitle: 'Leave the lineage (Esc)', closed: 'Lineage closed',
+          fitTraj: 'Frame the lineage', flow: 'Lineage graph', flowTitle: 'Show this lineage as a left-to-right graph',
+          tpClose: 'Close the table panel (Esc)', tpKind: 'Table kind', tpDomain: 'Domain', tpSystem: 'Source system', tpLayer: 'Layer', tpOwner: 'Owner',
+          tpInside: 'Drawn inside', tpHolds: n => `Holds ${plural(n, ['descriptive table', 'descriptive tables'])}`,
+          tpDesc: 'Description', tpNoDesc: 'No description', tpMore: 'More', tpLess: 'Less',
+          tpCols: n => `Columns (${num(n)})`, tpColsGroup: 'Columns shown', tpKeys: 'Key columns', tpAll: 'All columns', tpKey: 'key',
+          tpNoKey: 'No key column', tpNoCols: 'No columns declared',
+          tpRefs: n => `References (${num(n)})`, tpRefBy: n => `Referenced by (${num(n)})`,
+          tpUp: n => `Upstream (${num(n)})`, tpDown: n => `Downstream (${num(n)})`, tpHeld: n => `Drawn inside it (${num(n)})`,
+          tpVia: cols => `via ${cols.join(', ')}`, tpHidden: '(hidden by a filter)', tpShowAll: n => `Show all ${num(n)}`,
+          tpNone: 'No relation and no lineage link', tpDetail: 'Open in Detail', tpDetailNo: 'Not in the Detail tab\'s scope',
+          tpLineage: 'Lineage', tpLineageTitle: 'Show where this table\'s data comes from and goes',
+          tpLive: (name, facts, counts) => `${name}: ${facts} · ${counts}. Table panel open; Esc closes it.`,
+          tpClosed: 'Table panel closed', tpKeyboard: 'Location line: Enter on the table to read its panel.',
+          clickPanel: 'Click: open its panel',
+          mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`,
+          summaryH: layers => `Summary of the ${layers ? 'layers' : 'domains'}`,
+          entitiesN: ['entity', 'entities'], entitiesDrawn: ['entity drawn', 'entities drawn'], foldsInto: 'Drawn inside',
+          openedLive: (t, p) => `${t} is drawn inside ${p}: shown`,
+          foldLiveOn: n => `Descriptive tables drawn inside their table${L.colon}${n}`,
+          cards: 'Summary cards',
+          cardsTitle: layers => `From afar, draw each ${layers ? 'layer' : 'domain'} as a card: its counts by ${layers ? 'domain' : 'layer'} and its main tables`,
+          routesSwitch: layers => `Dependencies between ${layers ? 'layers' : 'domains'}`,
+          routesSwitchTitle: layers => `Draw the arrows that sum up the links between ${layers ? 'layers' : 'domains'}`,
+          routesLiveOn: 'Dependencies shown', routesLiveOff: 'Dependencies hidden: their list stays in the text summary',
           cardsLiveOn: 'Summary cards on: they replace the stars from afar', cardsLiveOff: 'Summary cards off: stars at every zoom',
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
           systemsN: ['source system', 'source systems'], groupTip: 'Click a row to zoom on it',
-          routesN: ['route', 'routes'], routesOf: (s, t) => `${num(s)} of ${num(t)} routes`, allRoutes: 'Show all routes',
-          allRoutesOn: t => `All ${num(t)} routes shown`,
-          allRoutesOff: (s, t) => `The ${num(s)} strongest of ${num(t)} routes shown`,
+          routesN: ['dependency', 'dependencies'], routesOf: (s, t) => `${num(s)} of ${num(t)} dependencies`,
+          allN: t => `all (${num(t)})`, allAria: t => `Show all ${num(t)} dependencies`,
+          allDrawn: t => (t === 1 ? 'The dependency is drawn' : t ? `All ${num(t)} dependencies are drawn` : 'No dependency to draw'),
+          routesOff: 'Dependencies are off',
+          allRoutesOn: t => `All ${num(t)} dependencies shown`,
+          allRoutesOff: (s, t) => `The ${num(s)} strongest of ${num(t)} dependencies shown`,
           relationsN: ['relation', 'relations'], lineageN: ['lineage link', 'lineage links'],
           reads: (a, b) => `${a} reads ${b}`, readEach: 'Each reads the other', noLineage: 'No lineage',
-          routeFrom: 'From', routesH: 'Routes',
+          routeFrom: 'From', routesH: 'Dependencies',
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
-          hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
-              + 'click a table to see its trajectory (Esc to leave) · '
-              + 'double-click a constellation to zoom in, a table to open its detail' },
-    fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
-          names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
-          every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
+          hint: layers => `Wheel: zoom · drag the background to pan · drag a table, or a ${layers ? 'layer' : 'domain'} by its name, to arrange them · `
+              + `click a ${layers ? 'layer' : 'domain'} to enter it · Esc: one level back · `
+              + 'click a table to open its panel · double-click a table to open its detail',
+          hintTouch: layers => `Pinch: zoom · drag: pan · tap a ${layers ? 'layer' : 'domain'} to enter it · tap a table: its panel · `
+              + 'double-tap a table: its detail · the location line takes you back',
+          cardsLiveOffMap: layers => `Summary cards off: named ${layers ? 'layers' : 'domains'} from afar` },
+    fr: { links: 'Liens', relations: 'relations (tests, clés étrangères)', lineage: 'lignage (ref, source)', detail: 'Afficher',
+          layers: 'Couches', domains: 'Domaines',
+          every: 'tout', nothing: 'aucun', search: 'Chercher une table…', searchLabel: 'Chercher une table', linksN: ['lien', 'liens'],
           owner: 'propriétaire',
+          navigate: 'Naviguer', display: 'Affichage', filters: 'Filtres', moreDisplay: 'Plus d\'options d\'affichage',
           openDetail: 'Double-clic\u00a0: ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic\u00a0: zoomer',
-          frame: 'Double-clic\u00a0: cadrer ce domaine', frameC: 'Double-clic\u00a0: cadrer cette constellation',
-          by: 'Constellations', layersN: ['couche', 'couches'], domainOne: 'Domaine',
-          trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
-          brought: ['table ramenée par la trajectoire', 'tables ramenées par la trajectoire'],
+          enterD: 'Clic\u00a0: entrer dans ce domaine', enterL: 'Clic\u00a0: entrer dans cette couche',
+          rootDomains: 'Tous les domaines', rootLayers: 'Toutes les couches',
+          segTitle: (d, layers, deps) => `${plural(d.n, L.tables)}${d.sum.entities != null ? ` (${plural(d.sum.entities, T.entitiesDrawn)})` : ''} · `
+              + `${layers ? plural(d.bands.length, L.domainsN) : plural(d.bands.length, T.layersN)} · ${plural(deps, T.routesN)}`,
+          goName: l => `Aller à ${l}`, goTitle: (l, n) => `Entrer dans ${l}\u00a0: ${n}`, showName: l => `Afficher ${l}`,
+          liveEntered: (l, n, m) => `${l}\u00a0: ${n} dans ${m}`, liveLeft: layers => (layers ? 'Toutes les couches' : 'Tous les domaines'),
+          liveFiltered: (l, layers) => `${l} masqué par un filtre\u00a0: retour à ${layers ? 'toutes les couches' : 'tous les domaines'}`,
+          insideNote: 'Survolez une table pour voir ses liens', ghostWord: 'Dépendance',
+          by: 'Organiser par', byDomain: 'Domaine', byLayer: 'Couche', layersN: ['couche', 'couches'], domainOne: 'Domaine',
+          trajectory: 'Lignage', trajFound: 'Lignage de la table trouvée', trajOf: 'Lignage de',
+          needTable: 'Cherchez d\'abord une table, ou utilisez Lignage dans le panneau d\'une table',
+          brought: ['table ramenée par le lignage', 'tables ramenées par le lignage'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
-          leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
-          fitTraj: 'Cadrer la trajectoire', flow: 'Flux',
-          flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
-          clickTraj: 'Clic\u00a0: afficher sa trajectoire',
+          leave: 'Quitter', leaveTitle: 'Quitter le lignage (Échap)', closed: 'Lignage fermé',
+          fitTraj: 'Cadrer le lignage', flow: 'Graphe de lignage',
+          flowTitle: 'Afficher ce lignage en graphe, de gauche à droite',
+          tpClose: 'Fermer le panneau de la table (Échap)', tpKind: 'Type de table', tpDomain: 'Domaine', tpSystem: 'Système source', tpLayer: 'Couche', tpOwner: 'Responsable',
+          tpInside: 'Dessinée dans', tpHolds: n => `Contient ${plural(n, ['table descriptive', 'tables descriptives'])}`,
+          tpDesc: 'Description', tpNoDesc: 'Aucune description', tpMore: 'Plus', tpLess: 'Moins',
+          tpCols: n => `Colonnes (${num(n)})`, tpColsGroup: 'Colonnes affichées', tpKeys: 'Colonnes clés', tpAll: 'Toutes les colonnes', tpKey: 'clé',
+          tpNoKey: 'Aucune colonne clé', tpNoCols: 'Aucune colonne déclarée',
+          tpRefs: n => `Références (${num(n)})`, tpRefBy: n => `Référencée par (${num(n)})`,
+          tpUp: n => `En amont (${num(n)})`, tpDown: n => `En aval (${num(n)})`, tpHeld: n => `Dessinées dedans (${num(n)})`,
+          tpVia: cols => `via ${cols.join(', ')}`, tpHidden: '(masquée par un filtre)', tpShowAll: n => `Voir tout (${num(n)})`,
+          tpNone: 'Aucune relation ni lien de lignage', tpDetail: 'Ouvrir dans le Détail', tpDetailNo: 'Hors du périmètre de l\'onglet Détail',
+          tpLineage: 'Lignage', tpLineageTitle: 'Voir d\'où viennent et où vont les données de cette table',
+          tpLive: (name, facts, counts) => `${name}\u00a0: ${facts} · ${counts}. Panneau de la table ouvert\u202f; Échap le ferme.`,
+          tpClosed: 'Panneau de la table fermé', tpKeyboard: 'Ligne d\'emplacement\u00a0: Entrée sur la table pour lire son panneau.',
+          clickPanel: 'Clic\u00a0: ouvrir son panneau',
           mainH: 'Tables principales', rowZoom: label => `Clic\u00a0: cadrer ${label}`,
-          summaryH: 'Synthèse des constellations',
-          entitiesN: ['entité', 'entités'], foldsInto: 'Se replie dans',
-          openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
-          foldLiveOn: n => `Tables descriptives repliées${L.colon}${n}`,
-          cards: 'Fiches de synthèse', cardsTitle: 'De loin, dessiner chaque constellation comme une fiche\u00a0: ses effectifs par couche et ses tables principales',
-          routesSwitch: 'Routes entre constellations', routesSwitchTitle: 'Dessiner les flèches qui résument les liens entre constellations',
-          routesLiveOn: 'Routes affichées', routesLiveOff: 'Routes masquées\u00a0: leur liste reste dans la synthèse textuelle',
+          summaryH: layers => `Synthèse des ${layers ? 'couches' : 'domaines'}`,
+          entitiesN: ['entité', 'entités'], entitiesDrawn: ['entité dessinée', 'entités dessinées'], foldsInto: 'Dessinée dans',
+          openedLive: (t, p) => `${t} est dessinée dans ${p}\u00a0: affichée`,
+          foldLiveOn: n => `Tables descriptives dessinées dans leur table${L.colon}${n}`,
+          cards: 'Fiches de synthèse',
+          cardsTitle: layers => `De loin, dessiner ${layers ? 'chaque couche' : 'chaque domaine'} comme une fiche\u00a0: ses effectifs par ${layers ? 'domaine' : 'couche'} et ses tables principales`,
+          routesSwitch: layers => `Dépendances entre ${layers ? 'couches' : 'domaines'}`,
+          routesSwitchTitle: layers => `Dessiner les flèches qui résument les liens entre ${layers ? 'couches' : 'domaines'}`,
+          routesLiveOn: 'Dépendances affichées', routesLiveOff: 'Dépendances masquées\u00a0: leur liste reste dans la synthèse textuelle',
           cardsLiveOn: 'Fiches de synthèse activées\u00a0: elles remplacent les étoiles de loin', cardsLiveOff: 'Fiches de synthèse désactivées\u00a0: des étoiles à tous les zooms',
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
           systemsN: ['système source', 'systèmes sources'], groupTip: 'Clic sur une ligne pour la cadrer',
-          routesN: ['route', 'routes'], routesOf: (s, t) => `${plural(s, ['route', 'routes'])} sur ${num(t)}`,
-          allRoutes: 'Afficher toutes les routes', allRoutesOn: t => `Les ${num(t)} routes sont affichées`,
-          allRoutesOff: (s, t) => `Les ${num(s)} routes les plus fortes sur ${num(t)} sont affichées`,
-          relationsN: ['relation', 'relations'], lineageN: ['lien de lignée', 'liens de lignée'],
-          reads: (a, b) => `${a} lit ${b}`, readEach: 'Chacun lit l\'autre', noLineage: 'Aucune lignée',
-          routeFrom: 'Depuis', routesH: 'Routes',
+          routesN: ['dépendance', 'dépendances'], routesOf: (s, t) => `${plural(s, ['dépendance', 'dépendances'])} sur ${num(t)}`,
+          allN: t => `toutes (${num(t)})`, allAria: t => `Afficher les ${num(t)} dépendances`,
+          allDrawn: t => (t === 1 ? 'La dépendance est dessinée' : t ? `Les ${num(t)} dépendances sont toutes dessinées` : 'Aucune dépendance à dessiner'),
+          routesOff: 'Les dépendances sont désactivées',
+          allRoutesOn: t => `Les ${num(t)} dépendances sont affichées`,
+          allRoutesOff: (s, t) => `Les ${num(s)} dépendances les plus fortes sur ${num(t)} sont affichées`,
+          relationsN: ['relation', 'relations'], lineageN: ['lien de lignage', 'liens de lignage'],
+          reads: (a, b) => `${a} lit ${b}`, readEach: 'Chacun lit l\'autre', noLineage: 'Aucun lignage',
+          routeFrom: 'Depuis', routesH: 'Dépendances',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
-          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
-              + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
-              + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail' },
+          hint: layers => `Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou ${layers ? 'une couche' : 'un domaine'} par son nom, pour les ranger · `
+              + `clic sur ${layers ? 'une couche' : 'un domaine'} pour y entrer · Échap\u00a0: un niveau en arrière · `
+              + 'clic sur une table pour ouvrir son panneau · double-clic sur une table pour son détail',
+          hintTouch: layers => `Pincer\u00a0: zoom · glisser\u00a0: déplacer · toucher ${layers ? 'une couche' : 'un domaine'} pour y entrer · toucher une table\u00a0: son panneau · `
+              + 'double-toucher une table\u00a0: son détail · la ligne d\'emplacement ramène en arrière',
+          cardsLiveOffMap: layers => `Fiches de synthèse désactivées\u00a0: ${layers ? 'couches nommées' : 'domaines nommés'} vus de loin` },
   }[PAGE.lang];
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
@@ -102,10 +161,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const DOM = Object.fromEntries(DATA.domains.map(d => [d.key, d]));
   // Source systems (M8.4, D-068, D-069): the flag is computed in Python. They are set apart only while some domain
   // is not one; the panel order (DOM_POS: layer bands, card rows, the text summary) lists business domains first.
-  const SYS = new Set(DATA.domains.filter(d => d.system).map(d => d.key));
-  const HAS_SYS = SYS.size > 0 && SYS.size < DATA.domains.length;
-  const BUSINESS = DATA.domains.filter(d => !HAS_SYS || !SYS.has(d.key)), SYSTEMS = DATA.domains.filter(d => HAS_SYS && SYS.has(d.key));
-  const DOM_LIST = [...BUSINESS, ...SYSTEMS];   // the panel order: a domain's position is its index here, never in the payload
+  const { systems: SYS, hasSystems: HAS_SYS, business: BUSINESS, systemList: SYSTEMS, list: DOM_LIST } = domainOrder(DATA);   // the panel order: a domain's position is its index in DOM_LIST, never in the payload
   const DOM_POS = Object.fromEntries(DOM_LIST.map((d, i) => [d.key, i]));
   const GROUP = '@systems';   // the key of the source-systems group card (not a domain key in practice)
   const LAYER = Object.fromEntries(DATA.layers.map((l, i) => [l.key, { ...l, rank: i }]));
@@ -137,6 +193,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     routes: routesMemory.get() ? routesMemory.get() === 'on' : DATA.defaults.routes,
     cards: cardsMemory.get() ? cardsMemory.get() === 'on' : DATA.defaults.cards,
   };
+  // the map (D-087, D-088): a page of more tables than `universe.map_above` opens on named discs; `nav` is the location
+  // (never saved, D-013): the entered constellation (a domain, or a layer) and the selected table, as indexes
+  const MAP = N.length > DATA.defaults.mapAbove;
+  const nav = { inside: null, table: null };
+  // the table panel (M9.3, D-091): { i, cols: 'keys' | 'all' | null (the Show select decides), more: Set of the lists shown whole } or null
+  let panel = null, panelKeyboardHint = true, focusCrumb = false;
+  const COARSE = window.matchMedia('(pointer: coarse)').matches;
   const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
   let opened = null;   // the entity opened by the last search: its folded tables are drawn (index), at most one
   const stage = $u('stage'), canvas = $u('canvas'), screenCtx = canvas.getContext('2d'), tip = $u('tip');
@@ -145,15 +208,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   let drawn = [], mainCache = null;  // ids of the names drawn in the last frame (for the tests); the main tables
   // pass: the tables that pass the three filters; visible: those drawn (pass minus the folded ones); edges: the
   // links between drawn tables; HELD: entity index -> the indices folded into it now (in name order)
-  let P = [], B = [], REL = new Map(), labelHits = [], pass = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
+  let P = [], PM = [], B = [], REL = new Map(), labelHits = [], pass = [], visible = [], edges = [], constellations = [], routes = [], tree = null;
   let PASS = new Uint8Array(N.length), FOLDNOW = new Uint8Array(N.length), HELD = new Map(), linkCount = 0;
   // the constellation whose routes are spotlit (M8.4, D-071): a key or GROUP; pointer or focus state, never exported;
   // showAll: the "Show all routes" choice, for the session only
   let spot = null, showAll = false, geomVer = 0, dragging = false;   // geomVer: bumped when a constellation moves (routes are recomputed)
-  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, summary: 0, routes: 0 };
+  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, summary: 0, routes: 0, enter: 0, leave: 0, panel: 0, tweenFrames: 0 };
   // summary cards (M8.3, D-065, D-066): the reference star radius of the layout, the rows and header rectangles of
   // the last screen frame (screen px), the card under the pointer and its row, the trajectory marks of the cards
-  let refR = 1, routeHits = [], lastView = null, summaryHits = [], cardInfo = [], hoverCard = null, hoverRow = null, trajCache = null, fade = 1;
+  let refR = 1, routeHits = [], lastView = null, summaryHits = [], cardInfo = [], hoverCard = null, hoverRow = null, trajCache = null, fade = 1, dfade = 1, tfade = 1;
   // trajectory mode: null = off, else { start, up, down, edges: [[child, parent, 'up'|'down']], brought }
   const trajOpts = { direction: 'both', depth: Infinity };   // kept across trajectories in the session
   const DEPTH = { d1: 1, d2: 2, d3: 3, dall: Infinity };
@@ -164,16 +227,22 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // a select of string keys, each labelled by the view's T or the shared L
   const options = (el, values, current) => fillSelect(el, values.map(v => [v, v in T ? T[v] : L[v]]), current);
   options($u('links'), ['relations', 'lineage', 'both'], state.links);
-  options($u('detail'), ['names', 'keys', 'all'], state.detail);
+  fillSelect($u('detail'), LEVELS(), state.detail);
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
-  $u('detail').onchange = ev => { state.detail = ev.target.value; relayout(); };
+  $u('detail').onchange = ev => { state.detail = ev.target.value; if (panel) panel.cols = null; relayout(); };
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;
-  $u('h-by').textContent = T.by; $u('by-domains').textContent = T.domains; $u('by-layers').textContent = T.layers;
+  $u('h-nav').textContent = T.navigate; $u('h-display').textContent = T.display; $u('h-filters').textContent = T.filters;
+  $u('more-t').textContent = T.moreDisplay;
+  $u('h-by').textContent = T.by; $u('by-domains').textContent = T.byDomain; $u('by-layers').textContent = T.byLayer;
   $u('by-domains-n').textContent = num(DATA.domains.length); $u('by-layers-n').textContent = num(DATA.layers.length);
   $u('by').hidden = !CAN_BY;
   $u('by').querySelectorAll('input').forEach(radio => {
     radio.checked = radio.value === state.by;
-    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); opened = null; relayout(); };
+    radio.onchange = () => {
+      if (!radio.checked) return;
+      state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); opened = null;
+      resetNav(); syncWords(); refreshPanel(); relayout(); renderCrumbs();
+    };
   });
   // the fold control: one checkbox, labelled from the roles of the kinds that fold (never from names, D-059)
   $u('fold').hidden = !CAN_FOLD;
@@ -201,9 +270,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('all').setAttribute('aria-label', T.allBusiness); $u('none').setAttribute('aria-label', T.noneBusiness);
     $u('sys-all').setAttribute('aria-label', T.allSystems); $u('sys-none').setAttribute('aria-label', T.noneSystems);
   }
-  $u('routes-label').textContent = T.allRoutes;
   // the routes switch (D-083): no layout, no camera move; routesDrawn is the one place that combines it with the zoom rule (the routes row and the test hook also read it)
-  $u('routes-on-label').textContent = T.routesSwitch; $u('routes-on-row').title = T.routesSwitchTitle; $u('routes-on-box').checked = state.routes;
+  $u('routes-on-box').checked = state.routes;
   $u('routes-on-box').onchange = ev => {
     state.routes = ev.target.checked; spot = null; tip.style.display = 'none';
     routesMemory.set(state.routes ? 'on' : 'off', DATA.defaults.routes ? 'on' : 'off');
@@ -211,22 +279,37 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     draw();
   };
   // the summary cards switch (D-081): no layout, no camera move; summaryWeight is the one place that reads it
-  $u('cards-label').textContent = T.cards; $u('cards-row').title = T.cardsTitle; $u('cards-box').checked = state.cards;
+  $u('cards-label').textContent = T.cards; $u('cards-box').checked = state.cards;
   $u('cards-box').onchange = ev => {
     state.cards = ev.target.checked; hoverCard = hoverRow = null;
     cardsMemory.set(state.cards ? 'on' : 'off', DATA.defaults.cards ? 'on' : 'off');
-    $u('live').textContent = state.cards ? T.cardsLiveOn : T.cardsLiveOff;
+    $u('live').textContent = state.cards ? T.cardsLiveOn : MAP ? T.cardsLiveOffMap(state.by === 'layers') : T.cardsLiveOff;
     draw();
   };
-  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
+  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('q').setAttribute('aria-label', T.searchLabel);
+  const help = $u('help-t');
+  help.textContent = '?'; help.title = L.help; help.setAttribute('aria-label', L.help);
+  dismissable(help.parentNode);
+  // the words that name what a constellation stands for follow the grouping (D-084): domains or layers
+  function syncWords() {
+    const layers = state.by === 'layers';
+    $u('routes-on-label').textContent = T.routesSwitch(layers); $u('routes-on-row').title = T.routesSwitchTitle(layers);
+    $u('cards-row').title = T.cardsTitle(layers); $u('hint').textContent = (COARSE ? T.hintTouch : T.hint)(layers);
+    $u('inside-note').textContent = T.insideNote;
+  }
+  syncWords();
 
   // `by`: the grouping whose constellation a row stands for; hovering or focusing the row spotlights its routes
+  // the rows of the list whose items are the current constellations get a name that enters it (D-089)
   function checkboxes(el, items, countOf, set, color, title, by) {
     el.replaceChildren(...items.map(it => {
+      const goes = by && state.by === by, label = labelOf(it), count = countOf.get(it.key) || 0;
       const row = filterRow(
-        { label: labelOf(it), color: color && color(it), count: countOf.get(it.key) || 0, checked: set.has(it.key),
-          title: title && title(it) },
+        { label, color: color && color(it), count, checked: set.has(it.key), title: title && title(it),
+          go: goes ? { check: T.showName(label), aria: T.goName(label), title: T.goTitle(label, plural(count, L.tables)),
+                       onClick: () => enter(it.key, 'row') } : null },
         on => { on ? set.add(it.key) : set.delete(it.key); relayout(); });
+      if (goes) row.querySelector('button.go').dataset.key = it.key;
       if (by) {
         const lit = () => { if (state.by === by && spot !== it.key) { spot = it.key; draw(); } };
         const dark = () => { if (spot != null) { spot = null; draw(); } };
@@ -247,6 +330,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     checkboxes($u('kinds'), KINDS_BY_ROLE, COUNT.kind, state.kinds, k => k.color);
     checkboxes($u('domains'), BUSINESS, COUNT.domain, state.domains, d => d.color, owner, 'domains');
     if (HAS_SYS) checkboxes($u('systems'), SYSTEMS, COUNT.domain, state.domains, d => d.color, owner, 'domains');
+    syncRows();
+  }
+  // the entered row says where the viewer is: aria-current on its name, set in place so the focus stays on its button
+  function syncRows() {
+    document.querySelectorAll('#u-panel button.go').forEach(b => {
+      if (b.dataset.key === nav.inside) b.setAttribute('aria-current', 'location'); else b.removeAttribute('aria-current');
+    });
   }
   refreshPanel();
   // all / none of one heading tick or untick only its rows
@@ -258,7 +348,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const a = $u(id); a.tabIndex = 0; a.setAttribute('role', 'button');
     a.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); a.click(); } };
   });
-  sidePanel('u', () => { resize(); fit(false); });
+  sidePanel('u', () => { resize(); if (nav.inside) settleInside(); fit(false); });
   $u('export-h').textContent = L.exportImage;
   $u('export').textContent = L.png; $u('export').title = T.pngTitle;
   $u('export').onclick = () => EXPORT.save('universe', 'png', image, $u('export'));
@@ -288,19 +378,31 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const wouldFold = i => foldable(i) && PARENT[i] !== opened;
   // the trajectory members the fold would otherwise hide: what makes entering or leaving a trajectory relayout
   const unfoldedKey = () => trajMembers().filter(wouldFold).sort((a, b) => a - b).join();
-  $u('q').onchange = ev => {
-    const n = findByName(ev.target.value);
-    if (!n) return;
+  // Find, mark and frame one table (search box, return from the Detail tab): tick it back when filtered out, open its
+  // entity when folded, ring it as found, open its panel and zoom to it
+  function mark(n) {
     // a folded table opens its entity (one at a time); any other table closes it
     const before = opened, hidden = tick(n.i);
     const inFold = foldable(n.i);
     if (inFold) { if (!(traj && trajMembers().includes(n.i))) opened = PARENT[n.i]; } else opened = null;
     if (hidden) refreshPanel();
     if (hidden || opened !== before) relayout();
-    if (opened !== before && opened != null) $u('live').textContent = T.openedLive(n.name, N[opened].name);
-    found = n.i;
+    // a search goes to the table: its constellation is entered (no tween, the camera goes to the table), the table is selected
+    // and ringed; a lineage on another table keeps its own table level
+    const key = grouping().of(n);
+    if (nav.inside !== key) enter(key, 'search', { instant: true });
+    openPanel(n.i, 'search');
     zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5, kStars() * 1.05));
-  };
+    if (opened !== before && opened != null) $u('live').textContent = `${T.openedLive(n.name, N[opened].name)}. ${panelLive(n.i)}`;
+  }
+  $u('q').onchange = ev => { const n = findByName(ev.target.value); if (n) mark(n); };
+  // the way back from the Detail tab (D-086): the table's name goes into the search box (which enables Lineage for it),
+  // the table is marked and framed, the keyboard focus lands on the box; an id outside the universe only focuses the box
+  function locate(id) {
+    const n = ID.has(id) ? N[ID.get(id)] : null;
+    if (n) { $u('q').value = n.name; syncTrajBtn(); mark(n); }
+    $u('q').focus();
+  }
 
   // ---------------------------------------------------------------- geometry
   // Each table reserves the room of what it shows: its star and name, or a card with keys / all fields.
@@ -372,6 +474,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- layout
+  // a constellation's inner layout only depends on the grouping, its own tables, links and detail level (and, for the spread of
+  // an entered constellation, the stage's aspect rounded to 0.05); a table's reserved box depends on what it holds: its held ids
+  // (cards) or whether it holds any (names)
+  function layoutKey(key, group, aspect = '') {
+    const heldKey = n => state.detail === 'names' ? (HELD.has(n.i) ? 'h' : '') : (HELD.get(n.i) || []).join('.');
+    return [state.by, key, state.detail, state.links, group.map(n => n.i + heldKey(n)).join(','), aspect].join('|');
+  }
   function layout() {
     layoutRuns++;
     const t0 = performance.now();
@@ -400,11 +509,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     edges = links.filter(([a, b]) => !FOLDNOW[a] && !FOLDNOW[b]);
 
     const G = grouping(), local = new Map();
-    // a table's reserved box depends on what it holds: its held ids (cards) or whether it holds any (names)
-    const heldKey = n => state.detail === 'names' ? (HELD.has(n.i) ? 'h' : '') : (HELD.get(n.i) || []).join('.');
     for (const [key, group] of d3.group(visible, G.of)) {
-      // a constellation's inner layout only depends on the grouping, its own tables, links and detail level
-      const cached = [state.by, key, state.detail, state.links, group.map(n => n.i + heldKey(n)).join(',')].join('|');
+      const cached = layoutKey(key, group);
       if (!layoutCache.has(cached)) layoutCache.set(cached, layoutConstellation(key, group));
       local.set(key, layoutCache.get(cached));
     }
@@ -455,6 +561,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
     P = [];
     constellations.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
+    ghostLabelW = Math.min(NAV.GHOST_LABEL, Math.ceil(d3.max(constellations, d => textW(constellationLabel(d.k), `11px ${FONT}`)) || 0) + 4);
+    PM = P;   // the map's positions, kept while a constellation is entered (D-088)
     tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
     geomVer++;
     perf.layout = performance.now() - t0;
@@ -594,30 +702,43 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // smallest circle around the reserved boxes. No simulation and no randomness: the same tables give the
   // same offsets on every machine.
   // -> { ns: [{i, x, y}] offsets of the star from the circle centre, R, rank, bands: [{key, n, x0, x1}] }
-  function layoutConstellation(key, members) {
+  // With `aspect` (the entered constellation, D-088) the same bands and scan give the spread: the objective is the largest
+  // scale of the row's bounding box in a box of that aspect (width / height), not the smallest circle; no refinement.
+  // -> also { w, h }, the size of the bounding box
+  // `kName` (the spread, below scale 1): the scale the spread is meant to be seen at; the reserved boxes then hold the names
+  // at their fixed screen size, so a name has the room of its box, not that of a scale-1 layout (names are not scaled)
+  function layoutConstellation(key, members, aspect = 0, kName = 0, wide = true) {
     const bands = bandsOf(members);
     const PAD = PACK.PAD;
-    const items = bands.map(band => band.tables.map(n => { const b = box(n); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
+    const items = bands.map(band => band.tables.map(n => { const b = reservedBox(n, kName, wide); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
     const all = items.flat(), stack = list => d3.sum(list, b => b.h) + PAD * (list.length - 1);
     const lo = d3.max(all, b => b.h), hi = Math.max(lo, d3.max(items, stack));
     let best = null;
+    const score = row => (aspect ? -Math.min(aspect / row.w, 1 / row.h) : row.r);
     for (let k = 0; k <= PACK.TRIES; k++) {
-      const row = packRow(items, items.map(() => lo * Math.pow(hi / lo, k / PACK.TRIES)), PAD);
-      if (!best || row.r < best.r) best = row;
+      const row = packRow(items, items.map(() => lo * Math.pow(hi / lo, k / PACK.TRIES)), PAD, aspect);
+      if (!best || score(row) < score(best)) best = row;
     }
     // then the bands near the edge are cut to the circle's chord there, which may shrink the circle again
-    for (let k = 0; k < PACK.REFINE; k++) {
+    for (let k = 0; k < (aspect ? 0 : PACK.REFINE); k++) {
       const caps = best.bands.map(([x0, x1], j) =>
         Math.max(lo, Math.min(best.H[j], 2 * Math.sqrt(Math.max(0, best.r ** 2 - Math.max(x0 * x0, x1 * x1))))));
       const row = packRow(items, caps, PAD);
       if (row.r >= best.r) break;
       best = row;
     }
-    const R = d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
+    const R = aspect ? 0 : d3.max(all, (b, j) => holds(best.at[j].x, best.at[j].y - b.oy, b));
     const bandOf = new Map(bands.flatMap((band, j) => band.tables.map(n => [n.i, j])));
-    return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R, bandOf,
+    return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R, bandOf, w: best.w, h: best.h,
              rank: grouping().rank(key, members),
              bands: bands.map((band, j) => ({ key: band.key, n: band.tables.length, x0: best.bands[j][0], x1: best.bands[j][1] })) };
+  }
+  // a table's reserved box for a view at scale k < 1 at names level: the star scales, the name (11 px, one or two lines) does not
+  function reservedBox(n, k, wide = true) {
+    const b = box(n);
+    if (!k || k >= 1 || state.detail !== 'names') return b;
+    const lines = nameLines(n.name).length, up = HELD.has(n.i) ? 6 : 0;
+    return { ...b, w: wide ? (b.w + 12) / k : b.w, h: 2 * starR(n) + up + (10 + LINE_H * lines) / k, oy: LINE_H / 2 * lines / k - up / 2 };
   }
   // The bands of a constellation, ordered tables included: [{key, tables}] (see the M5.5 design note § 2).
   // In layer mode every table has a band (its domain), so the catch-all placement never applies.
@@ -673,7 +794,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // Lays the bands' boxes ([[{w, h}]], in order) out in one row: bands left to right, band j in columns of
   // height <= H[j] centred on y = 0, then moves the whole so the smallest circle around the box corners is
   // centred on (0, 0). -> { at: [{x, y}] box centres in the order of bands.flat(), bands: [[x0, x1]], r, H }
-  function packRow(bands, H, PAD) {
+  function packRow(bands, H, PAD, aspect = 0) {
     const cols = bands.map((items, j) => columns(items, H[j], PAD));
     const width = list => d3.max(list, b => b.w);
     const W = d3.sum(cols, band => d3.sum(band, width) + PACK.STRIP_GAP * (band.length - 1)) + PACK.BAND_GAP * (bands.length - 1);
@@ -696,9 +817,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       });
       ranges.push([start, x]);
     });
-    const c = d3.packEnclose(corners);   // the smallest circle around them; d3 shuffles with a fixed seed: deterministic
+    // the smallest circle around the corners (d3 shuffles with a fixed seed: deterministic), or with an aspect the centre of
+    // their bounding box
+    const [bx0, bx1, by0, by1] = boxOf(corners.map(q => [q.x, q.y]));
+    const c = aspect ? { x: (bx0 + bx1) / 2, y: (by0 + by1) / 2, r: 0 } : d3.packEnclose(corners);
     at.forEach(p => { p.x -= c.x; p.y -= c.y; });
-    return { at, bands: ranges.map(([x0, x1]) => [x0 - c.x, x1 - c.x]), r: c.r, H };
+    return { at, bands: ranges.map(([x0, x1]) => [x0 - c.x, x1 - c.x]), r: c.r, H, w: bx1 - bx0, h: by1 - by0 };
   }
 
   // ---------------------------------------------------------------- drawing
@@ -1023,11 +1147,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const at = u => { const i = Math.min(pts.length - 2, Math.floor(u)); return lerp2(pts[i], pts[i + 1], u - i); };
     return [at(u0), ...pts.slice(Math.floor(u0) + 1, Math.ceil(u1)), at(u1)];
   }
-  // the "Show all routes" row: there only while some set hides a route; its count is the current set's routes
+  // the "all (N)" toggle of the dependencies row (D-085): always there with the row, disabled with its reason when no
+  // dependency is hidden by the current set (layer mode included) or the dependencies are off; N is the current set's count
   function syncRoutesRow(view) {
-    const hide = !view.hides || !state.routes, row = $u('routes-row');
-    if (row.hidden !== hide) row.hidden = hide;
-    $u('routes-n').textContent = num(view.cur.list.length);
+    const box = $u('routes-box'), n = view.cur.list.length;
+    const why = !state.routes ? T.routesOff : !view.hides ? T.allDrawn(n) : '';
+    box.disabled = !!why; box.title = why; $u('routes-all').classList.toggle('off', !!why);
+    $u('routes-why').textContent = why;
+    $u('routes-label').textContent = T.allN(n); box.setAttribute('aria-label', T.allAria(n));
   }
   $u('routes-box').onchange = ev => {
     showAll = ev.target.checked;
@@ -1107,26 +1234,32 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     if (onScreen) { summaryHits = []; cardInfo = []; routeHits = []; }
     // the crossfade (D-065): stars, links, names and halos at 1 - a, the summary cards at a, one rule for the universe
-    const a = summaryWeight(k), cardsOn = a >= 0.02, starsOn = a <= 0.98, routesOn = routesDrawn(k, a);
-    fade = 1 - a;
-    const view = routeView(a, routesOn), grp = view.rm.grp;
+    // a: the weight of the cards, or of the named discs of a map page; cw: that of the cards alone. Stars, table links and table
+    // names fade by 1 - a; the discs stay (dfade); the lineage of a map page is not faded under them (tfade, D-087)
+    const a = summaryWeight(k), cw = state.cards ? a : 0, inside = !!nav.inside, discs = MAP && !state.cards && !inside;
+    const cardsOn = cw >= 0.02, starsOn = a <= 0.98, routesOn = routesDrawn(k, a);
+    fade = 1 - a; dfade = discs ? 1 : fade; tfade = discs && traj ? 1 : fade;
+    const view = routeView(cw, routesOn), grp = view.rm.grp;
+    const shown = inside ? spread.tables : visible;
     if (onScreen) {
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
       // tables and links are counted over what passes the filters: a fold changes what is drawn, not what is counted
-      const entities = folding() ? [plural(entitiesIn(visible), T.entitiesN)] : [];
+      const entities = folding() ? [plural(entitiesIn(visible), T.entitiesDrawn)] : [];
       const hidden = routesOn && !(showAll && !traj) && view.cur.shown.length < view.cur.list.length
         ? [T.routesOf(view.cur.shown.length, view.cur.list.length)] : [];
       // one line: while the routes entry shows (some routes are hidden) it replaces the links count, so it stays in view;
       // the title always holds the whole line
-      const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables), ...entities];
+      const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables) + (entities.length ? ` (${entities[0]})` : '')];
       const text = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
       // the routes form of the meta line keeps its reserved height while routes are off: no resize (D-082)
       $u('meta').title = [...counts, links, groups, ...hidden].join(' · ');
+      const rootSegment = $u('crumbs').querySelector('button');   // the root segment's title is the whole counts line
+      if (rootSegment) rootSegment.title = $u('meta').title;
       const most = Math.max(0, ...view.sets.map(s => s.list.length));   // a project without routes never shows the entry
       setMeta(text, [[...counts, links, groups], ...(most ? [[...counts, groups, T.routesOf(most, most)]] : [])].map(f => f.join(' · ')));
       lastView = view; syncRoutesRow(view);
-      $u('routes-on-row').hidden = !routes.length;   // a page without any route pair has no switch
+      $u('routes-on-row').hidden = !routes.length;   // a page without any route pair has no dependencies row
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -1143,25 +1276,28 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const plans = cardsOn ? cardPlans(grp, view.rm) : new Map();
 
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
-    constellations.forEach(d => {
+    if (!inside) constellations.forEach(d => {
       if (byLayers) { drawDomainBands(d, k, ctxAlpha(d)); return; }
-      if (!starsOn) return;
-      ctx.globalAlpha = ctxAlpha(d) * fade;
+      if (!starsOn && !discs) return;
+      ctx.globalAlpha = ctxAlpha(d) * dfade;
       const c = isSystem(d.k) ? C.muted : CONTRAST.edge(DOM[d.k].color, C.bg), g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r);   // 3:1 (D-042)
       g.addColorStop(0, c + '26'); g.addColorStop(1, c + '0a');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
       ctx.strokeStyle = c + '66'; ctx.lineWidth = 1.5 / k; ctx.stroke();
     });
-    if (k >= 0.6 && starsOn) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d) * fade; drawBandMarkers(d, k); });
+    if (!inside && k >= 0.6 && starsOn) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d) * fade; drawBandMarkers(d, k); });
     ctx.globalAlpha = traj ? DIM : 1;
 
-    if (routesOn) drawRoutes(view, k, a, plans, onScreen);   // from afar: the strongest routes, edge to edge, arrowed
+    if (routesOn && !inside) drawRoutes(view, k, cw, plans, onScreen);   // from afar: the strongest routes, edge to edge, arrowed
     // table-level links: hidden from afar (the routes say it), faint at mid zoom, full when close;
     // hover dimming is off in the trajectory mode, whose dimming replaces it
+    // inside an entered constellation no link is drawn until a table is hovered or selected (D-088)
     const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
+    const viewed = inside ? linksOf() : null;
     ctx.lineWidth = 1 / k; ctx.globalAlpha = (traj ? DIM : 1) * fade;
     if (starsOn) edges.forEach(([a, b]) => {
-      const hl = near && (a === hover || b === hover), cross = G.of(N[a]) !== G.of(N[b]);
+      const hl = inside ? viewed != null && (a === viewed || b === viewed) : near && (a === hover || b === hover), cross = G.of(N[a]) !== G.of(N[b]);
+      if (inside && (!hl || !spread.set.has(a) || !spread.set.has(b))) return;
       if (!hl && (k < 0.35 || (k < 0.6 && cross))) return;
       ctx.strokeStyle = hl ? C.hl : cross ? C.cross : C.edge;
       ctx.beginPath(); ctx.moveTo(P[a].x, P[a].y); ctx.lineTo(P[b].x, P[b].y); ctx.stroke();
@@ -1172,17 +1308,18 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const drawTable = n => {
       const p = P[n.i], b = B[n.i]; if (!inView(p.x, p.y + b.oy, b.w, b.h)) return;
       const col = KIND[n.kind].color, mark = n.i === hover || n.i === found, side = sideOf(n.i);
-      ctx.globalAlpha = (traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1) * fade * ctxAlpha({ k: G.of(n) });
+      ctx.globalAlpha = (traj ? (side ? 1 : DIM) : near && !near.has(n.i) ? 0.2 : 1) * (side ? tfade : fade) * ctxAlpha({ k: G.of(n) });
       if (cards) drawCard(n, p, b, col, mark, side, k);
       else { drawStar(n, p, col, mark, side, k); labels.push(n); }
     };
-    if (starsOn && traj) {  // trajectory tables after its edges, so arrows never cover them
-      visible.forEach(n => { if (!sideOf(n.i)) drawTable(n); });
-      ctx.globalAlpha = fade;
+    const tablesOn = starsOn || (discs && !!traj);
+    if (tablesOn && traj) {  // trajectory tables after its edges, so arrows never cover them
+      shown.forEach(n => { if (!sideOf(n.i)) drawTable(n); });
+      ctx.globalAlpha = tfade;
       drawTrajectoryEdges(k);
-      visible.forEach(n => { if (sideOf(n.i)) drawTable(n); });
-    } else if (starsOn) visible.forEach(drawTable);
-    if (traj && cardsOn) { ctx.globalAlpha = a; drawTrajectoryArrows(k, a, plans, view.rm); }   // aggregated, under the cards
+      shown.forEach(n => { if (sideOf(n.i)) drawTable(n); });
+    } else if (starsOn) shown.forEach(drawTable);
+    if (traj && cardsOn) { ctx.globalAlpha = cw; drawTrajectoryArrows(k, cw, plans, view.rm); }   // aggregated, under the cards
     ctx.globalAlpha = 1;
     ctx.restore();
 
@@ -1194,7 +1331,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // business labels first, then the source systems in grid order; one that would cover another is skipped (its
     // name stays in the tooltip and the text summary): at the Fit of a small screen, without cards, the systems' discs are close
     const labelOrder = [...constellations.filter(d => !isSystem(d.k)), ...inGridOrder(constellations.filter(d => isSystem(d.k)))];
-    if (starsOn) labelOrder.forEach(d => {
+    if (!inside && (starsOn || discs)) labelOrder.forEach(d => {
       const [sx0, rim] = screen(d.x, d.y - d.r), neutral = isSystem(d.k), fs = neutral ? 12 : Math.max(13, Math.min(20, 10 + d.r * k / 25));
       const sy = rim - (byLayers ? NAME_LIFT : 0);
       const name = constellationLabel(d.k);
@@ -1203,7 +1340,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const sx = labelX(d, sx0, at, W, free, screen, k);
       if (sx == null) return;
       const box = at(sx);
-      ctx.globalAlpha = ctxAlpha(d) * fade;
+      ctx.globalAlpha = ctxAlpha(d) * dfade;
       // painted over the routes: a halo in the page colour under the letters and the bar, so a route crossing a label never
       // runs through it
       ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = C.bg; ctx.fillStyle = C.bg;
@@ -1220,13 +1357,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       let bx = sx - LABEL_BAR / 2;
       d.mix.forEach(([kind, c]) => { const bw = LABEL_BAR * c / d.n; ctx.fillStyle = CONTRAST.edge(KIND[kind].color, C.bg); ctx.fillRect(bx, sy - LABEL_BAR_H, bw, LABEL_BAR_H); bx += bw; });
       taken.push(box);
-      if (a < 0.5) hits.push({ d, x: box[0], y: box[1], w, h: box[3] });
+      if (cw < 0.5) hits.push({ d, x: box[0], y: box[1], w, h: box[3] });
     });
-    if (byLayers && k >= 0.6 && starsOn) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d) * fade; drawBandNames(d, screen, free, taken, k); });
+    if (!inside && byLayers && k >= 0.6 && starsOn) constellations.forEach(d => { ctx.globalAlpha = ctxAlpha(d) * fade; drawBandNames(d, screen, free, taken, k); });
     ctx.globalAlpha = 1;
     if (onScreen) drawn = [];  // an exported image leaves the names of the screen as they are
-    if (!cards && starsOn) drawNames(orderLabels(labels, k), screen, free, taken, k);
-    if (cardsOn) { plans.forEach((p, key) => drawSummary(p.d, ctxAlpha(p.d), a, onScreen, hits, p)); ctx.globalAlpha = 1; }
+    if (inside) drawInside(W, H, taken, onScreen);
+    if (!cards && tablesOn) drawNames(orderLabels(starsOn ? labels : labels.filter(n => sideOf(n.i)), k), screen, free, taken, k);
+    if (cardsOn) { plans.forEach((p, key) => drawSummary(p.d, ctxAlpha(p.d), cw, onScreen, hits, p)); ctx.globalAlpha = 1; }
     ctx.textAlign = 'left';
     if (!onScreen) return;
     labelHits = hits;
@@ -1238,9 +1376,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!visible.length) return null;
     const W = stage.clientWidth, H = stage.clientHeight, s = EXPORT.scale(W, H), c = document.createElement('canvas');
     c.width = Math.round(W * s); c.height = Math.round(H * s);
-    const pointer = hover, lit = spot;
-    hover = null; spot = null;
-    try { draw(c.getContext('2d'), s); } finally { hover = pointer; spot = lit; }
+    const pointer = hover, lit = spot, ghost = hoverGhost;
+    hover = null; spot = null; hoverGhost = null;
+    try { draw(c.getContext('2d'), s); } finally { hover = pointer; spot = lit; hoverGhost = ghost; }
     return EXPORT.png(c);
   }
 
@@ -1255,6 +1393,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the labels of a domain's layer bands, in flow order (its tooltip)
   const bandLabels = d => d.bands.map(b => labelOf(LAYER[b.key])).join(' → ');
   // a constellation's name: its domain's, or its layer's
+  // a domain's display name, its key when the payload has no such domain
+  const domainLabel = key => labelOf(DOM[key] || { key });
   const constellationLabel = key => (key === GROUP ? T.systemsH : labelOf(state.by === 'layers' ? LAYER[key] : DOM[key]));
   // the horizontal span of each band of d, relative to its centre: from the midpoint with the previous band
   // (the disc's left edge for the first) to the midpoint with the next (the right edge for the last)
@@ -1268,14 +1408,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // arc of the upper rim in the domain's mark colour (3:1, D-042), at every zoom; then the neutral outline
   function drawDomainBands(d, k, alpha) {
     const spans = bandSpans(d);
-    ctx.globalAlpha = alpha * fade;   // the tints and the outline fade with the stars, the arcs (the legend of the card) stay
+    ctx.globalAlpha = alpha * dfade;   // the tints, the outline and the arcs fade with the stars: the card's rows are the legend (D-066, D-085)
     ctx.save(); ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.clip();
     spans.forEach(b => { ctx.fillStyle = TINT(DOM[b.key].color); ctx.fillRect(d.x + b.s0, d.y - d.r, b.s1 - b.s0, 2 * d.r); });
     ctx.restore();
     ctx.strokeStyle = C.muted + '66'; ctx.lineWidth = 1.5 / k;
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.stroke();
     const gap = ARC_GAP / 2 / k / d.r;
-    ctx.globalAlpha = alpha;
     ctx.lineWidth = ARC_W / k; ctx.lineCap = 'butt';
     spans.forEach((b, j) => {
       const a0 = rimAngle(d, b.s0) + (j ? gap : 0), a1 = rimAngle(d, b.s1) - (j < spans.length - 1 ? gap : 0);
@@ -1304,7 +1443,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function orderLabels(labels, k) {
     labels.sort((a, b) => TIER_ORDER[tierOf(a)] - TIER_ORDER[tierOf(b)] || labelScore(b) - labelScore(a));
     const hov = hover != null && P[hover] ? [N[hover]] : [];
-    const fit = k < 0.6 ? fitNames() : null;
+    const fit = k < 0.6 && !nav.inside ? fitNames() : null;
     const ordinary = fit ? labels.filter(n => fit.has(n.i)) : labels;
     if (!traj) return [...hov, ...ordinary];
     const inT = labels.filter(n => sideOf(n.i)).sort((a, b) => trajDist(a.i) - trajDist(b.i));
@@ -1341,8 +1480,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return d3.median(visible.filter(n => TIER_ORDER[tierOf(n)] === tier), starR) || 1;
   };
   const kStars = () => S_STARS / refR, kCards = () => S_CARDS / refR;
-  const summaryWeight = k => (state.cards ? Math.max(0, Math.min(1, Math.log(S_STARS / (k * refR)) / Math.log(S_STARS / S_CARDS))) : 0);
-  const tablesLive = () => summaryWeight(t.k) < 0.5;   // the pointer acts on stars below half a card, on cards above
+  // the one switch point: cards, or on a map page the named discs, weigh by the drawn size of the reference star; never inside
+  // an entered constellation (D-081, D-087, D-088)
+  const summaryWeight = k => (!nav.inside && (state.cards || MAP)
+    ? Math.max(0, Math.min(1, Math.log(S_STARS / (k * refR)) / Math.log(S_STARS / S_CARDS))) : 0);
+  const tablesLive = () => summaryWeight(t.k) < 0.5;
+  const cardsLive = () => state.cards && !tablesLive();   // the pointer acts on cards (not on discs) once they weigh half
   // what a card says (over the tables that pass the filters): rows by layer (domain mode) or by domain (layer
   // mode), each with its kinds in the order of the Types list, the entities drawn while the fold is on, the main tables
   function summaryOf(d, all) {
@@ -1359,7 +1502,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // same counts, rows and main tables as the cards (never cut by room); names and labels through textContent
   function renderSummaryText() {
     const el = (tag, text) => { const e = document.createElement(tag); e.textContent = text; return e; };
-    const head = $u('summary-h'); head.textContent = T.summaryH;
+    const head = $u('summary-h'); head.textContent = T.summaryH(state.by === 'layers');
     const sys = new Set(constellations.filter(d => isSystem(d.k)).map(d => d.k));
     const ordered = constellations.filter(d => !sys.has(d.k)).sort((a, b) => a.rank - b.rank || (constellationLabel(a.k) < constellationLabel(b.k) ? -1 : 1));
     // every route of a constellation (not thinned by the density), heaviest first, with its counts and direction words
@@ -1411,17 +1554,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // What a card of w x h screen px shows, decided top-down from its size alone, so it is deterministic (D-066): the
   // name always (ellipsised), then the count line, the trajectory line, the rows (all, or as many as fit minus one and
   // a "+ N" row), then the main tables (with their heading when three fit under it). Fonts are set on ctx to measure.
-  const COARSE = window.matchMedia('(pointer: coarse)').matches;
   const CARD = { PAD: 5, HEAD: 15, LINE: 12, GAP: 3, ROW: COARSE ? 18 : 14, BAR: 6, BAR_MIN: 24, SEG_MIN: 2, DOT: 7 };
   const HOVER_TINT = 'rgba(31,41,51,.06)';
-  const textW = (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
-  function ellipsis(text, width, font) {
-    if (width < 8) return '';
-    if (textW(text, font) <= width) return text;
-    let s = text;
-    while (s.length > 1 && textW(s + '…', font) > width) s = s.slice(0, -1);
-    return s + '…';
-  }
+  const textW = measure;   // common.js: the one canvas text measure; `ellipsis` is common.js too
   // the corner radius in screen px: 0.4 r, but at most max(28 px, 0.24 r), so that the corners stay within 1.18 r of the
   // centre (the collision radius of the layout) at every zoom and the text can be inset from them
   const cardRadius = w => Math.min(0.4 * w / 1.8, Math.max(28, 0.24 * w / 1.8));
@@ -1638,9 +1773,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const [sx, sy] = at.get(n.i), lines = nameLines(n.name);
       const w = d3.max(lines, s => ctx.measureText(s).width) + 6, h = LINE_H * lines.length, x = sx - w / 2, y = sy + rad(n) + 2;
       if (!free(x, y, w, h)) continue;
-      if (!side && n.i !== hover && (coversStar(x, y, w, h) || !inDisc(n, x, y, w, h))) continue;
+      if (!side && n.i !== hover && (coversStar(x, y, w, h) || (!nav.inside && !inDisc(n, x, y, w, h)))) continue;
       taken.push([x, y, w, h]); shown++; names.push(n.id);
-      ctx.globalAlpha = (traj && !side ? DIM : 1) * fade;
+      ctx.globalAlpha = (traj && !side ? DIM : 1) * (side ? tfade : fade);
       ctx.fillStyle = 'rgba(245,246,248,.85)'; ctx.fillRect(x, y, w, h);
       ctx.fillStyle = strong || side ? C.text : C.muted;
       lines.forEach((s, j) => ctx.fillText(s, sx, y + 11 + LINE_H * j));
@@ -1726,6 +1861,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     traj.edges.forEach(([c, p, dir]) => {
       const a = P[p], b = P[c];
       if (!a || !b) return;   // hidden by a filter changed in the mode
+      if (nav.inside && !(spread.set.has(p) && spread.set.has(c))) return;   // the other end is counted on its ghost
       ctx.strokeStyle = C[dir]; ctx.fillStyle = C[dir]; ctx.lineWidth = lw;
       ctx.setLineDash(dir === 'up' ? [5 / k, 3 / k] : []);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
@@ -1735,11 +1871,16 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- navigation
-  const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT).on('zoom', ev => { t = ev.transform; draw(); });
+  // a zoom or a pan hides the tooltip and clears what it was about: the next mouse move recomputes both (D-085)
+  const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT)
+    .on('start', () => { zoomK0 = t.k; tip.style.display = 'none'; const lit = hover != null || hoverCard != null || spot != null; hover = hoverCard = hoverRow = spot = null; if (lit) draw(); })
+    .on('zoom', ev => { t = ev.transform; draw(); })
+    .on('end', ev => { if (ev.sourceEvent && Math.abs(t.k - zoomK0) > 1e-9) followZoom(); });
   // mouse only: on touch every finger goes to the zoom, so a pinch starting on a table or a domain name
   // zooms and a one-finger drag pans, as in the detail (a touch drag cannot hand a finger over to a pinch)
   const drag = d3.drag().container(canvas).touchable(false).filter(ev => !ev.button)
     .subject(ev => {
+      if (nav.inside) return null;   // the spread is computed, never saved (D-088)
       const n = t.k >= FAR && tablesLive() ? pickAt(...t.invert([ev.x, ev.y])) : null;
       if (n) return { n, x: ev.x, y: ev.y };
       const hit = labelAt(ev.x, ev.y);
@@ -1779,33 +1920,50 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const sel = zoomOn(d3.select(canvas).call(drag), zoom);
   // room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
   const top = () => traj ? bar.offsetHeight : 0;
-  // frame a world-space box, at most at scale kMax, at least at kMin
-  function frame(bx0, by0, bx1, by1, animate, kMax = Infinity, kMin = 0) {
-    // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
-    const NAME = 46, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
-    const k = Math.max(kMin, Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0))));
-    const tr = d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
-    (animate ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
+  // the part of the stage no overlay covers, where framing lands (M9.3): below the lineage bar, and beside (wide stage) or
+  // above (bottom sheet) the table panel when it shows. The panel's size is read from the DOM, so one rule serves both layouts.
+  function visibleArea() {
+    const W = stage.clientWidth, H = stage.clientHeight, el = $u('tpanel'), a = { x0: 0, y0: top(), x1: W, y1: H };
+    if (el.hidden) return a;
+    if (el.offsetWidth > W / 2) a.y1 = H - el.offsetHeight; else a.x1 = W - el.offsetWidth;
+    return a;
   }
-  // the whole universe, or the drawn tables of the trajectory while the mode is on
-  function fit(animate) {
+  // frame a world-space box, at most at scale kMax, at least at kMin
+  function frameTransform(bx0, by0, bx1, by1, kMax = Infinity, kMin = 0) {
+    // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
+    const NAME = 46, a = visibleArea(), w = a.x1 - a.x0, h = a.y1 - a.y0 - NAME;
+    const k = Math.max(kMin, Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0))));
+    return d3.zoomIdentity.translate(a.x0 + w / 2, a.y0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
+  }
+  function frame(bx0, by0, bx1, by1, animate, kMax = Infinity, kMin = 0) {
+    (animate ? sel.transition().duration(500) : sel).call(zoom.transform, frameTransform(bx0, by0, bx1, by1, kMax, kMin));
+  }
+  // the camera of the whole universe, or of the drawn tables of the trajectory while the mode is on (null: nothing drawn)
+  function fitTransform() {
     const tj = trajMembers().filter(i => P[i]);
     if (tj.length) {
       // the trajectory's tables and the discs of the constellations that hold them, all in the area the bar leaves visible
       const G = grouping(), held = new Set(tj.map(i => G.of(N[i]))), discs = constellations.filter(d => held.has(d.k));
-      return frame(d3.min([...tj.map(i => P[i].x - B[i].w / 2), ...discs.map(d => d.x - d.r)]),
+      return frameTransform(d3.min([...tj.map(i => P[i].x - B[i].w / 2), ...discs.map(d => d.x - d.r)]),
         d3.min([...tj.map(i => P[i].y + B[i].oy - B[i].h / 2), ...discs.map(d => d.y - d.r)]),
         d3.max([...tj.map(i => P[i].x + B[i].w / 2), ...discs.map(d => d.x + d.r)]),
-        d3.max([...tj.map(i => P[i].y + B[i].oy + B[i].h / 2), ...discs.map(d => d.y + d.r)]), animate, 2);
+        d3.max([...tj.map(i => P[i].y + B[i].oy + B[i].h / 2), ...discs.map(d => d.y + d.r)]), 2);
     }
-    if (!constellations.length) return draw();
-    frame(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
-      d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r), animate);
+    if (!constellations.length) return null;
+    return frameTransform(d3.min(constellations, d => d.x - d.r), d3.min(constellations, d => d.y - d.r),
+      d3.max(constellations, d => d.x + d.r), d3.max(constellations, d => d.y + d.r), MAP ? kCards() : Infinity);   // a map page lands on the discs
+  }
+  function fit(animate) {
+    if (nav.inside) return fitInside(animate);
+    const tr = fitTransform();
+    if (!tr) return draw();
+    (animate ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
   }
   function zoomTo(x, y, k) {
-    const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
-    sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(w / 2, top0 + h / 2).scale(k).translate(-x, -y));
+    const a = visibleArea();
+    sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2).scale(k).translate(-x, -y));
   }
+  const aim = () => nav.inside || t.k >= FAR;   // from afar stars are too tight to aim at; inside a constellation they never are
   const pick = ev => (tablesLive() ? pickAt(...t.invert(d3.pointer(ev, canvas))) : null);
   function pickAt(wx, wy) {
     if (!tree) return null;
@@ -1859,8 +2017,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const cardOwners = () => { const g = systemsGroup(); return g ? [...constellations.filter(d => !g.members.includes(d)), g] : constellations; };
   // the constellation under the pointer, if any: its summary card while the cards are live, else its disc
   function constellationAt(ev) {
+    if (nav.inside) return undefined;   // the map is not drawn
     const [px, py] = d3.pointer(ev, canvas);
-    if (!tablesLive()) return cardOwners().find(d => {
+    if (cardsLive()) return cardOwners().find(d => {
       const c = cardRect(d), i = cardInfo.find(q => q.k === d.k), h = i ? i.h : c.w;   // the drawn height, centred on the square
       return px >= c.x && px <= c.x + c.w && py >= c.y + (c.w - h) / 2 && py <= c.y + (c.w + h) / 2;
     });
@@ -1872,23 +2031,31 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // frame a constellation (or the band of one of its rows) so that its stars are drawn: never below the stars scale
   function zoomOnRow(row) {
     const inGroup = row.k === GROUP, d = constellations.find(c => c.k === (inGroup ? row.row : row.k));
-    const band = !inGroup && d && bandSpans(d).find(b => b.key === row.row);
     if (!d) return;
-    const kMin = kStars() * 1.05;
-    if (!band) return frame(d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r, true, Infinity, kMin);
-    const half = rimHalf(d, Math.max(band.s0, Math.min(band.s1, 0)));
-    frame(d.x + band.s0, d.y - half, d.x + band.s1, d.y + half, true, Infinity, kMin);
+    enter(d.k, 'row', { instant: true });   // a row enters its constellation, then frames its band in the spread
+    const inBand = !inGroup && spread && spread.bands.find(b => b.key === row.row), bb = spread && spread.bbox;
+    if (!spread) return;
+    // the inside view has one Fit rule: the band in the stage box (margins, header strip, cap), as the spread itself
+    if (inBand) (reduced() ? sel : sel.transition().duration(NAV.DUR)).call(zoom.transform, boxTransform({ x0: inBand.x0, x1: inBand.x1, y0: bb.y0, y1: bb.y1 }));
+    else fitInside(true);
   }
   // Layer mode tooltip of a constellation (D-048): its domains in band order (first TIP_DOMAINS, then "+ N"), and the
   // band under the world x `wx`, if any
-  function layerTip(d, wx, extra = '') {
+  function layerTip(d, wx, extra = '', action = '') {
     const names = d.bands.slice(0, TIP_DOMAINS).map(b => esc(labelOf(DOM[b.key]))).join(' · ');
     const more = d.bands.length > TIP_DOMAINS ? ` · + ${num(d.bands.length - TIP_DOMAINS)}` : '';
     const band = bandSpans(d).find(b => wx - d.x >= b.s0 && wx - d.x <= b.s1);
     return `<b>${esc(constellationLabel(d.k))}</b><div class="m">${plural(d.n, L.tables)}</div>`
       + `<div class="m">${T.domains}${L.colon}${names}${more}</div>`
       + (band ? `<div class="m">${T.domainOne}${L.colon}${esc(labelOf(DOM[band.key]))} · ${plural(band.n, L.tables)}</div>` : '')
-      + extra + `<div class="a">${T.frameC}</div>`;
+      + extra + (action ? `<div class="a">${action}</div>` : '');
+  }
+  // the tooltip of a constellation: counts, layers (domains in layer mode), `extra` lines, the action line
+  function constellationTip(d, wx, extra, action) {
+    if (state.by === 'layers') return layerTip(d, wx, extra, action);
+    const dd = DOM[d.k];
+    return `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
+      + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>${extra}` + (action ? `<div class="a">${action}</div>` : '');
   }
   // the tooltip block of a table: the tables folded into it (an entity), or where it folds (a table with a parent)
   function foldTip(n) {
@@ -1899,35 +2066,34 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
     return PARENT[n.i] >= 0 ? `<div class="m">${T.foldsInto}${L.colon}${esc(N[PARENT[n.i]].name)}</div>` : '';
   }
-  // The tooltip TIP_GAP px below and right of the pointer; flipped to the left and above where it would leave the stage,
-  // and, when one of the four places is clear of `avoid` (the hovered card, in canvas px), taken in that order
-  const TIP_GAP = 12;
+  // The tooltip (common.js placeTooltip); `avoid` (the hovered card) is in canvas px
   function placeTip(ev, avoid) {
-    const r = stage.getBoundingClientRect(), c = canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
-    const w = tip.offsetWidth, h = tip.offsetHeight, g = TIP_GAP;
-    const fits = ([l, tp]) => l >= 0 && tp >= 0 && l + w <= r.width && tp + h <= r.height;
-    const apart = ([l, tp]) => !avoid || l + w <= avoid.x + c.left - r.left || l >= avoid.x + avoid.w + c.left - r.left
-      || tp + h <= avoid.y + c.top - r.top || tp >= avoid.y + avoid.h + c.top - r.top;
-    const spots = [[x + g, y + g], [x - g - w, y + g], [x + g, y - g - h], [x - g - w, y - g - h]];
-    const [left, top] = spots.find(q => fits(q) && apart(q)) || spots.find(fits) || [Math.max(0, Math.min(x + g, r.width - w)), Math.max(0, Math.min(y + g, r.height - h))];
-    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    const r = stage.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    placeTooltip(tip, stage, ev, avoid && { x: avoid.x + c.left - r.left, y: avoid.y + c.top - r.top, w: avoid.w, h: avoid.h });
   }
   canvas.addEventListener('mousemove', ev => {
+    const [px, py] = d3.pointer(ev, canvas), ghost = nav.inside ? ghostAt(px, py) : null;
+    if ((ghost ? ghost.k : null) !== hoverGhost) { hoverGhost = ghost ? ghost.k : null; draw(); }
+    if (ghost) {   // a ghost of the entered constellation: its tooltip, click enters it
+      if (hover != null) { hover = null; draw(); }
+      canvas.style.cursor = 'pointer'; tip.innerHTML = ghostTip(ghost); tip.style.display = 'block'; placeTip(ev, null);
+      return;
+    }
     const n = pick(ev), h = n ? n.i : null, over = constellationAt(ev);
-    const d = n ? null : over, [px, py] = d3.pointer(ev, canvas);
-    const row = d && !tablesLive() ? rowAt(px, py) : null, info = d && !tablesLive() ? cardInfo.find(c => c.k === d.k) : null;
-    const card = d && !tablesLive() ? d.k : null, rowKey = row ? row.row : null, sp = over ? over.k : null;
+    const d = n ? null : over;
+    const row = d && cardsLive() ? rowAt(px, py) : null, info = d && cardsLive() ? cardInfo.find(c => c.k === d.k) : null;
+    const card = d && cardsLive() ? d.k : null, rowKey = row ? row.row : null, sp = over ? over.k : null;
     if (h !== hover || card !== hoverCard || rowKey !== hoverRow || sp !== spot) { hover = h; hoverCard = card; hoverRow = rowKey; spot = sp; draw(); }
     const header = info && inRect(info.header, px, py), hit = labelAt(px, py);
-    canvas.style.cursor = row ? 'pointer' : header ? 'move' : (n && t.k >= FAR) || hit ? 'grab' : '';
+    canvas.style.cursor = row ? 'pointer' : header ? 'move' : (n && aim()) || hit ? 'grab' : d && !d.group ? 'pointer' : '';
     const route = !n && !d ? routeAt(px, py) : null;
     if (!n && !d && !route) { tip.style.display = 'none'; return; }
     if (route) {
       tip.innerHTML = routeTip(route);
     } else if (n) {
-      const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
+      const dbl = DETAIL.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
       tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
-        `<div class="a">${t.k < FAR ? frameText() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>` + foldTip(n);
+        `<div class="a">${!aim() ? enterWord() : start ? dbl : T.clickPanel + ' · ' + dbl}</div>` + foldTip(n);
     } else if (d.group) {
       // the group card: its counts and the click action; over a row, that system
       const sys = row && constellations.find(c => c.k === row.row);
@@ -1940,58 +2106,705 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       const main = info && info.main && inRect(info.main, px, py)
         ? `<div class="m">${T.mainH}${L.colon}${d.sum.main.map(i => esc(N[i].name)).join(', ')}</div>` : '';
       const click = row ? `<div class="a">${T.rowZoom(esc(rowLabel(row.row)))}</div>` : '';
-      if (state.by === 'layers') {
-        tip.innerHTML = layerTip(d, t.invert([px, py])[0], main) + click;
-      } else {
-        const dd = DOM[d.k];
-        tip.innerHTML = `<b>${esc(labelOf(dd))}</b><div class="m">${plural(d.n, L.tables)}${dd.owner ? ` · ${T.owner}${L.colon}${esc(dd.owner)}` : ''}</div>`
-          + `<div class="m">${T.layers}${L.colon}${esc(bandLabels(d))}</div>${main}<div class="a">${T.frame}</div>${click}`;
-      }
+      tip.innerHTML = constellationTip(d, t.invert([px, py])[0], main, enterWord()) + click;
     }
     tip.style.display = 'block';
-    placeTip(ev, d && !tablesLive() ? info : null);
+    placeTip(ev, d && cardsLive() ? info : null);
   });
   canvas.addEventListener('mouseleave', () => {
     tip.style.display = 'none';
-    if (hover != null || hoverCard != null || spot != null) { hover = null; hoverCard = null; hoverRow = null; spot = null; draw(); }
+    if (hover != null || hoverCard != null || spot != null || hoverGhost != null) { hover = null; hoverCard = null; hoverRow = null; spot = null; hoverGhost = null; draw(); }
   });
-  // from afar stars are packed too tightly to aim at: double-click frames the constellation until zoomed in
+  // from afar stars are packed too tightly to aim at: a click on a disc enters its constellation
   const FAR = 0.5;
-  const frameText = () => (state.by === 'layers' ? T.frameC : T.frame);
   canvas.addEventListener('dblclick', ev => {
-    const n = t.k >= FAR ? pick(ev) : null;
+    if (performance.now() - lastEnter < 700) return;   // the first click of this double-click entered a constellation
+    // within a double-click's time the table is the one the first click opened (its pan may have put another under the pointer)
+    const n = performance.now() - lastOpen.at < DBL_MS ? N[lastOpen.i] : aim() ? pick(ev) : null;
     if (n) {
-      if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
+      if (DETAIL.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
       return;
     }
     const d = constellationAt(ev);
-    // a card always lands on stars, even where the disc is wider than the screen
-    const span = d && d.group ? Math.max(d.gridW, d.gridH) : d && 2 * d.r;
-    if (d) zoomTo(d.x, d.y, Math.max(0.92 * Math.min(stage.clientWidth, stage.clientHeight - top()) / (span + 60), kStars() * 1.05));
+    if (d && !d.group) enter(d.k, 'dblclick');
   });
-  // single click: a table enters the trajectory mode, or moves it; a row of a summary card frames its band; only the
-  // empty background (no table, domain label, summary card or domain halo, at any zoom) leaves it.
+  // single click: a table opens its panel (D-091), over the lineage when there is one; a row of a summary card enters its
+  // constellation and frames the band; a disc, a card or a ghost enters its constellation; with the panel open, anything
+  // else only closes it; the empty background (no table, domain label, summary card or domain halo, at any zoom) leaves the lineage.
   // d3-drag and d3-zoom swallow the click that ends a drag or a pan.
   canvas.addEventListener('click', ev => {
     if (ev.detail > 1) return;   // the second click of a double-click
-    const n = t.k >= FAR ? pick(ev) : null;
-    if (n) { enterTrajectory(n.i); return; }
-    const row = tablesLive() ? null : rowAt(...d3.pointer(ev, canvas));
+    const [px, py] = d3.pointer(ev, canvas), ghost = nav.inside ? ghostAt(px, py) : null;
+    if (ghost) { enter(ghost.k, 'ghost'); return; }
+    const n = aim() ? pick(ev) : null;
+    if (n) { openPanel(n.i, 'click'); return; }
+    if (panel) { closePanel('background'); return; }
+    const row = cardsLive() ? rowAt(px, py) : null;
     if (row) { zoomOnRow(row); return; }
-    if (traj && !labelAt(...d3.pointer(ev, canvas)) && !constellationAt(ev)) leaveTrajectory(false);
+    const label = labelAt(px, py), d = constellationAt(ev) || (label && label.d);
+    if (d && !d.group) { enter(d.k, 'click'); return; }
+    if (traj && !d) leaveTrajectory(false);
   });
+
+  // ---------------------------------------------------------------- location: map, entered constellation, table (D-088)
+  // Level 0 is the map, level 1 an entered constellation (its tables spread over the stage, band headers, the others as
+  // ghosts at the edges), level 2 a selected table. Pure page state: never saved, exported or put in the URL (D-013).
+  // GHOST_X / GHOST_Y: the room kept at the sides / top and bottom for the ghosts; HEADER: the strip of the band headers;
+  // ENTER / LEAVE / BACK: the zoom hysteresis (a disc filling ENTER of the stage enters it, a scale below LEAVE x the
+  // spread's Fit leaves it, which then frames the left disc at BACK of the stage); DUR: the tween (ms); K_MAX: the Fit cap
+  const NAV = { GHOST_X: 88, GHOST_Y: 72, HEADER: 28, ENTER: 0.9, LEAVE: 0.6, BACK: 0.6, DUR: 300, K_MAX: 2, K_NAMES: 0.15, GHOST_LABEL: 120, GHOST_MIN: 12, GHOST_MAX: 24, SMALL: 600 };
+  let ghostLabelW = 0, ghostBoxes = [], spread = null, navAlpha = 1, tween = null, hoverGhost = null, ghostList = [], zoomK0 = 1, lastEnter = -1e9;
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const enterWord = () => (state.by === 'layers' ? T.enterL : T.enterD);
+  const constellationOf = key => constellations.find(d => d.k === key);
+  const rebuildTree = () => { tree = d3.quadtree(nav.inside ? spread.tables : visible, n => P[n.i].x, n => P[n.i].y); };
+  // the table level follows the lineage while one is on; the ring of a search is not a lineage
+  // the table level back to the lineage's start (a lineage stays on), else to nothing, and the ring goes
+  function resetTable() { found = null; nav.table = traj ? traj.start : null; }
+  function clearFound() { resetTable(); dropPanel(); }
+  // (the table panel is ignored on purpose: opening it never relays out or refits; only `visibleArea` knows it)
+  // the box the spread is framed in: the stage minus the ghost margins and the header strip (and the lineage bar)
+  function stageBox() {
+    const W = stage.clientWidth, H = stage.clientHeight, small = W < NAV.SMALL, gy = small ? 28 : NAV.GHOST_Y;
+    // the sides hold a ghost and its name beside it: wide enough for the longest name (at most GHOST_LABEL), never under GHOST_X
+    const gx = small ? 28 : Math.max(NAV.GHOST_X, ghostLabelW + 2 * NAV.GHOST_MAX + 14);
+    return { x0: gx, x1: Math.max(gx + 1, W - gx), y0: top() + gy + NAV.HEADER, y1: Math.max(top() + gy + NAV.HEADER + 1, H - gy), gx, gy };
+  }
+  // The spread of a constellation (D-088): its drawn tables in the same bands, packed for the stage's aspect and centred on
+  // its map centre, so entering is a continuous move. -> { key, ns (world), bbox, bands (world x), fitK, tables, set }
+  function computeSpread(key) {
+    const G = grouping(), d = constellationOf(key), members = visible.filter(n => G.of(n) === key), b = stageBox();
+    const aspect = Math.round(Math.max(0.2, Math.min(5, (b.x1 - b.x0) / (b.y1 - b.y0))) / 0.05) * 0.05;
+    const laid = (kName, wide = true) => {
+      const ck = layoutKey(key, members, `spread${aspect.toFixed(2)}k${kName.toFixed(2)}${wide ? 'w' : 'h'}`);
+      if (!layoutCache.has(ck)) layoutCache.set(ck, layoutConstellation(key, members, aspect, kName, wide));
+      const v = layoutCache.get(ck);
+      return { v, bbox: { x0: d.x - v.w / 2, x1: d.x + v.w / 2, y0: d.y - v.h / 2, y1: d.y + v.h / 2 } };
+    };
+    // Names keep their size, so the boxes are laid out for the scale the result is seen at; a name has its room when that
+    // result's Fit is at least 95 % of it. The largest such scale is found by bisection between NAV.K_NAMES and the plain
+    // layout's Fit (the floor keeps the stars from becoming dots). When the names need more room than the stage holds, the same
+    // search keeps only their height (a name never covers the star under it; names of neighbouring columns compete), and when
+    // even that fails the plain layout is used.
+    const plain = laid(0), top = fitIn(plain.bbox);
+    let got = plain;
+    if (top < 1) {
+      const search = wide => {
+        const enough = k => { const r = laid(k, wide); return fitIn(r.bbox) >= 0.95 * k ? r : null; };
+        let lo = NAV.K_NAMES, hi = Math.round(top * 100) / 100, best = enough(hi);
+        if (best) return best;
+        for (let round = 0; round < 6; round++) {
+          const mid = Math.round(Math.sqrt(lo * hi) * 100) / 100;
+          if (mid <= lo || mid >= hi) break;
+          const r = enough(mid);
+          if (r) { lo = mid; best = r; } else hi = mid;
+        }
+        return best;
+      };
+      got = search(true) || search(false) || plain;
+    }
+    const { v, bbox } = got;
+    return { key, ns: v.ns.map(s => ({ i: s.i, x: d.x + s.x, y: d.y + s.y })), bbox, tables: members, set: new Set(members.map(n => n.i)),
+             bands: d.bands.map((band, j) => ({ key: band.key, n: band.n, x0: d.x + v.bands[j].x0, x1: d.x + v.bands[j].x1 })),
+             fitK: fitIn(bbox) };
+  }
+  // the entered constellation's tables at their spread positions; the others keep the map's (never drawn)
+  function applySpread() {
+    P = PM.slice();
+    spread.ns.forEach(s => { P[s.i] = { x: s.x, y: s.y }; });
+    rebuildTree();
+  }
+  // after a layout: recompute the spread, or leave when the constellation is gone (a filter emptied it)
+  function settleInside() {
+    if (nav.inside) {
+      const key = nav.inside;
+      if (constellationOf(key)) { spread = computeSpread(key); applySpread(); }
+      else {
+        finishTween(); nav.inside = null; spread = null; P = PM; rebuildTree();
+        $u('live').textContent = T.liveFiltered(constellationLabel(key), state.by === 'layers');
+      }
+    }
+    clearFoundIfGone();
+    renderCrumbs();
+  }
+  function clearFoundIfGone() {
+    if (panel && !PASS[panel.i]) { dropPanel(); resetTable(); }
+    if (nav.table != null && !traj && !PASS[nav.table]) nav.table = null;
+  }
+  // the viewer's grouping changed: back to the map, nothing selected
+  function resetNav() {
+    finishTween(); nav.inside = null; spread = null; clearFound(); P = PM; rebuildTree();
+  }
+  function finishTween() {
+    if (!tween) return;
+    tween.stop(); tween = null; navAlpha = 1;
+    if (nav.inside) applySpread(); else { P = PM; rebuildTree(); }
+  }
+  // stars from `ns` move between the map and the spread in NAV.DUR ms; the headers and ghosts fade in over the second half
+  function tweenTo(ns, forward, to = null) {
+    const from = t, moves = ns.map(s => ({ i: s.i, a: forward ? PM[s.i] : { x: s.x, y: s.y }, b: forward ? { x: s.x, y: s.y } : PM[s.i] }));
+    tween = d3.timer(elapsed => {
+      const p = Math.min(1, elapsed / NAV.DUR), e = d3.easeCubicInOut(p);
+      moves.forEach(m => { P[m.i] = { x: m.a.x + (m.b.x - m.a.x) * e, y: m.a.y + (m.b.y - m.a.y) * e }; });
+      navAlpha = forward ? Math.max(0, (p - 0.5) * 2) : 1;
+      if (p >= 1) { tween.stop(); tween = null; if (!forward) { P = PM; rebuildTree(); } }
+      perf.tweenFrames++;
+      // the camera moves with the stars, in this one timer: a d3 transition would be interrupted by the second press of a
+      // double-click on the canvas; a zoom event draws, so the frame is drawn once
+      if (to) sel.call(zoom.transform, d3.zoomIdentity.translate(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e).scale(from.k * Math.pow(to.k / from.k, e)));
+      else draw();
+    });
+  }
+  // frame the spread (or the in-constellation members of the lineage) in the stage box
+  function fitInside(animate) {
+    const tr = insideTransform();
+    (animate && !reduced() ? sel.transition().duration(NAV.DUR) : sel).call(zoom.transform, tr);
+  }
+  function insideTransform() {
+    const tj = trajMembers().filter(i => spread.set.has(i));
+    const bb = tj.length ? { x0: d3.min(tj, i => P[i].x - B[i].w / 2), x1: d3.max(tj, i => P[i].x + B[i].w / 2),
+                             y0: d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2), y1: d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2) } : spread.bbox;
+    return boxTransform(bb);
+  }
+  // the one Fit scale of a world box in the stage box (the spread's `fitK`, the camera of `fitInside`), and the camera that centres it
+  function fitIn(bb) {
+    const b = stageBox();
+    return Math.min(NAV.K_MAX, (b.x1 - b.x0) / Math.max(1, bb.x1 - bb.x0), (b.y1 - b.y0) / Math.max(1, bb.y1 - bb.y0));
+  }
+  function boxTransform(bb) {
+    const b = stageBox();
+    return d3.zoomIdentity.translate((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2).scale(fitIn(bb)).translate(-(bb.x0 + bb.x1) / 2, -(bb.y0 + bb.y1) / 2);
+  }
+  // the left disc at BACK of the stage (a zoom out leaves, D-088)
+  function frameDisc(d) {
+    const W = stage.clientWidth, H = stage.clientHeight - top(), k = NAV.BACK * Math.min(W, H) / (2 * d.r);
+    sel.call(zoom.transform, d3.zoomIdentity.translate(W / 2, top() + H / 2).scale(k).translate(-d.x, -d.y));
+  }
+  // Enter a constellation: `how` is for the reader of the code only; `instant`: no tween and no camera move (the caller frames);
+  // `anchor` ({ i, at }): the camera keeps its scale (at least the spread's Fit) and the table `i` at its screen point (a zoom)
+  function enter(key, how = 'click', { instant = false, anchor = null } = {}) {
+    const d = constellationOf(key);
+    if (!d) return;
+    if (nav.inside === key) { if (how !== 'search') fitInside(true); return; }
+    const t0 = performance.now();
+    finishTween();
+    lastEnter = t0;
+    if (traj && !(PASS[traj.start] && grouping().of(N[traj.start]) === key)) leaveTrajectory(false);
+    nav.inside = key; clearFound();
+    hover = hoverCard = hoverRow = spot = hoverGhost = null; tip.style.display = 'none';
+    spread = computeSpread(key); applySpread();
+    const animate = !instant && !anchor && !reduced();
+    if (animate) { spread.ns.forEach(s => { P[s.i] = PM[s.i]; }); navAlpha = 0; } else navAlpha = 1;
+    const cam = animate ? insideTransform() : null;
+    if (anchor) {
+      const k = Math.max(t.k, spread.fitK), p = P[anchor.i];
+      sel.call(zoom.transform, d3.zoomIdentity.translate(anchor.at[0] - k * p.x, anchor.at[1] - k * p.y).scale(k));
+    } else if (!instant && !animate) fitInside(false);
+    renderCrumbs(); draw();
+    perf.enter = performance.now() - t0;   // the compute and the first drawn frame; the tween is not counted
+    if (animate) tweenTo(spread.ns, true, cam);
+    $u('live').textContent = T.liveEntered(constellationLabel(key), plural(d.n, L.tables),
+      state.by === 'layers' ? plural(d.bands.length, L.domainsN) : plural(d.bands.length, T.layersN));
+  }
+  // Leave to the map: `how` 'zoom' frames the left disc, anything else the whole map
+  function leave(how = 'esc') {
+    if (!nav.inside) return;
+    const t0 = performance.now(), d = constellationOf(nav.inside), ns = spread.ns;
+    finishTween();
+    nav.inside = null; spread = null; clearFound(); hover = hoverGhost = null; tip.style.display = 'none';
+    const animate = how !== 'zoom' && !reduced();
+    if (!animate) P = PM;
+    rebuildTree();
+    const cam = animate ? fitTransform() : null;
+    if (how === 'zoom' && d) frameDisc(d); else if (!animate) fit(false);
+    renderCrumbs(); draw();
+    perf.leave = performance.now() - t0;
+    if (animate) tweenTo(ns, false, cam);
+    $u('live').textContent = T.liveLeft(state.by === 'layers');
+  }
+  // the zoom decides the location once per zoom, when it ends, only when the scale changed (a pan never does) and never
+  // during a lineage; hysteresis: after an enter the scale is at least the spread's Fit, above the leave threshold
+  function followZoom() {
+    if (traj) return;
+    const W = stage.clientWidth, H = stage.clientHeight, side = Math.min(W, H);
+    if (nav.inside) { if (t.k < NAV.LEAVE * spread.fitK) leave('zoom'); return; }
+    const [wx, wy] = t.invert([W / 2, H / 2]), G = grouping();
+    const d = constellations.find(c => Math.hypot(wx - c.x, wy - c.y) < c.r && 2 * c.r * t.k >= NAV.ENTER * side);
+    if (!d) return;
+    const mine = visible.filter(n => G.of(n) === d.k);
+    if (!mine.length) return;
+    const near = d3.least(mine, n => Math.hypot(PM[n.i].x - wx, PM[n.i].y - wy));
+    enter(d.k, 'zoom', { anchor: { i: near.i, at: t.apply([PM[near.i].x, PM[near.i].y]) } });
+  }
+  // ---- the location as a path (D-089)
+  function pathItems(inside, i) {
+    const layers = state.by === 'layers', d = inside != null && constellationOf(inside);
+    const items = [{ label: layers ? T.rootLayers : T.rootDomains, title: $u('meta').title, step: 0 }];
+    if (d) items.push({ label: constellationLabel(inside), step: 1,
+      title: T.segTitle(d, layers, routes.filter(r => r.source === inside || r.target === inside).length) });
+    if (i != null && N[i]) items.push({ label: N[i].name, step: 2, title: [labelOf(KIND[N[i].kind]), domainLabel(N[i].domain)].join(' · ') });
+    return items;
+  }
+  const pathText = () => pathItems(nav.inside, nav.table).map(it => it.label).join(' › ');
+  function renderCrumbs() {
+    const items = pathItems(nav.inside, nav.table), last = items.length - 1;
+    crumbs($u('crumbs'), items.map((it, j) => ({ ...it, current: j === last, go: () => go(it.step) })));
+    syncRows();
+    $u('inside-note').hidden = !nav.inside || !!traj || COARSE || !!panel;
+    if (focusCrumb) { focusCrumb = false; const here = $u('crumbs').querySelector('[aria-current]'); if (here) here.focus(); }
+  }
+  // go to a step of the path: 0 the map, 1 the entered constellation (`key`: another one, from the Detail tab), 2 the table;
+  // the current step frames its place
+  function go(step, key) {
+    if (step < 2 && panel) closePanel('crumb');
+    if (step === 0) { if (nav.table != null) unselect(); if (nav.inside) leave('crumb'); else fit(true); return; }
+    if (step === 1) {
+      const target = key ?? nav.inside;
+      if (target == null || !constellationOf(target)) return go(0);
+      if (nav.inside !== target) return enter(target, 'crumb');
+      if (nav.table != null) unselect();
+      return fitInside(true);
+    }
+    const n = nav.table != null && N[nav.table];
+    if (n && P[n.i]) zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5, kStars() * 1.05));
+    if (panel) $u('tp-name').focus();   // the keyboard way into the panel
+  }
+  function select(i) { nav.table = i; renderCrumbs(); }
+  // clear the table level (and leave the lineage when it starts there)
+  function unselect() {
+    const i = nav.table;
+    nav.table = null; found = null;
+    renderCrumbs();
+    if (traj && traj.start === i) leaveTrajectory(true); else { $u('live').textContent = pathText(); draw(); }
+  }
+  // Esc: one level back (D-089)
+  function back() {
+    finishTween();
+    if (panel) closePanel('esc'); else if (nav.table != null) unselect(); else if (nav.inside) leave('esc');
+  }
+
+  // ---- band headers and ghosts of an entered constellation (D-088, D-090), in screen space, as the image shows them
+  function drawHeaders(W, H) {
+    const k = t.k, b = stageBox(), byLayers = state.by === 'layers', hy = Math.max(t.y + spread.bbox.y0 * k - 8, b.y0 - 8);
+    ctx.globalAlpha = navAlpha; ctx.lineJoin = 'round'; ctx.textAlign = 'left';
+    spread.bands.forEach((band, j) => {
+      const sx0 = t.x + band.x0 * k, sx1 = t.x + band.x1 * k;
+      if (j) {
+        const x = t.x + ((spread.bands[j - 1].x1 + band.x0) / 2) * k;
+        ctx.strokeStyle = C.cross; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      const lo = Math.max(sx0, 0), hi = Math.min(sx1, W);
+      if (hi <= lo) return;
+      const item = byLayers ? DOM[band.key] : LAYER[band.key], count = num(band.n), avail = hi - lo - 8;
+      const nameFont = `600 12px ${FONT}`, countFont = `12px ${FONT}`;
+      const cw = textW(count, countFont), name = avail < 40 ? '' : ellipsis(labelOf(item), avail - cw - 4, nameFont);
+      const nw = name ? textW(name, nameFont) + 4 : 0, x = (lo + hi) / 2 - (nw + cw) / 2;
+      ctx.strokeStyle = C.bg; ctx.lineWidth = 3;
+      if (name) { ctx.font = nameFont; ctx.strokeText(name, x, hy); }
+      ctx.font = countFont; ctx.strokeText(count, x + nw, hy);
+      if (name) { ctx.font = nameFont; ctx.fillStyle = byLayers ? CONTRAST.ink(item.color, C.bg) : C.text; ctx.fillText(name, x, hy); }
+      ctx.font = countFont; ctx.fillStyle = C.muted; ctx.fillText(count, x + nw, hy);
+    });
+    ctx.globalAlpha = 1;
+  }
+  // The ghosts: every other drawn constellation as a small disc on a ring inset from the stage edges, in the direction of its
+  // map centre seen from the entered one's, slid along the ring to keep 8 px apart (sorted by angle: deterministic)
+  function ghostsFor(W, H) {
+    const me = constellationOf(nav.inside), others = constellations.filter(d => d !== me);
+    if (!me || !others.length) return [];
+    const small = W < NAV.SMALL, inset = small ? 14 : 30, hw = W / 2 - inset, hh = H / 2 - inset, ring = 4 * (hw + hh), nMax = d3.max(others, d => d.n);
+    const at = p => {
+      p = ((p % ring) + ring) % ring;
+      if (p < 2 * hw) return { x: W / 2 - hw + p, y: H / 2 - hh, side: 't' };
+      if (p < 2 * hw + 2 * hh) return { x: W / 2 + hw, y: H / 2 - hh + (p - 2 * hw), side: 'r' };
+      if (p < 4 * hw + 2 * hh) return { x: W / 2 + hw - (p - 2 * hw - 2 * hh), y: H / 2 + hh, side: 'b' };
+      return { x: W / 2 - hw, y: H / 2 + hh - (p - 4 * hw - 2 * hh), side: 'l' };
+    };
+    const along = (dx, dy) => {   // the perimeter coordinate of the ring point in direction (dx, dy)
+      const s = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity), x = dx * s, y = dy * s;
+      if (Math.abs(y + hh) < 1e-6) return x + hw;
+      if (Math.abs(x - hw) < 1e-6) return 2 * hw + y + hh;
+      if (Math.abs(y - hh) < 1e-6) return 2 * hw + 2 * hh + hw - x;
+      return 4 * hw + 2 * hh + hh - y;
+    };
+    const items = others.map((d, j) => {
+      const dx = d.x - me.x, dy = d.y - me.y, same = !dx && !dy;
+      return { d, p: along(same ? Math.cos(j) : dx, same ? Math.sin(j) : dy),
+               r: small ? 10 : NAV.GHOST_MIN + (NAV.GHOST_MAX - NAV.GHOST_MIN) * Math.sqrt(d.n / nMax) };
+    }).sort((a, b) => a.p - b.p || (a.d.k < b.d.k ? -1 : 1));
+    const gap = (a, b) => a.r + b.r + 8;
+    items.forEach((g, j) => { if (j) g.p = Math.max(g.p, items[j - 1].p + gap(items[j - 1], g)); });
+    if (items[items.length - 1].p > ring) {
+      items[items.length - 1].p = ring;
+      for (let j = items.length - 2; j >= 0; j--) items[j].p = Math.min(items[j].p, items[j + 1].p - gap(items[j], items[j + 1]));
+    }
+    return items.map(g => ({ k: g.d.k, d: g.d, r: g.r, ...at(g.p) }));
+  }
+  const ghostAt = (x, y) => ghostList.find(g => Math.hypot(x - g.x, y - g.y) <= Math.max(g.r, 22));
+  // the dependency of the entered constellation with the ghost `k`, if any
+  const routeWith = k => routes.find(r => (r.source === k && r.target === nav.inside) || (r.target === k && r.source === nav.inside));
+  // the point where a line from the ghost stops: 8 px short of the spread's bounding box, null when the ghost is over it
+  function toward(g, sb) {
+    const tx = Math.max(sb.x0 - 8, Math.min(sb.x1 + 8, g.x)), ty = Math.max(sb.y0 - 8, Math.min(sb.y1 + 8, g.y));
+    const len = Math.hypot(tx - g.x, ty - g.y);
+    if (len < g.r + 6) return null;
+    const ux = (tx - g.x) / len, uy = (ty - g.y) / len;
+    return { pts: [[g.x + ux * g.r, g.y + uy * g.r], [tx, ty]], ux, uy };
+  }
+  function drawGhosts(gl, W, taken) {
+    const k = t.k, me = nav.inside, small = W < NAV.SMALL, neutral = g => state.by === 'layers' || isSystem(g.k);
+    const sb = { x0: t.x + spread.bbox.x0 * k, x1: t.x + spread.bbox.x1 * k, y0: t.y + spread.bbox.y0 * k, y1: t.y + spread.bbox.y1 * k };
+    const per = traj ? trajSummary() : null;
+    ctx.lineCap = 'round'; ctx.globalAlpha = navAlpha;
+    const arrow = (line, atEnd, size) => { headAt(line.pts, atEnd, 1, size); };
+    gl.forEach(g => {   // under the discs: the dependency, the lineage arrows, the links of the table in view
+      const route = state.routes && routeWith(g.k), line = toward(g, sb);
+      if (!line) return;
+      if (route) {
+        const w = lineWidth(route.c), reader = route.dir === 1 ? route.target : route.source;
+        ctx.strokeStyle = 'rgba(95,103,116,.7)'; ctx.fillStyle = 'rgba(95,103,116,.7)'; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(...line.pts[0]); ctx.lineTo(...line.pts[1]); ctx.stroke();
+        if (route.dir === 2) { arrow(line, true, Math.max(9, 1.8 * w)); arrow(line, false, Math.max(9, 1.8 * w)); }
+        else if (route.dir) arrow(line, reader === me, Math.max(9, 1.8 * w));
+      }
+      if (per) per.pairs.filter(p => (p.from === g.k && p.to === me) || (p.to === g.k && p.from === me)).forEach(p => {
+        const off = (p.dir === 'up' ? -1 : 1) * 5, moved = { pts: line.pts.map(([x, y]) => [x - line.uy * off, y + line.ux * off]) };
+        ctx.strokeStyle = C[p.dir]; ctx.fillStyle = C[p.dir]; ctx.lineWidth = (1 + Math.log2(p.c)) * 1.2;
+        ctx.setLineDash(p.dir === 'up' ? [6, 4] : []);
+        ctx.beginPath(); ctx.moveTo(...moved.pts[0]); ctx.lineTo(...moved.pts[1]); ctx.stroke(); ctx.setLineDash([]);
+        arrow(moved, p.to === me, 9);
+      });
+    });
+    drawGhostLinks(gl);
+    gl.forEach(g => {
+      const grey = neutral(g), col = grey ? C.muted : CONTRAST.edge(DOM[g.k].color, C.bg), hot = hoverGhost === g.k, mark = per && per.per.get(g.k);
+      ctx.globalAlpha = navAlpha * (grey ? 0.15 : 0.35); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, 7); ctx.fill();
+      ctx.globalAlpha = navAlpha; ctx.strokeStyle = mark ? C.text : col; ctx.lineWidth = hot || mark ? 2 : 1.5; ctx.stroke();
+      if (small) return;
+      const name = constellationLabel(g.k), count = mark ? [mark.up ? `${num(mark.up)} ↑` : '', mark.down ? `${num(mark.down)} ↓` : ''].filter(Boolean).join(' · ') || num(g.d.n) : num(g.d.n);
+      const horizontal = g.side === 'l' || g.side === 'r', maxW = ghostLabelW;
+      let lines, x, y, align;
+      if (horizontal) {
+        align = g.side === 'l' ? 'left' : 'right'; x = g.x + (g.side === 'l' ? 1 : -1) * (g.r + 6); y = g.y - 2;
+        lines = [[ellipsis(name, maxW, `11px ${FONT}`), C.text, `11px ${FONT}`], [count, C.muted, `11px ${FONT}`]];
+      } else {
+        align = 'center'; x = g.x; y = g.side === 't' ? g.y + g.r + 14 : g.y - g.r - 6;
+        lines = [[`${ellipsis(name, maxW, `11px ${FONT}`)} · ${count}`, C.text, `11px ${FONT}`]];
+      }
+      const w = Math.max(...lines.map(l => textW(l[0], l[2]))) + 4, left = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+      const box = [left, y - 11, w, 14 * lines.length];
+      if (taken.some(r => box[0] < r[0] + r[2] && box[0] + box[2] > r[0] && box[1] < r[1] + r[3] && box[1] + box[3] > r[1])) return;
+      taken.push(box); ctx.textAlign = align; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
+      ctx.globalAlpha = navAlpha * 0.9; ctx.fillStyle = C.bg; ctx.fillRect(box[0] - 1, box[1] - 1, box[2] + 2, box[3] + 2);   // a line never runs through a name
+      ctx.globalAlpha = navAlpha;
+      lines.forEach(([text, color, font], j) => { ctx.font = font; ctx.strokeText(text, x, y + 14 * j); ctx.fillStyle = color; ctx.fillText(text, x, y + 14 * j); });
+    });
+    ctx.textAlign = 'left'; ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+  }
+  // the links of the hovered or selected table to the other constellations: one line per ghost, by count
+  function drawGhostLinks(gl) {
+    const i = linksOf();
+    if (i == null || !spread.set.has(i) || !P[i]) return;
+    const G = grouping(), by = new Map();
+    edges.forEach(([a, b]) => {
+      const o = a === i ? b : b === i ? a : null;
+      if (o != null && !spread.set.has(o)) by.set(G.of(N[o]), (by.get(G.of(N[o])) || 0) + 1);
+    });
+    const from = [t.x + P[i].x * t.k, t.y + P[i].y * t.k];
+    ctx.strokeStyle = C.hl; ctx.globalAlpha = navAlpha * 0.85;
+    gl.forEach(g => {
+      if (!by.has(g.k)) return;
+      const len = Math.hypot(g.x - from[0], g.y - from[1]) || 1;
+      ctx.lineWidth = lineWidth(by.get(g.k));
+      ctx.beginPath(); ctx.moveTo(...from); ctx.lineTo(g.x - (g.x - from[0]) / len * g.r, g.y - (g.y - from[1]) / len * g.r); ctx.stroke();
+    });
+    ctx.globalAlpha = navAlpha;
+  }
+  function drawInside(W, H, taken, onScreen) {
+    drawHeaders(W, H);
+    const gl = ghostsFor(W, H);
+    if (onScreen) ghostList = gl;
+    const before = taken.length;
+    drawGhosts(gl, W, taken);
+    if (!onScreen) return;
+    // the inside note is HTML at the bottom centre: it gives way when a ghost's name would sit under it
+    ghostBoxes = taken.slice(before);
+    const note = $u('inside-note'), nw = textW(T.insideNote, `12px ${FONT}`) + 8, nx = (W - nw) / 2, ny = H - 54;   // `.inside-note`: bottom 54 px, 18 px high
+    note.style.visibility = ghostBoxes.some(r => nx < r[0] + r[2] && nx + nw > r[0] && ny - 18 < r[1] + r[3] && ny > r[1]) ? 'hidden' : '';
+  }
+  // the tooltip of a ghost: its constellation's, the dependency with the entered one, the action
+  function ghostTip(g) {
+    const route = routeWith(g.k), w = route && routeWords(route);
+    return constellationTip(g.d, NaN, '', '') + (w ? `<div class="m">${esc(w.title)}</div><div class="m">${w.counts}</div>` + (w.dir ? `<div class="m">${esc(w.dir)}</div>` : '') : '')
+      + `<div class="a">${enterWord()}</div>`;
+  }
+
+  // ---------------------------------------------------------------- table panel (M9.3, D-091)
+  // A click on a table, a search, or the return from the Detail tab opens the panel of that table: what it is, its columns, and
+  // its neighbours as a list that goes there; Open in Detail and Lineage are its two next steps. It is HTML in the stage, never
+  // drawn on the canvas (so never exported), never saved. `panel` is the state, `nav.table` the table level it stands for.
+  const PANEL_ITEMS = 20, PANEL_COLS = 200;
+  const tpEl = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const byNameId = (a, b) => N[a.j].name.localeCompare(N[b.j].name) || N[a.j].id.localeCompare(N[b.j].id);
+  // the neighbours of table i, sorted by name: { references, referencedBy, upstream, downstream, held }, each a list of
+  // { j, via } (the relation columns, when both ends are detail tables); a self relation is skipped, a neighbour reached by
+  // several relations is one item
+  function panelNeighbours(i) {
+    const relations = (own, other) => {
+      const by = new Map();
+      DATA.relations.forEach(r => {
+        if (r[own] !== i || r[other] === i) return;
+        const j = r[other], cols = by.get(j) || [], [c, p] = own === 0 ? [i, j] : [j, i];
+        DETAIL.relationColumns(N[c].id, N[p].id).forEach(x => { if (!cols.includes(x)) cols.push(x); });
+        by.set(j, cols);
+      });
+      return [...by].map(([j, via]) => ({ j, via })).sort(byNameId);
+    };
+    const plain = indices => [...indices].map(j => ({ j, via: [] })).sort(byNameId);
+    const { up, down } = trajectory(DATA.lineage, i, 'both', 1);
+    return { references: relations(0, 1), referencedBy: relations(1, 0), upstream: plain(up.keys()), downstream: plain(down.keys()), held: plain(HELD.get(i) || []) };
+  }
+  // the column level shown: the viewer's toggle, else the Show select's (names and key columns show the keys)
+  const panelLevel = () => panel.cols || (state.detail === 'all' ? 'all' : 'keys');
+  const panelFacts = n => {
+    const layers = state.by === 'layers', dom = DOM[n.domain] || { key: n.domain }, owner = dom.owner;
+    const domain = [isSystem(n.domain) ? T.tpSystem : T.tpDomain, domainLabel(n.domain)], layer = [T.tpLayer, labelOf(LAYER[n.layer])];
+    return [[T.tpKind, labelOf(KIND[n.kind])], ...(layers ? [layer, domain] : [domain, layer]), ...(owner ? [[T.tpOwner, owner]] : [])];
+  };
+  // the sentence the live region says on open and on each change of table
+  function panelLive(i) {
+    const n = N[i], g = panelNeighbours(i), rels = new Set([...g.references, ...g.referencedBy].map(x => x.j)).size;
+    const facts = [...new Set(panelFacts(n).filter(f => f[0] !== T.tpOwner).map(f => f[1]))].join(' · ');
+    const counts = [plural(n.cols.length, L.columns), plural(rels, T.relationsN), plural(g.upstream.length + g.downstream.length, T.lineageN)].join(' · ');
+    const text = T.tpLive(n.name, facts, counts);
+    return panelKeyboardHint ? `${text} ${T.tpKeyboard}` : text;
+  }
+  // one neighbour button: its name, then a muted line (relation columns, other domain, hidden by a filter)
+  function neighbourItem(it, group) {
+    const n = N[it.j], b = tpEl('button'), note = [];
+    b.type = 'button'; b.dataset.fk = `nb:${group}:${it.j}`;
+    b.append(tpEl('span', 'tp-nm', n.name));
+    if (it.via.length) note.push(T.tpVia(it.via));
+    if (n.domain !== N[panel.i].domain) note.push(domainLabel(n.domain));
+    if (!PASS[it.j]) note.push(T.tpHidden);
+    if (note.length) b.append(tpEl('span', 'tp-note', ' · ' + note.join(' · ')));
+    b.onclick = () => { mark(n); $u('tp-name').focus(); };
+    return b;
+  }
+  function neighbourGroup(title, items, group) {
+    const sec = tpEl('div', 'tp-nb'), whole = panel.more.has(group), shown = whole ? items : items.slice(0, PANEL_ITEMS);
+    sec.append(tpEl('h3', null, title(items.length)));
+    const ul = tpEl('ul');
+    shown.forEach(it => { const li = tpEl('li'); li.append(neighbourItem(it, group)); ul.append(li); });
+    sec.append(ul);
+    if (items.length > shown.length) {
+      const more = tpEl('button', 'tp-all', T.tpShowAll(items.length));
+      more.type = 'button'; more.dataset.fk = `all:${group}`;
+      more.onclick = () => { panel.more.add(group); pendingFocus = `nb:${group}:${items[PANEL_ITEMS].j}`; renderPanel(false); };
+      sec.append(more);
+    }
+    return sec;
+  }
+  let pendingFocus = null;
+  function columnsBlock(n) {
+    const sec = tpEl('div', 'tp-colsec'), level = panelLevel(), described = DETAIL.columns(n.id);
+    const rows = level === 'all' ? n.cols : n.cols.filter(c => c[2]), whole = panel.more.has('cols'), shown = whole ? rows : rows.slice(0, PANEL_COLS);
+    const head = tpEl('div', 'tp-colhead');
+    head.append(tpEl('h3', null, T.tpCols(n.cols.length)));
+    if (n.cols.length) {
+      const group = tpEl('div', 'tp-toggle');
+      group.setAttribute('role', 'group'); group.setAttribute('aria-label', T.tpColsGroup);
+      [['keys', T.tpKeys], ['all', T.tpAll]].forEach(([v, label]) => {
+        const b = tpEl('button', null, label);
+        b.type = 'button'; b.dataset.fk = `cols:${v}`; b.setAttribute('aria-pressed', String(level === v));
+        b.onclick = () => { panel.cols = v; renderPanel(false); };
+        group.append(b);
+      });
+      head.append(group);
+    }
+    sec.append(head);
+    if (!n.cols.length) { sec.append(tpEl('p', 'tp-muted', T.tpNoCols)); return sec; }
+    if (!rows.length) sec.append(tpEl('p', 'tp-muted', T.tpNoKey));
+    const ul = tpEl('ul', 'tp-cols');
+    shown.forEach(c => {
+      const li = tpEl('li'), line = tpEl('div', 'tp-col');
+      line.append(tpEl('span', 'tp-nm', c[0]), tpEl('span', 'tp-type', c[1]));
+      if (c[2]) line.append(tpEl('span', 'tp-badge', T.tpKey));
+      li.append(line);
+      if (described.get(c[0])) li.append(tpEl('div', 'tp-cdesc', described.get(c[0])));
+      ul.append(li);
+    });
+    sec.append(ul);
+    if (rows.length > shown.length) {
+      const more = tpEl('button', 'tp-all', T.tpShowAll(rows.length));
+      more.type = 'button'; more.dataset.fk = 'all:cols';
+      more.onclick = () => { panel.more.add('cols'); pendingFocus = null; renderPanel(false); };
+      sec.append(more);
+    }
+    return sec;
+  }
+  function descriptionBlock(n) {
+    const sec = tpEl('div', 'tp-descsec'), full = (DETAIL.entity(n.id) || {}).description || n.desc;
+    sec.append(tpEl('h3', null, T.tpDesc));
+    if (!full) { sec.append(tpEl('p', 'tp-muted', T.tpNoDesc)); return { sec, p: null }; }
+    const p = tpEl('p', 'tp-desc clamp', full);
+    sec.append(p);
+    return { sec, p };
+  }
+  // fill the panel for panel.i in one pass; `announce`: say it in the live region; the focus returns to where it was in the
+  // panel (a toggle, a "Show all"), else to the heading, and stays outside when it was outside
+  function renderPanel(announce) {
+    const el = $u('tpanel'), n = N[panel.i], g = panelNeighbours(panel.i), active = document.activeElement;
+    const had = el.contains(active), key = pendingFocus || (had && active.dataset ? active.dataset.fk : null);
+    pendingFocus = null;
+    el.hidden = false; syncPanelTop();
+    const head = tpEl('header'), name = tpEl('h2', null, n.name), close = tpEl('button', 'tp-close', '×');
+    name.id = 'u-tp-name'; name.tabIndex = -1;
+    close.type = 'button'; close.id = 'u-tp-close'; close.title = T.tpClose; close.setAttribute('aria-label', T.tpClose);
+    close.onclick = () => closePanel('button');
+    head.append(paintDot(tpEl('i', 'tp-dot'), KIND[n.kind].color), name, close);
+    const facts = tpEl('dl', 'tp-facts');
+    panelFacts(n).forEach(([k, v]) => facts.append(tpEl('dt', null, k), tpEl('dd', null, v)));
+    if (PARENT[n.i] >= 0 && folding()) {
+      const parent = N[PARENT[n.i]], dd = tpEl('dd'), b = tpEl('button', 'tp-link', parent.name);
+      b.type = 'button'; b.onclick = () => { mark(parent); $u('tp-name').focus(); };
+      dd.append(b); facts.append(tpEl('dt', null, T.tpInside), dd);
+    }
+    const body = [facts];
+    if (g.held.length) body.push(tpEl('p', 'tp-holds', T.tpHolds(g.held.length)));
+    const desc = descriptionBlock(n);
+    body.push(desc.sec);
+    body.push(columnsBlock(n));
+    const lists = [[T.tpRefs, g.references, 'references'], [T.tpRefBy, g.referencedBy, 'referencedBy'], [T.tpUp, g.upstream, 'upstream'],
+                   [T.tpDown, g.downstream, 'downstream'], [T.tpHeld, g.held, 'held']].filter(l => l[1].length);
+    lists.forEach(([title, items, group]) => body.push(neighbourGroup(title, items, group)));
+    if (!lists.length) body.push(tpEl('p', 'tp-muted', T.tpNone));
+    const foot = tpEl('footer'), openDetail = tpEl('button', 'tp-act', T.tpDetail), lineage = tpEl('button', 'tp-act', T.tpLineage);
+    openDetail.type = 'button'; lineage.type = 'button'; openDetail.dataset.fk = 'detail'; lineage.dataset.fk = 'lineage';
+    lineage.title = T.tpLineageTitle;
+    lineage.onclick = () => { const i = panel.i; dropPanel(); enterTrajectory(i); $u('tj-dir').focus(); };
+    if (DETAIL.has(n.id)) openDetail.onclick = () => { tip.style.display = 'none'; openInDetail(n.id); };
+    else openDetail.disabled = true;
+    foot.append(openDetail, lineage);
+    if (openDetail.disabled) {   // the reason is read in the flow, above the footer, so the sticky footer stays two buttons high
+      const why = tpEl('p', 'tp-why', T.tpDetailNo);
+      why.id = 'u-tp-why'; openDetail.setAttribute('aria-describedby', 'u-tp-why'); body.push(why);
+    }
+    el.replaceChildren(head, ...body, foot);
+    // a focused row scrolls into view clear of the sticky header and footer (WCAG 2.4.11)
+    syncPanelPadding();
+    if (announce) el.scrollTop = 0;   // another table starts at the top
+    if (desc.p && desc.p.scrollHeight > desc.p.clientHeight + 1) {
+      const more = tpEl('button', 'tp-more', T.tpMore);
+      more.type = 'button'; more.setAttribute('aria-expanded', 'false');
+      more.onclick = () => {
+        const open = desc.p.classList.toggle('clamp') === false;
+        more.setAttribute('aria-expanded', String(open)); more.textContent = open ? T.tpLess : T.tpMore;
+      };
+      desc.p.after(more);
+    }
+    if (had) (el.querySelector(`[data-fk="${key}"]`) || name).focus();
+    if (announce) { $u('live').textContent = panelLive(panel.i); panelKeyboardHint = false; }
+  }
+  // the panel stands below the lineage bar when it shows (wide stage); the bottom sheet ignores it
+  function syncPanelPadding() {
+    const el = $u('tpanel'), head = el.querySelector('header'), foot = el.querySelector('footer');
+    if (el.hidden || !head || !foot) return;
+    el.style.scrollPaddingTop = head.offsetHeight + 'px'; el.style.scrollPaddingBottom = foot.offsetHeight + 'px';
+  }
+  function syncPanelTop() { $u('tpanel').style.setProperty('--tp-top', top() + 'px'); }
+  // open (or change to) the panel of table i: the table level, the ring, the panel; `how` 'click' pans only as far as needed to
+  // clear the table of the panel; a search or a neighbour frames it itself
+  function openPanel(i, how) {
+    const t0 = performance.now(), same = panel && panel.i === i;
+    if (!same) panel = { i, cols: null, more: new Set() };
+    nav.table = i; found = i;
+    $u('q').value = N[i].name; syncTrajBtn();   // the box and its Lineage button follow the table in the panel
+    renderCrumbs(); renderPanel(!same);
+    if (how === 'click') { lastOpen = { i, at: performance.now() }; clearOfPanel(i); letClickThrough(); }
+    draw();
+    perf.panel = performance.now() - t0;
+  }
+  // hide the panel (no change of the location); announce when one was open
+  function dropPanel() {
+    if (!panel) return;
+    panel = null; hidePanel();
+  }
+  // empty and hide the panel element and say so; the focus, when it was inside, goes to the current crumb (renderCrumbs)
+  function hidePanel() {
+    const el = $u('tpanel');
+    focusCrumb = el.contains(document.activeElement);
+    el.hidden = true; el.replaceChildren();
+    $u('live').textContent = T.tpClosed;
+  }
+  // close the panel: the table level goes back to the lineage's start (a lineage stays on), else to nothing, and the ring goes
+  function closePanel(how) {
+    if (!panel) return;
+    dropPanel(); resetTable();
+    renderCrumbs(); draw();
+  }
+  // after a layout: the panel of `kept` is back when its table is still drawn in the location, else it is closed
+  function resumePanel(kept) {
+    if (!kept) return;
+    if (PASS[kept.i] && (!nav.inside || grouping().of(N[kept.i]) === nav.inside)) {
+      panel = kept; nav.table = kept.i; found = kept.i;
+      renderCrumbs(); renderPanel(false);
+      return;
+    }
+    hidePanel();
+    renderCrumbs();
+  }
+  // the second click of a double-click must reach the table, which may sit where the panel has just appeared: the panel takes
+  // no pointer for as long as a double-click lasts (the longest default, 500 ms, and a margin). The pan that clears the table of
+  // the panel moves it under the second click, so `lastOpen` tells the dblclick handler which table the first click opened.
+  const DBL_MS = 550;
+  let throughTimer = 0, lastOpen = { i: -1, at: -1e9 };
+  function letClickThrough() {
+    const el = $u('tpanel');
+    clearTimeout(throughTimer);
+    el.style.pointerEvents = 'none';
+    throughTimer = setTimeout(() => { el.style.pointerEvents = ''; }, DBL_MS);
+  }
+  // a click-open pans (never zooms) by the smallest vector that puts the table's box, with 16 px around, in the uncovered area
+  function clearOfPanel(i) {
+    const r = place(N[i].id), a = visibleArea();
+    if (!r) return;
+    const slide = (lo, hi, min, max) => (hi > max ? Math.max(max - hi, min - lo) : lo < min ? min - lo : 0);
+    const dx = slide(r.x, r.x + r.w, a.x0 + 16, a.x1 - 16), dy = slide(r.y, r.y + r.h, a.y0 + 16, a.y1 - 16);
+    if (!dx && !dy) return;
+    const to = d3.zoomIdentity.translate(t.x + dx, t.y + dy).scale(t.k);
+    (reduced() ? sel : sel.transition().duration(200)).call(zoom.transform, to);
+  }
+  // the panel as the browser tests read it (ids are dbt unique_ids)
+  function panelState() {
+    const el = $u('tpanel'), ids = list => list.map(x => N[x.j].id), g = panel && panelNeighbours(panel.i);
+    return { open: !!panel, id: panel ? N[panel.i].id : null, cols: panel ? panelLevel() : null,
+      groups: g ? { references: ids(g.references), referencedBy: ids(g.referencedBy), upstream: ids(g.upstream), downstream: ids(g.downstream), held: ids(g.held) } : null,
+      rect: panel ? { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight } : null };
+  }
 
   // ---------------------------------------------------------------- trajectory mode
   const countsText = (u, d) => trajectoryCounts(trajOpts.direction, u, d);
-  function enterTrajectory(i) {
+  // `keepPanel`: a Direction or Depth change moves nothing the panel shows, so it stays open on its table
+  function enterTrajectory(i, keepPanel = false) {
+    if (panel && !keepPanel) dropPanel();
     const { up, down } = trajectory(DATA.lineage, i, trajOpts.direction, trajOpts.depth);
     const folded = unfoldedKey();   // the members the fold hid before: they are drawn while the mode is on
     traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
     if (!traj.brought && unfoldedKey() !== folded) relayoutAnchored(i);   // unfold its members (or fold the last ones back)
+    nav.table = panel ? panel.i : i; found = panel ? panel.i : null;
+    if (nav.inside && nav.inside !== grouping().of(N[i]) && constellationOf(grouping().of(N[i]))) enter(grouping().of(N[i]), 'lineage', { instant: true });
+    renderCrumbs();
     const n = N[i], summary = renderBar();
+    syncPanelTop();
     live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
     draw();
   }
@@ -1999,6 +2812,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (!traj) return;
     const inBar = bar.contains(document.activeElement), unfolded = unfoldedKey() !== '', start = traj.start;
     traj = null; bar.hidden = true; $u('tj-counts').open = false;
+    if (nav.table === start) nav.table = null;
+    syncPanelTop(); renderCrumbs();
     $u('fit').removeAttribute('title');
     live.textContent = T.closed;
     if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
@@ -2040,25 +2855,34 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('tj-flow').onclick = () => { if (traj) openFlow(N[traj.start].id, trajOpts.direction, trajOpts.depth); };
   options($u('tj-dir'), ['both', 'up', 'down'], trajOpts.direction);
   options($u('tj-depth'), ['dall', 'd1', 'd2', 'd3'], 'dall');
-  $u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start); };
-  $u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start); };
+  $u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start, true); };
+  $u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start, true); };
   $u('tj-leave').onclick = () => leaveTrajectory(true);
   const trajBtn = $u('traj');
-  function syncTrajBtn() { trajBtn.disabled = !findByName($u('q').value); }
-  trajBtn.textContent = T.trajectory; trajBtn.title = T.trajFound;
+  // disabled until the box holds an exact table name, with the reason as its title (D-085)
+  function syncTrajBtn() {
+    trajBtn.disabled = !findByName($u('q').value);
+    trajBtn.title = trajBtn.disabled ? T.needTable : T.trajFound;
+  }
+  trajBtn.textContent = T.trajectory;
   $u('q').addEventListener('input', syncTrajBtn); $u('q').addEventListener('change', syncTrajBtn);
+  syncTrajBtn();
   trajBtn.onclick = () => {
-    const n = findByName($u('q').value);
+    // the table of the panel while the box still holds its name (two tables may share one), else the first of that name
+    const q = $u('q').value.trim().toLowerCase();
+    const n = panel && N[panel.i].name.toLowerCase() === q ? N[panel.i] : findByName(q);
     if (!n) return;
     enterTrajectory(n.i);
     $u('tj-dir').focus();
   };
+  // Esc: one level back (D-089); ignored on another tab, when a popover or the lineage graph handled it, and in the search box or
+  // a select, whose Esc is their own; an open lineage list closes first
   document.addEventListener('keydown', ev => {
-    if (ev.key !== 'Escape' || ev.defaultPrevented || !traj || !tab.classList.contains('on')) return;   // the flow's Esc
+    if (ev.key !== 'Escape' || ev.defaultPrevented || !tab.classList.contains('on')) return;
     const counts = $u('tj-counts');
-    if (counts.open) { counts.open = false; $u('tj-sum').focus(); return; }
-    if (ev.target === $u('q') || ev.target.tagName === 'SELECT') return;   // Esc belongs to the open list
-    leaveTrajectory(true);
+    if (traj && counts.open) { counts.open = false; $u('tj-sum').focus(); return; }
+    if (ev.target === $u('q') || ev.target.tagName === 'SELECT') return;
+    back();
   });
   // read-only view of the trajectory mode, for the browser tests; ids are dbt unique_ids
   function trajectoryState() {
@@ -2077,19 +2901,23 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // a relayout that folds or unfolds trajectory members: no refit, the camera keeps its scale and the table
   // `i` (the one clicked) stays at the same screen point, so it stays under the pointer
   function relayoutAnchored(i) {
-    const was = P[i] && t.apply([P[i].x, P[i].y]);
-    found = null; hover = null; spot = null; layout(); if (traj) renderBar();
+    const was = P[i] && t.apply([P[i].x, P[i].y]), kept = panel;
+    panel = null; clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar(); resumePanel(kept);
     if (!was || !P[i]) return fit(false), draw();
     sel.call(zoom.transform, d3.zoomIdentity.translate(was[0] - t.k * P[i].x, was[1] - t.k * P[i].y).scale(t.k));
     draw();
   }
-  function relayout() { found = null; hover = null; spot = null; layout(); if (traj) renderBar(); fit(false); draw(); }
+  function relayout() {
+    const kept = panel;   // a layout keeps the panel while its table is still drawn
+    panel = null; clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar(); resumePanel(kept);
+    fit(false); draw();
+  }
   let size = '';
   new ResizeObserver(() => {
     const s = stage.clientWidth + 'x' + stage.clientHeight;
-    if (stage.clientWidth && s !== size) { size = s; resize(); fit(false); }
+    if (stage.clientWidth && s !== size) { size = s; resize(); if (nav.inside) settleInside(); syncPanelTop(); syncPanelPadding(); fit(false); }
   }).observe(stage);
-  layout(); resize(); fit(false);
+  layout(); resize(); fit(false); renderCrumbs();
 
   // the screen rectangle reserved by a drawn table (its card, or its star and name), in CSS px from the
   // canvas's top left corner; null when not drawn
@@ -2102,20 +2930,35 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function geometry() {
     return { by: state.by, fold: folding(), layoutMs: perf.layout, passing: pass.length, linkCount,
       folded: N.filter(n => FOLDNOW[n.i]).map(n => n.id),
-      tables: visible.map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
+      tables: (nav.inside ? spread.tables : visible).map(n => ({ id: n.id, domain: n.domain, layer: n.layer, x: P[n.i].x, y: P[n.i].y,
                                   w: B[n.i].w, h: B[n.i].h, oy: B[n.i].oy, r: R[n.i],
                                   held: (HELD.get(n.i) || []).map(i => N[i].id) })),
-      edges: edges.map(([a, b]) => [N[a].id, N[b].id]),
+      edges: drawnEdges().map(([a, b]) => [N[a].id, N[b].id]),
       routes: routeGeometry(), routesOn: state.routes, spotlight: { spot, lit: lastView ? lastView.sp : null }, outlines: outlineGeometry(),
       constellations: constellations.map(d => ({ key: d.k, x: d.x, y: d.y, r: d.r, n: d.n, mix: d.mix,
                                    bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })),
       summary: summaryGeometry(), systems: systemsGeometry() };
   }
+  // the one table whose links are drawn inside an entered constellation: the hovered one, else the selected one; none
+  // during a lineage, which draws its own edges (read by the frame, the ghost links and `drawnEdges`)
+  const linksOf = () => (traj ? null : hover != null ? hover : nav.table);
+  // the links drawn between tables: all of them, but inside an entered constellation only those of the hovered or selected table
+  function drawnEdges() {
+    if (!nav.inside) return edges;
+    const pick = linksOf();
+    return edges.filter(([a, b]) => pick != null && (a === pick || b === pick) && spread.set.has(a) && spread.set.has(b));
+  }
+  // the entered constellation as drawn: its framing box, headers, ghosts (screen px), for the browser tests
+  const entered = () => (nav.inside ? { key: nav.inside, table: nav.table != null ? N[nav.table].id : null, fitK: spread.fitK, box: stageBox(),
+    bbox: { ...spread.bbox }, headers: spread.bands.map(h => ({ ...h })),
+    ghosts: ghostList.map(g => ({ k: g.k, x: g.x, y: g.y, r: g.r, side: g.side, n: g.d.n })), ghostBoxes: ghostBoxes.map(r => [...r]), tweening: !!tween } : null);
+  // the location: level 0 the map, 1 an entered constellation, 2 a selected table
+  const location = () => ({ level: nav.table != null ? 2 : nav.inside ? 1 : 0, inside: nav.inside, table: nav.table != null ? N[nav.table].id : null, by: state.by });
   // the routes of the current set as the page computed them (D-071): ends (keys, GROUP for the bundled), counts, direction,
   // whether the frame draws it, whether its path clears every other constellation, and its path clipped at the outlines
   // of its ends (world points), for the tests
   function routeGeometry() {
-    const a = summaryWeight(t.k), view = routeView(a, routesDrawn(t.k, a)), rm = view.rm, plans = a >= 0.02 ? cardPlans(rm.grp, rm) : new Map();
+    const w = summaryWeight(t.k), a = state.cards ? w : 0, view = routeView(a, routesDrawn(t.k, w)), rm = view.rm, plans = a >= 0.02 ? cardPlans(rm.grp, rm) : new Map();
     return view.cur.list.map(r => ({ a: r.source, b: r.target, rel: r.rel, lin: r.lin, c: r.c, dir: r.dir, bundled: !!r.bundled,
       drawn: state.routes && (view.sp ? r.source === view.sp || r.target === view.sp : view.cur.shown.includes(r)), clear: pathOf(r).clear,
       pts: routeLine(pathOf(r).pts, outlineOf(r.source, rm, plans), outlineOf(r.target, rm, plans), a) || [] }));
@@ -2123,7 +2966,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the outline each drawn constellation has now: its disc below half weight, its card rectangle (world px) above;
   // the group card lists its members
   function outlineGeometry() {
-    const a = summaryWeight(t.k), rm = routeModel();
+    const a = state.cards ? summaryWeight(t.k) : 0, rm = routeModel();
     if (a < 0.5) return constellations.map(d => ({ k: d.k, disc: [d.x, d.y, d.r] }));
     const rect = ({ d, sq, plan }) => [d.x - sq.w / 2 / t.k, d.y - plan.h / 2 / t.k, sq.w / t.k, plan.h / t.k];
     return [...cardPlans(rm.grp, rm).values()].map(p => ({ k: p.d.k, rect: rect(p), ...(p.d.group ? { members: p.d.members.map(m => m.k) } : {}) }));
@@ -2157,6 +3000,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
-  // Reset layout and an import call relayout: they close the entity a search opened
-  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
+  // Reset layout and an import call relayout: they close the entity a search opened; locate is the way back from the Detail tab
+  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, locate, enter: key => go(1, key), go, entered, location, passingIds: () => N.filter(passes).map(n => n.id),
+           path: () => pathItems(nav.inside, nav.table), trail: (inside, id) => pathItems(inside, ID.has(id) ? ID.get(id) : null), trajectoryState, panel: panelState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
 }

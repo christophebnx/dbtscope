@@ -4,7 +4,8 @@ The large project (`tests/large_project.py`) opens its detail on `vehicle`: 277 
 once folded. Read through `views.detail.drawing()` (`skeleton`, `fold`, `drawn`, `folded`, `scope`, `columns`,
 `size`, `layoutMs`, `prepMs`) and the SVG. The acme_retail and shop pages must draw exactly as before M8.5:
 `tests/fixtures/m8.5-detail-baseline.json` holds the meta line and the hash of the nodes and edges of every
-drawing, taken with the code before the change.
+drawing, taken with the code before the change. M9.1 (D-084) updated it once: the meta line's note reads
+"dashed outline = other domain" (or "group"), and acme_retail's foreign tables carry their domain's label.
 Design note: docs/architecture/2026-11-12-m8.5-detail-skeleton.md.
 """
 
@@ -225,11 +226,11 @@ def test_the_skeleton_draws_no_column_rows_and_a_folded_row_per_entity(
     m, d = Model(data), drawing(p)
     held = m.held()
     hub = next(u for u in sorted(held, key=m.name) if len(held[u]) == 3 and m.kind(u) == "hub")
-    assert node_texts(p, hub) == [m.name(hub), "+ 3 folded tables · Satellite"]
+    assert node_texts(p, hub) == [m.name(hub), "+ 3 tables drawn inside · Satellite"]
     plain = next(u for u in d["drawn"] if u not in held)
     assert node_texts(p, plain) == [m.entities[plain]["name"]]
     one = next(u for u in held if len(held[u]) == 1)
-    assert node_texts(p, one)[-1] == "+ 1 folded table · Satellite"
+    assert node_texts(p, one)[-1] == "+ 1 table drawn inside · Satellite"
     ids = set(p.page.eval_on_selector_all(NODE, "n => n.map(g => g.id)"))
     assert ids == set(d["drawn"]), "no anchor or folded table in the SVG"
     # no drawn relation touches a folded table; the meta line counts the drawn ones
@@ -249,7 +250,7 @@ def test_the_tooltip_lists_the_folded_tables_and_the_column_count(
     hub = max(held, key=lambda u: len(held[u]))
     tip = p.page.evaluate(NODE_TIP, hub)
     lines = tip.split("\n")
-    assert f"{len(held[hub])} folded tables" in lines
+    assert f"{len(held[hub])} tables drawn inside" in lines
     listed = [line for line in lines if " · Satellite" in line]
     assert listed == [f"{m.name(u)} · Satellite" for u in sorted(held[hub], key=m.name)][:12]
     keys = sum(c[2] for c in m.entities[hub]["columns"])
@@ -265,13 +266,13 @@ def test_the_meta_line_counts_the_scope_the_folded_tables_and_splits_by_kind(
     p, _ = vehicle
     meta = p.page.inner_text("#d-meta")
     assert meta.startswith(
-        f"{VEHICLE['drawn']} / {VEHICLE['scope']} tables · {VEHICLE['with_parent']} folded · "
+        f"{VEHICLE['drawn']} / {VEHICLE['scope']} tables · {VEHICLE['with_parent']} drawn inside · "
     )
-    assert meta.endswith(" relations · dashed: other group")
+    assert meta.endswith(" relations · dashed outline = other domain")
     title = p.page.get_attribute("#d-meta", "title")
-    drawn = sum(int(x.rsplit(" ", 1)[1]) for x in title.split(" · folded: ")[0].split(" · "))
-    assert title.split(" · folded: ")[0].startswith("Hub ") and drawn == VEHICLE["drawn"]
-    assert title.endswith(f" · folded: Satellite {VEHICLE['with_parent']}")
+    drawn = sum(int(x.rsplit(" ", 1)[1]) for x in title.split(" · drawn inside: ")[0].split(" · "))
+    assert title.split(" · drawn inside: ")[0].startswith("Hub ") and drawn == VEHICLE["drawn"]
+    assert title.endswith(f" · drawn inside: Satellite {VEHICLE['with_parent']}")
     fold_box(p, False)  # the whole scope: today's form, the scope count unchanged
     assert p.page.inner_text("#d-meta").startswith(
         f"{VEHICLE['scope']} / {VEHICLE['scope']} tables · 288 relations"
@@ -301,8 +302,8 @@ def test_the_highlight_box_lights_the_table_that_holds_the_match(
 
 def test_the_fold_control_shows_everything_and_warns(vehicle: tuple[Page, dict[str, Any]]) -> None:
     p, _ = vehicle
-    assert p.page.is_visible("#d-fold") and p.page.inner_text("#d-h-fold") == "ENTITIES"
-    assert p.page.inner_text("#d-fold-label") == "Fold Satellite"
+    assert p.page.is_visible("#d-fold") and p.page.inner_text("#d-h-fold") == "DESCRIPTIVE TABLES"
+    assert p.page.inner_text("#d-fold-label") == "Draw Satellite inside their table"
     assert p.page.inner_text("#d-fold-n") == str(VEHICLE["with_parent"])
     assert (
         p.page.get_attribute("#d-fold-warn", "role") == "status" and p.page.inner_text("#d-fold-warn") == ""
@@ -314,7 +315,10 @@ def test_the_fold_control_shows_everything_and_warns(vehicle: tuple[Page, dict[s
     assert p.page.inner_text("#d-live") == ""  # the warning speaks for itself
     fold_box(p, True)
     assert drawing(p)["skeleton"] is True and p.page.inner_text("#d-fold-warn") == ""
-    assert p.page.inner_text("#d-live") == f"Descriptive tables folded: {VEHICLE['drawn']} tables drawn"
+    assert (
+        p.page.inner_text("#d-live")
+        == f"Descriptive tables drawn inside their table: {VEHICLE['drawn']} tables drawn"
+    )
 
 
 def test_the_unfolded_drawing_of_a_large_group_is_laid_out_on_the_grid(
@@ -338,22 +342,22 @@ def test_the_warning_has_a_fold_action_that_keeps_the_keyboard_focus(
     p, _ = vehicle
     assert p.page.is_hidden("#d-fold-now")
     fold_box(p, False)
-    assert p.page.is_visible("#d-fold-now") and p.page.inner_text("#d-fold-now") == "Fold"
+    assert p.page.is_visible("#d-fold-now") and p.page.inner_text("#d-fold-now") == "Draw inside their table"
     p.page.focus("#d-fold-now")
     p.page.keyboard.press("Enter")
     wait_drawn(p)
     assert drawing(p)["skeleton"] is True and p.page.is_checked("#d-fold-box")
     assert p.page.is_hidden("#d-fold-now") and p.page.evaluate("document.activeElement.id") == "d-fold-box"
-    assert p.page.inner_text("#d-live").startswith("Descriptive tables folded")
+    assert p.page.inner_text("#d-live").startswith("Descriptive tables drawn inside their table")
 
 
 def test_the_fold_action_is_in_french(tmp_path: Path, open_page: Any) -> None:
     p = open_detail(large(tmp_path, "language: fr\n"), open_page)
     fold_box(p, False)
-    assert p.page.inner_text("#d-fold-now") == "Replier"
+    assert p.page.inner_text("#d-fold-now") == "Dessiner dans leur table"
     p.page.click("#d-fold-now")
     wait_drawn(p)
-    live = f"Tables descriptives repliées\u00a0: {VEHICLE['drawn']} tables dessinées"
+    live = f"Tables descriptives dessinées dans leur table\u00a0: {VEHICLE['drawn']} tables dessinées"
     assert p.page.inner_text("#d-live") == live
 
 
@@ -368,8 +372,7 @@ def test_the_choice_is_kept_in_its_own_key_and_never_exported(
     assert p.page.evaluate(get, "dbtscope-fold:" + TITLE) is None, "the universe keeps its own choice"
     _, body = p.download("#l-export")
     assert "shown" not in body.decode() and "fold" not in json.loads(body).get("detail", {})
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
     p.page.click("#tabs button[data-tab=detail]")
     wait_drawn(p)
     assert not p.page.is_checked("#d-fold-box") and drawing(p)["skeleton"] is False
@@ -382,8 +385,7 @@ def test_the_universe_choice_does_not_move_the_detail(
 ) -> None:
     p = open_page(large_page[0])
     p.page.evaluate("localStorage.setItem('dbtscope-fold:' + PAGE.title, 'shown')")
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
     p.page.click("#tabs button[data-tab=detail]")
     wait_drawn(p)
     assert drawing(p)["skeleton"] is True
@@ -391,22 +393,24 @@ def test_the_universe_choice_does_not_move_the_detail(
 
 def test_the_control_is_in_french_with_its_warning(tmp_path: Path, open_page: Any) -> None:
     p = open_detail(large(tmp_path, "language: fr\n"), open_page)
-    assert p.page.inner_text("#d-fold-label") == "Replier Satellite"
+    assert p.page.inner_text("#d-fold-label") == "Dessiner Satellite dans leur table"
     meta = p.page.inner_text("#d-meta")
-    assert f"{VEHICLE['with_parent']} repliées" in meta and meta.endswith("pointillé\u00a0: autre groupe")
+    assert f"{VEHICLE['with_parent']} incluses" in meta and meta.endswith(
+        "contour en pointillés = autre domaine"
+    )
     assert p.page.get_attribute("#d-meta", "title").endswith(
-        f"repliées\u00a0: Satellite {VEHICLE['with_parent']}"
+        f"incluses\u00a0: Satellite {VEHICLE['with_parent']}"
     )
     fold_box(p, False)
     assert p.page.inner_text("#d-fold-warn") == "277 tables\u00a0: le schéma sera difficile à lire"
     fold_box(p, True)
     assert (
         p.page.inner_text("#d-live")
-        == f"Tables descriptives repliées\u00a0: {VEHICLE['drawn']} tables dessinées"
+        == f"Tables descriptives dessinées dans leur table\u00a0: {VEHICLE['drawn']} tables dessinées"
     )
     held = Model(p.page.evaluate("PAGE")).held()
     one = next(u for u in held if len(held[u]) == 1)
-    assert node_texts(p, one)[-1] == "+ 1 table repliée · Satellite"
+    assert node_texts(p, one)[-1] == "+ 1 table incluse · Satellite"
 
 
 def test_the_control_is_a_44_px_target_on_touch_and_fits_a_phone(
@@ -458,7 +462,7 @@ def test_a_focus_on_a_hub_shows_its_links_and_the_hubs_across_them(
         p.page.is_disabled("#d-fold-box")
         and p.page.get_attribute("#d-fold-row", "title") == "A focus draws every table"
     )
-    assert p.page.inner_text("#d-fold-warn") == ""
+    assert p.page.inner_text("#d-fold-warn") == "A focus draws every table"  # the disabled box says why
     p.page.click("#d-clear")
     wait_drawn(p)
     again = drawing(p)
@@ -495,8 +499,9 @@ def test_deeper_levels_reach_the_satellites_of_the_hubs_across(
     hub = next(
         u for u in sorted(m.scope, key=m.name) if m.kind(u) == "hub" and held.get(u) and len(m.next[u]) > 3
     )
+    focus(p, hub)  # the depth select is disabled without a focus (D-085)
     p.page.select_option("#d-depth", str(depth))
-    focus(p, hub)
+    wait_drawn(p)
     drawn = set(drawing(p)["drawn"])
     assert drawn == m.walk(hub, depth)
     if depth == 2:
@@ -515,7 +520,15 @@ def test_a_focus_on_a_link_shows_its_hubs_and_satellites(vehicle: tuple[Page, di
 
 
 def test_the_depth_note_names_the_connector_kinds(vehicle: tuple[Page, dict[str, Any]]) -> None:
-    p, _ = vehicle
+    p, data = vehicle
+    # without a focus the depth select is disabled and its note says why (D-085)
+    assert (
+        p.page.is_disabled("#d-depth")
+        and p.page.inner_text("#d-depth-note") == "Focus on a table to use this"
+    )
+    m = Model(data)
+    focus(p, next(u for u in sorted(m.scope, key=m.name) if m.kind(u) == "hub"))
+    assert p.page.is_enabled("#d-depth")
     assert p.page.inner_text("#d-depth-note") == "Passing through Link costs no level"
 
 
@@ -660,12 +673,12 @@ def test_all_columns_still_draws_every_column_in_the_skeleton(vehicle: tuple[Pag
     p, data = vehicle
     m = Model(data)
     held = m.held()
-    p.page.click("#d-cols")
+    p.page.select_option("#d-cols", "all")
     wait_drawn(p)
     hub = next(u for u in sorted(held, key=m.name) if m.kind(u) == "hub")
     texts = node_texts(p, hub)
     assert drawing(p)["skeleton"] is True and m.entities[hub]["columns"][0][0] in texts
-    assert texts[-1].startswith("+ ") and "folded" in texts[-1]
+    assert texts[-1].startswith("+ ") and "drawn inside" in texts[-1]
 
 
 def relative(p: Page, uid: str, other: str) -> list[float]:
@@ -678,8 +691,7 @@ def seed(p: Page, detail: dict[str, Any]) -> None:
     """Store an arrangement as an earlier session would have (`savedAt` wins over the page's), reload."""
     layout = {"format": "dbt-erd-layout", "version": 1, "savedAt": "2026-11-12T09:00:00Z", "detail": detail}
     p.page.evaluate("([k, v]) => localStorage.setItem(k, JSON.stringify(v))", [LAYOUT_KEY, layout])
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
     p.page.click("#tabs button[data-tab=detail]")
     wait_drawn(p)
 
@@ -704,8 +716,7 @@ def test_dragging_a_hub_in_the_skeleton_writes_the_fold_key_and_survives_a_reloa
     assert after == pytest.approx([before[0] + 60 / k, before[1] - 40 / k], abs=2)
     assert drawing(p)["layoutMs"] < BOUND_MS * 2
     saved = p.page.evaluate("k => localStorage.getItem(k)", LAYOUT_KEY)
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
     p.page.click("#tabs button[data-tab=detail]")
     wait_drawn(p)
     assert p.page.evaluate("k => localStorage.getItem(k)", LAYOUT_KEY) == saved
@@ -781,7 +792,7 @@ def test_a_foreign_dashed_entity_holds_its_folded_tables(tmp_path: Path, open_pa
     dashed = 'id => !!document.querySelector(`#d-graph g.node[id="${id}"] polygon[stroke-dasharray]`)'
     assert p.page.evaluate(dashed, hub)
     texts = node_texts(p, hub)
-    assert texts[0] == "b · x0_hub" and texts[-1] == "+ 21 folded tables · Satellite"
+    assert texts[0] == "b · x0_hub" and texts[-1] == "+ 21 tables drawn inside · Satellite"
 
 
 def test_a_graphviz_error_in_a_skeleton_shows_the_error_state(vehicle: tuple[Page, dict[str, Any]]) -> None:
@@ -802,7 +813,7 @@ def test_the_layout_file_holds_both_keys_and_resets(vehicle: tuple[Page, dict[st
     _, body = p.download("#l-export")
     assert json.loads(body)["detail"] == both
     p.page.on("dialog", lambda dialog: dialog.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     p.page.wait_for_function("!LAYOUT.get('detail', 'x') && Object.keys(LAYOUT.dump()).indexOf('detail') < 0")
     assert stored(p) == {}
 
@@ -811,9 +822,9 @@ def test_the_exported_svg_is_the_skeleton_as_drawn(vehicle: tuple[Page, dict[str
     p, _ = vehicle
     svg = p.page.evaluate("views.detail.svgImage(1)")
     d = drawing(p)
-    assert svg.count('class="node"') == len(d["drawn"]) and "folded table" in svg
+    assert svg.count('class="node"') == len(d["drawn"]) and "table drawn inside" in svg
     name, body = p.download("#d-export-svg")
-    assert name.endswith("-detail.svg") and b"folded table" in body
+    assert name.endswith("-detail.svg") and b"table drawn inside" in body
 
 
 def test_the_folded_row_keeps_its_contrast_on_hostile_kind_colours(tmp_path: Path, open_page: Any) -> None:

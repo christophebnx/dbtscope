@@ -1,38 +1,38 @@
 {
  "shop": {
   "": [
-   "5 / 5 tables \u00b7 4 relations \u00b7 dashed: other group",
+   "5 / 5 tables \u00b7 4 relations \u00b7 dashed outline = other group",
    "11b8d3aab3c5de563396dae66846a49dae2c3ef0545d8491c644e9bc3b097292"
   ]
  },
  "acme": {
   "": [
    "54 / 54 tables \u00b7 58 relations",
-   "5508fad733513547e6edbbd30fa42f9d9211862c2d5040adf058fcd8f2b3b76d"
+   "44085baf9045318c26d4107215f2e0c461802d60d99d2a42b8700828c16725fd"
   ],
   "customer": [
-   "4 / 4 tables \u00b7 2 relations \u00b7 dashed: other group",
-   "0b8e508adb31075a7bb5f146d2a365c88cb6d65d6ed53192d38a23911715a8fc"
+   "4 / 4 tables \u00b7 2 relations \u00b7 dashed outline = other domain",
+   "adb935b224a5569c2d3b356e021570e30bfa60ff869aa40962d7d511eb7c74dd"
   ],
   "finance": [
-   "11 / 11 tables \u00b7 11 relations \u00b7 dashed: other group",
-   "9d09d4266ea612d1b82f18062c2bc1e550d313443cc81106d73f0558f5f4dd13"
+   "11 / 11 tables \u00b7 11 relations \u00b7 dashed outline = other domain",
+   "eb6ffdc6e47342ce5b2a305bea160ee97110489f87e18dcf0356b00815b35415"
   ],
   "logistics": [
-   "17 / 17 tables \u00b7 16 relations \u00b7 dashed: other group",
-   "fa88e6bafb63d9380938ff53d9cb401b8735d9fd86e6ca7ac95e2fdeaea7723d"
+   "17 / 17 tables \u00b7 16 relations \u00b7 dashed outline = other domain",
+   "42968de809167063c721d8e9f02b24c9ef51dc73f0ac858ade200d29cae48ebf"
   ],
   "marketing": [
-   "14 / 14 tables \u00b7 13 relations \u00b7 dashed: other group",
-   "0ca3a401b9f8230bbc2fecf1d17595b512c00187df9ae065745e0c4340997a13"
+   "14 / 14 tables \u00b7 13 relations \u00b7 dashed outline = other domain",
+   "f56a1167a202475b9bc627351d4dd44d3a0dfc0a07a4e1d0b871fd73c36c0c60"
   ],
   "product": [
-   "6 / 6 tables \u00b7 4 relations \u00b7 dashed: other group",
-   "a7ed7fb9ec02c57f3e61e9bc28fba9eea5d12ec63db39077884f07ac9ee2aad4"
+   "6 / 6 tables \u00b7 4 relations \u00b7 dashed outline = other domain",
+   "89774f8804b9c466882b3e3eb1a15872c9586b7a9b98e0a1881f00d64558014b"
   ],
   "sales": [
-   "16 / 16 tables \u00b7 15 relations \u00b7 dashed: other group",
-   "db690753088f6e46a113e60bd9ddbd0c1d94513c8ecada20ca3ef7ed7d561fe2"
+   "16 / 16 tables \u00b7 15 relations \u00b7 dashed outline = other domain",
+   "7e83a98cdbc9b6ace0f03e0894d51afad43d687c7f89a18702b9fd0ccd1a8f78"
   ]
  },
  "large": {

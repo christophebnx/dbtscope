@@ -127,12 +127,12 @@ def test_counts_are_not_reduced_by_the_fold(large_page: Any, open_page: Any) -> 
         meta(p),
         p.page.evaluate("document.getElementById('u-kinds').textContent"),
     )
-    assert folded_meta.startswith("1,419 tables · 428 entities · ")
+    assert folded_meta.startswith("1,419 tables (428 entities drawn) · ")
     toggle(p)
     shown_geo, shown_meta = geo(p), meta(p)
     assert shown_geo["fold"] is False and len(shown_geo["tables"]) == 1419 and shown_geo["folded"] == []
     assert "entit" not in shown_meta and shown_meta.startswith("1,419 tables · ")
-    assert folded_meta.replace(" · 428 entities", "") == shown_meta  # tables, links, domains: the same
+    assert folded_meta.replace(" (428 entities drawn)", "") == shown_meta  # tables, links, domains: the same
     assert p.page.evaluate("document.getElementById('u-kinds').textContent") == kinds
     for a, b in zip(folded_geo["constellations"], shown_geo["constellations"], strict=True):
         assert (a["key"], a["n"], a["mix"]) == (b["key"], b["n"], b["mix"])
@@ -195,7 +195,7 @@ def test_filters_keep_counting_what_passes(large_page: Any, open_page: Any) -> N
     g = geo(p)
     assert folded_into_hubs <= {t["id"] for t in g["tables"]} and not hubs & {t["id"] for t in g["tables"]}
     p.page.locator("#u-kinds label", has_text="Hub").locator("input").check()
-    p.page.locator("#u-layers label", has_text="Raw vault").locator("input").uncheck()
+    p.page.locator("#u-layers > *", has_text="Raw vault").locator("input").uncheck()
     p.page.evaluate(NEXT_FRAME)
     g = geo(p)
     assert not {t["id"] for t in g["tables"]} & (hubs | folded_into_hubs) and g["folded"] == []
@@ -270,9 +270,20 @@ def test_double_click_on_an_entity_still_opens_the_detail(acme: tuple[Page, dict
     p, _ = acme
     search(p, "customer_hub")
     p.page.wait_for_timeout(900)
-    b = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.dblclick(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    x, y = star_of(p, "customer_hub")
+    p.page.mouse.dblclick(x, y)
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
+def star_of(p: Page, name: str) -> tuple[float, float]:
+    """The page coordinates of a table's star (a search frames it in the area its panel leaves free, M9.3)."""
+    b = p.page.locator("#u-canvas").bounding_box()
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        name,
+    )
+    return b["x"] + x, b["y"] + y
 
 
 def dim_with_folded_satellites(data: dict[str, Any]) -> dict[str, Any]:
@@ -313,6 +324,7 @@ def test_a_click_that_unfolds_the_trajectory_keeps_the_table_under_the_pointer(
     x, y = centre(p, n["name"])
     b = p.page.locator("#u-canvas").bounding_box()
     p.page.mouse.click(x, y)
+    p.panel_lineage()  # the lineage unfolds its members now
     p.page.wait_for_timeout(300)
     r = p.page.evaluate("id => views.universe.place(id)", n["id"])
     assert r["x"] <= x - b["x"] <= r["x"] + r["w"] and r["y"] <= y - b["y"] <= r["y"] + r["h"]
@@ -332,15 +344,20 @@ def test_the_control_names_the_descriptive_kinds_in_both_languages(
 ) -> None:
     p = open_large(large_page, open_page)
     label = p.page.inner_text("#u-fold label")
-    assert p.page.text_content("#u-h-fold") == "Entities"
-    assert label.startswith("Fold Satellite") and "PIT" in label and p.page.is_checked(FOLD_BOX)
+    assert p.page.text_content("#u-h-fold") == "Descriptive tables"
+    assert (
+        label.startswith("Draw Satellite")
+        and "inside their table" in label
+        and "PIT" in label
+        and p.page.is_checked(FOLD_BOX)
+    )
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     write_config(project, config.replace("language: en\n", "language: fr\n"))
     q = open_page(page_of(project)[0])
-    assert q.page.text_content("#u-h-fold") == "Entités"
-    assert q.page.inner_text("#u-fold label").startswith("Replier Satellite")
-    assert q.page.inner_text("#u-meta").split(" · ")[1].endswith("entités")
+    assert q.page.text_content("#u-h-fold") == "Tables descriptives"
+    assert q.page.inner_text("#u-fold label").startswith("Dessiner Satellite")
+    assert "entités dessinées)" in q.page.inner_text("#u-meta").split(" · ")[0]
 
 
 def test_the_control_is_a_keyboard_target_of_44_px_on_touch_and_fits_at_360(
@@ -365,8 +382,7 @@ def test_the_viewers_choice_is_kept_apart_and_never_exported(acme: tuple[Page, d
     assert stored() is None and geo(p)["fold"] is True
     toggle(p)
     assert stored() == "shown" and geo(p)["fold"] is False
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+    p.reload()
     assert geo(p)["fold"] is False and not p.page.is_checked(FOLD_BOX)
     drag_first(p)
     assert "fold" not in json.dumps(p.page.evaluate("LAYOUT.dump()")).replace("folded:", "")
@@ -469,7 +485,7 @@ def test_reset_clears_both_scopes(acme: tuple[Page, dict[str, Any]]) -> None:
     drag_first(p)
     assert set(stored(p)) == {"folded:names", "names"}
     p.page.once("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     p.page.evaluate(NEXT_FRAME)
     assert stored(p) == {}
 
@@ -496,13 +512,13 @@ def test_the_tooltip_of_an_entity_lists_its_tables_and_a_shown_table_says_where_
     small = next(h for h in held if 0 < len(held[h]) < 5)
     names = {n["id"]: n["name"] for n in large_page[1]["universe"]["nodes"]}
     text = hover(p, small)
-    assert f"{len(held[small])} folded table" in text and all(names[i] in text for i in held[small])
-    assert "Satellite" in text
+    assert f"{len(held[small])} table" in text and all(names[i] in text for i in held[small])
+    assert "drawn inside" in text and "Satellite" in text
     if len(held[big]) > 12:
         assert f"+ {len(held[big]) - 12}" in hover(p, big)
     toggle(p)
     child = held[small][0]
-    assert f"Folds into: {names[small]}" in hover(p, child)
+    assert f"Drawn inside: {names[small]}" in hover(p, child)
 
 
 def test_cards_list_the_folded_tables_and_never_overlap(acme: tuple[Page, dict[str, Any]]) -> None:

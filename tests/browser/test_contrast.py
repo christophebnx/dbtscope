@@ -122,10 +122,12 @@ def test_an_unparsable_colour_never_throws(shop_page: Any, bad: str | None) -> N
 def test_theme_matches_the_style_sheet_and_its_greys_pass(shop_page: Any) -> None:
     p, _ = shop_page
     css = p.page.evaluate(
-        "() => Object.fromEntries(['bg', 'fg', 'muted'].map(k => "
+        "() => Object.fromEntries(['bg', 'fg', 'muted', 'surface', 'accent', 'accent-soft'].map(k => "
         "[k, getComputedStyle(document.documentElement).getPropertyValue('--' + k).trim()]))"
     )
-    assert css == p.page.evaluate("THEME") == {"bg": BG, "fg": "#1f2933", "muted": "#5f6774"}
+    theme = {"bg": BG, "fg": "#1f2933", "muted": "#5f6774", "surface": "#ffffff", "accent": "#2f6fb5"}
+    assert css == {**theme, "accent-soft": "#e8f0fa"}  # THEME (M9.4) also copies the Schema's accent tokens
+    assert p.page.evaluate("THEME") == {**theme, "accentSoft": "#e8f0fa"}
     probes = p.page.evaluate(
         """() => {
           const probe = (parent, cls) => { const e = document.createElement('div'); e.className = cls;
@@ -335,6 +337,10 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         if table:
             search(p, table["name"])
             assert p.page.evaluate("views.universe.camera().k") > 0.6
+    p.page.evaluate(
+        "views.universe.go(0)"
+    )  # the searches entered domains: back to the map, where the names are
+    p.page.wait_for_timeout(CENTRE_WAIT_MS)
     p.page.evaluate("views.universe.shown()")  # one frame at the full view of the last table
     p.page.click("#u-fit")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
@@ -347,7 +353,9 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         elif t["text"] in domains and size >= 13:  # a domain name, on the page
             back = BG
             named.add(t["text"])
-        elif t["text"].isdigit() or t["text"] == "99+":  # the count of an entity's badge, on its dark disc
+        elif (t["text"].isdigit() and t["fill"] == "#ffffff") or t[
+            "text"
+        ] == "99+":  # the count of an entity's badge, on its dark disc
             back = "#1f2933"
         elif size == 9:  # a card column, on the white card
             back = "#ffffff"
@@ -645,7 +653,7 @@ def assert_dots_mark(p: Page, selector: str) -> int:
 
 def check_dots(p: Page, data: dict[str, Any]) -> None:
     u = data["universe"]
-    assert assert_dots_mark(p, "#u-panel label i") == len(u["kinds"]) + len(u["domains"])
+    assert assert_dots_mark(p, "#u-panel :is(label, .row) i") == len(u["kinds"]) + len(u["domains"])
     lineage = {i for pair in u["lineage"] for i in pair}
     starts = [n for i, n in enumerate(u["nodes"]) if i in lineage]
     kind_color = {k["key"]: k["color"] for k in u["kinds"]}

@@ -529,3 +529,25 @@ def test_a_preset_domain_rule_may_set_system_but_a_kind_or_layer_rule_may_not() 
 def test_system_on_a_file_layer_rule_is_ignored() -> None:
     config = merge_config({}, {"layers": [{"key": "l", "match": [], "system": True}]})
     assert not hasattr(config.layers[0], "system")
+
+
+def test_map_above_defaults_to_300_takes_a_whole_number_and_is_allowed_in_presets() -> None:
+    assert merge_config({}, {}).universe.map_above == 300
+    assert merge_config({}, {"universe": {"map_above": 0}}).universe.map_above == 0
+    assert merge_config({}, {"universe": {"map_above": 5000}}).universe.map_above == 5000
+    preset = {"universe": {"map_above": 10}}
+    assert check_preset(preset) is preset
+    assert merge_config(preset, {}).universe.map_above == 10
+    with pytest.raises(ConfigError, match=r"universe\.unknown_key"):
+        check_preset({"universe": {"map_above": 10, "unknown_key": 1}})
+
+
+@pytest.mark.parametrize("value", [-1, True, "300", 1.5, None])
+def test_an_invalid_map_above_is_a_one_line_error(value: Any) -> None:
+    with pytest.raises(
+        ConfigError, match=r"^universe\.map_above: invalid value .*a number of tables"
+    ) as info:
+        merge_config({}, {"universe": {"map_above": value}})
+    assert "\n" not in str(info.value)
+    with pytest.raises(ConfigError, match=r"^universe\.map_above: "):
+        check_preset({"universe": {"map_above": value}})

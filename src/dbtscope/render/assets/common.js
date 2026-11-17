@@ -12,37 +12,55 @@ document.documentElement.lang = PAGE.lang;
 // (\u00a0) before ':' and a narrow one (\u202f) before '?', '!' and ';', always as escapes (D-039);
 // a label and a value are joined with colon.
 const STRINGS = {
-  en: { universe: 'Universe', detail: 'Detail', reset: 'Reset layout', export: 'Export layout', import: 'Import layout',
+  en: { universe: 'Universe', detail: 'Detail', layout: 'Layout', reset: 'Reset this tab\'s layout', export: 'Export layout',
+        import: 'Import layout', panel: 'Panel', help: 'Help: gestures', location: 'Location',
+        backToUniverse: name => `Back to the universe, on ${name}`,
+        tabUniverse: 'Universe: the map of every table, by domain or layer',
+        tabDetail: 'Detail: the entity-relationship diagram of one domain, or of one table\'s neighbourhood',
+        tabDetailGroups: 'Detail: the entity-relationship diagram of one group, or of one table\'s neighbourhood',
         resetAsk: 'Forget the manual arrangement of this tab?', bad: 'Not a dbt-erd layout file.',
         colon: ': ', imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
-        exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
-        kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
-        foldedN: ['folded table', 'folded tables'], foldH: 'Entities', foldRow: 'Fold',
+        exportImage: 'Export image', print: 'Print…', png: 'PNG', empty: 'No table for these filters.',
+        kinds: 'Table kind', tables: ['table', 'tables'], columns: ['column', 'columns'],
+        foldedN: ['table drawn inside', 'tables drawn inside'], foldH: 'Descriptive tables',
+        foldRow: 'Draw inside their table', foldKinds: names => `Draw ${names} inside their table`,
         foldLiveOff: 'Descriptive tables shown',
-        foldTitle: 'Draw these tables inside the table they describe',
+        foldTitle: 'Draws these tables inside the table they describe; a table and its descriptions read as one entity',
+        levelNames: 'names', levelKeys: 'key columns', levelAll: 'all columns', schema: 'Schema',
+        tabSchema: 'Schema: every table of a scope as entity-relationship sheets, to read like a document and to print',
+        schemaNoReset: 'Nothing to reset: this sheet is computed',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
         countUp: n => `${n} upstream`, countDown: n => `${n} downstream`,
         noLineage: 'No upstream or downstream table', noUp: 'No upstream table', noDown: 'No downstream table',
-        lgStart: 'start', tipStart: 'Start of the trajectory',
+        lgStart: 'start', tipStart: 'Start of the lineage',
         tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}` },
-  fr: { universe: 'Univers', detail: 'Détail', reset: 'Réinitialiser la disposition', export: 'Exporter la disposition',
-        import: 'Importer une disposition',
+  fr: { universe: 'Univers', detail: 'Détail', layout: 'Disposition', reset: 'Réinitialiser la disposition de cet onglet',
+        export: 'Exporter la disposition', import: 'Importer une disposition', panel: 'Panneau',
+        help: 'Aide\u00a0: gestes', location: 'Emplacement',
+        backToUniverse: name => `Retour à l'univers, sur ${name}`,
+        tabUniverse: 'Univers\u00a0: la carte de toutes les tables, par domaine ou par couche',
+        tabDetail: 'Détail\u00a0: le diagramme entité-relation d\'un domaine, ou du voisinage d\'une table',
+        tabDetailGroups: 'Détail\u00a0: le diagramme entité-relation d\'un groupe, ou du voisinage d\'une table',
         resetAsk: 'Oublier la disposition manuelle de cet onglet\u202f?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
         colon: '\u00a0: ', imageSaved: f => `Image créée\u00a0: ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
-        exportImage: 'Exporter l\'image', png: 'PNG', filters: 'Filtres', empty: 'Aucune table pour ces filtres.',
-        kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
-        foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités', foldRow: 'Replier',
+        exportImage: 'Exporter l\'image', print: 'Imprimer…', png: 'PNG', empty: 'Aucune table pour ces filtres.',
+        kinds: 'Nature de table', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
+        foldedN: ['table incluse', 'tables incluses'], foldH: 'Tables descriptives',
+        foldRow: 'Dessiner dans leur table', foldKinds: names => `Dessiner ${names} dans leur table`,
         foldLiveOff: 'Tables descriptives affichées',
-        foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
+        foldTitle: 'Dessine ces tables dans la table qu\'elles décrivent\u00a0: une table et ses descriptions forment une entité',
+        levelNames: 'noms', levelKeys: 'colonnes clés', levelAll: 'toutes les colonnes', schema: 'Schéma',
+        tabSchema: 'Schéma\u00a0: toutes les tables d\'un périmètre en planches entité-relation, à lire comme un document et à imprimer',
+        schemaNoReset: 'Rien à réinitialiser\u00a0: cette planche est calculée',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
         d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
         countUp: n => `${n} en amont`, countDown: n => `${n} en aval`,
         noLineage: 'Aucune table en amont ni en aval', noUp: 'Aucune table en amont', noDown: 'Aucune table en aval',
-        lgStart: 'départ', tipStart: 'Départ de la trajectoire',
+        lgStart: 'départ', tipStart: 'Départ du lignage',
         tipUp: d => `En amont, niveau ${d}`, tipDown: d => `En aval, niveau ${d}` },
 };
 const L = STRINGS[PAGE.lang];
@@ -51,13 +69,18 @@ const L = STRINGS[PAGE.lang];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-// A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039).
-const num = n => n.toLocaleString(PAGE.lang);
+// `v` rounded to `digits` decimals (written into the SVG markup of the sheet and the print).
+const rounded = (digits, v) => Math.round(v * 10 ** digits) / 10 ** digits;
+
+// A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039); with `decimals`, that many
+// fraction digits always ("1.42" / "1,42", the print dialog's sizes, D-095).
+const num = (n, decimals) => (decimals === undefined ? n.toLocaleString(PAGE.lang)
+  : n.toLocaleString(PAGE.lang, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
 // "1 table", "2 tables"; forms is [singular, plural]. English: singular for 1; French: for 0 and 1.
 const plural = (n, forms) => `${num(n)} ${forms[n === 1 || (n === 0 && PAGE.lang === 'fr') ? 0 : 1]}`;
 
-// The theme colours the scripts draw with: a copy of --bg, --fg and --muted of page.css :root.
-const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774' };
+// The theme colours the scripts draw with: a copy of --bg, --fg, --muted, --surface, --accent and --accent-soft of page.css :root.
+const THEME = { bg: '#f5f6f8', fg: '#1f2933', muted: '#5f6774', surface: '#ffffff', accent: '#2f6fb5', accentSoft: '#e8f0fa' };
 
 // Text on colours (D-037), pure and cached by arguments (the universe asks for every card in every frame).
 // Colours are '#rgb', '#rrggbb' or '#rrggbbaa' (alpha ignored: the colour counts as opaque).
@@ -120,7 +143,7 @@ function dotEdge(color) {
 function sidePanel(view, onToggle) {
   const button = document.getElementById(view + '-toggle'), panel = document.getElementById(view + '-panel');
   const sync = () => button.setAttribute('aria-expanded', String(!panel.classList.contains('closed')));
-  button.title = L.filters; button.setAttribute('aria-label', L.filters);
+  button.title = L.panel; button.setAttribute('aria-label', L.panel);
   if (matchMedia('(max-width: 600px)').matches) panel.classList.add('closed');
   sync();
   button.onclick = () => { panel.classList.toggle('closed'); sync(); onToggle(); };
@@ -128,31 +151,145 @@ function sidePanel(view, onToggle) {
 
 // One checkbox row of a filter panel, built with DOM calls (the label is untrusted text):
 // checkbox, colour dot (when there is a colour), label, count. onChange(checked) runs on each change.
-function filterRow({ label, color, count, checked, title }, onChange) {
-  const row = document.createElement('label'), box = document.createElement('input');
+// With `go` ({ check, aria, title, onClick }) the row is a div: the checkbox (named `check`), the dot, the name as a
+// button that goes to what the row stands for (named `aria`, D-089), the count.
+function filterRow({ label, color, count, checked, title, go }, onChange) {
+  const row = document.createElement(go ? 'div' : 'label'), box = document.createElement('input');
   box.type = 'checkbox'; box.checked = checked;
   box.onchange = () => onChange(box.checked);
   row.append(box);
   if (color) row.append(paintDot(document.createElement('i'), color));
-  const name = document.createElement('span'), n = document.createElement('small');
-  name.textContent = label; n.textContent = num(count);
-  row.append(name, n);
+  const n = document.createElement('small');
+  n.textContent = num(count);
+  if (go) {
+    const name = document.createElement('button');
+    row.className = 'row'; box.setAttribute('aria-label', go.check);
+    name.type = 'button'; name.className = 'go'; name.textContent = label; name.title = go.title;
+    name.setAttribute('aria-label', go.aria); name.onclick = go.onClick;
+    row.append(name, n);
+  } else {
+    const name = document.createElement('span');
+    name.textContent = label;
+    row.append(name, n);
+  }
   if (title) row.title = title;
   return row;
 }
 
 // The options of a select from [value, label] pairs, built with DOM calls; `current` is selected.
+// A pair whose second member is a list of pairs is a group: an <optgroup> labelled by its first member (the Schema's Scope).
 function fillSelect(el, pairs, current) {
-  el.replaceChildren(...pairs.map(([value, label]) => {
+  const option = ([value, label]) => {
     const o = document.createElement('option');
     o.value = value; o.textContent = label; o.defaultSelected = value === current;
     return o;
+  };
+  el.replaceChildren(...pairs.map(pair => {
+    if (!Array.isArray(pair[1])) return option(pair);
+    const group = document.createElement('optgroup');
+    group.label = pair[0];
+    group.append(...pair[1].map(option));
+    return group;
   }));
+}
+
+// A location trail in the <nav> `nav` (D-086, D-089): `items` is a list of { label, title, go, back, current }. An item with
+// `go` is a button (a `back` item is preceded by an aria-hidden "← "; a `current` one carries aria-current="location");
+// an item without is the current place as a plain span. Items are separated by an aria-hidden "›". An empty list hides
+// the nav. When the keyboard focus was inside it, it moves to the new current segment.
+function crumbs(nav, items) {
+  const had = nav.contains(document.activeElement);
+  nav.hidden = !items.length;
+  nav.replaceChildren(...items.flatMap(({ label, title, go, back, current }, i) => {
+    const sep = document.createElement('span');
+    sep.textContent = '›'; sep.className = 'sep'; sep.setAttribute('aria-hidden', 'true');
+    let part;
+    if (!go) {
+      part = document.createElement('span');
+      part.textContent = label; part.setAttribute('aria-current', 'location');
+    } else {
+      part = document.createElement('button');
+      part.type = 'button'; part.onclick = go;
+      if (current) part.setAttribute('aria-current', 'location');
+      if (back) {
+        const arrow = document.createElement('span');
+        arrow.textContent = '← '; arrow.setAttribute('aria-hidden', 'true');
+        part.append(arrow);
+      }
+      part.append(label);
+    }
+    if (title) part.title = title;
+    return i ? [sep, part] : [part];
+  }));
+  const here = nav.querySelector('[aria-current]');
+  if (had && here && here.focus) here.focus();
+}
+
+// The one closing rule of the page's popovers, native <details> (D-085): Esc closes it, gives the focus back to its summary
+// and calls preventDefault (so the universe's own Esc does not also leave the lineage); a press outside closes it too
+// (capture phase, the canvas included); opening one closes the others.
+const POPOVERS = [];
+function dismissable(details) {
+  POPOVERS.push(details);
+  const summary = details.querySelector('summary');
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape' || !details.open) return;
+    details.open = false; summary.focus(); ev.preventDefault();
+  }, true);
+  document.addEventListener('pointerdown', ev => { if (details.open && !details.contains(ev.target)) details.open = false; }, true);
+  details.addEventListener('toggle', () => { if (details.open) POPOVERS.forEach(d => { if (d !== details) d.open = false; }); });
+}
+
+// Whether the detail's groups are the universe's domains (D-084): a Map(group key -> display name) when every detail
+// table that is also a universe table has its group equal to its domain (and at least one such table exists), else null.
+// The one place that answers "is this group a domain?"; the display name is the domain's label.
+function detailDomains(detail, universe) {
+  if (!detail.grouped) return null;
+  const domainOf = new Map(universe.nodes.map(n => [n.id, n.domain]));
+  const shared = detail.entities.filter(e => domainOf.has(e.id));
+  if (!shared.length || shared.some(e => e.group !== domainOf.get(e.id))) return null;
+  const label = new Map(universe.domains.map(d => [d.key, labelOf(d)]));
+  return new Map(detail.entities.map(e => [e.group, label.get(e.group) ?? e.group]));
+}
+
+// What the detail payload knows of a table, for the universe (M9.3, D-091): `has(id)` (is it a detail table), `entity(id)` (its
+// full description), `columns(id)` (a Map column name -> description) and `relationColumns(child, parent)` (the columns of
+// the relations between two detail tables). Built once by boot.js; structure only.
+function detailIndex(detail) {
+  const byId = new Map(detail.entities.map(e => [e.id, e])), described = new Map(), via = new Map();
+  detail.relations.forEach(r => {
+    const key = r.child + '\u0000' + r.parent;
+    if (!via.has(key)) via.set(key, []);
+    if (r.column && !via.get(key).includes(r.column)) via.get(key).push(r.column);
+  });
+  return {
+    has: id => byId.has(id),
+    entity: id => byId.get(id) || null,
+    columns: id => {
+      if (!described.has(id)) described.set(id, new Map((byId.get(id)?.columns || []).filter(c => c[3]).map(c => [c[0], c[3]])));
+      return described.get(id);
+    },
+    relationColumns: (child, parent) => via.get(child + '\u0000' + parent) || [],
+  };
 }
 
 // The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
+
+// The three Show levels of the universe and the Schema tab, as [value, label] pairs for fillSelect (D-084).
+const LEVELS = () => [['names', L.levelNames], ['keys', L.levelKeys], ['all', L.levelAll]];
+
+// The domains of a payload in the page's order (D-068, D-092): business domains first, then the source systems (set apart
+// only while some domain is not one), each in payload order. Pure; the one place that orders domains for a panel, the
+// layer bands, the card rows and the Schema's rows. -> { systems: Set(keys), hasSystems, business, systemList, list }
+function domainOrder(universe) {
+  const systems = new Set(universe.domains.filter(d => d.system).map(d => d.key));
+  const hasSystems = systems.size > 0 && systems.size < universe.domains.length;
+  const business = universe.domains.filter(d => !hasSystems || !systems.has(d.key));
+  const systemList = universe.domains.filter(d => hasSystems && systems.has(d.key));
+  return { systems, hasSystems, business, systemList, list: [...business, ...systemList] };
+}
 
 // Folded tables a tooltip lists before "+ N": the one limit of the universe's entity tooltip and the detail's.
 const TIP_FOLDED = 12;
@@ -166,11 +303,11 @@ function foldedLines(items) {
   return [plural(items.length, L.foldedN), ...lines];
 }
 
-// The label of the fold row (D-063, D-073), shown by both views: "Fold Satellite · PIT", the descriptive kinds
-// that fold, the first three, then " + N".
+// The label of the fold row (D-063, D-073, D-084), shown by both views: "Draw Satellite · PIT inside their table", the
+// descriptive kinds that fold, the first three, then " + N"; without a kind, the plain "Draw inside their table".
 function foldLabel(kinds) {
   const names = kinds.map(labelOf), more = names.length > 3 ? ` + ${num(names.length - 3)}` : '';
-  return `${L.foldRow} ${names.slice(0, 3).join(' · ')}${more}`;
+  return names.length ? L.foldKinds(`${names.slice(0, 3).join(' · ')}${more}`) : L.foldRow;
 }
 
 // A viewer choice, kept apart from the shared layout and never exported (D-048, D-063, D-073): stored only when
@@ -193,7 +330,38 @@ function tableTip(DATA, n) {
     + `${esc(label(DATA.kinds, n.kind))} · ${plural(n.cols.length, L.columns)}</div>`;
 }
 // The description line of a table's tooltip (universe payload), escaped; '' without a description.
-const tableDesc = n => (n.desc ? `<div class="desc">${esc(n.desc)}</div>` : '');
+// `full` (the Detail's full description of the table, when it has one) replaces the universe's, which is cut in Python.
+const tableDesc = (n, full) => ((full || n.desc) ? `<div class="desc">${esc(full || n.desc)}</div>` : '');
+
+// One canvas text measure of the page (the universe's cards, the Schema's boxes): the width of `text` in the CSS `font`, cached.
+const measure = (() => {
+  const ctx = document.createElement('canvas').getContext('2d'), cache = new Map();
+  return (text, font) => {
+    const key = font + '|' + text;
+    if (!cache.has(key)) { ctx.font = font; cache.set(key, ctx.measureText(text).width); }
+    return cache.get(key);
+  };
+})();
+// `text` cut with an ellipsis to fit `width` px in `font` ('' under 8 px).
+function ellipsis(text, width, font) {
+  if (width < 8) return '';
+  if (measure(text, font) <= width) return text;
+  let s = text;
+  while (s.length > 1 && measure(s + '…', font) > width) s = s.slice(0, -1);
+  return s + '…';
+}
+// The one tooltip placement (universe, lineage graph, Schema): `gap` px below and right of the pointer, flipped left and above
+// where it would leave `stage`; when one of the four places is clear of `avoid` ({x, y, w, h} in stage px, the hovered card), taken
+// in that order. The tooltip must be displayed (it is measured).
+function placeTooltip(tip, stage, ev, avoid, gap = 12) {
+  const r = stage.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, w = tip.offsetWidth, h = tip.offsetHeight;
+  const fits = ([l, t]) => l >= 0 && t >= 0 && l + w <= r.width && t + h <= r.height;
+  const apart = ([l, t]) => !avoid || l + w <= avoid.x || l >= avoid.x + avoid.w || t + h <= avoid.y || t >= avoid.y + avoid.h;
+  const spots = [[x + gap, y + gap], [x - gap - w, y + gap], [x + gap, y - gap - h], [x - gap - w, y - gap - h]];
+  const [left, top] = spots.find(q => fits(q) && apart(q)) || spots.find(fits)
+    || [Math.max(0, Math.min(x + gap, r.width - w)), Math.max(0, Math.min(y + gap, r.height - h))];
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
 
 // ---------------------------------------------------------------- trajectory (lineage from one table)
 // Colours of the trajectory: upstream (dashed marks), downstream (solid marks); the universe and the flow.
@@ -304,6 +472,106 @@ function flowRanks(members, edges, layerOf) {
   return { rank: new Map(members.map((m, j) => [m, rank[j]])), back };
 }
 
+// ---------------------------------------------------------------- grid dealing (D-074, D-092)
+// Tables dealt over a grid of K columns in pairs [hubs | links], as the detail's skeleton and the Schema's cells draw them.
+// Pure and deterministic. tables: [{id, name}]; rels: [{child, parent}] among them; size: Map(id -> [w, h]);
+// opts: { gap, gutter, minAspect, maxAspect, sweeps, scan }; fit: { aspect } (the P whose width / height is nearest the aspect,
+// clamped to [minAspect, maxAspect], ties to the smaller P) or { height } (the smallest P whose tallest column is at most
+// the height, the largest scanned P when none is). The referenced tables (hubs) are dealt over the hub columns in a snake
+// by degree, each referencing table goes to the link column beside its first (highest-degree) parent, then barycentre
+// sweeps order the rows and `stackColumn` aligns them. -> { K, rows: ids of each column top to bottom, widths, height,
+// y: id -> centre y (down, from 0), size }
+function gridDeal(tables, rels, size, fit, opts) {
+  const byNameId = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const byId = new Map(tables.map(e => [e.id, e]));
+  const degree = new Map(tables.map(e => [e.id, 0])), parentsOf = new Map(tables.map(e => [e.id, []]));
+  const near = new Map(tables.map(e => [e.id, []]));
+  rels.forEach(r => {
+    degree.set(r.child, degree.get(r.child) + 1); degree.set(r.parent, degree.get(r.parent) + 1);
+    parentsOf.get(r.child).push(r.parent); near.get(r.child).push(r.parent); near.get(r.parent).push(r.child);
+  });
+  const byDegree = (a, b) => degree.get(b.id) - degree.get(a.id) || byNameId(a, b);
+  const asChild = new Set(rels.map(r => r.child));
+  let hubs = tables.filter(e => !asChild.has(e.id)).sort(byDegree), links = tables.filter(e => asChild.has(e.id)).sort(byNameId);
+  if (!hubs.length) [hubs, links] = [links.sort(byDegree), []];   // only cycles: no side to tell
+  const paired = links.length > 0;
+  for (const ps of parentsOf.values()) ps.sort((a, b) => byDegree(byId.get(a), byId.get(b)));
+  const target = Math.log(Math.min(opts.maxAspect, Math.max(opts.minAspect, fit.aspect || 1.6)));
+  // P pairs [hubs | links] (P plain columns of hubs when nothing references a table)
+  function deal(P) {
+    const K = paired ? 2 * P : P, rows = Array.from({ length: K }, () => []), pair = new Map();
+    const heights = new Array(K).fill(0), widths = new Array(K).fill(0), col = new Map();
+    const put = (e, c) => {
+      const [w, h] = size.get(e.id);
+      col.set(e.id, c); rows[c].push(e.id); heights[c] += h + opts.gap; widths[c] = Math.max(widths[c], w);
+    };
+    hubs.forEach((e, i) => {   // the highest degrees first, dealt in a snake: 0..P-1, P-1..0, 0..P-1...
+      const p = Math.floor(i / P) % 2 ? P - 1 - i % P : i % P;
+      pair.set(e.id, p); put(e, paired ? 2 * p : p);
+    });
+    let pending = links;
+    while (pending.length) {
+      const rest = pending.filter(e => {
+        const anchor = parentsOf.get(e.id)[0];
+        if (!pair.has(anchor)) return true;
+        pair.set(e.id, pair.get(anchor)); put(e, 2 * pair.get(anchor) + 1);
+        return false;
+      });
+      if (rest.length === pending.length) {   // a cycle of links: the first one goes to the shortest link column
+        const c = [...Array(P).keys()].reduce((a, b) => (heights[2 * b + 1] < heights[2 * a + 1] ? b : a));
+        pair.set(rest[0].id, c); put(rest[0], 2 * c + 1); rest.shift();
+      }
+      pending = rest;
+    }
+    const w = widths.reduce((x, y) => x + y, 0) + (K - 1) * opts.gutter, tall = Math.max(1, ...heights) - opts.gap;
+    return { K, rows, col, widths, ratio: w / Math.max(1, ...heights), tall };
+  }
+  let best = null;
+  const most = paired ? Math.min(hubs.length, opts.scan / 2) : Math.min(hubs.length, opts.scan);
+  for (let P = 1; P <= most; P++) {
+    const d = deal(P);
+    if (fit.height !== undefined) {   // the smallest P that fits the height; else the last one scanned
+      best = d;
+      if (d.tall <= fit.height) break;
+    } else {
+      const score = Math.abs(Math.log(d.ratio) - target);
+      if (!best || score < best.score - 1e-9) best = { ...d, score };
+    }
+  }
+  if (!best) return { K: 0, rows: [], widths: [], height: 0, y: new Map(), size };
+  // the centre y of the tables of a column, in this order, as near as possible to `want` while keeping their gaps
+  // (pool adjacent violators: the least squares fit of non-decreasing offsets)
+  function stackColumn(ids, want) {
+    const off = ids.map(() => 0), blocks = [];
+    for (let i = 1; i < ids.length; i++) off[i] = off[i - 1] + (size.get(ids[i - 1])[1] + size.get(ids[i])[1]) / 2 + opts.gap;
+    ids.forEach((id, i) => {
+      blocks.push({ sum: want[i] - off[i], n: 1 });
+      while (blocks.length > 1 && blocks[blocks.length - 2].sum / blocks[blocks.length - 2].n >= blocks[blocks.length - 1].sum / blocks[blocks.length - 1].n) {
+        const top = blocks.pop(), under = blocks[blocks.length - 1];
+        under.sum += top.sum; under.n += top.n;
+      }
+    });
+    return blocks.flatMap(bl => Array.from({ length: bl.n }, () => bl.sum / bl.n)).map((v, i) => v + off[i]);
+  }
+  // the rows: every column packed and centred on 0, then barycentre sweeps: the hubs by the mean y of the tables
+  // across their relations, then the links by the mean y of theirs, each column stacked as near as it can to its
+  // wish; the last step settles the links on their hubs, so a long relation runs in the gap between rows
+  const y = new Map(), rows = best.rows;
+  const settle = (c, order, want) => { rows[c] = order; stackColumn(order, order.map(want)).forEach((v, i) => y.set(order[i], v)); };
+  rows.forEach((ids, c) => settle(c, ids, () => 0));
+  const wish = (c, id) => { const ns = near.get(id).filter(n => best.col.get(n) !== c); return ns.length ? d3.mean(ns, n => y.get(n)) : y.get(id); };
+  const sweep = cols => cols.forEach(c => {
+    const keyed = rows[c].map(id => [wish(c, id), id]).sort((p, q) => p[0] - q[0] || (p[1] < q[1] ? -1 : 1));
+    settle(c, keyed.map(k => k[1]), id => wish(c, id));
+  });
+  const side = first => rows.map((r, c) => c).filter(c => !paired || c % 2 === first);
+  for (let i = 0; i < opts.sweeps; i++) { sweep(side(0)); if (paired) sweep(side(1)); }
+  const top = Math.min(...tables.map(e => y.get(e.id) - size.get(e.id)[1] / 2));
+  const bottom = Math.max(...tables.map(e => y.get(e.id) + size.get(e.id)[1] / 2));
+  tables.forEach(e => y.set(e.id, y.get(e.id) - top));
+  return { K: best.K, rows, widths: best.widths, height: bottom - top, y, size };
+}
+
 // ---------------------------------------------------------------- Graphviz views (detail, flow)
 // The one DOT-string escaper: ids and quoted strings of a DOT text.
 const dotStr = s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n');
@@ -334,8 +602,22 @@ const ZOOM_EXTENT = [0.01, 12];
 // are cancelled and scale the d3 zoom around the pointer, by the ratio of the gesture scale between two
 // events, through the zoom behaviour (D-045). A touch pinch (iPad Safari fires gesture events with it)
 // is left to d3's touch handling: the gestures only stop the page zoom while fingers are down.
-function zoomOn(sel, zoom) {
+// opts.scroll (the Schema tab, D-093): a wheel scrolls instead of zooming, Shift turning a vertical wheel into a horizontal
+// one; only ctrl+wheel (a trackpad pinch in Chromium, Firefox and Edge) reaches d3's zoom. Every move is still the d3 zoom's.
+function zoomOn(sel, zoom, opts = {}) {
   let last = 1, touches = 0;
+  if (opts.scroll) {
+    zoom.filter(ev => (ev.type === 'wheel' ? ev.ctrlKey : !ev.ctrlKey && !ev.button));
+    sel.on('wheel.scroll', ev => {
+      if (ev.ctrlKey) return;   // a zoom: d3's own wheel handler
+      ev.preventDefault();
+      const node = sel.node(), unit = ev.deltaMode === 1 ? 16 : 1, k = d3.zoomTransform(node).k;
+      let dx = ev.deltaX * unit, dy = ev.deltaY * unit;
+      if (ev.deltaMode === 2) { dx = ev.deltaX * node.clientWidth; dy = ev.deltaY * node.clientHeight; }
+      if (ev.shiftKey && !dx) [dx, dy] = [dy, 0];
+      zoom.translateBy(sel, -dx / k, -dy / k);
+    }, { passive: false });
+  }
   // in the capture phase: a d3.drag or d3.zoom touch handler on the same element stops the later ones
   sel.on('touchstart.gesture touchmove.gesture touchend.gesture', ev => { touches = ev.touches.length; }, true)
     .on('touchcancel.gesture', () => { touches = 0; }, true);
@@ -377,12 +659,14 @@ function graphZoom(box, svg, isCurrent, onZoom) {
   });
 }
 // The zoom of a mounted Graphviz diagram (see graphZoom).
-function zoomHandle(box, layer, size, onZoom) {
+// opts is passed to zoomOn; with opts.scroll the translation is limited to the drawing grown by one box on each side.
+function zoomHandle(box, layer, size, onZoom, opts) {
   const [w, h] = size, sel = d3.select(box);
   const fitScale = () => Math.min(box.clientWidth / w, box.clientHeight / h);
   const zoom = d3.zoom().scaleExtent([Math.min(ZOOM_EXTENT[0], fitScale()), ZOOM_EXTENT[1]]).clickDistance(3)
     .on('zoom', ev => { layer.setAttribute('transform', ev.transform); if (onZoom) onZoom(ev.transform); });
-  zoomOn(sel, zoom);
+  if (opts && opts.scroll) zoom.translateExtent([[-box.clientWidth, -box.clientHeight], [w + box.clientWidth, h + box.clientHeight]]);
+  zoomOn(sel, zoom, opts);
   const set = ({ x, y, k }) => zoom.transform(sel, d3.zoomIdentity.translate(x, y).scale(k));
   const zv = {
     layer,
@@ -394,13 +678,17 @@ function zoomHandle(box, layer, size, onZoom) {
     },
     get() { const t = d3.zoomTransform(box); return { x: t.x, y: t.y, k: t.k }; },
     set,
+    // a scroll of (dx, dy) screen px and a zoom by `factor` around the screen point `at` (default: the box centre), both through
+    // the d3 zoom, so its limits apply (the Schema tab's keys and minimap, D-093)
+    by: (dx, dy) => zoom.translateBy(sel, -dx / d3.zoomTransform(box).k, -dy / d3.zoomTransform(box).k),
+    scale: (factor, at) => zoom.scaleBy(sel, factor, at || [box.clientWidth / 2, box.clientHeight / 2]),
     // the centre of a screen rectangle at the centre of the box, at scale k (the current one when omitted)
     centre(rect, k) {
       const b = box.getBoundingClientRect(), t = d3.zoomTransform(box), s = k || t.k;
       const [px, py] = t.invert([rect.left + rect.width / 2 - b.left, rect.top + rect.height / 2 - b.top]);
       set({ x: box.clientWidth / 2 - px * s, y: box.clientHeight / 2 - py * s, k: s });
     },
-    destroy() { sel.on('.zoom .gesture', null); },
+    destroy() { sel.on('.zoom .gesture .scroll', null); },
   };
   zv.fit();
   return zv;

@@ -29,13 +29,43 @@ def index(data: dict[str, Any], name: str) -> int:
 
 
 def centre(p: Page, name: str) -> tuple[float, float]:
-    """Search a table (the view centres it at k >= 1.5); return the canvas centre in page coordinates."""
+    """Search a table (the view frames it at k >= 1.5, beside its panel, M9.3); return its star in page
+    coordinates."""
     p.page.fill("#u-q", name)
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     box = p.page.locator("#u-canvas").bounding_box()
-    bar = p.page.evaluate("(b => b.hidden ? 0 : b.offsetHeight)(document.getElementById('u-trajbar'))")
-    return box["x"] + box["width"] / 2, box["y"] + bar + (box["height"] - bar) / 2  # below the bar
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        name,
+    )
+    return box["x"] + x, box["y"] + y
+
+
+def lineage_of(p: Page, name: str) -> tuple[float, float]:
+    """Start the lineage of a table the way the page now does, in two interactions: a click on it (its panel),
+    then the panel's Lineage button (D-091); return its star."""
+    x, y = centre(p, name)
+    p.page.mouse.click(x, y)
+    p.panel_lineage()
+    return x, y
+
+
+def centre_on_map(p: Page, name: str, k: float = 1.5) -> tuple[float, float]:
+    """Frame a table of the map at scale `k` through the camera (a search would enter its domain, D-088, where
+    the stars cannot be dragged); return the canvas centre in page coordinates."""
+    p.page.evaluate(
+        """([name, k]) => {
+             const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + name));
+             const c = document.getElementById('u-canvas');
+             views.universe.camera({ x: c.clientWidth / 2 - k * t.x, y: c.clientHeight / 2 - k * t.y, k });
+           }""",
+        [name, k],
+    )
+    p.page.wait_for_timeout(100)
+    box = p.page.locator("#u-canvas").bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
 
 
 def corner(p: Page) -> tuple[float, float]:
@@ -44,12 +74,16 @@ def corner(p: Page) -> tuple[float, float]:
 
 
 def enter_by_button(p: Page, name: str) -> None:
-    p.page.fill("#u-q", name)
-    p.page.click("#u-traj")
+    """The Lineage button on the name in the box, with no blur of the box (a blur is a search, D-088)."""
+    p.page.evaluate(
+        """n => { const q = document.getElementById('u-q'); q.value = n; q.dispatchEvent(new Event('input'));
+                 document.getElementById('u-traj').click(); }""",
+        name,
+    )
 
 
 def checkbox(p: Page, panel: str, label: str) -> Any:
-    rows = "#u-domains label, #u-systems label" if panel == "domains" else f"#u-{panel} label"
+    rows = "#u-domains > *, #u-systems > *" if panel == "domains" else f"#u-{panel} > *"
     return p.page.locator(rows, has_text=label).locator("input")
 
 
@@ -114,6 +148,10 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Sho
     before = p.state()
     assert before["active"] is False
     p.page.mouse.click(x, y)
+    assert p.panel()["open"] and p.state()["active"] is False, (
+        "a click opens the table panel, no lineage yet (D-091)"
+    )
+    p.panel_lineage()
     s = p.state()
     assert s["active"] is True
     assert s["start"] == "model.shop.stg_orders"
@@ -125,13 +163,16 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Sho
     assert p.page.inner_text("#u-tj-sum") == "1 upstream · 2 downstream"
 
 
-def test_click_on_another_table_moves_the_trajectory(shop_page: Shop) -> None:
+def test_the_lineage_button_of_another_tables_panel_moves_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     runs = p.state()["layoutRuns"]
     x, y = centre(p, "fct_returns")
     p.page.mouse.click(x, y)
+    assert p.panel()["id"] == "model.shop.fct_returns", (
+        "the click opens the panel; the Lineage button moves the lineage"
+    )
+    p.panel_lineage()
     s = p.state()
     assert s["active"] is True
     assert s["start"] == "model.shop.fct_returns"
@@ -252,8 +293,8 @@ def test_filtered_domain_and_type_are_brought_back_and_counted(shop_page: Shop) 
     assert "orders" in names(s["up"])
     assert checkbox(p, "domains", domain).is_checked()
     assert checkbox(p, "kinds", kind).is_checked()
-    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the trajectory"
-    assert "1 table brought back by the trajectory" in p.page.inner_text("#u-tj-live")
+    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the lineage"
+    assert "1 table brought back by the lineage" in p.page.inner_text("#u-tj-live")
     p.page.click("#u-tj-leave")
     assert checkbox(p, "domains", domain).is_checked(), "leaving does not untick again"
     assert checkbox(p, "kinds", kind).is_checked()
@@ -267,7 +308,7 @@ def test_filtered_layer_is_brought_back(shop_page: Shop) -> None:
         checkbox(p, "layers", layer).uncheck()
     enter_by_button(p, "fct_returns")
     assert p.state()["brought"] == 2
-    assert p.page.inner_text("#u-tj-back") == "2 tables brought back by the trajectory"
+    assert p.page.inner_text("#u-tj-back") == "2 tables brought back by the lineage"
     for n in hidden:
         layer = next(x["label"] for x in data["universe"]["layers"] if x["key"] == n["layer"])
         assert checkbox(p, "layers", layer).is_checked()
@@ -301,13 +342,12 @@ def test_esc_leaves_but_not_from_a_select(shop_page: Shop) -> None:
     assert s["active"] is False
     assert p.page.is_hidden("#u-trajbar")
     assert p.page.evaluate("document.activeElement.id") == "u-traj", "focus returns to the button"
-    assert p.page.inner_text("#u-tj-live") == "Trajectory closed"
+    assert p.page.inner_text("#u-tj-live") == "Lineage closed"
 
 
 def test_esc_from_the_page_body_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "fct_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "fct_orders")
     assert p.state()["active"] is True
     p.page.evaluate("document.activeElement.blur()")
     p.page.keyboard.press("Escape")
@@ -326,8 +366,7 @@ def test_leave_button_leaves(shop_page: Shop) -> None:
 
 def test_background_click_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     assert p.state()["active"] is True
     p.page.mouse.click(*corner(p))
     assert p.state()["active"] is False
@@ -342,8 +381,7 @@ def test_background_click_outside_the_mode_does_nothing(shop_page: Shop) -> None
 
 def test_pan_of_the_background_does_not_leave(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     cx, cy = corner(p)
     p.page.mouse.move(cx, cy)
     p.page.mouse.down()
@@ -363,7 +401,7 @@ def drag_by(p: Page, x: float, y: float, dx: float, dy: float) -> None:
 
 def test_drag_of_a_table_does_not_enter_the_mode(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
+    x, y = centre_on_map(p, "stg_orders")
     drag_by(p, x, y, 30, 0)
     assert p.state()["active"] is False
     moved = p.page.evaluate("(LAYOUT.get('universe', 'names') || {nodes: {}}).nodes")
@@ -372,8 +410,7 @@ def test_drag_of_a_table_does_not_enter_the_mode(shop_page: Shop) -> None:
 
 def test_drag_of_a_table_in_the_mode_keeps_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    x, y = lineage_of(p, "stg_orders")
     before = p.state()
     drag_by(p, x, y, 30, 20)
     assert p.state() == before
@@ -395,7 +432,7 @@ def test_double_click_on_a_source_still_zooms_in(shop_page: Shop) -> None:
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     assert p.page.is_visible("#tab-universe")
     assert p.page.locator("#tab-detail.on").count() == 0
-    assert p.state()["start"] == "source.shop.erp.orders"
+    assert p.panel()["id"] == "source.shop.erp.orders", "the first click of the double-click opened its panel"
 
 
 def test_search_still_centres_and_reveals_outside_the_mode(shop_page: Shop) -> None:
@@ -414,8 +451,8 @@ def test_search_still_centres_and_reveals_outside_the_mode(shop_page: Shop) -> N
 @pytest.mark.parametrize(
     ("lang", "expected"),
     [
-        ("en", {"#u-tj-title": "Trajectory of", "#u-tj-leave": "Leave", "#u-traj": "Trajectory"}),
-        ("fr", {"#u-tj-title": "Trajectoire de", "#u-tj-leave": "Quitter", "#u-traj": "Trajectoire"}),
+        ("en", {"#u-tj-title": "Lineage of", "#u-tj-leave": "Leave", "#u-traj": "Lineage"}),
+        ("fr", {"#u-tj-title": "Lignage de", "#u-tj-leave": "Quitter", "#u-traj": "Lignage"}),
     ],
 )
 def test_bar_strings_in_both_languages(
@@ -442,20 +479,21 @@ def test_bar_strings_in_both_languages(
     if lang == "fr":
         assert p.page.inner_text("#u-tj-sum") == "1 en amont · 2 en aval"
         assert set(options) >= {"amont", "aval", "les deux", "tous les niveaux", "1 niveau"}
-        assert "Échap" in p.page.inner_text("#u-hint")
+        assert "Échap" in p.page.text_content("#u-hint")
     else:
         assert set(options) >= {"upstream", "downstream", "both", "all levels", "1 level"}
 
 
 def test_tooltip_tells_up_from_down(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
+    x, y = centre_on_map(p, "stg_orders")
     p.page.mouse.move(x, y)
-    assert "Click: show its trajectory" in p.page.inner_text("#u-tip")
+    assert "Click: open its panel" in p.page.inner_text("#u-tip")
     p.page.mouse.click(x, y)
+    p.panel_lineage()
     p.page.mouse.move(x + 1, y)
-    assert "Start of the trajectory" in p.page.inner_text("#u-tip")
-    x, y = centre(p, "fct_returns")
+    assert "Start of the lineage" in p.page.inner_text("#u-tip")
+    x, y = centre_on_map(p, "fct_returns")
     p.page.mouse.move(x, y)
     p.page.mouse.move(x + 1, y)
     assert "Downstream, level 2" in p.page.inner_text("#u-tip")
@@ -472,8 +510,7 @@ def test_nothing_about_the_trajectory_is_saved_in_the_layout(shop_page: Shop) ->
 
 def test_no_console_error_through_a_whole_session(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     p.page.select_option("#u-tj-dir", "up")
     p.page.select_option("#u-tj-depth", "d3")
     p.page.click("#u-fit")
@@ -497,6 +534,8 @@ def test_entering_changing_and_leaving_do_not_move_the_view(shop_page: Shop) -> 
     x, y = centre(p, "fct_orders")
     view = p.page.evaluate(TRANSFORM)
     p.page.mouse.click(x, y)
+    assert p.page.evaluate(TRANSFORM) == view, "the panel never moves a table that is clear of it"
+    p.panel_lineage()
     assert p.page.evaluate(TRANSFORM) == view
     p.page.select_option("#u-tj-depth", "d1")
     p.page.select_option("#u-tj-dir", "up")
@@ -509,7 +548,7 @@ def test_fit_frames_the_trajectory_at_most_at_scale_2(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "dim_customer")
     p.page.select_option("#u-tj-depth", "d1")
-    assert p.page.get_attribute("#u-fit", "title") == "Frame the trajectory"
+    assert p.page.get_attribute("#u-fit", "title") == "Frame the lineage"
     p.page.click("#u-fit")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     k = p.page.evaluate(TRANSFORM)[2]
@@ -562,6 +601,7 @@ def test_detail_level_change_in_the_mode_keeps_the_trajectory(shop_page: Shop) -
     }
     x, y = centre(p, "fct_orders")
     p.page.mouse.click(x, y)
+    p.panel_lineage()
     assert p.state()["start"] == "model.shop.fct_orders", "a card is clicked too"
 
 
@@ -616,28 +656,46 @@ def zoom_out_below_far(p: Page) -> float:
 
 
 @pytest.mark.parametrize("zoom", ["far", "close"])
-def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
-    shop_page: Shop, zoom: str
-) -> None:
+def test_click_on_the_empty_background_leaves_the_mode(shop_page: Shop, zoom: str) -> None:
     p, _ = shop_page
     if zoom == "close":
-        x, y = centre(p, "fct_orders")
+        x, y = centre_on_map(p, "fct_orders")
         p.page.mouse.click(x, y)
+        p.panel_lineage()
         assert p.page.evaluate(TRANSFORM)[2] >= FAR
     else:
         enter_by_button(p, "fct_orders")
         assert zoom_out_below_far(p) < FAR
     assert p.state()["active"] is True
     points = scan(p)
-    assert points["halo"], "no point on a domain halo away from tables and labels"
     assert points["empty"], "no point on the empty background"
-    for x, y in sorted(points["halo"])[:: max(1, len(points["halo"]) // 3)][:3]:
-        p.page.mouse.click(x, y)
-        s = p.state()
-        assert s["active"] is True, f"a click on a domain halo at ({x}, {y}) left the mode ({zoom})"
-        assert s["start"] == "model.shop.fct_orders"
     p.page.mouse.click(*points["empty"][0])
     assert p.state()["active"] is False, f"a click on the empty background must leave ({zoom})"
+
+
+def halo_of(p: Page, own: bool, domain_label: str) -> tuple[float, float]:
+    """A point of a domain halo away from tables and labels: of the start's domain (`own`) or of another."""
+    for x, y in sorted(scan(p)["halo"]):
+        p.page.mouse.move(x, y)
+        label = p.page.inner_text("#u-tip b")
+        if (label == domain_label) is own:
+            return x, y
+    raise AssertionError(f"no halo point of {'the' if own else 'another'} domain")
+
+
+@pytest.mark.parametrize("own", [True, False], ids=["own-halo-keeps-the-lineage", "other-halo-leaves-it"])
+def test_click_on_a_domain_halo_enters_it_and_the_lineage_goes_on_only_where_it_started(
+    shop_page: Shop, own: bool
+) -> None:
+    """D-088: a click on a disc enters its domain; a lineage goes on only when its start is in that domain."""
+    p, data = shop_page
+    enter_by_button(p, "fct_orders")
+    assert zoom_out_below_far(p) < FAR
+    domain = node(data, "fct_orders")["domain"]
+    label = next(d["label"] for d in data["universe"]["domains"] if d["key"] == domain)
+    p.page.mouse.click(*halo_of(p, own, label))
+    assert (p.page.evaluate("views.universe.location().inside") == domain) is own
+    assert p.state()["active"] is own
 
 
 @pytest.mark.parametrize(("select", "value"), [("#u-tj-depth", "d3"), ("#u-tj-dir", "up")])
@@ -657,7 +715,7 @@ def test_changing_an_option_reticks_a_filter_unticked_in_the_mode(
     assert s["brought"] == 1
     assert "orders" in names(s["up"])
     assert p.page.inner_text("#u-tj-hidden") == ""
-    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the trajectory"
+    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the lineage"
 
 
 @pytest.mark.parametrize("how", ["brought_by_the_trajectory", "filtered_then_found", "filtered_in_the_mode"])

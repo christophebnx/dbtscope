@@ -116,10 +116,13 @@ def tip(p: Page) -> str:
 
 
 def enter(p: Page, name: str) -> None:
-    """Enter the trajectory of the table `name` with the search box and the Trajectory button."""
-    p.page.fill("#u-q", name)
-    p.page.dispatch_event("#u-q", "input")
-    p.page.click("#u-traj")
+    """Enter the trajectory of the table `name` as the search box and the Trajectory button do, in the page's
+    own script: no blur of the box, so no search (it would enter the domain, D-088): it starts far."""
+    p.page.evaluate(
+        """n => { const q = document.getElementById('u-q'); q.value = n; q.dispatchEvent(new Event('input'));
+                 document.getElementById('u-traj').click(); }""",
+        name,
+    )
 
 
 def first_card(p: Page, key: str) -> dict[str, Any]:
@@ -328,13 +331,16 @@ def test_double_click_on_a_card_lands_on_its_stars_centred(large_cards_page: Any
     p.page.mouse.dblclick(*canvas_xy(p, x, y))
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     c, after = camera(p), summary(p)
-    assert c["k"] >= s["kStars"] and after["weight"] == 0
+    assert (
+        p.page.evaluate("views.universe.location().inside") == "claim" and after["weight"] == 0
+    )  # D-088: it enters
     box = p.page.evaluate("(b => [b.clientWidth, b.clientHeight])(document.getElementById('u-canvas'))")
     card = card_of(s, "claim")
-    assert (box[0] / 2 - c["x"]) / c["k"] == pytest.approx(card["x"], abs=1)  # centred on it
-    assert (box[1] / 2 - c["y"]) / c["k"] == pytest.approx(card["y"], abs=1)
-    stars = [t for t in p.page.evaluate("views.universe.geometry().tables") if t["domain"] == "claim"]
-    assert stars and all(math.hypot(t["x"] - card["x"], t["y"] - card["y"]) <= card["r"] for t in stars)
+    slack = 40 / c["k"]  # the spread is framed in the stage minus the ghost margins and the header strip
+    assert (box[0] / 2 - c["x"]) / c["k"] == pytest.approx(card["x"], abs=slack)  # centred on it
+    assert (box[1] / 2 - c["y"]) / c["k"] == pytest.approx(card["y"], abs=slack)
+    stars = p.page.evaluate("views.universe.geometry().tables")
+    assert stars and {t["domain"] for t in stars} == {"claim"}  # only the entered domain is drawn
     assert p.page.evaluate("views.universe.drawnNames()")  # the stars are drawn where the card was
 
 
@@ -342,11 +348,12 @@ def test_double_click_on_a_card_of_a_narrow_screen_still_lands_on_stars(
     large_cards_page: Any, open_page: Any
 ) -> None:
     p = open_page(large_cards_page[0], viewport=NARROW)
-    s = summary(p)
     card = max(hits(p)["cards"], key=lambda c: c["w"])
     p.page.mouse.dblclick(*canvas_xy(p, *blank_point(card)))
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
-    assert camera(p)["k"] >= s["kStars"] and summary(p)["weight"] == 0  # not the disc's frame scale
+    assert (
+        p.page.evaluate("views.universe.location().level") == 1 and summary(p)["weight"] == 0
+    )  # entered, stars drawn
 
 
 # ---------------------------------------------------------------- content
@@ -505,7 +512,7 @@ def test_the_widest_row_fills_the_bar_and_no_kind_is_thinner_than_two_pixels(
 def untick(p: Page, panel: str, label: str) -> float:
     """Untick the row `label` of a panel list; return the seconds until the frame is drawn."""
     start = time.perf_counter()
-    p.page.locator(f"#u-{panel} label").filter(has_text=re.compile(f"^{label}")).locator("input").uncheck()
+    p.page.locator(f"#u-{panel} > *").filter(has_text=re.compile(f"^{label}")).locator("input").uncheck()
     p.page.evaluate(NEXT_FRAME)
     return time.perf_counter() - start
 
@@ -552,10 +559,7 @@ def test_hovering_a_card_gives_the_domain_tooltip_and_a_row_gives_its_action(
     move_to(p, *blank_point(card))
     text = tip(p)
     assert (
-        "Vehicle" in text
-        and "299 tables" in text
-        and "Layers" in text
-        and "Double-click: zoom on this domain" in text
+        "Vehicle" in text and "299 tables" in text and "Layers" in text and "Click: enter this domain" in text
     )
     assert "Click: zoom on" not in text
     row = next(r for r in rows_of(p, "vehicle") if r["row"] == "vault")
@@ -566,7 +570,7 @@ def test_hovering_a_card_gives_the_domain_tooltip_and_a_row_gives_its_action(
     star = next(t for t in p.page.evaluate("views.universe.geometry().tables") if t["domain"] == "vehicle")
     k, c = camera(p)["k"], camera(p)
     move_to(p, star["x"] * k + c["x"], star["y"] * k + c["y"])
-    assert "Click: show its trajectory" not in tip(p) and "Double-click: open in the Detail tab" not in tip(p)
+    assert "Click: show its lineage" not in tip(p) and "Double-click: open in the Detail tab" not in tip(p)
 
 
 def test_hovering_a_layer_card_gives_the_layer_tooltip(large_cards_page: Any, open_page: Any) -> None:
@@ -575,7 +579,7 @@ def test_hovering_a_layer_card_gives_the_layer_tooltip(large_cards_page: Any, op
     p.page.evaluate(NEXT_FRAME)
     card = hits(p)["cards"][0]
     move_to(p, *blank_point(card))
-    assert "Domains" in tip(p) and "Double-click: zoom on this constellation" in tip(p)
+    assert "Domains" in tip(p) and "Click: enter this layer" in tip(p)
     row = rows_of(p, card["k"])[0]
     move_to(p, row["x"] + 10, row["y"] + row["h"] / 2)
     assert "Click: zoom on" in tip(p)
@@ -676,26 +680,29 @@ def other_payload() -> UniversePayload:
     )
 
 
-def test_a_click_on_a_card_outside_its_rows_does_nothing_and_keeps_the_trajectory(
+def test_a_click_on_a_card_outside_its_rows_enters_its_domain_and_the_background_leaves_the_lineage(
     large_cards_page: Any, open_page: Any
 ) -> None:
     p = open_page(large_cards_page[0])
     overview = camera(p)
-    enter(p, "car_hub")
-    assert p.state()["active"]
-    p.page.evaluate(
-        "c => views.universe.camera(c)", overview
-    )  # the entry frames the members: back to the overview
-    p.page.evaluate(NEXT_FRAME)
-    assert summary(p)["weight"] == 1
-    before = camera(p)
+    for _ in range(2):
+        enter(p, "car_hub")
+        assert p.state()["active"]
+        p.page.evaluate(
+            "c => views.universe.camera(c)", overview
+        )  # the entry frames the members: back to the overview
+        p.page.evaluate(NEXT_FRAME)
+        assert summary(p)["weight"] == 1
+        if _ == 0:
+            bottom = p.page.evaluate("document.getElementById('u-canvas').clientHeight") - 8
+            p.page.mouse.click(*canvas_xy(p, 8, bottom))  # the background leaves it, as before
+            assert not p.state()["active"]
     x, y = blank_point(first_card(p, "claim"))
-    p.page.mouse.click(*canvas_xy(p, x, y))
+    p.page.mouse.click(
+        *canvas_xy(p, x, y)
+    )  # D-088: a card enters its domain, which ends a lineage started elsewhere
     p.page.wait_for_timeout(300)
-    assert camera(p) == before and p.state()["active"]
-    bottom = p.page.evaluate("document.getElementById('u-canvas').clientHeight") - 8
-    p.page.mouse.click(*canvas_xy(p, 8, bottom))  # the background leaves it, as before
-    assert not p.state()["active"]
+    assert p.page.evaluate("views.universe.location().inside") == "claim" and not p.state()["active"]
 
 
 def test_a_pinch_over_a_card_zooms_and_a_tap_on_a_row_frames_it(
@@ -706,6 +713,10 @@ def test_a_pinch_over_a_card_zooms_and_a_tap_on_a_row_frames_it(
     before = camera(p)["k"]
     pinch(p, b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
     assert camera(p)["k"] > before * 2
+    if p.page.evaluate(
+        "views.universe.location().level"
+    ):  # a disc that fills the stage is entered (D-088): back to the map
+        p.page.locator("#u-crumbs button").first.click()
     p.page.click("#u-fit")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     row = next(r for r in rows_of(p, "vehicle") if r["row"] == "vault")
@@ -844,7 +855,7 @@ def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_card
     p = open_page(html)
     s = summary(p)
     text = text_summary(p)
-    assert text["heading"] == "Summary of the constellations"
+    assert text["heading"] == "Summary of the domains"
     labels = {d["key"]: d["label"] or d["key"] for d in data["universe"]["domains"]}
     layers = {layer["key"]: layer["label"] for layer in data["universe"]["layers"]}
     kinds = {k["key"]: k["label"] for k in data["universe"]["kinds"]}
@@ -904,7 +915,7 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
     set_all_domains(p, False)
     p.page.evaluate(NEXT_FRAME)
     text = text_summary(p)
-    assert text["heading"] == "Summary of the constellations"
+    assert text["heading"] == "Summary of the domains"
     assert text["items"] == [{"name": None, "p": ["No table for these filters."], "li": []}]
     assert hits(p)["cards"] == []
 
@@ -912,7 +923,7 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
 def test_french_texts_and_plurals(tmp_path: Path, open_page: Any) -> None:
     p, _ = acme_page(tmp_path, open_page, "fr", CARDS_ON)
     text = text_summary(p)
-    assert text["heading"] == "Synthèse des constellations"
+    assert text["heading"] == "Synthèse des domaines"
     s = summary(p)
     one = next(c for c in s["cards"] if c["n"] <= 1)  # the one table of the single source system
     systems = next(i for i in text["items"] if i["name"] == "Systèmes sources")
