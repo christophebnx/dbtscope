@@ -841,3 +841,68 @@ def test_the_sizes_read_in_english(acme: Page) -> None:
         and sizes[0]["area"] == " (4.69 m²)"
         and sizes[1]["dims"] == "42 cm \u00d7 30 cm"
     )
+
+
+# --- added by the tester: hostile names, screen untouched, the PDF's own text size -------------------------
+
+
+def test_hostile_names_stay_text_in_the_print_document(
+    dbt_project: Path, build_page: Any, open_page: Any
+) -> None:
+    from conftest import SHOP, shop_manifest, write_config, write_manifest
+
+    from browser.test_page_polish import NAME, ODD_CONFIG, PAYLOAD
+
+    manifest = shop_manifest()
+    returns = manifest["nodes"][SHOP + "fct_returns"]
+    returns["name"], returns["description"] = NAME, PAYLOAD
+    write_manifest(dbt_project, manifest)
+    write_config(dbt_project, ODD_CONFIG)
+    html, _ = build_page()
+    p = open_page(html)
+    open_schema(p)
+    for opts in ({"mode": "sheet", "paper": "fitted"}, {"mode": "tiles", "paper": "A4", "level": "all"}):
+        build(p, **opts)
+        assert p.page.locator("#print-doc img, #print-doc script, #print-doc [onerror]").count() == 0
+        html_out = p.page.evaluate("document.getElementById('print-doc').innerHTML")
+        assert "<img" not in html_out and "&lt;img src=x onerror" in html_out
+        assert p.page.evaluate("typeof window.__x") == "undefined"
+        p.page.evaluate("window.dispatchEvent(new Event('afterprint'))")
+
+
+def test_the_screen_sheet_is_unchanged_after_a_print_run(acme: Page) -> None:
+    before = acme.page.evaluate("document.getElementById('s-graph').innerHTML")
+    acme.page.evaluate(STUB)
+    open_dialog(acme)
+    acme.page.click("#p-go")
+    acme.page.wait_for_function(
+        "window.__prints.length === 1 && !document.documentElement.classList.contains('printing')"
+    )
+    assert acme.page.evaluate("document.getElementById('s-graph').innerHTML") == before
+    assert acme.page.evaluate("document.documentElement.className.includes('printing')") is False
+    assert acme.page.evaluate("document.getElementById('print-doc').innerHTML") == ""
+
+
+@pytest.mark.parametrize(("floor", "mode", "paper"), [(7, "sheet", "fitted"), (10, "tiles", "A3")])
+def test_the_text_in_the_written_pdf_is_not_below_the_floor(
+    acme: Page, tmp_path: Path, floor: int, mode: str, paper: str
+) -> None:
+    import shutil
+    import subprocess
+
+    if not shutil.which("pdftotext"):
+        pytest.skip("pdftotext not installed")
+    build(acme, floor=floor, mode=mode, paper=paper)
+    print_media(acme)
+    pdf_path = tmp_path / "out.pdf"
+    pdf_path.write_bytes(pdf(acme))
+    xml = subprocess.run(
+        ["pdftotext", "-bbox", str(pdf_path), "-"], capture_output=True, text=True, check=True
+    ).stdout
+    heights = [
+        float(b) - float(a) for a, b in re.findall(r'yMin="([\d.]+)" xMax="[\d.]+" yMax="([\d.]+)"', xml)
+    ]
+    assert len(heights) > 50
+    assert min(heights) >= 7 * 0.9  # furniture (index, legend, margins) is at the 7 pt floor
+    # the drawing's words are floor-sized: a word's box is as tall as its font size, or taller
+    assert sum(h >= floor * 0.9 for h in heights) > 50
