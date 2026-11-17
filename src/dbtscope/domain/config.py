@@ -59,7 +59,6 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
-    Field,
     StrictBool,
     StrictInt,
     ValidationError,
@@ -182,7 +181,7 @@ class UniverseSettings(BaseModel):
     fold: StrictBool = True
     cards: StrictBool = False
     routes: StrictBool = True
-    map_above: StrictInt = Field(default=300, ge=0)
+    map_above: StrictInt = 300
 
     @field_validator("map_above", mode="before")
     @classmethod
