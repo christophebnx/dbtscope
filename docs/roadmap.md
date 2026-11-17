@@ -281,6 +281,8 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 
 ## Later (not scheduled)
 
+- Names inside a layer of several hundred tables (M9.2 follow-up, `docs/progress.md` open points): at Fit, Raw vault shows 47 of 388 names and Staging 34 of 277 (half is the brief's target; a domain of 150 tables and a layer of 250 reach it). Options: a spread larger than the stage that scrolls, or names by priority with a hint of how many are hidden.
+
 - Documentation round after M8 (user, 2026-11-13) (done, 2026-11-15; screenshot approval pending): the ten screenshots of `docs/images/` retaken (acme_retail and the large generated project; three new `large-*` images), a pass over the user guide and how it works.
 - CLI message "see the Configuration section of the README" (`storage/project_files.py`): point it at the user guide when a milestone next changes CLI messages (left out of M6.1, which changes no code).
 - Default layers for medallion folders, from M5.12: covered by the built-in presets' default layers (M8.1, D-060); still no rank without rules (`bronze*`, `silver` and `gold` sort alphabetically when a project sets neither a preset nor `layers`).
