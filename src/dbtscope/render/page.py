@@ -221,6 +221,7 @@ def render_page(
         "DETAIL_JS": _asset("detail.js"),
         "UNIVERSE_JS": _asset("universe.js"),
         "SCHEMA_JS": _asset("schema.js"),
+        "PRINT_JS": _inline(_asset("print.js")),  # no "</script" can end its block (D-014, D-023)
         "FLOW_JS": _asset("flow.js"),
         "BOOT_JS": _asset("boot.js"),
         "TITLE": config.title.replace("&", "&amp;").replace("<", "&lt;"),

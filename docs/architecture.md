@@ -145,6 +145,11 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | The sheet model: lanes, cells, boxes, edges, chips, in sheet units (page, D-092, D-094; read by M9.5) | `render/assets/schema.js sheetModel`, `boxSize`, `boxRows`, `scopeTables`, `S`, `LOOK` |
 | The one SVG emitter of a sheet rectangle: screen, image export, print (page, D-092) | `render/assets/schema.js sheetSvg` (`relationPath`) |
 | Text widths measured in the sheet's font, once per string (page, D-092) | `render/assets/schema.js textW` |
+| The physical size of a sheet at a minimum text size, the papers, fitting it on one sheet and cutting it into tiles, the index (page, D-095, D-096) | `render/assets/print.js printPlan`, `mmPerUnit`, `tileName`, `PRINT` |
+| The print document: pages, tiles, crop marks, coordinates, index and legend, as HTML / SVG (page, D-095, D-096) | `render/assets/print.js printDocument` (`posterPage`, `tilePage`, `indexPage`, `legendLayout`, `headLayout`) |
+| The Print dialog and the print run: `@page`, `window.print`, cleanup (page, D-095) | `render/assets/print.js startPrint` |
+| A short tag per table kind, so the kind reads without colour (page, D-095) | `render/assets/schema.js kindTags` (drawn by `sheetSvg` when the model has `tags`) |
+| The manifest's generation date, for the print (domain, D-095) | `domain/manifest.parse_manifest` → `model.Project.generated_at` → `payload.PagePayload.generated_at` (`generatedAt`) |
 | The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
 | Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
 | Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns` (sizes and aspect of the drawing area), `skeletonPositions`, `sizeOf`, `gridShown`, `SK`; the dealing itself is `common.js gridDeal` |
@@ -319,6 +324,13 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | The set of tables a sheet draws: the whole project, a domain, a layer or the universe's current filters (M9.4, D-092) | **scope** (`scopeTables`; French: périmètre) | selection, view | The word of D-085's "Not in the Detail tab's scope". |
 | A count of relations between two cells, or to tables outside the scope, on a cell's border, a button that draws them (M9.4, D-094) | **chip** (`chips`; French: pastille) | badge (the universe's folded-tables mark), tag | |
 | A sheet drawn without the row text, at a far zoom (M9.4, D-092) | **simple form** (`form: 'simple'`) | low detail | The other form is `full`. |
+| The dialog that prepares a print of the Schema tab (M9.5, D-095) | **print dialog** (`#s-print`; French: boîte de dialogue d'impression) | print preview, print wizard | |
+| The size of the smallest text of a printed drawing, chosen by the viewer (M9.5, D-095) | **minimum text size** (`floor`; French: taille de texte minimale) | font size (that is any text), scale | The row text of the sheet, 11 u, prints at exactly this size. |
+| A print of the whole drawing on one page (M9.5, D-095) | **one sheet** / **poster** (French: une seule feuille / affiche) | single page | The page may be **fitted** to the drawing. |
+| One paper sheet of a tiled print, and the set of them (M9.5, D-096) | **tile** (French: tuile; the set: mosaïque) | page (a tile is a page of the PDF, but the word of the assembly), cell (the sheet's own) | Named like a map square: letter across, number down. |
+| The first pages of a tiled print: title block, assembly map, legend, tables with their tile (M9.5, D-096) | **index page** (French: page d'index) | table of contents | |
+| The short letter code of a table kind in a printed header (M9.5, D-095) | **kind tag** (`kindTags`; French: repère de nature) | badge (the universe's folded-tables mark), abbreviation | |
+| The paper of a one-sheet print that is exactly the drawing plus its margins (M9.5, D-095) | **fitted paper** (French: format ajusté) | custom paper (a size the viewer types) | |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |
 | Configuration | **config** (`Config`, `dbt-erd.yml`) | settings (except `UniverseSettings`, the `universe` section) | |
 | Licence text and files of the vendored libraries | **licence** (noun, as in `Library.licence`) | license | "license" only in external names: SPDX ids, `pyproject` `license`, upstream `LICENSE*` file names. |

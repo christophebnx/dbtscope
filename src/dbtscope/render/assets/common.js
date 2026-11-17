@@ -20,7 +20,7 @@ const STRINGS = {
         tabDetailGroups: 'Detail: the entity-relationship diagram of one group, or of one table\'s neighbourhood',
         resetAsk: 'Forget the manual arrangement of this tab?', bad: 'Not a dbt-erd layout file.',
         colon: ': ', imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
-        exportImage: 'Export image', png: 'PNG', empty: 'No table for these filters.',
+        exportImage: 'Export image', print: 'Print…', png: 'PNG', empty: 'No table for these filters.',
         kinds: 'Table kind', tables: ['table', 'tables'], columns: ['column', 'columns'],
         foldedN: ['table drawn inside', 'tables drawn inside'], foldH: 'Descriptive tables',
         foldRow: 'Draw inside their table', foldKinds: names => `Draw ${names} inside their table`,
@@ -45,7 +45,7 @@ const STRINGS = {
         tabDetailGroups: 'Détail\u00a0: le diagramme entité-relation d\'un groupe, ou du voisinage d\'une table',
         resetAsk: 'Oublier la disposition manuelle de cet onglet\u202f?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
         colon: '\u00a0: ', imageSaved: f => `Image créée\u00a0: ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
-        exportImage: 'Exporter l\'image', png: 'PNG', empty: 'Aucune table pour ces filtres.',
+        exportImage: 'Exporter l\'image', print: 'Imprimer…', png: 'PNG', empty: 'Aucune table pour ces filtres.',
         kinds: 'Nature de table', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
         foldedN: ['table incluse', 'tables incluses'], foldH: 'Tables descriptives',
         foldRow: 'Dessiner dans leur table', foldKinds: names => `Dessiner ${names} dans leur table`,
@@ -69,8 +69,10 @@ const L = STRINGS[PAGE.lang];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-// A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039).
-const num = n => n.toLocaleString(PAGE.lang);
+// A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039); with `decimals`, that many
+// fraction digits always ("1.42" / "1,42", the print dialog's sizes, D-095).
+const num = (n, decimals) => (decimals === undefined ? n.toLocaleString(PAGE.lang)
+  : n.toLocaleString(PAGE.lang, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
 // "1 table", "2 tables"; forms is [singular, plural]. English: singular for 1; French: for 0 and 1.
 const plural = (n, forms) => `${num(n)} ${forms[n === 1 || (n === 0 && PAGE.lang === 'fr') ? 0 : 1]}`;
 

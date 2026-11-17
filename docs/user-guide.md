@@ -322,7 +322,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (455 kB)
+  page:     opens on universe, en, libraries from CDNs (513 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -446,7 +446,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (457 kB)
+  page:     opens on universe, en, libraries from CDNs (516 kB)
   config:   none (built-in defaults)
 ```
 
@@ -551,7 +551,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (455 kB)
+  page:     opens on universe, en, libraries from CDNs (513 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -916,7 +916,7 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 
 ## The Schema tab
 
-The third tab, **Schema**, draws a part of the project as classic entity-relationship **sheets**: every table of a scope as a box, laid out on a grid, to read like a document. The Universe shows the shape and the Detail explores one table's neighbourhood; the Schema is the exhaustive, stable view, the one to scroll through and, from the next release, to print.
+The third tab, **Schema**, draws a part of the project as classic entity-relationship **sheets**: every table of a scope as a box, laid out on a grid, to read like a document. The Universe shows the shape and the Detail explores one table's neighbourhood; the Schema is the exhaustive, stable view, the one to scroll through and to [print](#printing-the-schema).
 
 - **Scope** (panel): **Whole project**, one **Domain** (source systems in their own group), one **Layer**, or **Current filters** (the tables the Universe tab shows with its domain, layer and kind filters; disabled, with the reason "No filter is set in the Universe tab", until a filter hides a table). Every table of the scope is a box: nothing is folded here.
 - **Show** (panel): names, **key columns** (the default) or all columns, as in the Universe.
@@ -929,6 +929,24 @@ The third tab, **Schema**, draws a part of the project as classic entity-relatio
 - **Export image** (PNG, SVG, `<page title>-schema.png`): the visible part of the sheet, chips included; the minimap, the sticky heads, the tooltip and the chip list are not in it. **Layout > Reset** is disabled here ("Nothing to reset: this sheet is computed"); nothing about this tab is saved.
 
 Sizes on the large example (1,419 tables): the whole project at key columns is a sheet of about 6,300 × 14,700 units (1 unit = 1 screen pixel at the reading size); it opens in about 0.1 s.
+
+### Printing the schema
+
+**Print…** (Schema toolbar, after the image export) opens a dialog for the scope on screen. It says, before anything is printed, **what the scope needs on paper at the text size you want**, for example "Vehicle with key columns needs 1.14 m × 0.61 m at 7 pt (0.70 m²)". The text size is the one number that matters: **Minimum text size** (default 7 pt, 5 to 14) is the size of the smallest text of the drawing (rows, types, counts); headers and titles are larger. A bigger scope at a given size simply needs more paper, and the dialog says how much. Choose:
+
+- **Show**: names, key columns or all columns. All columns are offered for one domain, or a scope of at most 300 tables; for a bigger scope the option is disabled with its reason (choose a domain as the scope).
+- **Output**, **One sheet** (a poster) or **Tiles** (a set of ordinary sheets).
+- **Paper**: A4 to A0, **Custom** (100 to 5,080 mm a side) or, for one sheet, **Fitted to the drawing**; portrait or landscape. The verdict line says whether it fits ("Fits on one A1 sheet at 9.9 pt") or why not ("On one A1 sheet the text would be 4.1 pt, under 7 pt: choose Tiles or the fitted paper") and the Print button is then disabled; the last line names the smallest A-size sheet that holds the scope at your text size, or says that none does ("a print shop roll of 1.46 m width, or tiles"). The dialog opens on that recommendation.
+
+**A poster (one sheet).** One page with the title, the scope, the level, the minimum text size, the legend, then the whole drawing, vector throughout (it stays sharp at any magnification). On **Fitted to the drawing** the page is exactly as large as the drawing needs (plus 10 mm margins), at your text size; on a named paper the drawing is scaled up to fill it, never below your text size. Send the PDF to a print shop that prints rolls (plotter): ask for the page size of the PDF, at 100 %, "actual size", no scaling to fit. A PDF page is at most 5.08 m on a side (the limit of PDF viewers: a longer sheet is not offered; choose tiles, a smaller text size or a domain).
+
+**Tiles.** For an ordinary office printer: the drawing is cut into sheets of A4, A3 or your custom paper, at your text size, **10 mm of overlap** between neighbours. The print starts with **index pages**: the title block (project, scope, level, the sizes, the tile grid, "Schema of …" the date of the dbt manifest and "Printed …" the date of the print), an **assembly map** (the whole drawing small, with the tile grid, each tile named, empty tiles hatched and not printed), the **legend**, and **every table of the scope with its tile**, sorted by name (a table that straddles two tiles is listed in the one where its name reads). Then the tiles, row by row, each named like a map square: **letter across, number down** ("B3": second column, third row), with its place and page in the bottom margin, the names of its neighbours at the sides, **crop marks** at the corners of the drawing area (the hairlines in the corners) and two small **overlap ticks** at each side that has a neighbour. To assemble: lay the tiles out by their names (the assembly map shows where each goes), cut each at its crop marks, and lay a tile over its neighbour so that the ticks meet: the 10 mm strip is on both, so a box cut at an edge is whole on one of them.
+
+**Without colour.** Colour stays (a colour printer prints it) but nothing depends on it: each table header carries a short **kind tag** on its right (H for Hub, L for Link, S for Satellite…, taken from the kind's label, unique in the print), key columns are bold, and the legend (poster band and index page) shows each kind with its tag, label and count, and the marks (key row, "+ 5 columns", crow's foot, arrowhead, chips, dashed chips for relations to tables outside the scope).
+
+**In the browser's print window**: choose **Save as PDF** (or your printer), **margins: None**, **scale: 100 %** (not "Fit to page"), and leave "Background graphics" on if the browser offers it (the page asks for it). The paper size is already the document's own. Chromium-based browsers (Chrome, Edge) follow the page size exactly, including very large pages; Firefox and Safari print standard sizes best, so for a poster at a custom size use Chrome or Edge. Nothing about the print is saved: the dialog's choices last while the page is open. If you press Ctrl + P without the dialog, the page prints as before.
+
+Sizes on the large example, at 7 pt with key columns (kind tags included): the whole project is 1.46 × 3.38 m (one sheet, fitted), the Raw vault layer 1.02 × 2.51 m, the Vehicle domain 1.14 × 0.61 m (a poster of A1 width, or 7 × 3 A4 tiles). The document is prepared in well under a second.
 
 ## Zoom, pan and touch
 

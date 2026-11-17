@@ -510,3 +510,123 @@ def test_the_schema_tab_adds_no_zoom_and_no_second_gesture_handler() -> None:
 def test_the_schema_tab_writes_no_storage_and_no_layout() -> None:
     text = (ASSETS / "schema.js").read_text(encoding="utf-8")
     assert "localStorage" not in text and "LAYOUT" not in text and "viewerMemory" not in text
+
+
+# ---------------------------------------------------------------- M9.5: print (D-095, D-096)
+
+
+def test_the_print_button_dialog_and_container_are_in_the_markup() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    tab = page[page.index('id="tab-schema"') : page.index('id="data"')]
+    stage = tab[tab.index('id="s-stage"') :]
+    assert re.search(r'<button id="s-print-btn" type="button" disabled></button>', tab)
+    assert tab.index('id="s-export-svg"') < tab.index('id="s-print-btn"') < tab.index('id="s-stage"')
+    assert (
+        'id="s-print-btn"' not in stage[: stage.index("<dialog")]
+    )  # never inside .canvas-box: never in an image
+    dialog = tab[tab.index('<dialog id="s-print"') : tab.index("</dialog>")]
+    assert 'aria-labelledby="p-title"' in dialog and 'method="dialog"' in dialog
+    for control in ("p-level", "p-floor", "p-paper", "p-w", "p-h"):
+        assert f'id="{control}"' in dialog
+    for name in ("p-out", "p-orient"):
+        assert dialog.count(f'name="{name}"') == 2
+    assert 'role="status" aria-live="polite" aria-atomic="true"' in dialog and dialog.index(
+        'id="p-needs"'
+    ) < dialog.index('id="p-level"')
+    assert dialog.index('id="p-cancel"') < dialog.index('id="p-go"')
+    body = page[page.index("</script>", page.index("// Page boot")) :]
+    assert body.rstrip().endswith(
+        '<div id="print-doc" hidden></div>\n<style id="print-page"></style>\n</body></html>'
+    )
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_the_print_script_comes_after_the_schema_and_before_the_flow(offline: bool) -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)
+    starts = [
+        page.index("<script>\n" + first)
+        for first in ("// Schema tab", "// Print (M9.5", "// Flow view", "// Page boot")
+    ]
+    assert starts == sorted(starts)
+    block = page[starts[1] : page.index("</script>", starts[1])]
+    assert (
+        "function startPrint(" in block
+        and "function printPlan(" in block
+        and "function startSchema(" not in block
+    )
+    assert "{{PRINT_JS}}" not in page
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_the_print_script_is_inlined_whole_and_cannot_close_its_block() -> None:
+    text = (ASSETS / "print.js").read_text(encoding="utf-8")
+    assert (
+        "</script" not in text.lower()
+        and "<!--" not in text
+        and "\u00a0" not in text
+        and "\u202f" not in text
+    )
+    assert not re.search(r"\\u00a0[;?!]", text)
+    assert text in render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+
+
+def test_the_print_script_escapes_a_script_close_it_might_gain(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = page_module._asset
+    monkeypatch.setattr(
+        page_module,
+        "_asset",
+        lambda name: original(name) + ("\n// </script>\n" if name == "print.js" else ""),
+    )
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    assert "// <\\/script>" in page
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_the_print_strings_exist_in_both_languages_and_hold_no_retired_word() -> None:
+    text = (ASSETS / "print.js").read_text(encoding="utf-8")
+    en, fr = (
+        text[text.index("  en: {") : text.index("  fr: {")],
+        text[text.index("  fr: {") : text.index("}[PAGE.lang]")],
+    )
+    key = re.compile(r"\b(\w+): (?:'|`|\[|\w+ =>|\([\w, ]*\) =>|\{)")
+    assert set(key.findall(en)) - {"en", "possible", "u00a0"} == set(key.findall(fr)) - {
+        "fr",
+        "possible",
+        "u00a0",
+    }
+    assert len(set(key.findall(en))) > 50
+    commons = (ASSETS / "common.js").read_text(encoding="utf-8")
+    assert commons.count("print: 'Print…'") == 1 and commons.count("print: 'Imprimer…'") == 1
+    code = re.sub(r"(?m)^\s*//.*$|\s//\s.*$", "", text)
+    shown = [
+        s
+        for s in re.findall(r"'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`", code)
+        if not s.startswith(("'#", "'."))
+    ]
+    old = re.compile(
+        r"Trajector|Trajectoire|\bFlow\b|\bFlux\b|constellation|\bTypes\b|\bFold|Replier|Tout afficher"
+    )
+    assert [s for s in shown if old.search(re.sub(r"\$\{[^}]*\}", "", s))] == []
+
+
+def test_the_print_rules_only_apply_while_a_print_runs() -> None:
+    css = (ASSETS / "page.css").read_text(encoding="utf-8")
+    media = re.findall(r"@media print\s*\{(.*?)\n\}", css, re.S)
+    assert len(media) == 1
+    rules = re.findall(r"([^{}]+)\{", media[0])
+    assert rules and all(
+        r.strip().startswith("html.printing") for r in rules
+    )  # no unscoped rule hides the screen
+    assert "html.printing body > :not(#print-doc) { display:none; }" in media[0]
+    assert "@page" not in css  # the paper size is written per print, into style#print-page
+    assert "print-color-adjust:exact" in css
+
+
+def test_the_print_script_saves_nothing_and_reads_only_the_page() -> None:
+    text = (ASSETS / "print.js").read_text(encoding="utf-8")
+    assert (
+        "localStorage" not in text
+        and "viewerMemory" not in text
+        and "fetch(" not in text
+        and "XMLHttpRequest" not in text
+    )

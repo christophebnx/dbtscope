@@ -33,13 +33,28 @@ function boxRows(n, level) {
   const keys = n.cols.filter(c => c[2]), shown = level === 'all' ? [...keys, ...n.cols.filter(c => !c[2])] : keys;
   return { rows: shown.map(c => ({ name: c[0], type: shortType(c[1]), key: !!c[2] })), hidden: n.cols.length - shown.length };
 }
-// The box of a table at a level: { w, h, rows, note } (the one place a level decides what a box holds, D-092).
-function boxSize(n, level) {
+// The box of a table at a level: { w, h, rows, note } (the one place a level decides what a box holds, D-092). `tag`: the kind tag
+// a printed header carries (kindTags, D-095); its width is reserved, so a name never meets it.
+function boxSize(n, level, tag) {
   const { rows, hidden } = boxRows(n, level), note = hidden > 0 && level === 'keys' ? `+ ${plural(hidden, L.columns)}` : '';
-  let w = Math.max(S.MIN_W, textW(n.name, S.HEAD_FONT, 600) + 2 * S.PAD_X);
+  let w = Math.max(S.MIN_W, textW(n.name, S.HEAD_FONT, 600) + 2 * S.PAD_X + (tag ? textW(tag, S.ROW_FONT, 600) + S.PAD_X : 0));
   rows.forEach(r => { w = Math.max(w, textW(r.name, S.ROW_FONT, r.key ? 600 : 400) + textW(r.type, S.ROW_FONT) + 3 * S.PAD_X); });
   if (note) w = Math.max(w, textW(note, S.ROW_FONT, 400, true) + 2 * S.PAD_X);
   return { w, h: S.HEAD_H + S.ROW_H * (rows.length + (note ? 1 : 0)), rows, note };
+}
+// A short tag for each table kind, so a printed header reads without colour (D-095): Map(kind key -> tag). Pure and deterministic:
+// kinds in payload order, each takes the first of these not taken yet: the first letter of its label, the initials of its words,
+// its first two letters, its first three, then "K" and its position. Hub H, Link L, Satellite S, Point in time PIT.
+function kindTags(kinds) {
+  const taken = new Set(), tags = new Map();
+  kinds.forEach((kind, i) => {
+    const label = String(labelOf(kind)).trim(), words = label.split(/[^\p{L}\p{N}]+/u).filter(Boolean), chars = [...words.join('')];
+    const up = s => s.toLocaleUpperCase('en');
+    const options = [up(chars[0] || ''), up(words.map(w => [...w][0]).join('')), up(chars.slice(0, 2).join('')), up(chars.slice(0, 3).join('')), `K${i + 1}`];
+    const tag = options.find(t => t && !taken.has(t)) || `K${i + 1}`;
+    taken.add(tag); tags.set(kind.key, tag);
+  });
+  return tags;
 }
 // The universe nodes of a scope: { kind: 'all' } | { kind: 'domain' | 'layer', key } | { kind: 'filter', ids }
 function scopeTables(universe, scope) {
@@ -63,7 +78,8 @@ function wrapLabel(label, max, size, weight) {
 
 // The sheet model of a scope (pure; D-092, D-094). universe: the payload; nodes: the universe nodes of the scope; level: names |
 // keys | all; opts.rels: [[child id, parent id]] of the whole project, opts.relColumns(child, parent) -> the FK columns known,
-// opts.summarise: true | false to force the summarising of relations between cells (default: by S.LANES_FULL_*).
+// opts.summarise: true | false to force the summarising of relations between cells (default: by S.LANES_FULL_*), opts.tags: the
+// kindTags map of a print (headers then carry the tag; without it a box is the one of the screen).
 // -> { W, H, columns, rows, cells, boxes, edges, chips, kinds, adj, summarised, interCell, stubs, ms, … }, all in sheet units.
 function sheetModel(universe, nodes, level, opts = {}) {
   const t0 = performance.now(), { list } = domainOrder(universe), rels = opts.rels || [];
@@ -76,7 +92,7 @@ function sheetModel(universe, nodes, level, opts = {}) {
   const showCols = colKeys.length > 1, showRows = rowKeys.length > 1, NC = colKeys.length;
   // sizes
   const sizes = new Map(), look = new Map();
-  nodes.forEach(n => { const b = boxSize(n, level); look.set(n.id, b); sizes.set(n.id, [b.w, b.h]); });
+  nodes.forEach(n => { const b = boxSize(n, level, opts.tags && opts.tags.get(n.kind)); look.set(n.id, b); sizes.set(n.id, [b.w, b.h]); });
   const kinds = new Map(universe.kinds.map(k => [k.key, { color: k.color, bg: k.bg || '#ffffff', head: CONTRAST.textOn(k.color),
     edge: CONTRAST.edge(k.color, THEME.bg), type: CONTRAST.ink(THEME.muted, k.bg || '#ffffff') }]));
   // cells
@@ -180,7 +196,7 @@ function sheetModel(universe, nodes, level, opts = {}) {
     c.deal.rows.forEach((ids, ci) => {
       ids.forEach(id => {
         const b = look.get(id), n = byId.get(id), by = row.y + p.t + c.deal.y.get(id) - b.h / 2, bx = cx + (c.deal.widths[ci] - b.w) / 2;
-        boxes.set(id, { id, name: n.name, kind: n.kind, cell: c.key, x: bx, y: by, w: b.w, h: b.h, note: b.note,
+        boxes.set(id, { id, name: n.name, kind: n.kind, tag: opts.tags ? opts.tags.get(n.kind) || '' : '', cell: c.key, x: bx, y: by, w: b.w, h: b.h, note: b.note,
           rows: b.rows.map((r, i) => ({ ...r, y: by + S.HEAD_H + i * S.ROW_H })) });
       });
       cx += c.deal.widths[ci] + S.GUTTER;
@@ -213,7 +229,7 @@ function sheetModel(universe, nodes, level, opts = {}) {
   });
   return { W, H, unit: { rowFont: S.ROW_FONT, headFont: S.HEAD_FONT }, level, columns, rows,
     showCols, showRows, headW, top, cells: cellList, boxes, edges, stubs, chips, kinds, adj,
-    summarised, interCell, ms: performance.now() - t0 };
+    summarised, interCell, tags: opts.tags || null, ms: performance.now() - t0 };
 }
 
 // ---------------------------------------------------------------- the SVG emitter (screen, export, print)
@@ -242,11 +258,13 @@ function sideBadges(model) {
 // The markup of everything of the sheet that meets `rect` ({x, y, w, h}, sheet units), to put inside an <svg>: lanes and their
 // titles, relations (<g class="edge" id="e<i>">), boxes (<g class="node" id="<unique_id>">) and chips. form: 'full' (text) or
 // 'simple' (far zoom: boxes without row text). marks: { k (scale, for hairlines and text that would be unreadable), selected,
-// hover, expanded: Set of chip indexes, hit: add a wide invisible stroke to each relation }. Names are untrusted: all through esc.
+// hover, expanded: Set of chip indexes, hit: add a wide invisible stroke to each relation, ids: false for `data-id` in place of `id`
+// (a print repeats boxes and relations on its tiles, ids must stay unique), bare: true for a map (no text, no chips) }. Names are
+// untrusted: all through esc.
 function sheetSvg(model, rect, form, marks = {}) {
-  const simple = form === 'simple', k = marks.k || 1, out = [];
+  const simple = form === 'simple', k = marks.k || 1, out = [], bare = !!marks.bare, idAttr = marks.ids === false ? 'data-id' : 'id';
   const meets = (x, y, w, h) => x < rect.x + rect.w && x + w > rect.x && y < rect.y + rect.h && y + h > rect.y;
-  const words = (k * S.HEAD_FONT) >= S.GREEK_PX, small = (k * S.ROW_FONT) >= S.GREEK_PX;
+  const words = !bare && (k * S.HEAD_FONT) >= S.GREEK_PX, small = !bare && (k * S.ROW_FONT) >= S.GREEK_PX;
   const text = (x, y, size, fill, body, extra = '') => `<text x="${f1(x)}" y="${f1(y)}" font-size="${size}" fill="${fill}"${extra}>${esc(body)}</text>`;
   // lanes: the row tints, the separators, the titles
   model.rows.forEach((r, i) => {
@@ -277,7 +295,7 @@ function sheetSvg(model, rect, form, marks = {}) {
     if (!(e.drawn || on) || !meets(e.box[0], e.box[1], e.box[2] - e.box[0], e.box[3] - e.box[1])) return;
     const { line, head, main } = relationPath(e, simple), dim = litIds && !litIds.has(i) && !on ? ` class="edge dim" opacity="${LOOK.dim}"` : ' class="edge"';
     const color = on ? LOOK.accent : LOOK.edge, w = on ? Math.max(LOOK.litW, width) : width, alpha = on ? 1 : LOOK.edgeAlpha;
-    out.push(`<g${dim} id="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${f1(w)}" stroke-opacity="${alpha}"/>`
+    out.push(`<g${dim} ${idAttr}="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${f1(w)}" stroke-opacity="${alpha}"/>`
       + (head ? `<path d="${head}" fill="${color}" stroke="none"/>` : '')
       + (marks.hit ? `<path class="hit" d="${main}" fill="none" stroke="transparent" stroke-width="${f1(8 / k)}"/>` : '') + '</g>');
   });
@@ -289,9 +307,10 @@ function sheetSvg(model, rect, form, marks = {}) {
       if (!meets(b.x - 4, b.y - 4, b.w + 8, b.h + 8)) return;
       const st = model.kinds.get(b.kind) || { color: '#cccccc', bg: '#ffffff', head: '#000000', edge: '#888888', type: LOOK.muted };
       const dim = marks.selected && !related.has(id) ? ` class="node dim" opacity="${LOOK.dim}"` : ' class="node"';
-      let g = `<g${dim} id="${esc(id)}"><rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
+      let g = `<g${dim} ${idAttr}="${esc(id)}"><rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
         + `<rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${S.HEAD_H}" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`;
       if (!simple || words) g += text(b.x + S.PAD_X, b.y + S.HEAD_H / 2 + 4.5, S.HEAD_FONT, st.head, b.name, ' font-weight="600"');
+      if (b.tag && (!simple || words)) g += text(b.x + b.w - S.PAD_X, b.y + S.HEAD_H / 2 + 4, S.ROW_FONT, st.head, b.tag, ' font-weight="600" text-anchor="end"');
       if (!simple) {
         b.rows.forEach(r => {
           g += text(b.x + S.PAD_X, r.y + S.ROW_H / 2 + 4, S.ROW_FONT, LOOK.ink, r.name, r.key ? ' font-weight="600"' : '')
@@ -311,7 +330,7 @@ function sheetSvg(model, rect, form, marks = {}) {
   });
   // chips: a count at a cell border. From afar (simple form) the chips of one side of a cell would be a pixel high and a pile:
   // each side is one badge with their total, kept at a constant size on screen (LOOK.badgePx text), over the middle of its chips
-  if (!simple) model.chips.forEach((ch, i) => {
+  if (bare) { /* a map: no chips */ } else if (!simple) model.chips.forEach((ch, i) => {
     if (!meets(ch.x, ch.y, ch.w, ch.h)) return;
     const on = marks.expanded && marks.expanded.has(i), dash = ch.out ? ' stroke-dasharray="4 3"' : '';
     out.push(`<g class="chip" data-chip="${i}"><rect x="${ch.x}" y="${ch.y}" width="${ch.w}" height="${ch.h}" rx="10" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"${dash}/>`
@@ -409,7 +428,14 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   $s('export-h').textContent = L.exportImage;
   const pngBtn = $s('export-png'), svgBtn = $s('export-svg');
   pngBtn.textContent = L.png; pngBtn.title = T.pngTitle; svgBtn.textContent = L.svg; svgBtn.title = T.svgTitle;
-  const canExport = on => { pngBtn.disabled = svgBtn.disabled = !on; };
+  // Print… (D-095) is disabled with its reason (title and the sr-only text it is described by) while the sheet computes or is empty
+  const printBtn = $s('print-btn'), printWhy = $s('print-why');
+  printBtn.textContent = L.print; printBtn.setAttribute('aria-describedby', 's-print-why');
+  const canPrint = on => {
+    const why = on ? '' : !nodes.length ? T.emptyScope : T.drawing;
+    printBtn.disabled = !on; printBtn.title = why; printWhy.textContent = why;
+  };
+  const canExport = on => { pngBtn.disabled = svgBtn.disabled = !on; canPrint(on); };
   pngBtn.onclick = () => EXPORT.save('schema', 'png', () => pngImage(box, zv, EXPORT), pngBtn);
   svgBtn.onclick = () => EXPORT.save('schema', 'svg', () => svgFile(box, zv), svgBtn);
   const say = text => { live.textContent = ''; requestAnimationFrame(() => { live.textContent = text; }); };
@@ -825,7 +851,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   const fitAll = () => { if (zv) zv.fit(); };
   $s('fit').onclick = fitAll;
   document.addEventListener('keydown', ev => {
-    if (ev.key !== 'Escape' || !shownTab() || ev.defaultPrevented || ev.target.closest('input, select, textarea')) return;
+    if (ev.key !== 'Escape' || !shownTab() || ev.defaultPrevented || ev.target.closest('input, select, textarea, dialog')) return;
     if (state.pop !== null) { collapse(state.pop); closePop(true); syncChips(view()); paint(); }
     else if (state.selected) select(null);
     else if (state.scope.kind !== 'all') setScope({ kind: 'all' });
@@ -836,6 +862,9 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   new ResizeObserver(() => { if (zv && model && stage.clientWidth) { buildMini(); onZoom(); } }).observe(stage);
   sidePanel('s', () => { if (zv && model) onZoom(); });
 
+  // the Print dialog (print.js, D-095): reads the scope, the level and the project's relations, saves nothing
+  const printer = startPrint({ DATA, rels: RELS, relColumns: DETAIL.relationColumns, button: printBtn, say,
+    nodes: () => nodes, level: () => state.level, scopeName, scope: () => state.scope, ready: () => !!model });
   fillScope();
   rebuild();
   return {
@@ -863,5 +892,6 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
     // for the tests: the scope's tables, and a scope / selection / frame set from outside
     nodes: () => nodes.map(n => n.id),
     zoom: () => zv,
+    print: printer,
   };
 }

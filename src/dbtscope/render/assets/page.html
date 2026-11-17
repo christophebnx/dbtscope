@@ -176,6 +176,7 @@
       <button id="s-fit" type="button"></button>
       <span class="export" role="group" aria-labelledby="s-export-h"><span id="s-export-h"></span>
         <button id="s-export-png" type="button" disabled></button><button id="s-export-svg" type="button" disabled></button></span>
+      <button id="s-print-btn" type="button" disabled></button><span class="sr-only" id="s-print-why"></span>
     </div>
     <div class="canvas-box" id="s-stage">
       <div id="s-graph" role="group" tabindex="0"></div>
@@ -191,6 +192,32 @@
       <span class="sr-only" id="s-live" role="status" aria-live="polite"></span>
     </div>
   </div>
+  <dialog id="s-print" aria-labelledby="p-title" aria-describedby="p-needs">
+    <form method="dialog" id="p-form" novalidate>
+      <div class="p-body">
+        <h2 id="p-title"></h2>
+        <div class="hint" id="p-scope"></div>
+        <div id="p-needs" role="status" aria-live="polite" aria-atomic="true"><div id="p-size"></div><div id="p-verdict"></div><div id="p-recommend"></div></div>
+        <div class="row"><label id="p-h-level" for="p-level"></label><select id="p-level" autofocus></select></div>
+        <div class="hint" id="p-level-why"></div>
+        <div class="row"><label id="p-h-floor" for="p-floor"></label><span><input id="p-floor" type="number" inputmode="decimal" min="5" max="14" step="0.5" aria-describedby="p-floor-err"> <span id="p-floor-unit"></span></span></div>
+        <div class="hint err" id="p-floor-err"></div>
+        <fieldset class="row" id="p-out"><legend id="p-h-out"></legend>
+          <span><label><input type="radio" name="p-out" value="sheet"><span id="p-out-sheet"></span></label>
+          <label><input type="radio" name="p-out" value="tiles"><span id="p-out-tiles"></span></label></span></fieldset>
+        <div class="row"><label id="p-h-paper" for="p-paper"></label><select id="p-paper"></select></div>
+        <div class="hint" id="p-paper-why"></div>
+        <div class="row" id="p-custom" hidden><span id="p-h-custom"></span>
+          <span><input id="p-w" type="number" inputmode="numeric" min="100" max="5080" step="1" aria-describedby="p-custom-err"> × <input id="p-h" type="number" inputmode="numeric" min="100" max="5080" step="1" aria-describedby="p-custom-err"> mm</span></div>
+        <div class="hint err" id="p-custom-err"></div>
+        <fieldset class="row" id="p-orient"><legend id="p-h-orient"></legend>
+          <span><label><input type="radio" name="p-orient" value="portrait"><span id="p-orient-portrait"></span></label>
+          <label><input type="radio" name="p-orient" value="landscape"><span id="p-orient-landscape"></span></label></span></fieldset>
+        <div class="hint" id="p-hint"></div>
+      </div>
+      <div class="p-buttons"><button type="button" id="p-cancel"></button><button type="submit" id="p-go" class="on"></button></div>
+    </form>
+  </dialog>
 </section>
 
 <script type="application/json" id="data">{{DATA}}</script>
@@ -208,9 +235,14 @@
 {{SCHEMA_JS}}
 </script>
 <script>
+{{PRINT_JS}}
+</script>
+<script>
 {{FLOW_JS}}
 </script>
 <script>
 {{BOOT_JS}}
 </script>
+<div id="print-doc" hidden></div>
+<style id="print-page"></style>
 </body></html>
