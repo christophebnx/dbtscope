@@ -13,7 +13,8 @@ const PRINT = {
   MAX_SIDE: 5080, MIN_SIDE: 100, MIN_FIT: 120,  // mm; MIN_FIT: the narrowest fitted paper's drawing area, so the title and legend have room
   ALL_MAX: 300,                                 // the most tables whose all columns are offered outside a domain
   INDEX_FONT: 8, TITLE_FONT: 18, INFO_FONT: 9, FURNITURE_FONT: 7, NAME_FONT: 14, MAP_FONT: 8, // pt
-  CROP: 5, TICK: 3, LEGEND_LINE: 26,
+  CROP: 4, TICK: 3, LEGEND_LINE: 26,
+  EDGE: 5.5,   // mm: no furniture closer than this to a paper edge (office printers cannot print there); baselines and hints follow it
 };
 const PT_MM = 25.4 / 72;                        // mm per pt
 const PX_MM = 96 / 25.4;                        // CSS px per mm
@@ -84,7 +85,6 @@ const PT = {
 }[PAGE.lang];
 
 // ---------------------------------------------------------------- numbers, text and dates (pure)
-const f2 = v => Math.round(v * 100) / 100, f3 = v => Math.round(v * 1000) / 1000;
 const withUnit = (v, unit) => `${v}${NB}${unit}`;
 const ptText = v => withUnit(num(Math.round(v * 10) / 10), 'pt');
 // the size of a drawing: one unit for both sides, chosen by the longer: metres with two decimals (and the area) from one metre, else whole centimetres
@@ -118,22 +118,24 @@ function schemaDate(generatedAt) {
 }
 const printedDate = date => new Intl.DateTimeFormat(PAGE.lang, { dateStyle: 'long' }).format(date);
 const paperName = paper => (PRINT.PAPERS[paper.key] ? paper.key : `${num(paper.w)} × ${num(paper.h)}${NB}mm`);
+// the Show level's label, from the one list of the page (common.js LEVELS)
+const levelLabel = level => new Map(LEVELS()).get(level);
 const orientName = o => (o === 'landscape' ? PT.landscape : PT.portrait).toLowerCase();
 
 // ---------------------------------------------------------------- the legend (pure): the marks of the sheet and what they mean
 // The legend of a sheet as markup in sheet units, wrapped to `widthU`: { h, svg }. Drawn with the sheet's own marks at the sheet's own text size.
 function legendLayout(model, widthU) {
   const LH = PRINT.LEGEND_LINE, GAP = 20, items = [], tags = model.tags, ink = LOOK.ink;
-  const text = (x, y, body, extra = '', fill = ink) => `<text x="${f2(x)}" y="${f2(y + 4)}" font-size="${S.ROW_FONT}" fill="${fill}"${extra}>${esc(body)}</text>`;
+  const text = (x, y, body, extra = '', fill = ink) => `<text x="${rounded(2, x)}" y="${rounded(2, y + 4)}" font-size="${S.ROW_FONT}" fill="${fill}"${extra}>${esc(body)}</text>`;
   const counts = new Map(), labels = new Map(PAGE.universe.kinds.map(k => [k.key, labelOf(k)]));
   model.boxes.forEach(b => counts.set(b.kind, (counts.get(b.kind) || 0) + 1));
   model.kinds.forEach((st, key) => {
     const n = counts.get(key);
     if (!n) return;
     const tag = (tags && tags.get(key)) || '', label = labels.get(key) ?? key, sw = Math.max(24, textW(tag, S.ROW_FONT, 600) + 12), count = num(n);
-    items.push({ w: sw + 6 + textW(label, S.ROW_FONT) + 5 + textW(count, S.ROW_FONT, 600), draw: (x, y) => `<rect x="${f2(x)}" y="${y - 8}" width="${f2(sw)}" height="16" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`
+    items.push({ w: sw + 6 + textW(label, S.ROW_FONT) + 5 + textW(count, S.ROW_FONT, 600), draw: (x, y) => `<rect x="${rounded(2, x)}" y="${y - 8}" width="${rounded(2, sw)}" height="16" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`
       + (tag ? text(x + sw / 2, y, tag, ' font-weight="600" text-anchor="middle"', st.head) : '')
-      + `<text x="${f2(x + sw + 6)}" y="${y + 4}" font-size="${S.ROW_FONT}" fill="${ink}">${esc(label)}<tspan dx="5" font-weight="600">${esc(count)}</tspan></text>` });
+      + `<text x="${rounded(2, x + sw + 6)}" y="${y + 4}" font-size="${S.ROW_FONT}" fill="${ink}">${esc(label)}<tspan dx="5" font-weight="600">${esc(count)}</tspan></text>` });
   });
   const key = (gw, glyph, label) => items.push({ w: gw + 6 + textW(label, S.ROW_FONT), draw: (x, y) => glyph(x, y) + text(x + gw + 6, y, label) });
   const anyRows = [...model.boxes.values()].some(b => b.rows.length), anyNote = [...model.boxes.values()].some(b => b.note);
@@ -146,7 +148,7 @@ function legendLayout(model, widthU) {
     key(32, (x, y) => rel(y, edge(x), p => `<path d="${p.line}" fill="none" stroke="${LOOK.edge}" stroke-width="${LOOK.edgeW}"/>`), PT.keyFk);
     key(32, (x, y) => rel(y, edge(x), p => `<path d="${p.main}" fill="none" stroke="${LOOK.edge}" stroke-width="${LOOK.edgeW}"/><path d="${p.head}" fill="${LOOK.edge}"/>`), PT.keyPk);
   }
-  const pill = (c, dash) => { const t = `${c.label}  ${c.count}`; return { gw: Math.ceil(textW(t, S.ROW_FONT) + 2 * S.PAD_X + 4), draw: (x, y) => `<rect x="${f2(x)}" y="${y - 10}" width="${Math.ceil(textW(t, S.ROW_FONT) + 2 * S.PAD_X + 4)}" height="20" rx="10" fill="${LOOK.surface}" stroke="${LOOK.chipBorder}" stroke-width="1"${dash ? ' stroke-dasharray="4 3"' : ''}/>${text(x + 10, y, t)}` }; };
+  const pill = (c, dash) => { const t = `${c.label}  ${c.count}`, gw = Math.ceil(textW(t, S.ROW_FONT) + 2 * S.PAD_X + 4); return { gw, draw: (x, y) => `<rect x="${rounded(2, x)}" y="${y - 10}" width="${gw}" height="20" rx="10" fill="${LOOK.surface}" stroke="${LOOK.chipBorder}" stroke-width="1"${dash ? ' stroke-dasharray="4 3"' : ''}/>${text(x + 10, y, t)}` }; };
   if (chip && !chip.out) { const p = pill(chip, false); key(p.gw, p.draw, PT.keyChip); }
   if (outChip) { const p = pill(outChip, true); key(p.gw, p.draw, PT.keyOut); }
   if (model.showCols || model.showRows) items.push({ w: textW(PT.keyLanes, S.ROW_FONT), draw: (x, y) => text(x, y, PT.keyLanes) });
@@ -163,7 +165,7 @@ function legendLayout(model, widthU) {
 // ---------------------------------------------------------------- the head of a one-sheet page (pure): title, info lines, legend
 function headLayout(model, aw, floor, meta) {
   const tf = Math.max(PRINT.TITLE_FONT, 2.5 * floor), inf = Math.max(PRINT.INFO_FONT, floor), su = inf * PT_MM / S.ROW_FONT;
-  const parts = [meta.scope, [L.levelNames, L.levelKeys, L.levelAll][['names', 'keys', 'all'].indexOf(model.level)], PT.minText(ptText(floor))];
+  const parts = [meta.scope, levelLabel(model.level), PT.minText(ptText(floor))];
   const dated = schemaDate(meta.generated);
   if (dated) parts.push(PT.schemaOf(dated));
   parts.push(PT.printedOn(printedDate(meta.printed)));
@@ -228,7 +230,7 @@ function onePage(model, floor, paper, meta) {
   if (paper.key === 'fitted') {
     const aw = Math.max(D.w, PRINT.MIN_FIT), head = headLayout(model, aw, floor, meta);
     const w = aw + 2 * m, h = D.h + head.band + 2 * m, long = Math.max(w, h);
-    return { paper: { ...paper, w: f2(w), h: f2(h) }, head, scale: mm, font: floor, fits: long <= PRINT.MAX_SIDE, long, aw, ah: D.h };
+    return { paper: { ...paper, w: rounded(2, w), h: rounded(2, h) }, head, scale: mm, font: floor, fits: long <= PRINT.MAX_SIDE, long, aw, ah: D.h };
   }
   const aw = paper.w - 2 * m, head = headLayout(model, aw, floor, meta), ah = paper.h - 2 * m - head.band;
   const scale = aw > 0 && ah > 0 ? Math.min(aw / model.W, ah / model.H) : 0, font = scale / mm * floor;
@@ -245,12 +247,12 @@ function printPlan(model, opts) {
   const floor = Math.min(PRINT.FLOOR_MAX, Math.max(PRINT.FLOOR_MIN, Number.isFinite(+opts.floor) ? +opts.floor : PRINT.FLOOR)), mm = mmPerUnit(floor), mode = opts.mode === 'tiles' ? 'tiles' : 'sheet';
   const meta = opts.meta || { title: PAGE.title, scope: '', generated: null, printed: new Date() }, m = PRINT.MARGIN;
   const drawing = { w: model.W * mm, h: model.H * mm }, { dims, area } = sizeText(drawing.w, drawing.h);
-  const levelWords = [L.levelNames, L.levelKeys, L.levelAll][['names', 'keys', 'all'].indexOf(model.level)];
+  const levelWords = levelLabel(model.level);
   const recommend = recommendPaper(model, floor, meta);
   const plan = { floor, mmPerU: mm, level: model.level, mode, paper: paperOf(opts), drawing, scale: mm, font: floor, fits: false, why: '', valid: true,
     recommend, band: 0, head: null, tiles: [], cols: 0, rows: 0, printed: 0, blank: 0, index: [], indexLayout: null, indexPages: 0, pages: 0, meta,
     text: { size: PT.needs(meta.scope, levelWords, dims, ptText(floor), area), verdict: '', recommend: '' } };
-  plan.text.recommend = recommend ? PT.recommend(ptText(floor), `${recommend.key} ${orientName(recommend.orientation)}`)
+  if (mode === 'sheet') plan.text.recommend = recommend ? PT.recommend(ptText(floor), `${recommend.key} ${orientName(recommend.orientation)}`)
     : PT.noneFits(ptText(floor), lengthText(Math.min(drawing.w, drawing.h) + 2 * m));
   const refuse = why => { plan.fits = false; plan.why = why; plan.text.verdict = PT.notPossible + why; return plan; };
   if (!plan.paper.valid) { plan.valid = false; return refuse(PT.customErr); }
@@ -305,9 +307,12 @@ function indexLayout(model, plan, meta) {
   const caption = plan.blank ? lh : 0;
   let y = titleH + 3 * lh + fi;
   const afterMap = y + lh + fi, rest = lh + legendH + fi + lh + 4 * lh + caption;
-  const mapMax = Math.max(0, Math.min(0.5 * ch, ch - afterMap - rest)), r = Math.min(cw / EW, mapMax / EH), mapW = EW * r, mapH = EH * r;
-  const map = { x: 0, y: afterMap, w: mapW, h: mapH, r, EW, EH, sx, sy };
-  y = afterMap + mapH + (caption ? lh : 0) + fi;
+  const fit = reserve => Math.min(cw / EW, Math.max(0, Math.min(0.5 * ch, ch - afterMap - rest - reserve)) / EH);
+  const denseAt = r0 => sx * r0 < 8 || sy * r0 < 8;
+  let r = fit(0), axis = 0;
+  if (denseAt(r)) { axis = PRINT.FURNITURE_FONT * PT_MM + 1.5; r = fit(axis); }   // a dense map names its tiles on axes above and left: room under the heading
+  const mapW = EW * r, mapH = EH * r, map = { x: 0, y: afterMap + axis, axis, dense: axis > 0, w: mapW, h: mapH, r, EW, EH, sx, sy };
+  y = afterMap + axis + mapH + (caption ? lh : 0) + fi;
   const legendY = y + lh;
   y = legendY + legendH + fi;
   const listY = y + lh, first = Math.max(0, Math.floor((ch - listY) / lh)), rest2 = Math.max(1, Math.floor((ch - 1.5 * lh) / lh)), pages = [];
@@ -320,9 +325,9 @@ function indexLayout(model, plan, meta) {
 }
 
 // ---------------------------------------------------------------- the document (pure)
-const pageSvg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(w)}mm" height="${f2(h)}mm" viewBox="0 0 ${f2(w)} ${f2(h)}" font-family="${esc(LOOK.font)}">${body}</svg>`;
-const section = (w, h, svg, extra = '') => `<section class="pp"${extra} style="width:${f2(w)}mm;height:${f2(h)}mm">${svg}</section>`;
-const mtext = (x, y, pt, body, extra = '', fill = LOOK.ink) => `<text x="${f2(x)}" y="${f2(y)}" font-size="${f3(pt * PT_MM)}" fill="${fill}"${extra}>${esc(body)}</text>`;
+const pageSvg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${rounded(2, w)}mm" height="${rounded(2, h)}mm" viewBox="0 0 ${rounded(2, w)} ${rounded(2, h)}" font-family="${esc(LOOK.font)}">${body}</svg>`;
+const section = (w, h, svg, extra = '') => `<section class="pp"${extra} style="width:${rounded(2, w)}mm;height:${rounded(2, h)}mm">${svg}</section>`;
+const mtext = (x, y, pt, body, extra = '', fill = LOOK.ink) => `<text x="${rounded(2, x)}" y="${rounded(2, y)}" font-size="${rounded(3, pt * PT_MM)}" fill="${fill}"${extra}>${esc(body)}</text>`;
 
 // The marks of a drawing at a print scale (px per unit): the screen's emitter, clean (no selection or hover), unique ids
 const printMarks = scale => ({ k: scale * PX_MM, ids: false });
@@ -334,15 +339,15 @@ function posterPage(model, plan, meta) {
   y += head.titleH + 1.5;
   head.info.forEach((line, i) => { body += mtext(m, y + head.inf * PT_MM * 0.95 + i * head.lh, head.inf, line); });
   y = m + head.headH;
-  body += `<svg class="legend" x="${m}" y="${f2(y)}" width="${f2(aw)}" height="${f2(head.legendH)}" viewBox="0 0 ${f2(aw / head.su)} ${f2(head.legend.h)}">${head.legend.svg}</svg>`;
+  body += `<svg class="legend" x="${m}" y="${rounded(2, y)}" width="${rounded(2, aw)}" height="${rounded(2, head.legendH)}" viewBox="0 0 ${rounded(2, aw / head.su)} ${rounded(2, head.legend.h)}">${head.legend.svg}</svg>`;
   y += head.legendH + 3;
-  body += `<svg class="drawing" x="${f2(m + (aw - dw) / 2)}" y="${f2(y)}" width="${f2(dw)}" height="${f2(dh)}" viewBox="0 0 ${f2(model.W)} ${f2(model.H)}">${sheetSvg(model, rect, 'full', printMarks(s))}</svg>`;
+  body += `<svg class="drawing" x="${rounded(2, m + (aw - dw) / 2)}" y="${rounded(2, y)}" width="${rounded(2, dw)}" height="${rounded(2, dh)}" viewBox="0 0 ${rounded(2, model.W)} ${rounded(2, model.H)}">${sheetSvg(model, rect, 'full', printMarks(s))}</svg>`;
   return section(w, h, pageSvg(w, h, body), ' data-page="sheet"');
 }
 // The furniture of a tile page: crop marks, overlap ticks, neighbours, name and place
 function tileFurniture(plan, t, printedAt, pageNo) {
-  const m = PRINT.MARGIN, o = PRINT.OVERLAP, { w, h } = plan.paper, cw = w - 2 * m, ch = h - 2 * m, hair = f3(0.25 * PT_MM), tickW = f3(0.5 * PT_MM);
-  const line = (cls, x0, y0, x1, y1, sw) => `<path class="${cls}" d="M${f2(x0)} ${f2(y0)}L${f2(x1)} ${f2(y1)}" stroke="#000" stroke-width="${sw}" fill="none"/>`;
+  const m = PRINT.MARGIN, o = PRINT.OVERLAP, { w, h } = plan.paper, cw = w - 2 * m, ch = h - 2 * m, hair = rounded(3, 0.25 * PT_MM), tickW = rounded(3, 0.5 * PT_MM);
+  const line = (cls, x0, y0, x1, y1, sw) => `<path class="${cls}" d="M${rounded(2, x0)} ${rounded(2, y0)}L${rounded(2, x1)} ${rounded(2, y1)}" stroke="#000" stroke-width="${sw}" fill="none"/>`;
   let g = '';
   [[m, m, -1, -1], [m + cw, m, 1, -1], [m, m + ch, -1, 1], [m + cw, m + ch, 1, 1]].forEach(([cx, cy, dx, dy]) => {
     g += line('crop', cx + dx, cy, cx + dx * (1 + PRINT.CROP), cy, hair) + line('crop', cx, cy + dy, cx, cy + dy * (1 + PRINT.CROP), hair);
@@ -361,21 +366,23 @@ function tileFurniture(plan, t, printedAt, pageNo) {
       g += line('tick', m - 1, y, m - 1 - T0, y, tickW) + line('tick', m + cw + 1, y, m + cw + 1 + T0, y, tickW);
     }
     if (n.blank) return;
-    const pt = PRINT.FURNITURE_FONT, tri = (pts) => `<path class="hint-arrow" d="M${pts.map(p => `${f2(p[0])} ${f2(p[1])}`).join('L')}Z" fill="#000"/>`, tw = textMm(n.name, pt);
+    const pt = PRINT.FURNITURE_FONT, tri = (pts) => `<path class="hint-arrow" d="M${pts.map(p => `${rounded(2, p[0])} ${rounded(2, p[1])}`).join('L')}Z" fill="#000"/>`, tw = textMm(n.name, pt);
     if (side === 'up') { const x = m + cw / 2 - tw / 2 - 1.5; g += tri([[x, m - 2.4], [x + 1.6, m - 2.4], [x + 0.8, m - 4.4]]) + mtext(x + 2.4, m - 2.3, pt, n.name, ' data-hint="up"'); }
-    if (side === 'down') { const x = m + cw / 2 - tw / 2 - 1.5, y = m + ch + 2.4; g += tri([[x, y], [x + 1.6, y], [x + 0.8, y + 2]]) + mtext(x + 2.4, y + 2.1, pt, n.name, ' data-hint="down"'); }
-    if (side === 'left') { const y = m + ch / 2; g += tri([[1.0, y], [2.6, y - 0.8], [2.6, y + 0.8]]) + mtext(3.2, y + 0.9, pt, n.name, ' data-hint="left"'); }
-    if (side === 'right') { const y = m + ch / 2, x = m + cw + 1.2; g += tri([[x + 1.6, y], [x, y - 0.8], [x, y + 0.8]]) + mtext(x + 2.2, y + 0.9, pt, n.name, ' data-hint="right"'); }
+    if (side === 'down') { const x = m + cw / 2 - tw / 2 - 1.5, y = m + ch + 2.1; g += tri([[x, y], [x + 1.6, y], [x + 0.8, y + 2]]) + mtext(x + 2.4, y + 2.1, pt, n.name, ' data-hint="down"'); }
+    // the side hints read bottom to top in the margin's inner half (5.5 to 10 mm from the edge): arrow outside, name inside
+    const turned = (x, y) => ` transform="rotate(-90 ${rounded(2, x)} ${rounded(2, y)})" text-anchor="middle"`;
+    if (side === 'left') { const y = m + ch / 2, e = PRINT.EDGE; g += tri([[e, y], [e + 1.4, y - 0.8], [e + 1.4, y + 0.8]]) + mtext(m - 0.6, y, pt, n.name, ` data-hint="left"${turned(m - 0.6, y)}`); }
+    if (side === 'right') { const y = m + ch / 2, e = w - PRINT.EDGE; g += tri([[e, y], [e - 1.4, y - 0.8], [e - 1.4, y + 0.8]]) + mtext(w - m + 3.2, y, pt, n.name, ` data-hint="right"${turned(w - m + 3.2, y)}`); }
   });
   const nameW = textMm(t.name, PRINT.NAME_FONT, 600);
   const place = PT.tileLoc(PAGE.title, plan.meta.scope, t.name, t.i + 1, plan.cols, t.j + 1, plan.rows, pageNo, plan.pages);
-  g += mtext(w - m - 3, h - 2.6, PRINT.NAME_FONT, t.name, ' font-weight="600" text-anchor="end" class="tile-name"');
-  g += mtext(m + 3, h - 3.2, PRINT.FURNITURE_FONT, fitText(place, w - 2 * m - 6 - nameW - 4, PRINT.FURNITURE_FONT), ' class="tile-place"');
+  g += mtext(w - m - 3, h - PRINT.EDGE - 0.8, PRINT.NAME_FONT, t.name, ' font-weight="600" text-anchor="end" class="tile-name"');
+  g += mtext(m + 3, h - PRINT.EDGE - 0.3, PRINT.FURNITURE_FONT, fitText(place, w - 2 * m - 6 - nameW - 4, PRINT.FURNITURE_FONT), ' class="tile-place"');
   return `<g class="furniture">${g}</g>`;
 }
 function tilePage(model, plan, t, pageNo) {
   const m = PRINT.MARGIN, { w, h } = plan.paper, cw = w - 2 * m, ch = h - 2 * m, r = t.rect;
-  const drawing = `<svg class="tile" data-tile="${esc(t.name)}" x="${m}" y="${m}" width="${f2(cw)}" height="${f2(ch)}" viewBox="${f3(r.x)} ${f3(r.y)} ${f3(r.w)} ${f3(r.h)}" overflow="hidden">${sheetSvg(model, r, 'full', printMarks(plan.mmPerU))}</svg>`;
+  const drawing = `<svg class="tile" data-tile="${esc(t.name)}" x="${m}" y="${m}" width="${rounded(2, cw)}" height="${rounded(2, ch)}" viewBox="${rounded(3, r.x)} ${rounded(3, r.y)} ${rounded(3, r.w)} ${rounded(3, r.h)}" overflow="hidden">${sheetSvg(model, r, 'full', printMarks(plan.mmPerU))}</svg>`;
   return section(w, h, pageSvg(w, h, drawing + tileFurniture(plan, t, plan.meta.printed, pageNo)), ` data-page="tile" data-tile="${esc(t.name)}"`);
 }
 // The index page `k` (0 based): head and assembly map on the first, a running head on the others, the table list, the footer
@@ -387,7 +394,7 @@ function indexPage(model, plan, k) {
   if (pg.first) {
     body += txt(0, L2.tf * PT_MM * 0.95, L2.tf, fitText(meta.title, cw, L2.tf, 600), ' font-weight="600"');
     const dated = schemaDate(meta.generated), lines = [
-      `${meta.scope} · ${[L.levelNames, L.levelKeys, L.levelAll][['names', 'keys', 'all'].indexOf(model.level)]}`,
+      `${meta.scope} · ${levelLabel(model.level)}`,
       PT.drawingSize(ptText(plan.floor), sizeText(plan.drawing.w, plan.drawing.h).plain, num(plan.cols), num(plan.rows), paperName(plan.paper), orientName(plan.paper.orientation), withUnit(num(PRINT.OVERLAP), 'mm')),
       [dated ? PT.schemaOf(dated) : '', PT.printedOn(printedDate(meta.printed))].filter(Boolean).join(' · '),
     ];
@@ -395,7 +402,7 @@ function indexPage(model, plan, k) {
     body += mapMarkup(model, plan, m);
     const ly = L2.legendY;
     body += txt(0, ly - lh * 0.3, F, PT.legend, ' font-weight="600"');
-    body += `<svg class="legend" x="${m}" y="${f2(m + ly)}" width="${f2(cw)}" height="${f2(L2.legendH)}" viewBox="0 0 ${f2(cw / L2.su)} ${f2(L2.legend.h)}">${L2.legend.svg}</svg>`;
+    body += `<svg class="legend" x="${m}" y="${rounded(2, m + ly)}" width="${rounded(2, cw)}" height="${rounded(2, L2.legendH)}" viewBox="0 0 ${rounded(2, cw / L2.su)} ${rounded(2, L2.legend.h)}">${L2.legend.svg}</svg>`;
     body += txt(0, pg.y - lh * 0.3, F, PT.tablesIndex, ' font-weight="600"');
   } else if (entries.length) {
     body += txt(0, lh, F, fitText(PT.indexHead(entries[0].name, entries[entries.length - 1].name), cw, F, 600), ' font-weight="600"');
@@ -405,37 +412,37 @@ function indexPage(model, plan, k) {
     const tw = textMm(e.tile, F, 600), idPart = e.dup ? ` · ${e.id}` : '', idW = e.dup ? textMm(idPart, F * 0.9) : 0, avail = L2.colW - tw - 3;
     const name = fitText(e.name, Math.max(8, avail - idW), F), shown = name === e.name && idW + textMm(name, F) <= avail;
     const nameW = textMm(name, F) + (shown ? idW : 0);
-    body += `<text x="${f2(m + x)}" y="${f2(m + y)}" font-size="${f3(F * PT_MM)}" fill="${ink}">${esc(name)}${shown ? `<tspan fill="${muted}" font-size="${f3(F * 0.9 * PT_MM)}">${esc(idPart)}</tspan>` : ''}</text>`;
-    if (right - tw - 1 > x + nameW + 2) body += `<path d="M${f2(m + x + nameW + 1.5)} ${f2(m + y - fi * 0.25)}H${f2(m + right - tw - 1.5)}" stroke="#666" stroke-width="0.22" stroke-dasharray="0.01 0.9" stroke-linecap="round" fill="none"/>`;
+    body += `<text x="${rounded(2, m + x)}" y="${rounded(2, m + y)}" font-size="${rounded(3, F * PT_MM)}" fill="${ink}">${esc(name)}${shown ? `<tspan fill="${muted}" font-size="${rounded(3, F * 0.9 * PT_MM)}">${esc(idPart)}</tspan>` : ''}</text>`;
+    if (right - tw - 1 > x + nameW + 2) body += `<path d="M${rounded(2, m + x + nameW + 1.5)} ${rounded(2, m + y - fi * 0.25)}H${rounded(2, m + right - tw - 1.5)}" stroke="#666" stroke-width="0.22" stroke-dasharray="0.01 0.9" stroke-linecap="round" fill="none"/>`;
     body += txt(right, y, F, e.tile, ' font-weight="600" text-anchor="end"');
   });
   const pageNo = k + 1;
-  body += mtext(m, h - 3.2, PRINT.FURNITURE_FONT, PT.indexFoot(k + 1, L2.pages.length, pageNo, plan.pages), ' class="index-foot"');
+  body += mtext(m, h - PRINT.EDGE - 0.3, PRINT.FURNITURE_FONT, PT.indexFoot(k + 1, L2.pages.length, pageNo, plan.pages), ' class="index-foot"');
   return section(w, h, pageSvg(w, h, body), ` data-page="index" data-index="${k + 1}"`);
 }
 // The assembly map: the whole sheet as a thumbnail, the tile grid over it, blank tiles hatched, tile names in the cells (on the axes when dense)
 function mapMarkup(model, plan, m) {
-  const L2 = plan.indexLayout, mp = L2.map, r = mp.r, mm = plan.mmPerU, { sx, sy } = mp, dense = sx * r < 8 || sy * r < 8, nm = PRINT.MAP_FONT / r * PT_MM;
+  const L2 = plan.indexLayout, mp = L2.map, r = mp.r, mm = plan.mmPerU, { sx, sy } = mp, dense = mp.dense, nm = PRINT.MAP_FONT / r * PT_MM;
   if (!(r > 0)) return '';
-  const hair = f3(0.5 * PT_MM / r), tiles = plan.tiles;
-  let g = `<defs><pattern id="print-hatch" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V2" stroke="#999" stroke-width="0.18"/></pattern></defs>`;
-  g += `<svg x="0" y="0" width="${f2(model.W * mm)}" height="${f2(model.H * mm)}" viewBox="0 0 ${f2(model.W)} ${f2(model.H)}">${sheetSvg(model, { x: 0, y: 0, w: model.W, h: model.H }, 'simple', { k: mm * r * PX_MM, ids: false, bare: true })}</svg>`;
+  const hair = rounded(3, 0.5 * PT_MM / r), tiles = plan.tiles;
+  let g = `<defs><pattern id="print-hatch" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V2" stroke="#444" stroke-width="0.25"/></pattern></defs>`;
+  g += `<svg x="0" y="0" width="${rounded(2, model.W * mm)}" height="${rounded(2, model.H * mm)}" viewBox="0 0 ${rounded(2, model.W)} ${rounded(2, model.H)}">${sheetSvg(model, { x: 0, y: 0, w: model.W, h: model.H }, 'simple', { k: mm * r * PX_MM, ids: false, bare: true })}</svg>`;
   tiles.forEach(t => {
     const x = t.i * sx, y = t.j * sy, w = Math.min(sx, mp.EW - x), h = Math.min(sy, mp.EH - y);
-    g += `<rect class="cell${t.blank ? ' blank' : ''}" x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" fill="${t.blank ? 'url(#print-hatch)' : 'none'}" stroke="#666" stroke-width="${hair}"/>`;
+    g += `<rect class="cell${t.blank ? ' blank' : ''}" x="${rounded(2, x)}" y="${rounded(2, y)}" width="${rounded(2, w)}" height="${rounded(2, h)}" fill="${t.blank ? 'url(#print-hatch)' : 'none'}" stroke="#666" stroke-width="${hair}"/>`;
     if (dense) return;
     const label = t.name, cx = x + w / 2, cy = y + h / 2 + nm * 0.35;
-    g += `<text x="${f2(cx)}" y="${f2(cy)}" font-size="${f3(nm)}" text-anchor="middle" fill="${t.blank ? '#666' : '#000'}" stroke="#fff" stroke-width="${f3(nm * 0.35)}" paint-order="stroke">${esc(label)}</text>`;
+    g += `<text x="${rounded(2, cx)}" y="${rounded(2, cy)}" font-size="${rounded(3, nm)}" text-anchor="middle" fill="${t.blank ? '#666' : '#000'}" stroke="#fff" stroke-width="${rounded(3, nm * 0.35)}" paint-order="stroke">${esc(label)}</text>`;
   });
   if (dense) {
     const ax = PRINT.FURNITURE_FONT / r * PT_MM;
-    for (let i = 0; i < plan.cols; i++) g += `<text x="${f2(i * sx + sx / 2)}" y="${f3(-ax * 0.3)}" font-size="${f3(ax)}" text-anchor="middle" fill="#000">${esc(tileName(i, 0).replace(/\d+$/, ''))}</text>`;
-    for (let j = 0; j < plan.rows; j++) g += `<text x="${f3(-ax * 0.3)}" y="${f2(j * sy + sy / 2 + ax * 0.35)}" font-size="${f3(ax)}" text-anchor="end" fill="#000">${j + 1}</text>`;
+    for (let i = 0; i < plan.cols; i++) g += `<text x="${rounded(2, i * sx + sx / 2)}" y="${rounded(3, -ax * 0.3)}" font-size="${rounded(3, ax)}" text-anchor="middle" fill="#000">${esc(tileName(i, 0).replace(/\d+$/, ''))}</text>`;
+    for (let j = 0; j < plan.rows; j++) g += `<text x="${rounded(3, -ax * 0.3)}" y="${rounded(2, j * sy + sy / 2 + ax * 0.35)}" font-size="${rounded(3, ax)}" text-anchor="end" fill="#000">${j + 1}</text>`;
   }
   const caption = plan.blank ? mtext(m, m + mp.y + mp.h + L2.lh * 0.8, PRINT.INDEX_FONT, PT.hatched, ' class="map-caption"', LOOK.muted) : '';
-  const head = mtext(m, m + mp.y - L2.lh * 0.3, L2.F, PT.assembly, ' font-weight="600"');
+  const head = mtext(m, m + mp.y - mp.axis - L2.lh * 0.3, L2.F, PT.assembly, ' font-weight="600"');
   // the axes of a dense map sit outside its box: give them room through an overflow-visible nested svg
-  return head + `<svg class="map" overflow="visible" x="${m}" y="${f2(m + mp.y)}" width="${f2(mp.w)}" height="${f2(mp.h)}" viewBox="0 0 ${f2(mp.EW)} ${f2(mp.EH)}">${g}</svg>` + caption;
+  return head + `<svg class="map" overflow="visible" x="${m}" y="${rounded(2, m + mp.y)}" width="${rounded(2, mp.w)}" height="${rounded(2, mp.h)}" viewBox="0 0 ${rounded(2, mp.EW)} ${rounded(2, mp.EH)}">${g}</svg>` + caption;
 }
 
 // The print document of a plan: every page as a <section class="pp"> of the paper's exact size, as one HTML string. Pages: the index pages, then
@@ -490,7 +497,7 @@ function startPrint(access) {
   function sync() {
     const floorOk = Number.isFinite(+choice.floor) && +choice.floor >= PRINT.FLOOR_MIN && +choice.floor <= PRINT.FLOOR_MAX;
     const all = allowed();
-    fillSelect($p('level'), LEVELS().map(([v, l]) => [v, l]), choice.level);
+    fillSelect($p('level'), LEVELS(), choice.level);
     $p('level').querySelector('option[value=all]').disabled = !all; $p('level-why').textContent = all ? '' : PT.allWhy;
     const model = modelFor(choice.level), mt = meta();
     const fittedPlan = printPlan(model, { floor: floorOk ? choice.floor : PRINT.FLOOR, mode: 'sheet', paper: 'fitted', meta: mt });
@@ -548,7 +555,7 @@ function startPrint(access) {
     const all = { ...choice, ...opts }, model = modelFor(all.level), plan = printPlan(model, { ...all, meta: meta(now) });
     if (!plan.fits) throw new Error(plan.why);
     const markup = printDocument(model, plan, plan.meta);
-    pageStyle.textContent = `@page { size: ${f2(plan.paper.w)}mm ${f2(plan.paper.h)}mm; margin: 0 }`;
+    pageStyle.textContent = `@page { size: ${rounded(2, plan.paper.w)}mm ${rounded(2, plan.paper.h)}mm; margin: 0 }`;
     doc.innerHTML = markup; doc.hidden = false;
     html.classList.add('printing');
     return plan;

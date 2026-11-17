@@ -233,15 +233,14 @@ function sheetModel(universe, nodes, level, opts = {}) {
 }
 
 // ---------------------------------------------------------------- the SVG emitter (screen, export, print)
-const f1 = v => Math.round(v * 10) / 10;
 // The lines a relation is drawn with, at its two ends: a crow's foot at the FK end, a filled arrowhead at the PK end.
 function relationPath(e, simple) {
-  const x1 = f1(e.x1), y1 = f1(e.y1), x2 = f1(e.x2), y2 = f1(e.y2);
-  const line = e.bow ? `M${x1} ${y1}C${f1(e.bow)} ${y1} ${f1(e.bow)} ${y2} ${x2} ${y2}` : `M${x1} ${y1}L${x2} ${y2}`;
+  const x1 = rounded(1, e.x1), y1 = rounded(1, e.y1), x2 = rounded(1, e.x2), y2 = rounded(1, e.y2);
+  const line = e.bow ? `M${x1} ${y1}C${rounded(1, e.bow)} ${y1} ${rounded(1, e.bow)} ${y2} ${x2} ${y2}` : `M${x1} ${y1}L${x2} ${y2}`;
   if (simple) return { line, head: '', main: line };
   const c = LOOK.crow * e.s1, sp = LOOK.crowSpread, a = LOOK.arrow * e.s2, h = LOOK.arrowHalf;
-  return { main: line, line: `${line}M${f1(x1 + c)} ${y1}L${x1} ${f1(y1 - sp)}M${f1(x1 + c)} ${y1}L${x1} ${y1}M${f1(x1 + c)} ${y1}L${x1} ${f1(y1 + sp)}`,
-    head: `M${x2} ${y2}L${f1(x2 + a)} ${f1(y2 - h)}L${f1(x2 + a)} ${f1(y2 + h)}Z` };
+  return { main: line, line: `${line}M${rounded(1, x1 + c)} ${y1}L${x1} ${rounded(1, y1 - sp)}M${rounded(1, x1 + c)} ${y1}L${x1} ${y1}M${rounded(1, x1 + c)} ${y1}L${x1} ${rounded(1, y1 + sp)}`,
+    head: `M${x2} ${y2}L${rounded(1, x2 + a)} ${rounded(1, y2 - h)}L${rounded(1, x2 + a)} ${rounded(1, y2 + h)}Z` };
 }
 // The chips of each side of each cell, as one badge each (the simple form): { chips: indexes, n: their total, x, y: the middle of them }.
 function sideBadges(model) {
@@ -265,7 +264,7 @@ function sheetSvg(model, rect, form, marks = {}) {
   const simple = form === 'simple', k = marks.k || 1, out = [], bare = !!marks.bare, idAttr = marks.ids === false ? 'data-id' : 'id';
   const meets = (x, y, w, h) => x < rect.x + rect.w && x + w > rect.x && y < rect.y + rect.h && y + h > rect.y;
   const words = !bare && (k * S.HEAD_FONT) >= S.GREEK_PX, small = !bare && (k * S.ROW_FONT) >= S.GREEK_PX;
-  const text = (x, y, size, fill, body, extra = '') => `<text x="${f1(x)}" y="${f1(y)}" font-size="${size}" fill="${fill}"${extra}>${esc(body)}</text>`;
+  const text = (x, y, size, fill, body, extra = '') => `<text x="${rounded(1, x)}" y="${rounded(1, y)}" font-size="${size}" fill="${fill}"${extra}>${esc(body)}</text>`;
   // lanes: the row tints, the separators, the titles
   model.rows.forEach((r, i) => {
     out.push(`<rect x="0" y="${r.y}" width="${model.W}" height="${r.h}" fill="${esc(CONTRAST.edge(r.color, THEME.bg))}" fill-opacity="${LOOK.rowAlpha}"/>`);
@@ -295,9 +294,9 @@ function sheetSvg(model, rect, form, marks = {}) {
     if (!(e.drawn || on) || !meets(e.box[0], e.box[1], e.box[2] - e.box[0], e.box[3] - e.box[1])) return;
     const { line, head, main } = relationPath(e, simple), dim = litIds && !litIds.has(i) && !on ? ` class="edge dim" opacity="${LOOK.dim}"` : ' class="edge"';
     const color = on ? LOOK.accent : LOOK.edge, w = on ? Math.max(LOOK.litW, width) : width, alpha = on ? 1 : LOOK.edgeAlpha;
-    out.push(`<g${dim} ${idAttr}="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${f1(w)}" stroke-opacity="${alpha}"/>`
+    out.push(`<g${dim} ${idAttr}="e${i}"><path d="${line}" fill="none" stroke="${color}" stroke-width="${rounded(1, w)}" stroke-opacity="${alpha}"/>`
       + (head ? `<path d="${head}" fill="${color}" stroke="none"/>` : '')
-      + (marks.hit ? `<path class="hit" d="${main}" fill="none" stroke="transparent" stroke-width="${f1(8 / k)}"/>` : '') + '</g>');
+      + (marks.hit ? `<path class="hit" d="${main}" fill="none" stroke="transparent" stroke-width="${rounded(1, 8 / k)}"/>` : '') + '</g>');
   });
   // boxes: through the cells that meet the rectangle
   model.cells.forEach(c => {
@@ -307,8 +306,8 @@ function sheetSvg(model, rect, form, marks = {}) {
       if (!meets(b.x - 4, b.y - 4, b.w + 8, b.h + 8)) return;
       const st = model.kinds.get(b.kind) || { color: '#cccccc', bg: '#ffffff', head: '#000000', edge: '#888888', type: LOOK.muted };
       const dim = marks.selected && !related.has(id) ? ` class="node dim" opacity="${LOOK.dim}"` : ' class="node"';
-      let g = `<g${dim} ${idAttr}="${esc(id)}"><rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
-        + `<rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${S.HEAD_H}" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`;
+      let g = `<g${dim} ${idAttr}="${esc(id)}"><rect x="${rounded(1, b.x)}" y="${rounded(1, b.y)}" width="${rounded(1, b.w)}" height="${b.h}" fill="${st.bg}" stroke="${st.edge}" stroke-width="1"/>`
+        + `<rect x="${rounded(1, b.x)}" y="${rounded(1, b.y)}" width="${rounded(1, b.w)}" height="${S.HEAD_H}" fill="${st.color}" stroke="${st.edge}" stroke-width="1"/>`;
       if (!simple || words) g += text(b.x + S.PAD_X, b.y + S.HEAD_H / 2 + 4.5, S.HEAD_FONT, st.head, b.name, ' font-weight="600"');
       if (b.tag && (!simple || words)) g += text(b.x + b.w - S.PAD_X, b.y + S.HEAD_H / 2 + 4, S.ROW_FONT, st.head, b.tag, ' font-weight="600" text-anchor="end"');
       if (!simple) {
@@ -318,13 +317,13 @@ function sheetSvg(model, rect, form, marks = {}) {
         });
         if (model.level === 'all') {
           const first = b.rows.findIndex(r => !r.key);
-          if (first > 0) g += `<path d="M${f1(b.x)} ${b.rows[first].y}H${f1(b.x + b.w)}" stroke="${st.edge}" stroke-width="1" stroke-opacity=".5" fill="none"/>`;
+          if (first > 0) g += `<path d="M${rounded(1, b.x)} ${b.rows[first].y}H${rounded(1, b.x + b.w)}" stroke="${st.edge}" stroke-width="1" stroke-opacity=".5" fill="none"/>`;
         }
         if (b.note) g += text(b.x + S.PAD_X, b.y + S.HEAD_H + b.rows.length * S.ROW_H + S.ROW_H / 2 + 4, S.ROW_FONT, st.type, b.note, ' font-style="italic"');
       } else if (b.rows.length) {
-        g += `<path d="${b.rows.map(r => `M${f1(b.x + S.PAD_X)} ${r.y + S.ROW_H / 2}h${f1((b.w - 2 * S.PAD_X) * 0.55)}`).join('')}" stroke="${LOOK.bars}" stroke-width="5" stroke-opacity=".6" fill="none"/>`;
+        g += `<path d="${b.rows.map(r => `M${rounded(1, b.x + S.PAD_X)} ${r.y + S.ROW_H / 2}h${rounded(1, (b.w - 2 * S.PAD_X) * 0.55)}`).join('')}" stroke="${LOOK.bars}" stroke-width="5" stroke-opacity=".6" fill="none"/>`;
       }
-      if (id === marks.selected) g += `<rect class="ring" x="${f1(b.x - 2.5)}" y="${f1(b.y - 2.5)}" width="${f1(b.w + 5)}" height="${b.h + 5}" fill="none" stroke="${LOOK.accent}" stroke-width="${LOOK.ring}"/>`;
+      if (id === marks.selected) g += `<rect class="ring" x="${rounded(1, b.x - 2.5)}" y="${rounded(1, b.y - 2.5)}" width="${rounded(1, b.w + 5)}" height="${b.h + 5}" fill="none" stroke="${LOOK.accent}" stroke-width="${LOOK.ring}"/>`;
       out.push(g + '</g>');
     });
   });
@@ -340,8 +339,8 @@ function sheetSvg(model, rect, form, marks = {}) {
     const k2 = LOOK.badgePx / (S.ROW_FONT * k), room = 40 / k;
     if (!meets(g.x - room, g.y - room, 2 * room, 2 * room)) return;
     const on = g.chips.some(i => marks.expanded && marks.expanded.has(i)), label = num(g.n), w = textW(label, S.ROW_FONT, 600) + 10;
-    out.push(`<g class="chip" data-side="${esc(g.key)}" transform="translate(${f1(g.x)} ${f1(g.y)}) scale(${f1(k2)})">`
-      + `<rect x="${f1(-w / 2)}" y="-9" width="${f1(w)}" height="18" rx="9" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"/>`
+    out.push(`<g class="chip" data-side="${esc(g.key)}" transform="translate(${rounded(1, g.x)} ${rounded(1, g.y)}) scale(${rounded(1, k2)})">`
+      + `<rect x="${rounded(1, -w / 2)}" y="-9" width="${rounded(1, w)}" height="18" rx="9" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"/>`
       + text(-w / 2 + 5, 4, S.ROW_FONT, on ? LOOK.accentInk : LOOK.ink, label, ' font-weight="600"') + '</g>');
   });
   return out.join('');

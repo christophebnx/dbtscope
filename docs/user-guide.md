@@ -322,7 +322,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (513 kB)
+  page:     opens on universe, en, libraries from CDNs (515 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -446,7 +446,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (516 kB)
+  page:     opens on universe, en, libraries from CDNs (517 kB)
   config:   none (built-in defaults)
 ```
 
@@ -551,7 +551,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (513 kB)
+  page:     opens on universe, en, libraries from CDNs (515 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -940,7 +940,7 @@ Sizes on the large example (1,419 tables): the whole project at key columns is a
 
 **A poster (one sheet).** One page with the title, the scope, the level, the minimum text size, the legend, then the whole drawing, vector throughout (it stays sharp at any magnification). On **Fitted to the drawing** the page is exactly as large as the drawing needs (plus 10 mm margins), at your text size; on a named paper the drawing is scaled up to fill it, never below your text size. Send the PDF to a print shop that prints rolls (plotter): ask for the page size of the PDF, at 100 %, "actual size", no scaling to fit. A PDF page is at most 5.08 m on a side (the limit of PDF viewers: a longer sheet is not offered; choose tiles, a smaller text size or a domain).
 
-**Tiles.** For an ordinary office printer: the drawing is cut into sheets of A4, A3 or your custom paper, at your text size, **10 mm of overlap** between neighbours. The print starts with **index pages**: the title block (project, scope, level, the sizes, the tile grid, "Schema of …" the date of the dbt manifest and "Printed …" the date of the print), an **assembly map** (the whole drawing small, with the tile grid, each tile named, empty tiles hatched and not printed), the **legend**, and **every table of the scope with its tile**, sorted by name (a table that straddles two tiles is listed in the one where its name reads). Then the tiles, row by row, each named like a map square: **letter across, number down** ("B3": second column, third row), with its place and page in the bottom margin, the names of its neighbours at the sides, **crop marks** at the corners of the drawing area (the hairlines in the corners) and two small **overlap ticks** at each side that has a neighbour. To assemble: lay the tiles out by their names (the assembly map shows where each goes), cut each at its crop marks, and lay a tile over its neighbour so that the ticks meet: the 10 mm strip is on both, so a box cut at an edge is whole on one of them.
+**Tiles.** For an ordinary office printer: the drawing is cut into sheets of A4, A3 or your custom paper, at your text size, **10 mm of overlap** between neighbours. The print starts with **index pages**: the title block (project, scope, level, the sizes, the tile grid, "Schema of …" the date of the dbt manifest and "Printed …" the date of the print), an **assembly map** (the whole drawing small, with the tile grid, each tile named, empty tiles hatched and not printed), the **legend**, and **every table of the scope with its tile**, sorted by name (a table that straddles two tiles is listed in the one where its name reads). Then the tiles, row by row, each named like a map square: **letter across, number down** ("B3": second column, third row), with its place and page in the bottom margin, the names of its neighbours at the sides, **crop marks** at the corners of the drawing area (the hairlines in the corners) and two small **overlap ticks** at each side that has a neighbour (every mark stays at least 5 mm from the paper's edge, where office printers still print). To assemble: lay the tiles out by their names (the assembly map shows where each goes), cut each at its crop marks, and lay a tile over its neighbour so that the ticks meet: the 10 mm strip is on both, so a box cut at an edge is whole on one of them.
 
 **Without colour.** Colour stays (a colour printer prints it) but nothing depends on it: each table header carries a short **kind tag** on its right (H for Hub, L for Link, S for Satellite…, taken from the kind's label, unique in the print), key columns are bold, and the legend (poster band and index page) shows each kind with its tag, label and count, and the marks (key row, "+ 5 columns", crow's foot, arrowhead, chips, dashed chips for relations to tables outside the scope).
 

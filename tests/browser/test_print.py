@@ -231,7 +231,8 @@ def test_all_columns_are_offered_per_domain_only(
 # --- the text floor (test plan 2), one sheet (3) ------------------------------------------------------------
 
 POINTS = """() => {
-  const pt = t => parseFloat(getComputedStyle(t).fontSize) * t.getScreenCTM().a * 0.75;
+  const ctm = t => t.getScreenCTM();
+  const pt = t => parseFloat(getComputedStyle(t).fontSize) * Math.hypot(ctm(t).a, ctm(t).b) * 0.75;
   const out = { drawing: [], other: [] };
   document.querySelectorAll('#print-doc text').forEach(t => {
     const own = t.closest('svg.tile, svg.drawing') ? 'drawing' : 'other';
@@ -906,3 +907,95 @@ def test_the_text_in_the_written_pdf_is_not_below_the_floor(
     assert min(heights) >= 7 * 0.9  # furniture (index, legend, margins) is at the 7 pt floor
     # the drawing's words are floor-sized: a word's box is as tall as its font size, or taller
     assert sum(h >= floor * 0.9 for h in heights) > 50
+
+
+# --- M9.5 review fixes -------------------------------------------------------------------------------
+
+LARGE_TILES = {"floor": 7, "mode": "tiles", "paper": "A4", "level": "keys"}
+
+
+def test_a_dense_assembly_map_keeps_its_heading_clear_of_its_axes(
+    large_page: tuple[Path, dict[str, Any]], open_page: Any
+) -> None:
+    p = open_page(large_page[0], display=False)
+    open_schema(p)
+    build(p, **LARGE_TILES)
+    print_media(p)
+    got = p.page.evaluate(
+        """() => {
+          const sec = document.querySelector('#print-doc section.pp[data-page=index]');
+          const map = sec.querySelector('svg.map');
+          const axes = [...map.querySelectorAll('text:not([stroke])')].map(t => t.getBoundingClientRect());
+          const title = [...sec.querySelectorAll('text')].find(t => t.textContent === 'Assembly');
+          const head = title.getBoundingClientRect();
+          const hit = axes.filter(a => a.left < head.right && a.right > head.left
+            && a.top < head.bottom && a.bottom > head.top);
+          return { axes: axes.length, hit: hit.length, gap: Math.min(...axes.map(a => a.top)) - head.bottom };
+        }"""
+    )
+    assert got["axes"] > 10 and got["hit"] == 0 and got["gap"] >= 0
+
+
+def test_no_furniture_comes_within_five_mm_of_a_paper_edge(vehicle: Page) -> None:
+    pl = build(vehicle, floor=7, mode="tiles", paper="A4")
+    print_media(vehicle)
+    w, h = pl["paper"]["w"], pl["paper"]["h"]
+    near = vehicle.page.evaluate(
+        """([w, h]) => {
+          const bad = [];
+          document.querySelectorAll('#print-doc section.pp').forEach(sec => {
+            const items = [...sec.querySelectorAll('.furniture > *, .index-foot')];
+            items.forEach(e => {
+              const b = e.getBBox();
+              const x0 = b.x, y0 = b.y, x1 = b.x + b.width, y1 = b.y + b.height;
+              const pts = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]];
+              const svg = sec.querySelector('svg'), m = e.getCTM(), root = svg.getCTM();
+              const k = root ? root.inverse().multiply(m) : m;
+              const xs = pts.map(([x, y]) => k.a * x + k.c * y + k.e);
+              const ys = pts.map(([x, y]) => k.b * x + k.d * y + k.f);
+              const lo = 5 - 0.1;
+              const edges = [Math.min(...xs), Math.min(...ys), w - Math.max(...xs), h - Math.max(...ys)];
+              if (Math.min(...edges) < lo)
+                bad.push(e.getAttribute('class') + ':' + e.textContent.slice(0, 12));
+            });
+          });
+          return bad;
+        }""",
+        [w, h],
+    )
+    assert near == []
+    index = vehicle.page.evaluate(
+        "document.querySelectorAll('#print-doc section.pp[data-page=index] .index-foot').length"
+    )
+    assert index == pl["indexPages"]
+
+
+def test_blank_tiles_are_hatched_darkly_and_tiles_mode_has_no_sheet_recommendation(acme: Page) -> None:
+    build(acme, floor=7, mode="tiles", paper="A4")
+    stroke = acme.page.evaluate("document.querySelector('#print-hatch path').getAttribute('stroke')")
+    assert stroke == "#444"
+    tiles = plan(acme, mode="tiles", paper="A4")
+    sheet = plan(acme, mode="sheet", paper="A1")
+    assert tiles["text"]["recommend"] == "" and "Smallest single sheet" in sheet["text"]["recommend"]
+    open_dialog(acme)
+    acme.page.click("input[name=p-out][value=tiles]")
+    acme.page.wait_for_function("document.getElementById('p-verdict').textContent.includes('tiles of')")
+    assert acme.page.inner_text("#p-recommend") == "" and acme.page.is_hidden("#p-recommend")
+
+
+def test_one_level_lookup_and_one_rounding_helper() -> None:
+    from dbtscope.render.page import ASSETS
+
+    text = (ASSETS / "print.js").read_text(encoding="utf-8")
+    assert "indexOf(model.level)" not in text and "const f2" not in text and "const f3" not in text
+    assert "const f1" not in (ASSETS / "schema.js").read_text(encoding="utf-8")
+    assert (ASSETS / "common.js").read_text(encoding="utf-8").count("const rounded = ") == 1
+    css = (ASSETS / "page.css").read_text(encoding="utf-8")
+    assert css.count("#tab-schema .toolbar { gap:") == 1
+
+
+def test_the_level_label_and_rounding_come_from_the_shared_helpers(acme: Page) -> None:
+    got = acme.page.evaluate(
+        "[levelLabel('keys'), levelLabel('names'), levelLabel('all'), rounded(2, 10.05), rounded(1, 2.25)]"
+    )
+    assert got[:3] == ["key columns", "names", "all columns"] and got[3] == 10.05 and got[4] == 2.3

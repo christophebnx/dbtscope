@@ -340,10 +340,9 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 @media (max-width:600px) {
   #tab-schema .export > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
   #tab-schema .export { margin-left:0; }
-  #tab-schema .toolbar { gap:6px; }
   #s-q { flex:1 1 60px; box-sizing:border-box; }
   #tab-schema .toolbar button, #tab-schema .help > summary { padding-left:7px; padding-right:7px; }
-  #tab-schema .toolbar { gap:4px; }
+  #tab-schema .toolbar { gap:4px; }   /* 4 px: Print… joins the second row at 360 px */
   #tab-schema .toolbar #s-print-btn, #tab-schema .toolbar #s-fit, #tab-schema .export button { padding-left:4px; padding-right:4px; }   /* Print… joins the second row, in French too */
 }
 

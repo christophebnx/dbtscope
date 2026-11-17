@@ -69,6 +69,9 @@ const L = STRINGS[PAGE.lang];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+// `v` rounded to `digits` decimals (written into the SVG markup of the sheet and the print).
+const rounded = (digits, v) => Math.round(v * 10 ** digits) / 10 ** digits;
+
 // A number as the page language writes it: "1,234" in English, "1\u202f234" in French (D-039); with `decimals`, that many
 // fraction digits always ("1.42" / "1,42", the print dialog's sizes, D-095).
 const num = (n, decimals) => (decimals === undefined ? n.toLocaleString(PAGE.lang)
