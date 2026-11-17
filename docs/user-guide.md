@@ -322,7 +322,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (358 kB)
+  page:     opens on universe, en, libraries from CDNs (381 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -446,7 +446,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (360 kB)
+  page:     opens on universe, en, libraries from CDNs (384 kB)
   config:   none (built-in defaults)
 ```
 
@@ -551,11 +551,11 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (358 kB)
+  page:     opens on universe, en, libraries from CDNs (381 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
-Things to try: click the Sales domain; switch **Organise by** to **Layer**; click `fct_orders` for its lineage, then **Lineage graph**; in the Detail tab, pick the group `customer` and focus on `dim_customer`. How its `dbt-erd.yml` is built: [Walkthrough](#walkthrough-the-examples-dbt-erdyml).
+Things to try: click the Sales domain; switch **Organise by** to **Layer**; click `fct_orders` for its panel, then **Lineage** and **Lineage graph**; in the Detail tab, pick the group `customer` and focus on `dim_customer`. How its `dbt-erd.yml` is built: [Walkthrough](#walkthrough-the-examples-dbt-erdyml).
 
 ### Preparing a demo
 
@@ -853,14 +853,27 @@ A table whose kind has the role `descriptive` is drawn **inside** the `core` or 
 ### Search and double-click
 
 - **Search** finds a table by name, even when filters hide it (its filters are ticked back on) or it is folded into an entity (the entity opens), enters its domain and zooms on it.
-- **Click** a domain to enter it ([Entering a domain](#entering-a-domain)); **double-click** a table to open it in the Detail tab (or to zoom in, if the detail view does not include it). The Detail toolbar then shows the way back (`← All domains › Vehicle › car_hub`): the last part returns to the universe on that table (marked, framed, its name in the search box, **Lineage** ready), with your filters and zoom as you left them.
+- **Click** a domain to enter it ([Entering a domain](#entering-a-domain)); **click** a table to open its panel ([The table panel](#the-table-panel)); **double-click** a table to open it in the Detail tab (or to zoom in, if the detail view does not include it). The Detail toolbar then shows the way back (`← All domains › Vehicle › car_hub`): the last part returns to the universe on that table (marked, framed, its name in the search box, **Lineage** ready), with your filters and zoom as you left them.
 - Hover a table for its kind, domain, layer and description; hover a domain for its owner and layers.
+
+### The table panel
+
+A **click** (or a tap) on a table opens its **panel** on the right of the map (a sheet at the bottom of a narrow screen); so does a search, and so does the way back from the Detail tab. The table keeps a ring on the map, and its links are drawn. The panel says what the table is and where to go next:
+
+- **Header**: the table's name with its kind's colour, and **×** (also `Esc`) to close it.
+- **Facts**: Table kind, Domain, Layer, and the owner when the config names one; a table drawn inside an entity says "Drawn inside" with that table, which you can click.
+- **Description**: the full text of the manifest's description (six lines, then **More**).
+- **Columns**: the key columns, or all of them with the **Key columns | All columns** buttons; it starts from **Show** and follows it when it changes. Each column has its type, a "key" badge and its description when the Detail tab has one.
+- **Neighbours**: **References** (the tables this one points to) and **Referenced by**, with the relation's column when known; **Upstream** and **Downstream** (the direct lineage); **Drawn inside it** (the tables folded into an entity). A click on a name goes to that table, even in another domain (the location line follows), and shows its panel. A table hidden by a filter is listed as such and ticked back on when you click it. Long lists show 20 names and **Show all N**.
+- **Open in Detail** does what a double-click does (it is disabled, with its reason, for a table the Detail tab does not hold) and **Lineage** starts the lineage of the table (below). So a lineage is two clicks away: the table, then **Lineage**.
+
+`Esc` closes the panel first; the next `Esc` goes up one level as before (the lineage, then the domain). A click on the empty background closes it without doing anything else; a click on another table shows that table instead; a double-click opens the Detail tab. During a lineage, a click on a table of the lineage opens its panel over the lineage, which stays: its **Lineage** button moves the lineage to that table. The panel never moves or resizes the map (a table under it is panned clear), is not part of an exported image, is announced to screen readers, and is never saved.
 
 ### Lineage
 
 Where a table's data comes from (upstream) and where it goes (downstream), following `ref` / `source` lineage only, whatever **Links** shows.
 
-- **Enter**: click a table (once zoomed in enough to see tables), or find it with the search box and click **Lineage** (disabled until the box holds a table name). Clicking another table moves the lineage to it.
+- **Enter**: click a table (once zoomed in enough to see tables) and click **Lineage** in its panel, or find it with the search box and click **Lineage** (disabled until the box holds a table name). The same two steps on another table move the lineage to it.
 - **Read**: the universe does not move. The start table has a double ring, upstream tables a dashed violet ring, downstream tables a solid orange ring; everything else is dimmed. Lineage arrows run along the data flow at every zoom level. The tooltip says "Upstream, level 2" and similar.
 - **Bar** above the canvas: the start table, **Direction** (both, upstream, downstream) and **Depth** (1, 2, 3 or all levels; default all), the counts (open them for one line per domain), **Lineage graph** and **Leave**. **Fit** frames the lineage.
 - **Filters**: tables of the chain hidden by a domain, layer or table kind filter are brought back (those filters are ticked on again and the bar says how many). Unticking a filter while in the mode hides those tables until the lineage changes; the bar counts them. Leaving does not untick anything.
@@ -908,7 +921,7 @@ The three drawings (universe, detail, lineage graph) zoom and pan the same way.
 - **Zoom**: the mouse wheel, anywhere in the drawing, over a table or not; or a two-finger pinch on a touch screen or a trackpad (Safari included). The page itself never zooms.
 - **Pan**: drag the background. A drag of more than 3 px is a pan, never a click.
 - **Fit** shows the whole drawing (the whole lineage while one is shown).
-- **Click and double-click** keep each view's own action: in the universe a click enters a domain and a double-click on a table opens its detail, in the detail a double-click focuses.
+- **Click and double-click** keep each view's own action: in the universe a click enters a domain or opens a table's panel and a double-click on a table opens its detail, in the detail a double-click focuses.
 - **Small screens**: on a phone, or a window 600 px wide or narrower, the side panels start closed so the drawing fills the screen; the ☰ button opens them. On touch screens every control is at least 44 px, and tables are moved with a mouse only: a one-finger drag pans.
 
 ![The universe on a 390 px wide phone screen, panel closed](images/small-screen.png)

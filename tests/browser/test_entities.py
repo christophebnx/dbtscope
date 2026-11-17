@@ -270,9 +270,20 @@ def test_double_click_on_an_entity_still_opens_the_detail(acme: tuple[Page, dict
     p, _ = acme
     search(p, "customer_hub")
     p.page.wait_for_timeout(900)
-    b = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.dblclick(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    x, y = star_of(p, "customer_hub")
+    p.page.mouse.dblclick(x, y)
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
+def star_of(p: Page, name: str) -> tuple[float, float]:
+    """The page coordinates of a table's star (a search frames it in the area its panel leaves free, M9.3)."""
+    b = p.page.locator("#u-canvas").bounding_box()
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        name,
+    )
+    return b["x"] + x, b["y"] + y
 
 
 def dim_with_folded_satellites(data: dict[str, Any]) -> dict[str, Any]:
@@ -313,6 +324,7 @@ def test_a_click_that_unfolds_the_trajectory_keeps_the_table_under_the_pointer(
     x, y = centre(p, n["name"])
     b = p.page.locator("#u-canvas").bounding_box()
     p.page.mouse.click(x, y)
+    p.panel_lineage()  # the lineage unfolds its members now
     p.page.wait_for_timeout(300)
     r = p.page.evaluate("id => views.universe.place(id)", n["id"])
     assert r["x"] <= x - b["x"] <= r["x"] + r["w"] and r["y"] <= y - b["y"] <= r["y"] + r["h"]

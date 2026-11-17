@@ -29,13 +29,27 @@ def index(data: dict[str, Any], name: str) -> int:
 
 
 def centre(p: Page, name: str) -> tuple[float, float]:
-    """Search a table (the view centres it at k >= 1.5); return the canvas centre in page coordinates."""
+    """Search a table (the view frames it at k >= 1.5, beside its panel, M9.3); return its star in page
+    coordinates."""
     p.page.fill("#u-q", name)
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     box = p.page.locator("#u-canvas").bounding_box()
-    bar = p.page.evaluate("(b => b.hidden ? 0 : b.offsetHeight)(document.getElementById('u-trajbar'))")
-    return box["x"] + box["width"] / 2, box["y"] + bar + (box["height"] - bar) / 2  # below the bar
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        name,
+    )
+    return box["x"] + x, box["y"] + y
+
+
+def lineage_of(p: Page, name: str) -> tuple[float, float]:
+    """Start the lineage of a table the way the page now does, in two interactions: a click on it (its panel),
+    then the panel's Lineage button (D-091); return its star."""
+    x, y = centre(p, name)
+    p.page.mouse.click(x, y)
+    p.panel_lineage()
+    return x, y
 
 
 def centre_on_map(p: Page, name: str, k: float = 1.5) -> tuple[float, float]:
@@ -134,6 +148,10 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Sho
     before = p.state()
     assert before["active"] is False
     p.page.mouse.click(x, y)
+    assert p.panel()["open"] and p.state()["active"] is False, (
+        "a click opens the table panel, no lineage yet (D-091)"
+    )
+    p.panel_lineage()
     s = p.state()
     assert s["active"] is True
     assert s["start"] == "model.shop.stg_orders"
@@ -147,11 +165,14 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Sho
 
 def test_click_on_another_table_moves_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     runs = p.state()["layoutRuns"]
     x, y = centre(p, "fct_returns")
     p.page.mouse.click(x, y)
+    assert p.panel()["id"] == "model.shop.fct_returns", (
+        "the click opens the panel; the Lineage button moves the lineage"
+    )
+    p.panel_lineage()
     s = p.state()
     assert s["active"] is True
     assert s["start"] == "model.shop.fct_returns"
@@ -326,8 +347,7 @@ def test_esc_leaves_but_not_from_a_select(shop_page: Shop) -> None:
 
 def test_esc_from_the_page_body_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "fct_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "fct_orders")
     assert p.state()["active"] is True
     p.page.evaluate("document.activeElement.blur()")
     p.page.keyboard.press("Escape")
@@ -346,8 +366,7 @@ def test_leave_button_leaves(shop_page: Shop) -> None:
 
 def test_background_click_leaves(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     assert p.state()["active"] is True
     p.page.mouse.click(*corner(p))
     assert p.state()["active"] is False
@@ -362,8 +381,7 @@ def test_background_click_outside_the_mode_does_nothing(shop_page: Shop) -> None
 
 def test_pan_of_the_background_does_not_leave(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     cx, cy = corner(p)
     p.page.mouse.move(cx, cy)
     p.page.mouse.down()
@@ -392,8 +410,7 @@ def test_drag_of_a_table_does_not_enter_the_mode(shop_page: Shop) -> None:
 
 def test_drag_of_a_table_in_the_mode_keeps_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    x, y = lineage_of(p, "stg_orders")
     before = p.state()
     drag_by(p, x, y, 30, 20)
     assert p.state() == before
@@ -415,7 +432,7 @@ def test_double_click_on_a_source_still_zooms_in(shop_page: Shop) -> None:
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     assert p.page.is_visible("#tab-universe")
     assert p.page.locator("#tab-detail.on").count() == 0
-    assert p.state()["start"] == "source.shop.erp.orders"
+    assert p.panel()["id"] == "source.shop.erp.orders", "the first click of the double-click opened its panel"
 
 
 def test_search_still_centres_and_reveals_outside_the_mode(shop_page: Shop) -> None:
@@ -471,8 +488,9 @@ def test_tooltip_tells_up_from_down(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre_on_map(p, "stg_orders")
     p.page.mouse.move(x, y)
-    assert "Click: show its lineage" in p.page.inner_text("#u-tip")
+    assert "Click: open its panel" in p.page.inner_text("#u-tip")
     p.page.mouse.click(x, y)
+    p.panel_lineage()
     p.page.mouse.move(x + 1, y)
     assert "Start of the lineage" in p.page.inner_text("#u-tip")
     x, y = centre_on_map(p, "fct_returns")
@@ -492,8 +510,7 @@ def test_nothing_about_the_trajectory_is_saved_in_the_layout(shop_page: Shop) ->
 
 def test_no_console_error_through_a_whole_session(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
-    p.page.mouse.click(x, y)
+    lineage_of(p, "stg_orders")
     p.page.select_option("#u-tj-dir", "up")
     p.page.select_option("#u-tj-depth", "d3")
     p.page.click("#u-fit")
@@ -517,6 +534,8 @@ def test_entering_changing_and_leaving_do_not_move_the_view(shop_page: Shop) -> 
     x, y = centre(p, "fct_orders")
     view = p.page.evaluate(TRANSFORM)
     p.page.mouse.click(x, y)
+    assert p.page.evaluate(TRANSFORM) == view, "the panel never moves a table that is clear of it"
+    p.panel_lineage()
     assert p.page.evaluate(TRANSFORM) == view
     p.page.select_option("#u-tj-depth", "d1")
     p.page.select_option("#u-tj-dir", "up")
@@ -582,6 +601,7 @@ def test_detail_level_change_in_the_mode_keeps_the_trajectory(shop_page: Shop) -
     }
     x, y = centre(p, "fct_orders")
     p.page.mouse.click(x, y)
+    p.panel_lineage()
     assert p.state()["start"] == "model.shop.fct_orders", "a card is clicked too"
 
 
@@ -641,6 +661,7 @@ def test_click_on_the_empty_background_leaves_the_mode(shop_page: Shop, zoom: st
     if zoom == "close":
         x, y = centre_on_map(p, "fct_orders")
         p.page.mouse.click(x, y)
+        p.panel_lineage()
         assert p.page.evaluate(TRANSFORM)[2] >= FAR
     else:
         enter_by_button(p, "fct_orders")

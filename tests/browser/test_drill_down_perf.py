@@ -183,3 +183,50 @@ def test_names_in_the_sources_layer_do_not_overlap(large_page: Any, open_page: A
     names = p.page.evaluate("views.universe.drawnNames()")
     print(f"sources layer: {len(names)} of {drawn} names at Fit")
     assert names
+
+
+PANEL_MEDIAN_MS, PANEL_WORST_MS = 50, 100  # the table panel (M9.3, design note § Performance)
+
+
+def test_the_table_panel_opens_well_under_100_ms_on_the_tables_with_the_most_links(
+    large_page: Any, open_page: Any
+) -> None:
+    """The panel of each of the ten most linked tables of the largest domain, opened by a click: the page's
+    own time from the click handler to the rendered panel (`perf().panel`); then a neighbour of another
+    domain, whose entering is within the M9.2 budget."""
+    p = open_page(large_page[0])
+    settle(p)
+    u = large_page[1]["universe"]
+    nodes = u["nodes"]
+    links = [0] * len(nodes)
+    for pairs in (u["relations"], u["lineage"]):
+        for a, b in pairs:
+            links[a] += 1
+            links[b] += 1
+    p.page.evaluate("views.universe.enter('vehicle')")
+    settle(p)
+    inside = {t["id"] for t in p.page.evaluate("views.universe.geometry().tables")}
+    busiest = sorted((i for i, n in enumerate(nodes) if n["id"] in inside), key=lambda i: -links[i])[:10]
+    times = []
+    for i in busiest:
+        x, y = p.page.evaluate(
+            """id => { const t = views.universe.geometry().tables.find(t => t.id === id);
+                     const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }""",
+            nodes[i]["id"],
+        )
+        p.page.mouse.click(*canvas_xy(p, x, y))
+        p.page.wait_for_timeout(300)
+        assert p.page.evaluate("views.universe.panel().id") == nodes[i]["id"]
+        times.append(perf(p, "panel"))
+    print(
+        f"table panel on the {len(times)} busiest tables: "
+        f"median {median(times):.1f} ms, worst {max(times):.1f} ms"
+    )
+    assert median(times) <= PANEL_MEDIAN_MS and max(times) <= PANEL_WORST_MS
+    pairs = u["relations"] + u["lineage"]
+    other = next(b for a, b in pairs if nodes[a]["domain"] == "vehicle" != nodes[b]["domain"])
+    p.page.evaluate("id => views.universe.locate(id)", nodes[other]["id"])
+    settle(p)
+    assert p.page.evaluate("views.universe.location().inside") == nodes[other]["domain"]
+    print(f"a neighbour of another domain: entered in {perf(p, 'enter'):.0f} ms")
+    assert perf(p, "enter") <= BUDGET_MS

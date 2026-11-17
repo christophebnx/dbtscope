@@ -143,10 +143,10 @@ def test_the_detail_controls_that_need_a_focus_say_why(example_page: Any) -> Non
 def test_the_universe_lineage_button_says_why_it_is_disabled(example_page: Any) -> None:
     p, data = example_page
     assert p.page.is_disabled("#u-traj")
-    assert p.page.get_attribute("#u-traj", "title") == "Find a table first, or click one on the map"
+    assert p.page.get_attribute("#u-traj", "title") == "Find a table first, or use Lineage in a table's panel"
     p.page.fill("#u-q", data["universe"]["nodes"][0]["name"])
     assert p.page.is_enabled("#u-traj") and p.page.get_attribute("#u-traj", "title") != (
-        "Find a table first, or click one on the map"
+        "Find a table first, or use Lineage in a table's panel"
     )
 
 

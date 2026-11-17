@@ -97,6 +97,14 @@ class Page:
     def state(self) -> dict[str, Any]:
         return self.page.evaluate("views.universe.trajectoryState()")
 
+    def panel(self) -> dict[str, Any]:
+        """The table panel as the page reports it (M9.3): `open`, `id`, `cols`, `groups`, `rect`."""
+        return self.page.evaluate("views.universe.panel()")
+
+    def panel_lineage(self) -> None:
+        """The panel's Lineage button: the second of the two interactions that start a lineage (D-091)."""
+        self.page.click("#u-tpanel footer button[data-fk=lineage]")
+
 
 Shop = tuple[Page, dict[str, Any]]  # the opened shop page and its embedded payload
 

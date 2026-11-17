@@ -400,3 +400,17 @@ def test_every_string_key_of_a_script_exists_in_both_languages(name: str) -> Non
         assert {"rootDomains", "rootLayers", "goName", "liveEntered", "insideNote", "hintTouch"} <= set(
             key.findall(fr)
         )
+
+
+def test_the_table_panel_is_a_region_inside_the_universe_stage_after_the_canvas() -> None:
+    """M9.3 (D-091): `#u-tpanel`, a labelled region hidden at load, in `#u-stage` after the canvas."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    stage = page[page.index('id="u-stage"') : page.index('id="tab-detail"')]
+    assert re.search(
+        r'<section class="tpanel" id="u-tpanel" role="region" aria-labelledby="u-tp-name" hidden>', stage
+    )
+    assert stage.index('id="u-canvas"') < stage.index('id="u-tpanel"') < stage.index('id="u-summary"')
+    assert 'id="u-tpanel"' not in page[: page.index('id="u-stage"')]
+    text = (ASSETS / "universe.js").read_text(encoding="utf-8")
+    assert "startUniverse(DATA, openInDetail, DETAIL," in text and "detailIds" not in text
+    assert "function detailIndex(" in (ASSETS / "common.js").read_text(encoding="utf-8")

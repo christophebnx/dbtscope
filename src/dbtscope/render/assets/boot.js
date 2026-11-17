@@ -72,6 +72,7 @@ const EXPORT = (() => {
 })();
 
 const views = {};
+const DETAIL_INDEX = detailIndex(PAGE.detail);   // what the detail knows of a table, for the universe's table panel (M9.3)
 const DOMAINS = detailDomains(PAGE.detail, PAGE.universe);   // the detail's groups as universe domains, or null (D-084)
 let current = null;
 let flow = null;   // the flow view (D-036), started on first use; an overlay of the Universe tab, not a view of `views`
@@ -80,7 +81,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, DOMAINS)
-    : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
+    : startUniverse(PAGE.universe, openInDetail, DETAIL_INDEX, LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
 }
 // the universe location as the detail's trail (D-086, D-089): `← All domains › Vehicle › car_hub`, every segment a button back to the

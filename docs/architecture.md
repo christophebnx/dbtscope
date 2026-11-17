@@ -211,6 +211,9 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Whether routes are drawn: the viewer's switch, default from `universe.routes` (page, D-083) | `render/assets/universe.js state.routes`, `routesMemory`, combined with the zoom rule only by `routesDrawn` |
 | The constellation whose routes are spotlit (page, D-071) | `render/assets/universe.js spot`, `routeView` |
 | The source-systems group card: members, bounding box, rows; its text (page, D-069) | `render/assets/universe.js systemsGroup`, `cardPlans`, `cardOwners`, `renderSummaryText` |
+| What the detail payload knows of a table, for the universe: membership, full description, column descriptions, relation columns (page, M9.3) | `render/assets/common.js detailIndex(detail)`, built once in `boot.js` (`DETAIL_INDEX`) |
+| The table panel: open, close, render, its column level and neighbour lists, its live message (page, M9.3, D-091) | `render/assets/universe.js openPanel`, `closePanel`, `dropPanel`, `resumePanel`, `renderPanel`, `panelNeighbours` (handle `panel()`) |
+| The part of the universe stage no overlay covers, where framing lands (page, M9.3) | `render/assets/universe.js visibleArea` (used by `frameTransform`, `zoomTo`), `clearOfPanel` |
 | Trajectory seen from afar: counts per card, edges aggregated per pair of constellations (page, D-066) | `render/assets/universe.js trajSummary`, `cardMark`, `drawTrajectoryArrows` |
 | Text summary of the constellations for screen readers (page, D-066) | `render/assets/universe.js renderSummaryText`, `#u-summary` |
 | Order of the Types list by role (page, D-059) | `render/assets/universe.js ROLE_ORDER` |
@@ -297,6 +300,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. UI word (M9.1, D-084): **Lineage graph** / Graphe de lignage. |
+| What a click on a universe table opens: the facts, columns and neighbours of one table, with Open in Detail and Lineage (M9.3, D-091) | **table panel** (`panel`, `#u-tpanel`, `openPanel`; UI word: panel; French UI: panneau de la table) | card (a table drawn at keys / all), side panel (the ☰ filters), sidebar, drawer | A page overlay of the universe stage, never drawn on the canvas, never saved. A bottom sheet on a narrow stage. |
 | The lineage of one table shown on the universe (enter, bar, dimming, Esc) (M5.x) | **trajectory** (`trajectory`, `traj`, `#u-traj`) | path, trace | Code word only; UI word (M9.1, D-084): **Lineage** / Lignage (a lineage link, in French "lien de lignage"). |
 | The universe's detail level (names, keys, all fields) | **detail level** (`state.detail`, `universe.detail`) | — | UI word (M9.1, D-084): **Show** (names / key columns / all columns) / Afficher. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. UI word (M9.1, D-084): **Domain** when every detail table has its group equal to its universe domain (`common.js detailDomains`), else **Group**. |

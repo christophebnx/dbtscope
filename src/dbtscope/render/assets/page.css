@@ -179,6 +179,54 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .trajbar :focus-visible, #u-traj:focus-visible, .export button:focus-visible, #f-view :focus-visible, .menu summary:focus-visible,
 .help summary:focus-visible, #u-more > summary:focus-visible, .crumbs button:focus-visible, .menu-pop button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
+/* table panel (M9.3, D-091): an overlay of the universe stage, never in an exported image and never resizing the stage; a
+   panel on the right of a wide stage, a bottom sheet on a narrow one (header and actions stay in view) */
+#u-tpanel { position:absolute; z-index:2; top:var(--tp-top,0); right:0; bottom:0; width:min(340px,40%); box-sizing:border-box;
+            overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; background:var(--surface); border-left:1px solid var(--border);
+            box-shadow:0 4px 16px rgba(31,41,51,.12); font-size:13px; padding:0 14px; }
+#u-tpanel[hidden] { display:none; }
+#u-tpanel { overflow-wrap:anywhere; }
+#u-tpanel *:not(button) { min-width:0; }
+#u-tpanel header { position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:8px; padding:12px 0 8px; background:var(--surface); }
+#u-tpanel h2 { flex:1; margin:0; font-size:14px; font-weight:600; }
+#u-tpanel h3 { margin:14px 0 6px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
+#u-tpanel .tp-dot { width:10px; height:10px; border-radius:50%; flex:none; }
+#u-tpanel .tp-close { flex:none; padding:2px 9px; font-size:16px; line-height:1.2; }
+.tp-facts { display:grid; grid-template-columns:90px 1fr; gap:3px 8px; margin:0; }
+.tp-facts dt { color:var(--muted); }
+.tp-facts dd { margin:0; }
+#u-tpanel p { margin:6px 0; }
+.tp-holds { color:var(--fg); }
+.tp-muted, .tp-note, .tp-type, .tp-cdesc, .tp-why { color:var(--muted); }
+.tp-desc.clamp { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:6; overflow:hidden; }
+.tp-colhead { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 8px; }
+.tp-colhead h3 { margin-right:auto; }
+.tp-toggle { display:flex; }
+.tp-toggle button { padding:3px 8px; border-radius:0; font-size:12px; }
+.tp-toggle button:first-child { border-radius:var(--radius) 0 0 var(--radius); }
+.tp-toggle button:last-child { border-radius:0 var(--radius) var(--radius) 0; margin-left:-1px; }
+.tp-toggle button[aria-pressed=true] { color:var(--accent); font-weight:600; box-shadow:inset 0 -2px 0 var(--accent); }
+.tp-cols, .tp-nb ul { margin:0; padding:0; list-style:none; }
+.tp-col { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 8px; }
+.tp-type { font-size:12px; font-variant-numeric:tabular-nums; }
+.tp-cdesc { font-size:12px; }
+.tp-badge { font-size:12px; padding:0 5px; border:1px solid var(--border); border-radius:4px; color:var(--fg); }
+#u-tpanel .tp-nb button, #u-tpanel .tp-all, #u-tpanel .tp-link, #u-tpanel .tp-more { display:block; width:100%; padding:3px 0; border:0; border-radius:0; background:none;
+            font:inherit; font-size:13px; color:var(--accent); text-align:left; }
+#u-tpanel .tp-link { display:inline; width:auto; padding:0; }
+#u-tpanel .tp-more { width:auto; padding:0; }
+#u-tpanel .tp-nb button .tp-note { font-size:12px; }
+#u-tpanel .tp-nb button:hover, #u-tpanel .tp-nb button:focus-visible, #u-tpanel .tp-all:hover, #u-tpanel .tp-link:hover, #u-tpanel .tp-more:hover { text-decoration:underline; border:0; }
+#u-tpanel footer { position:sticky; bottom:0; display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding:10px 0 12px; background:var(--surface); border-top:1px solid var(--border); }
+#u-tpanel footer .tp-act { flex:1 1 0; }
+#u-tpanel footer .tp-why { flex:1 1 100%; margin:0; font-size:12px; }
+#u-tpanel :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+#u-tp-name:focus { outline:none; }
+#u-tp-name:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (max-width:600px) {
+  #u-tpanel { top:auto; left:0; width:auto; max-height:50%; border-left:0; border-top:1px solid var(--border); border-radius:12px 12px 0 0; }
+}
+
 /* flow view (D-036): an overlay over the whole Universe tab, its own toolbar and Graphviz canvas */
 #f-view { position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; background:var(--bg); }
 #f-view[hidden] { display:none; }
@@ -234,4 +282,6 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   #u-crumbs { min-height:44px; }
   input:not([type=checkbox]):not([type=radio]):not([type=file]) { box-sizing:border-box; }
   .panel h3 a { display:inline-flex; align-items:center; padding:0 8px; }
+  #u-tpanel .tp-nb button, #u-tpanel .tp-all, #u-tpanel .tp-more, #u-tpanel .tp-link { min-height:44px; min-width:44px; display:inline-flex; align-items:center; }
+  #u-tpanel .tp-nb button { display:flex; flex-wrap:wrap; }
 }

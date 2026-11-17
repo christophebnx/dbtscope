@@ -331,7 +331,7 @@ def test_a_search_enters_the_domain_and_esc_steps_back_twice(large_page: Any, op
     assert where(p)["level"] == 0
 
 
-def test_a_click_on_a_table_inside_starts_the_lineage_and_esc_leaves_it_then_the_domain(
+def test_a_click_on_a_table_inside_opens_its_panel_whose_lineage_esc_leaves_then_the_domain(
     large_page: Any, open_page: Any
 ) -> None:
     p = open_page(large_page[0])
@@ -339,6 +339,9 @@ def test_a_click_on_a_table_inside_starts_the_lineage_and_esc_leaves_it_then_the
     t = max(tables(p), key=lambda t: t["r"])
     r = p.page.evaluate("id => views.universe.place(id)", t["id"])
     p.page.mouse.click(*canvas_xy(p, r["x"] + r["w"] / 2, r["y"] + 6))
+    settle(p)
+    assert p.panel()["open"] and where(p)["level"] == 2 and not p.state()["active"]
+    p.panel_lineage()
     settle(p)
     assert p.page.evaluate("views.universe.trajectoryState().active") and where(p)["level"] == 2
     assert path(p).startswith(crumb("All domains", "Vehicle", ""))
@@ -542,7 +545,8 @@ def test_the_whole_path_by_keyboard(large_page: Any, open_page: Any) -> None:
     p.page.keyboard.press("Enter")
     p.page.dispatch_event("#u-q", "change")
     settle(p)
-    assert where(p)["level"] == 2 and live(p) == crumb("All domains", "Vehicle", "car_hub")
+    assert where(p)["level"] == 2 and p.panel()["open"]
+    assert path(p) == crumb("All domains", "Vehicle", "car_hub") and live(p).startswith("car_hub:")
     p.page.locator("#u-crumbs button").nth(1).focus()
     p.page.keyboard.press("Escape")
     settle(p)

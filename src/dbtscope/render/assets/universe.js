@@ -4,7 +4,7 @@
 // canvas draws it.
 // Started the first time its tab is shown. The trajectory traversal and its shared strings are in common.js.
 
-function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
+function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
     en: { links: 'Links', relations: 'relations (tests, foreign keys)', lineage: 'lineage (ref, source)', detail: 'Show',
@@ -22,12 +22,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           insideNote: 'Hover a table to see its links', ghostWord: 'Dependency',
           by: 'Organise by', byDomain: 'Domain', byLayer: 'Layer', layersN: ['layer', 'layers'], domainOne: 'Domain',
           trajectory: 'Lineage', trajFound: 'Lineage of the table found', trajOf: 'Lineage of',
-          needTable: 'Find a table first, or click one on the map',
+          needTable: 'Find a table first, or use Lineage in a table\'s panel',
           brought: ['table brought back by the lineage', 'tables brought back by the lineage'],
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
           leave: 'Leave', leaveTitle: 'Leave the lineage (Esc)', closed: 'Lineage closed',
           fitTraj: 'Frame the lineage', flow: 'Lineage graph', flowTitle: 'Show this lineage as a left-to-right graph',
-          clickTraj: 'Click: show its lineage',
+          tpClose: 'Close the table panel (Esc)', tpKind: 'Table kind', tpDomain: 'Domain', tpLayer: 'Layer', tpOwner: 'Owner',
+          tpInside: 'Drawn inside', tpHolds: n => `Holds ${plural(n, ['descriptive table', 'descriptive tables'])}`,
+          tpDesc: 'Description', tpNoDesc: 'No description', tpMore: 'More', tpLess: 'Less',
+          tpCols: n => `Columns (${num(n)})`, tpColsGroup: 'Columns shown', tpKeys: 'Key columns', tpAll: 'All columns', tpKey: 'key',
+          tpNoKey: 'No key column', tpNoCols: 'No columns declared',
+          tpRefs: n => `References (${num(n)})`, tpRefBy: n => `Referenced by (${num(n)})`,
+          tpUp: n => `Upstream (${num(n)})`, tpDown: n => `Downstream (${num(n)})`, tpHeld: n => `Drawn inside it (${num(n)})`,
+          tpVia: cols => `via ${cols.join(', ')}`, tpHidden: '(hidden by a filter)', tpShowAll: n => `Show all ${num(n)}`,
+          tpNone: 'No relation and no lineage link', tpDetail: 'Open in Detail', tpDetailNo: 'Not in the Detail tab\'s scope',
+          tpLineage: 'Lineage', tpLineageTitle: 'Show where this table\'s data comes from and goes',
+          tpLive: (name, facts, counts) => `${name}: ${facts} · ${counts}. Table panel open; Esc closes it.`,
+          tpClosed: 'Table panel closed', tpKeyboard: 'Location line: Enter on the table to read its panel.',
+          clickPanel: 'Click: open its panel',
           mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`,
           summaryH: layers => `Summary of the ${layers ? 'layers' : 'domains'}`,
           entitiesN: ['entity', 'entities'], entitiesDrawn: ['entity drawn', 'entities drawn'], foldsInto: 'Drawn inside',
@@ -54,8 +66,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
           hint: layers => `Wheel: zoom · drag the background to pan · drag a table, or a ${layers ? 'layer' : 'domain'} by its name, to arrange them · `
               + `click a ${layers ? 'layer' : 'domain'} to enter it · Esc: one level back · `
-              + 'click a table to see its lineage · double-click a table to open its detail',
-          hintTouch: layers => `Pinch: zoom · drag: pan · tap a ${layers ? 'layer' : 'domain'} to enter it · tap a table: its lineage · `
+              + 'click a table to open its panel · double-click a table to open its detail',
+          hintTouch: layers => `Pinch: zoom · drag: pan · tap a ${layers ? 'layer' : 'domain'} to enter it · tap a table: its panel · `
               + 'double-tap a table: its detail · the location line takes you back',
           cardsLiveOffMap: layers => `Summary cards off: named ${layers ? 'layers' : 'domains'} from afar` },
     fr: { links: 'Liens', relations: 'relations (tests, clés étrangères)', lineage: 'lignage (ref, source)', detail: 'Afficher',
@@ -74,13 +86,25 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           insideNote: 'Survolez une table pour voir ses liens', ghostWord: 'Dépendance',
           by: 'Organiser par', byDomain: 'Domaine', byLayer: 'Couche', layersN: ['couche', 'couches'], domainOne: 'Domaine',
           trajectory: 'Lignage', trajFound: 'Lignage de la table trouvée', trajOf: 'Lignage de',
-          needTable: 'Cherchez d\'abord une table, ou cliquez-en une sur la carte',
+          needTable: 'Cherchez d\'abord une table, ou utilisez Lignage dans le panneau d\'une table',
           brought: ['table ramenée par le lignage', 'tables ramenées par le lignage'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
           leave: 'Quitter', leaveTitle: 'Quitter le lignage (Échap)', closed: 'Lignage fermé',
           fitTraj: 'Cadrer le lignage', flow: 'Graphe de lignage',
           flowTitle: 'Afficher ce lignage en graphe, de gauche à droite',
-          clickTraj: 'Clic\u00a0: voir son lignage',
+          tpClose: 'Fermer le panneau de la table (Échap)', tpKind: 'Type de table', tpDomain: 'Domaine', tpLayer: 'Couche', tpOwner: 'Responsable',
+          tpInside: 'Dessinée dans', tpHolds: n => `Contient ${plural(n, ['table descriptive', 'tables descriptives'])}`,
+          tpDesc: 'Description', tpNoDesc: 'Aucune description', tpMore: 'Plus', tpLess: 'Moins',
+          tpCols: n => `Colonnes (${num(n)})`, tpColsGroup: 'Colonnes affichées', tpKeys: 'Colonnes clés', tpAll: 'Toutes les colonnes', tpKey: 'clé',
+          tpNoKey: 'Aucune colonne clé', tpNoCols: 'Aucune colonne déclarée',
+          tpRefs: n => `Références (${num(n)})`, tpRefBy: n => `Référencée par (${num(n)})`,
+          tpUp: n => `En amont (${num(n)})`, tpDown: n => `En aval (${num(n)})`, tpHeld: n => `Dessinées dedans (${num(n)})`,
+          tpVia: cols => `via ${cols.join(', ')}`, tpHidden: '(masquée par un filtre)', tpShowAll: n => `Voir tout (${num(n)})`,
+          tpNone: 'Aucune relation ni lien de lignage', tpDetail: 'Ouvrir dans le Détail', tpDetailNo: 'Hors du périmètre de l\'onglet Détail',
+          tpLineage: 'Lignage', tpLineageTitle: 'Voir d\'où viennent et où vont les données de cette table',
+          tpLive: (name, facts, counts) => `${name}\u00a0: ${facts} · ${counts}. Panneau de la table ouvert\u202f; Échap le ferme.`,
+          tpClosed: 'Panneau de la table fermé', tpKeyboard: 'Ligne d\'emplacement\u00a0: Entrée sur la table pour lire son panneau.',
+          clickPanel: 'Clic\u00a0: ouvrir son panneau',
           mainH: 'Tables principales', rowZoom: label => `Clic\u00a0: cadrer ${label}`,
           summaryH: layers => `Synthèse des ${layers ? 'couches' : 'domaines'}`,
           entitiesN: ['entité', 'entités'], entitiesDrawn: ['entité dessinée', 'entités dessinées'], foldsInto: 'Dessinée dans',
@@ -107,8 +131,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
           hint: layers => `Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou ${layers ? 'une couche' : 'un domaine'} par son nom, pour les ranger · `
               + `clic sur ${layers ? 'une couche' : 'un domaine'} pour y entrer · Échap\u00a0: un niveau en arrière · `
-              + 'clic sur une table\u00a0: son lignage · double-clic sur une table pour son détail',
-          hintTouch: layers => `Pincer\u00a0: zoom · glisser\u00a0: déplacer · toucher ${layers ? 'une couche' : 'un domaine'} pour y entrer · toucher une table\u00a0: son lignage · `
+              + 'clic sur une table pour ouvrir son panneau · double-clic sur une table pour son détail',
+          hintTouch: layers => `Pincer\u00a0: zoom · glisser\u00a0: déplacer · toucher ${layers ? 'une couche' : 'un domaine'} pour y entrer · toucher une table\u00a0: son panneau · `
               + 'double-toucher une table\u00a0: son détail · la ligne d\'emplacement ramène en arrière',
           cardsLiveOffMap: layers => `Fiches de synthèse désactivées\u00a0: ${layers ? 'couches nommées' : 'domaines nommés'} vus de loin` },
   }[PAGE.lang];
@@ -176,6 +200,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // (never saved, D-013): the entered constellation (a domain, or a layer) and the selected table, as indexes
   const MAP = N.length > DATA.defaults.mapAbove;
   const nav = { inside: null, table: null };
+  // the table panel (M9.3, D-091): { i, cols: 'keys' | 'all' | null (the Show select decides), more: Set of the lists shown whole } or null
+  let panel = null, panelKeyboardHint = true, focusCrumb = false;
   const COARSE = window.matchMedia('(pointer: coarse)').matches;
   const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
   let opened = null;   // the entity opened by the last search: its folded tables are drawn (index), at most one
@@ -190,7 +216,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the constellation whose routes are spotlit (M8.4, D-071): a key or GROUP; pointer or focus state, never exported;
   // showAll: the "Show all routes" choice, for the session only
   let spot = null, showAll = false, geomVer = 0, dragging = false;   // geomVer: bumped when a constellation moves (routes are recomputed)
-  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, summary: 0, routes: 0, enter: 0, leave: 0, tweenFrames: 0 };
+  let t = d3.zoomIdentity, hover = null, found = null, perf = { layout: 0, draw: 0, summary: 0, routes: 0, enter: 0, leave: 0, panel: 0, tweenFrames: 0 };
   // summary cards (M8.3, D-065, D-066): the reference star radius of the layout, the rows and header rectangles of
   // the last screen frame (screen px), the card under the pointer and its row, the trajectory marks of the cards
   let refR = 1, routeHits = [], lastView = null, summaryHits = [], cardInfo = [], hoverCard = null, hoverRow = null, trajCache = null, fade = 1, dfade = 1, tfade = 1;
@@ -206,7 +232,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   options($u('links'), ['relations', 'lineage', 'both'], state.links);
   options($u('detail'), ['names', 'keys', 'all'], state.detail);
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
-  $u('detail').onchange = ev => { state.detail = ev.target.value; relayout(); };
+  $u('detail').onchange = ev => { state.detail = ev.target.value; if (panel) panel.cols = null; relayout(); };
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;
   $u('h-nav').textContent = T.navigate; $u('h-display').textContent = T.display; $u('h-filters').textContent = T.filters;
   $u('more-t').textContent = T.moreDisplay;
@@ -356,7 +382,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the trajectory members the fold would otherwise hide: what makes entering or leaving a trajectory relayout
   const unfoldedKey = () => trajMembers().filter(wouldFold).sort((a, b) => a - b).join();
   // Find, mark and frame one table (search box, return from the Detail tab): tick it back when filtered out, open its
-  // entity when folded, ring it as found and zoom to it
+  // entity when folded, ring it as found, open its panel and zoom to it
   function mark(n) {
     // a folded table opens its entity (one at a time); any other table closes it
     const before = opened, hidden = tick(n.i);
@@ -368,10 +394,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // and ringed; a lineage on another table keeps its own table level
     const key = grouping().of(n);
     if (nav.inside !== key) enter(key, 'search', { instant: true });
-    if (!traj) select(n.i);
-    found = n.i;
+    openPanel(n.i, 'search');
     zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5, kStars() * 1.05));
-    $u('live').textContent = opened !== before && opened != null ? T.openedLive(n.name, N[opened].name) : pathText();
+    if (opened !== before && opened != null) $u('live').textContent = `${T.openedLive(n.name, N[opened].name)}. ${panelLive(n.i)}`;
   }
   $u('q').onchange = ev => { const n = findByName(ev.target.value); if (n) mark(n); };
   // the way back from the Detail tab (D-086): the table's name goes into the search box (which enables Lineage for it),
@@ -1903,12 +1928,20 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const sel = zoomOn(d3.select(canvas).call(drag), zoom);
   // room kept free at the top of the canvas: the trajectory bar overlays it while the mode is on
   const top = () => traj ? bar.offsetHeight : 0;
+  // the part of the stage no overlay covers, where framing lands (M9.3): below the lineage bar, and beside (wide stage) or
+  // above (bottom sheet) the table panel when it shows. The panel's size is read from the DOM, so one rule serves both layouts.
+  function visibleArea() {
+    const W = stage.clientWidth, H = stage.clientHeight, el = $u('tpanel'), a = { x0: 0, y0: top(), x1: W, y1: H };
+    if (el.hidden) return a;
+    if (el.offsetWidth > W / 2) a.y1 = H - el.offsetHeight; else a.x1 = W - el.offsetWidth;
+    return a;
+  }
   // frame a world-space box, at most at scale kMax, at least at kMin
   function frameTransform(bx0, by0, bx1, by1, kMax = Infinity, kMin = 0) {
     // constellation names sit above the halos at a fixed screen size: keep that strip free at the top
-    const NAME = 46, top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0 - NAME;
+    const NAME = 46, a = visibleArea(), w = a.x1 - a.x0, h = a.y1 - a.y0 - NAME;
     const k = Math.max(kMin, Math.min(kMax, 0.95 * Math.min(w / (bx1 - bx0), h / (by1 - by0))));
-    return d3.zoomIdentity.translate(w / 2, top0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
+    return d3.zoomIdentity.translate(a.x0 + w / 2, a.y0 + NAME + h / 2).scale(k).translate(-(bx0 + bx1) / 2, -(by0 + by1) / 2);
   }
   function frame(bx0, by0, bx1, by1, animate, kMax = Infinity, kMin = 0) {
     (animate ? sel.transition().duration(500) : sel).call(zoom.transform, frameTransform(bx0, by0, bx1, by1, kMax, kMin));
@@ -1935,8 +1968,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     (animate ? sel.transition().duration(500) : sel).call(zoom.transform, tr);
   }
   function zoomTo(x, y, k) {
-    const top0 = top(), w = stage.clientWidth, h = stage.clientHeight - top0;
-    sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate(w / 2, top0 + h / 2).scale(k).translate(-x, -y));
+    const a = visibleArea();
+    sel.transition().duration(600).call(zoom.transform, d3.zoomIdentity.translate((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2).scale(k).translate(-x, -y));
   }
   const aim = () => nav.inside || t.k >= FAR;   // from afar stars are too tight to aim at; inside a constellation they never are
   const pick = ev => (tablesLive() ? pickAt(...t.invert(d3.pointer(ev, canvas))) : null);
@@ -2074,9 +2107,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (route) {
       tip.innerHTML = routeTip(route);
     } else if (n) {
-      const dbl = detailIds.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
+      const dbl = DETAIL.has(n.id) ? T.openDetail : T.zoomIn, start = traj && n.i === traj.start;
       tip.innerHTML = tableTip(DATA, n) + (traj ? trajectoryTip(traj, n.i) : '') + tableDesc(n) +
-        `<div class="a">${!aim() ? enterWord() : start ? dbl : T.clickTraj + ' · ' + dbl}</div>` + foldTip(n);
+        `<div class="a">${!aim() ? enterWord() : start ? dbl : T.clickPanel + ' · ' + dbl}</div>` + foldTip(n);
     } else if (d.group) {
       // the group card: its counts and the click action; over a row, that system
       const sys = row && constellations.find(c => c.k === row.row);
@@ -2104,23 +2137,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (performance.now() - lastEnter < 700) return;   // the first click of this double-click entered a constellation
     const n = aim() ? pick(ev) : null;
     if (n) {
-      if (detailIds.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
+      if (DETAIL.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
       return;
     }
     const d = constellationAt(ev);
     if (d && !d.group) enter(d.k, 'dblclick');
   });
-  // single click: a table enters the lineage mode, or moves it; a row of a summary card enters its constellation and frames
-  // the band; a disc, a card or a ghost enters its constellation; only the empty background (no table, domain label, summary
-  // card or domain halo, at any zoom) leaves the lineage.
+  // single click: a table opens its panel (D-091), over the lineage when there is one; a row of a summary card enters its
+  // constellation and frames the band; a disc, a card or a ghost enters its constellation; with the panel open, anything
+  // else only closes it; the empty background (no table, domain label, summary card or domain halo, at any zoom) leaves the lineage.
   // d3-drag and d3-zoom swallow the click that ends a drag or a pan.
   canvas.addEventListener('click', ev => {
     if (ev.detail > 1) return;   // the second click of a double-click
     const [px, py] = d3.pointer(ev, canvas), ghost = nav.inside ? ghostAt(px, py) : null;
     if (ghost) { enter(ghost.k, 'ghost'); return; }
     const n = aim() ? pick(ev) : null;
-    if (n) { enterTrajectory(n.i); return; }
+    if (n) { openPanel(n.i, 'click'); return; }
+    if (panel) { closePanel('background'); return; }
     const row = cardsLive() ? rowAt(px, py) : null;
     if (row) { zoomOnRow(row); return; }
     const label = labelAt(px, py), d = constellationAt(ev) || (label && label.d);
@@ -2141,7 +2175,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const constellationOf = key => constellations.find(d => d.k === key);
   const rebuildTree = () => { tree = d3.quadtree(nav.inside ? spread.tables : visible, n => P[n.i].x, n => P[n.i].y); };
   // the table level follows the lineage while one is on; the ring of a search is not a lineage
-  function clearFound() { found = null; nav.table = traj ? traj.start : null; }
+  function clearFound() { found = null; nav.table = traj ? traj.start : null; dropPanel(); }
   // the box the spread is framed in: the stage minus the ghost margins and the header strip (and the lineage bar)
   function stageBox() {
     const W = stage.clientWidth, H = stage.clientHeight, small = W < NAV.SMALL, gy = small ? 28 : NAV.GHOST_Y;
@@ -2206,7 +2240,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     clearFoundIfGone();
     renderCrumbs();
   }
-  const clearFoundIfGone = () => { if (nav.table != null && !traj && !PASS[nav.table]) nav.table = null; };
+  function clearFoundIfGone() {
+    if (panel && !PASS[panel.i]) { dropPanel(); found = null; nav.table = traj ? traj.start : null; }
+    if (nav.table != null && !traj && !PASS[nav.table]) nav.table = null;
+  }
   // the viewer's grouping changed: back to the map, nothing selected
   function resetNav() {
     finishTween(); nav.inside = null; spread = null; clearFound(); P = PM; rebuildTree();
@@ -2326,11 +2363,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const items = pathItems(nav.inside, nav.table), last = items.length - 1;
     crumbs($u('crumbs'), items.map((it, j) => ({ ...it, current: j === last, go: () => go(it.step) })));
     syncRows();
-    $u('inside-note').hidden = !nav.inside || !!traj || COARSE;
+    $u('inside-note').hidden = !nav.inside || !!traj || COARSE || !!panel;
+    if (focusCrumb) { focusCrumb = false; const here = $u('crumbs').querySelector('[aria-current]'); if (here) here.focus(); }
   }
   // go to a step of the path: 0 the map, 1 the entered constellation (`key`: another one, from the Detail tab), 2 the table;
   // the current step frames its place
   function go(step, key) {
+    if (step < 2 && panel) closePanel('crumb');
     if (step === 0) { if (nav.table != null) unselect(); if (nav.inside) leave('crumb'); else fit(true); return; }
     if (step === 1) {
       const target = key ?? nav.inside;
@@ -2341,6 +2380,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     }
     const n = nav.table != null && N[nav.table];
     if (n && P[n.i]) zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5, kStars() * 1.05));
+    if (panel) $u('tp-name').focus();   // the keyboard way into the panel
   }
   function select(i) { nav.table = i; renderCrumbs(); }
   // clear the table level (and leave the lineage when it starts there)
@@ -2353,7 +2393,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // Esc: one level back (D-089)
   function back() {
     finishTween();
-    if (nav.table != null) unselect(); else if (nav.inside) leave('esc');
+    if (panel) closePanel('esc'); else if (nav.table != null) unselect(); else if (nav.inside) leave('esc');
   }
 
   // ---- band headers and ghosts of an entered constellation (D-088, D-090), in screen space, as the image shows them
@@ -2512,19 +2552,259 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       + `<div class="a">${enterWord()}</div>`;
   }
 
+  // ---------------------------------------------------------------- table panel (M9.3, D-091)
+  // A click on a table, a search, or the return from the Detail tab opens the panel of that table: what it is, its columns, and
+  // its neighbours as a list that goes there; Open in Detail and Lineage are its two next steps. It is HTML in the stage, never
+  // drawn on the canvas (so never exported), never saved. `panel` is the state, `nav.table` the table level it stands for.
+  const PANEL_ITEMS = 20, PANEL_COLS = 200;
+  const tpEl = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const byNameId = (a, b) => N[a.j].name.localeCompare(N[b.j].name) || N[a.j].id.localeCompare(N[b.j].id);
+  // the neighbours of table i, sorted by name: { references, referencedBy, upstream, downstream, held }, each a list of
+  // { j, via } (the relation columns, when both ends are detail tables); a self relation is skipped, a neighbour reached by
+  // several relations is one item
+  function panelNeighbours(i) {
+    const relations = (own, other) => {
+      const by = new Map();
+      DATA.relations.forEach(r => {
+        if (r[own] !== i || r[other] === i) return;
+        const j = r[other], cols = by.get(j) || [], [c, p] = own === 0 ? [i, j] : [j, i];
+        DETAIL.relationColumns(N[c].id, N[p].id).forEach(x => { if (!cols.includes(x)) cols.push(x); });
+        by.set(j, cols);
+      });
+      return [...by].map(([j, via]) => ({ j, via })).sort(byNameId);
+    };
+    const plain = indices => [...indices].map(j => ({ j, via: [] })).sort(byNameId);
+    const { up, down } = trajectory(DATA.lineage, i, 'both', 1);
+    return { references: relations(0, 1), referencedBy: relations(1, 0), upstream: plain(up.keys()), downstream: plain(down.keys()), held: plain(HELD.get(i) || []) };
+  }
+  // the column level shown: the viewer's toggle, else the Show select's (names and key columns show the keys)
+  const panelLevel = () => panel.cols || (state.detail === 'all' ? 'all' : 'keys');
+  const panelFacts = n => {
+    const layers = state.by === 'layers', dom = DOM[n.domain] || { key: n.domain }, owner = dom.owner;
+    const domain = [T.tpDomain, labelOf(dom)], layer = [T.tpLayer, labelOf(LAYER[n.layer])];
+    return [[T.tpKind, labelOf(KIND[n.kind])], ...(layers ? [layer, domain] : [domain, layer]), ...(owner ? [[T.tpOwner, owner]] : [])];
+  };
+  // the sentence the live region says on open and on each change of table
+  function panelLive(i) {
+    const n = N[i], g = panelNeighbours(i), rels = new Set([...g.references, ...g.referencedBy].map(x => x.j)).size;
+    const facts = panelFacts(n).filter(f => f[0] !== T.tpOwner).map(f => f[1]).join(' · ');
+    const counts = [plural(n.cols.length, L.columns), plural(rels, T.relationsN), plural(g.upstream.length + g.downstream.length, T.lineageN)].join(' · ');
+    const text = T.tpLive(n.name, facts, counts);
+    return panelKeyboardHint ? `${text} ${T.tpKeyboard}` : text;
+  }
+  // one neighbour button: its name, then a muted line (relation columns, other domain, hidden by a filter)
+  function neighbourItem(it, group) {
+    const n = N[it.j], b = tpEl('button'), note = [];
+    b.type = 'button'; b.dataset.fk = `nb:${group}:${it.j}`;
+    b.append(tpEl('span', 'tp-nm', n.name));
+    if (it.via.length) note.push(T.tpVia(it.via));
+    if (n.domain !== N[panel.i].domain) note.push(labelOf(DOM[n.domain] || { key: n.domain }));
+    if (!PASS[it.j]) note.push(T.tpHidden);
+    if (note.length) b.append(tpEl('span', 'tp-note', ' · ' + note.join(' · ')));
+    b.onclick = () => { mark(n); $u('tp-name').focus(); };
+    return b;
+  }
+  function neighbourGroup(title, items, group) {
+    const sec = tpEl('div', 'tp-nb'), whole = panel.more.has(group), shown = whole ? items : items.slice(0, PANEL_ITEMS);
+    sec.append(tpEl('h3', null, title(items.length)));
+    const ul = tpEl('ul');
+    shown.forEach(it => { const li = tpEl('li'); li.append(neighbourItem(it, group)); ul.append(li); });
+    sec.append(ul);
+    if (items.length > shown.length) {
+      const more = tpEl('button', 'tp-all', T.tpShowAll(items.length));
+      more.type = 'button'; more.dataset.fk = `all:${group}`;
+      more.onclick = () => { panel.more.add(group); pendingFocus = `nb:${group}:${items[PANEL_ITEMS].j}`; renderPanel(false); };
+      sec.append(more);
+    }
+    return sec;
+  }
+  let pendingFocus = null;
+  function columnsBlock(n) {
+    const sec = tpEl('div', 'tp-colsec'), level = panelLevel(), described = DETAIL.columns(n.id);
+    const rows = level === 'all' ? n.cols : n.cols.filter(c => c[2]), whole = panel.more.has('cols'), shown = whole ? rows : rows.slice(0, PANEL_COLS);
+    const head = tpEl('div', 'tp-colhead');
+    head.append(tpEl('h3', null, T.tpCols(n.cols.length)));
+    if (n.cols.length) {
+      const group = tpEl('div', 'tp-toggle');
+      group.setAttribute('role', 'group'); group.setAttribute('aria-label', T.tpColsGroup);
+      [['keys', T.tpKeys], ['all', T.tpAll]].forEach(([v, label]) => {
+        const b = tpEl('button', null, label);
+        b.type = 'button'; b.dataset.fk = `cols:${v}`; b.setAttribute('aria-pressed', String(level === v));
+        b.onclick = () => { panel.cols = v; renderPanel(false); };
+        group.append(b);
+      });
+      head.append(group);
+    }
+    sec.append(head);
+    if (!n.cols.length) { sec.append(tpEl('p', 'tp-muted', T.tpNoCols)); return sec; }
+    if (!rows.length) sec.append(tpEl('p', 'tp-muted', T.tpNoKey));
+    const ul = tpEl('ul', 'tp-cols');
+    shown.forEach(c => {
+      const li = tpEl('li'), line = tpEl('div', 'tp-col');
+      line.append(tpEl('span', 'tp-nm', c[0]), tpEl('span', 'tp-type', c[1]));
+      if (c[2]) line.append(tpEl('span', 'tp-badge', T.tpKey));
+      li.append(line);
+      if (described.get(c[0])) li.append(tpEl('div', 'tp-cdesc', described.get(c[0])));
+      ul.append(li);
+    });
+    sec.append(ul);
+    if (rows.length > shown.length) {
+      const more = tpEl('button', 'tp-all', T.tpShowAll(rows.length));
+      more.type = 'button'; more.dataset.fk = 'all:cols';
+      more.onclick = () => { panel.more.add('cols'); pendingFocus = null; renderPanel(false); };
+      sec.append(more);
+    }
+    return sec;
+  }
+  function descriptionBlock(n) {
+    const sec = tpEl('div', 'tp-descsec'), full = (DETAIL.entity(n.id) || {}).description || n.desc;
+    sec.append(tpEl('h3', null, T.tpDesc));
+    if (!full) { sec.append(tpEl('p', 'tp-muted', T.tpNoDesc)); return { sec, p: null }; }
+    const p = tpEl('p', 'tp-desc clamp', full);
+    sec.append(p);
+    return { sec, p };
+  }
+  // fill the panel for panel.i in one pass; `announce`: say it in the live region; the focus returns to where it was in the
+  // panel (a toggle, a "Show all"), else to the heading, and stays outside when it was outside
+  function renderPanel(announce) {
+    const el = $u('tpanel'), n = N[panel.i], g = panelNeighbours(panel.i), active = document.activeElement;
+    const had = el.contains(active), key = pendingFocus || (had && active.dataset ? active.dataset.fk : null);
+    pendingFocus = null;
+    el.hidden = false; syncPanelTop();
+    const head = tpEl('header'), name = tpEl('h2', null, n.name), close = tpEl('button', 'tp-close', '×');
+    name.id = 'u-tp-name'; name.tabIndex = -1;
+    close.type = 'button'; close.id = 'u-tp-close'; close.title = T.tpClose; close.setAttribute('aria-label', T.tpClose);
+    close.onclick = () => closePanel('button');
+    head.append(paintDot(tpEl('i', 'tp-dot'), KIND[n.kind].color), name, close);
+    const facts = tpEl('dl', 'tp-facts');
+    panelFacts(n).forEach(([k, v]) => facts.append(tpEl('dt', null, k), tpEl('dd', null, v)));
+    if (PARENT[n.i] >= 0 && folding()) {
+      const parent = N[PARENT[n.i]], dd = tpEl('dd'), b = tpEl('button', 'tp-link', parent.name);
+      b.type = 'button'; b.onclick = () => { mark(parent); $u('tp-name').focus(); };
+      dd.append(b); facts.append(tpEl('dt', null, T.tpInside), dd);
+    }
+    const body = [facts];
+    if (g.held.length) body.push(tpEl('p', 'tp-holds', T.tpHolds(g.held.length)));
+    const desc = descriptionBlock(n);
+    body.push(desc.sec);
+    body.push(columnsBlock(n));
+    const lists = [[T.tpRefs, g.references, 'references'], [T.tpRefBy, g.referencedBy, 'referencedBy'], [T.tpUp, g.upstream, 'upstream'],
+                   [T.tpDown, g.downstream, 'downstream'], [T.tpHeld, g.held, 'held']].filter(l => l[1].length);
+    lists.forEach(([title, items, group]) => body.push(neighbourGroup(title, items, group)));
+    if (!lists.length) body.push(tpEl('p', 'tp-muted', T.tpNone));
+    const foot = tpEl('footer'), openDetail = tpEl('button', 'tp-act', T.tpDetail), lineage = tpEl('button', 'tp-act', T.tpLineage);
+    openDetail.type = 'button'; lineage.type = 'button'; openDetail.dataset.fk = 'detail'; lineage.dataset.fk = 'lineage';
+    lineage.title = T.tpLineageTitle;
+    lineage.onclick = () => { const i = panel.i; dropPanel(); enterTrajectory(i); $u('tj-dir').focus(); };
+    if (DETAIL.has(n.id)) openDetail.onclick = () => { tip.style.display = 'none'; openInDetail(n.id); };
+    else openDetail.disabled = true;
+    foot.append(openDetail, lineage);
+    if (openDetail.disabled) {
+      const why = tpEl('p', 'tp-why', T.tpDetailNo);
+      why.id = 'u-tp-why'; openDetail.setAttribute('aria-describedby', 'u-tp-why'); foot.append(why);
+    }
+    el.replaceChildren(head, ...body, foot);
+    if (announce) el.scrollTop = 0;   // another table starts at the top
+    if (desc.p && desc.p.scrollHeight > desc.p.clientHeight + 1) {
+      const more = tpEl('button', 'tp-more', T.tpMore);
+      more.type = 'button'; more.setAttribute('aria-expanded', 'false');
+      more.onclick = () => {
+        const open = desc.p.classList.toggle('clamp') === false;
+        more.setAttribute('aria-expanded', String(open)); more.textContent = open ? T.tpLess : T.tpMore;
+      };
+      desc.p.after(more);
+    }
+    if (had) (el.querySelector(`[data-fk="${key}"]`) || name).focus();
+    if (announce) { $u('live').textContent = panelLive(panel.i); panelKeyboardHint = false; }
+  }
+  // the panel stands below the lineage bar when it shows (wide stage); the bottom sheet ignores it
+  function syncPanelTop() { $u('tpanel').style.setProperty('--tp-top', top() + 'px'); }
+  // open (or change to) the panel of table i: the table level, the ring, the panel; `how` 'click' pans only as far as needed to
+  // clear the table of the panel; a search or a neighbour frames it itself
+  function openPanel(i, how) {
+    const t0 = performance.now(), same = panel && panel.i === i;
+    if (!same) panel = { i, cols: null, more: new Set() };
+    nav.table = i; found = i;
+    renderCrumbs(); renderPanel(!same);
+    if (how === 'click') { clearOfPanel(i); letClickThrough(); }
+    draw();
+    perf.panel = performance.now() - t0;
+  }
+  // hide the panel (no change of the location); announce when one was open
+  function dropPanel() {
+    if (!panel) return;
+    const el = $u('tpanel');
+    focusCrumb = el.contains(document.activeElement);
+    panel = null; el.hidden = true; el.replaceChildren();
+    $u('live').textContent = T.tpClosed;
+  }
+  // close the panel: the table level goes back to the lineage's start (a lineage stays on), else to nothing, and the ring goes
+  function closePanel(how) {
+    if (!panel) return;
+    dropPanel(); found = null; nav.table = traj ? traj.start : null;
+    renderCrumbs(); draw();
+  }
+  // after a layout: the panel of `kept` is back when its table is still drawn in the location, else it is closed
+  function resumePanel(kept) {
+    if (!kept) return;
+    if (PASS[kept.i] && (!nav.inside || grouping().of(N[kept.i]) === nav.inside)) {
+      panel = kept; nav.table = kept.i; found = kept.i;
+      renderCrumbs(); renderPanel(false);
+      return;
+    }
+    const el = $u('tpanel');
+    focusCrumb = el.contains(document.activeElement);
+    el.hidden = true; el.replaceChildren(); $u('live').textContent = T.tpClosed;
+    renderCrumbs();
+  }
+  // the second click of a double-click must reach the table, which may sit where the panel has just appeared: the panel takes
+  // no pointer for as long as a double-click lasts
+  let throughTimer = 0;
+  function letClickThrough() {
+    const el = $u('tpanel');
+    clearTimeout(throughTimer);
+    el.style.pointerEvents = 'none';
+    throughTimer = setTimeout(() => { el.style.pointerEvents = ''; }, 450);
+  }
+  // a click-open pans (never zooms) by the smallest vector that puts the table's box, with 16 px around, in the uncovered area
+  function clearOfPanel(i) {
+    const r = place(N[i].id), a = visibleArea();
+    if (!r) return;
+    const slide = (lo, hi, min, max) => (hi > max ? Math.max(max - hi, min - lo) : lo < min ? min - lo : 0);
+    const dx = slide(r.x, r.x + r.w, a.x0 + 16, a.x1 - 16), dy = slide(r.y, r.y + r.h, a.y0 + 16, a.y1 - 16);
+    if (!dx && !dy) return;
+    const to = d3.zoomIdentity.translate(t.x + dx, t.y + dy).scale(t.k);
+    (reduced() ? sel : sel.transition().duration(200)).call(zoom.transform, to);
+  }
+  // the panel as the browser tests read it (ids are dbt unique_ids)
+  function panelState() {
+    const el = $u('tpanel'), ids = list => list.map(x => N[x.j].id), g = panel && panelNeighbours(panel.i);
+    return { open: !!panel, id: panel ? N[panel.i].id : null, cols: panel ? panelLevel() : null,
+      groups: g ? { references: ids(g.references), referencedBy: ids(g.referencedBy), upstream: ids(g.upstream), downstream: ids(g.downstream), held: ids(g.held) } : null,
+      rect: panel ? { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight } : null };
+  }
+
   // ---------------------------------------------------------------- trajectory mode
   const countsText = (u, d) => trajectoryCounts(trajOpts.direction, u, d);
-  function enterTrajectory(i) {
+  // `keepPanel`: a Direction or Depth change moves nothing the panel shows, so it stays open on its table
+  function enterTrajectory(i, keepPanel = false) {
+    if (panel && !keepPanel) dropPanel();
     const { up, down } = trajectory(DATA.lineage, i, trajOpts.direction, trajOpts.depth);
     const folded = unfoldedKey();   // the members the fold hid before: they are drawn while the mode is on
     traj = { start: i, up, down, edges: trajectoryEdges(DATA.lineage, i, up, down), brought: 0 };
     bar.hidden = false;   // shown before reveal, so a relayout frames the trajectory below the bar
     traj.brought = reveal(trajMembers());
     if (!traj.brought && unfoldedKey() !== folded) relayoutAnchored(i);   // unfold its members (or fold the last ones back)
-    nav.table = i; found = null;
+    nav.table = panel ? panel.i : i; found = panel ? panel.i : null;
     if (nav.inside && nav.inside !== grouping().of(N[i]) && constellationOf(grouping().of(N[i]))) enter(grouping().of(N[i]), 'lineage', { instant: true });
     renderCrumbs();
     const n = N[i], summary = renderBar();
+    syncPanelTop();
     live.textContent = `${T.trajOf} ${n.name}${L.colon}${summary}.` + (traj.brought ? ` ${plural(traj.brought, T.brought)}.` : '');
     draw();
   }
@@ -2533,7 +2813,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const inBar = bar.contains(document.activeElement), unfolded = unfoldedKey() !== '', start = traj.start;
     traj = null; bar.hidden = true; $u('tj-counts').open = false;
     if (nav.table === start) nav.table = null;
-    renderCrumbs();
+    syncPanelTop(); renderCrumbs();
     $u('fit').removeAttribute('title');
     live.textContent = T.closed;
     if (restoreFocus && inBar) ($u('traj').disabled ? $u('q') : $u('traj')).focus();
@@ -2575,8 +2855,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('tj-flow').onclick = () => { if (traj) openFlow(N[traj.start].id, trajOpts.direction, trajOpts.depth); };
   options($u('tj-dir'), ['both', 'up', 'down'], trajOpts.direction);
   options($u('tj-depth'), ['dall', 'd1', 'd2', 'd3'], 'dall');
-  $u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start); };
-  $u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start); };
+  $u('tj-dir').onchange = ev => { trajOpts.direction = ev.target.value; if (traj) enterTrajectory(traj.start, true); };
+  $u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start, true); };
   $u('tj-leave').onclick = () => leaveTrajectory(true);
   const trajBtn = $u('traj');
   // disabled until the box holds an exact table name, with the reason as its title (D-085)
@@ -2619,17 +2899,21 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // a relayout that folds or unfolds trajectory members: no refit, the camera keeps its scale and the table
   // `i` (the one clicked) stays at the same screen point, so it stays under the pointer
   function relayoutAnchored(i) {
-    const was = P[i] && t.apply([P[i].x, P[i].y]);
-    clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar();
+    const was = P[i] && t.apply([P[i].x, P[i].y]), kept = panel;
+    panel = null; clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar(); resumePanel(kept);
     if (!was || !P[i]) return fit(false), draw();
     sel.call(zoom.transform, d3.zoomIdentity.translate(was[0] - t.k * P[i].x, was[1] - t.k * P[i].y).scale(t.k));
     draw();
   }
-  function relayout() { clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar(); fit(false); draw(); }
+  function relayout() {
+    const kept = panel;   // a layout keeps the panel while its table is still drawn
+    panel = null; clearFound(); hover = null; spot = null; layout(); settleInside(); if (traj) renderBar(); resumePanel(kept);
+    fit(false); draw();
+  }
   let size = '';
   new ResizeObserver(() => {
     const s = stage.clientWidth + 'x' + stage.clientHeight;
-    if (stage.clientWidth && s !== size) { size = s; resize(); if (nav.inside) settleInside(); fit(false); }
+    if (stage.clientWidth && s !== size) { size = s; resize(); if (nav.inside) settleInside(); syncPanelTop(); fit(false); }
   }).observe(stage);
   layout(); resize(); fit(false); renderCrumbs();
 
@@ -2716,5 +3000,5 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
   // Reset layout and an import call relayout: they close the entity a search opened; locate is the way back from the Detail tab
   return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, locate, enter: key => go(1, key), go, entered, location,
-           path: () => pathItems(nav.inside, nav.table), trail: (inside, id) => pathItems(inside, ID.has(id) ? ID.get(id) : null), trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
+           path: () => pathItems(nav.inside, nav.table), trail: (inside, id) => pathItems(inside, ID.has(id) ? ID.get(id) : null), trajectoryState, panel: panelState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
 }

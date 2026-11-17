@@ -433,7 +433,12 @@ def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(900)
     b = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.dblclick(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    x, y = p.page.evaluate(
+        "n => { const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + n));"
+        " const c = views.universe.camera(); return [c.x + t.x * c.k, c.y + t.y * c.k]; }",
+        "fct_orders",
+    )
+    p.page.mouse.dblclick(b["x"] + x, b["y"] + y)  # the panel of the search leaves the table left of centre
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
 
 

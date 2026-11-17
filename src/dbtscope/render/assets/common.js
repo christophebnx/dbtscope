@@ -233,6 +233,27 @@ function detailDomains(detail, universe) {
   return new Map(detail.entities.map(e => [e.group, label.get(e.group) ?? e.group]));
 }
 
+// What the detail payload knows of a table, for the universe (M9.3, D-091): `has(id)` (is it a detail table), `entity(id)` (its
+// full description), `columns(id)` (a Map column name -> description) and `relationColumns(child, parent)` (the columns of
+// the relations between two detail tables). Built once by boot.js; structure only.
+function detailIndex(detail) {
+  const byId = new Map(detail.entities.map(e => [e.id, e])), described = new Map(), via = new Map();
+  detail.relations.forEach(r => {
+    const key = r.child + '\u0000' + r.parent;
+    if (!via.has(key)) via.set(key, []);
+    if (r.column && !via.get(key).includes(r.column)) via.get(key).push(r.column);
+  });
+  return {
+    has: id => byId.has(id),
+    entity: id => byId.get(id) || null,
+    columns: id => {
+      if (!described.has(id)) described.set(id, new Map((byId.get(id)?.columns || []).filter(c => c[3]).map(c => [c[0], c[3]])));
+      return described.get(id);
+    },
+    relationColumns: (child, parent) => via.get(child + '\u0000' + parent) || [],
+  };
+}
+
 // The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;

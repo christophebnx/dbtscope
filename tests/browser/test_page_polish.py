@@ -75,6 +75,14 @@ def test_string_tables_have_the_same_keys_and_pairs(shop_page: Any) -> None:
     assert pairs and all(n == 2 for _, n in pairs), pairs
 
 
+# the screen point of a table's star, by name: a search frames it in the area its panel leaves free (M9.3)
+TABLE_STAR_OF = """name => {
+  const id = PAGE.universe.nodes.find(n => n.name === name).id;
+  const t = views.universe.geometry().tables.find(t => t.id === id);
+  const c = views.universe.camera();
+  return [c.x + t.x * c.k, c.y + t.y * c.k];
+}"""
+
 # ---------------------------------------------------------------- universe counts (acme_retail)
 
 UNIVERSE_COUNTS = {
@@ -197,7 +205,10 @@ def test_untrusted_names_and_labels_stay_text(dbt_project: Path, build_page: Any
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     box = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    x, y = p.page.evaluate(
+        TABLE_STAR_OF, NAME
+    )  # the panel of the search leaves the table left of the canvas centre
+    p.page.mouse.move(box["x"] + x, box["y"] + y)
     assert p.page.text_content("#u-tip b") == NAME
     assert p.page.text_content("#u-tip").count(PAYLOAD) == 1  # the description, as text
     # detail: the node, the focus list, the types row
@@ -435,7 +446,10 @@ def test_hostile_table_name_stays_text_in_both_views(
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     box = p.page.locator("#u-canvas").bounding_box()
-    p.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    x, y = p.page.evaluate(
+        TABLE_STAR_OF, HOSTILE
+    )  # the panel of the search leaves the table left of the canvas centre
+    p.page.mouse.move(box["x"] + x, box["y"] + y)
     assert p.page.text_content("#u-tip b") == HOSTILE
     show_detail(p)
     assert p.page.locator("#d-graph .msg").count() == 0
