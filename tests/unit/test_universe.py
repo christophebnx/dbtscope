@@ -237,7 +237,16 @@ def test_kinds_carry_their_role_last_and_keep_their_order() -> None:
         ("seed", "technical"),
         ("other", "none"),
     ]
-    assert list(kinds[0]) == ["key", "label", "color", "role"]
+    assert list(kinds[0]) == ["key", "label", "color", "role", "bg"]  # `bg` joined as the last key (D-092)
+
+
+def test_every_universe_kind_carries_the_body_tint_of_its_colour() -> None:
+    from dbtscope.domain.classify import background
+
+    project = _projects(_model("a_hub"), _model("z"), _model("s", kind="seed"))
+    kinds = _payload(project, {"kinds": [{"key": "hub", "match": ["*_hub"], "color": "#2f6fb5"}]})["kinds"]
+    assert {k["key"] for k in kinds} >= {"hub", "seed", "other"}
+    assert all(k["bg"] == background(k["color"]) for k in kinds)
 
 
 def test_without_a_preset_or_role_kinds_are_none_and_resource_kinds_technical() -> None:

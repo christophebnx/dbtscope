@@ -99,6 +99,7 @@ class UniverseKind(BaseModel):
     label: str | None
     color: str
     role: Role = "none"
+    bg: str = ""  # the light tint of a table body, `classify.background(color)` (D-092)
 
 
 class UniverseDefaults(BaseModel):

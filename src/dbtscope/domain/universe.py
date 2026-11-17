@@ -7,7 +7,15 @@ from collections.abc import Iterable
 from itertools import cycle
 
 from dbtscope.domain import fold
-from dbtscope.domain.classify import OTHER, BuiltinKind, first_rule, group_of, in_scope, key_columns
+from dbtscope.domain.classify import (
+    OTHER,
+    BuiltinKind,
+    background,
+    first_rule,
+    group_of,
+    in_scope,
+    key_columns,
+)
 from dbtscope.domain.config import Config, DomainRule
 from dbtscope.domain.model import LineageEdge, Project, Relation, Table
 from dbtscope.domain.payload import (
@@ -142,12 +150,14 @@ def _layers(used: set[str], config: Config) -> tuple[UniverseLayer, ...]:
 
 def _kinds(used: set[str], config: Config) -> tuple[UniverseKind, ...]:
     kinds = [
-        UniverseKind(key=k.key, label=k.label, color=k.color, role=k.role or "none")
+        UniverseKind(key=k.key, label=k.label, color=k.color, role=k.role or "none", bg=background(k.color))
         for k in config.kinds
         if k.key in used
     ]
     kinds += [
-        UniverseKind(key=t.key, label=t.label[config.language], color=t.color, role=t.role)
+        UniverseKind(
+            key=t.key, label=t.label[config.language], color=t.color, role=t.role, bg=background(t.color)
+        )
         for t in [*TYPE_KINDS.values(), OTHER]
         if t.key in used
     ]
