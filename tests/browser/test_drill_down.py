@@ -651,3 +651,25 @@ def test_the_pages_own_moves_never_change_the_location(large_page: Any, open_pag
     p.page.click("#u-fit")
     settle(p)
     assert where(p)["level"] == 1
+
+
+def test_navigating_writes_nothing_to_local_storage(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    settle(p)
+    dump = "JSON.stringify(Object.entries(localStorage).sort())"
+    before = p.page.evaluate(dump)
+    click_disc(p, "vehicle")
+    search(p, "car_hub")
+    esc(p)
+    esc(p)
+    esc(p)
+    assert p.page.evaluate(dump) == before
+
+
+def test_a_huge_map_above_keeps_a_large_project_on_its_opening_as_before(
+    tmp_path: Path, open_page: Any
+) -> None:
+    p = open_page(with_config(tmp_path, "universe:\n  map_above: 1000000\n"))
+    settle(p)
+    assert summary(p)["weight"] == 0 and p.page.evaluate("views.universe.drawnNames()")
+    assert where(p)["level"] == 0 and path(p) == "All domains"
