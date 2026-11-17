@@ -27,7 +27,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
           leave: 'Leave', leaveTitle: 'Leave the lineage (Esc)', closed: 'Lineage closed',
           fitTraj: 'Frame the lineage', flow: 'Lineage graph', flowTitle: 'Show this lineage as a left-to-right graph',
-          tpClose: 'Close the table panel (Esc)', tpKind: 'Table kind', tpDomain: 'Domain', tpLayer: 'Layer', tpOwner: 'Owner',
+          tpClose: 'Close the table panel (Esc)', tpKind: 'Table kind', tpDomain: 'Domain', tpSystem: 'Source system', tpLayer: 'Layer', tpOwner: 'Owner',
           tpInside: 'Drawn inside', tpHolds: n => `Holds ${plural(n, ['descriptive table', 'descriptive tables'])}`,
           tpDesc: 'Description', tpNoDesc: 'No description', tpMore: 'More', tpLess: 'Less',
           tpCols: n => `Columns (${num(n)})`, tpColsGroup: 'Columns shown', tpKeys: 'Key columns', tpAll: 'All columns', tpKey: 'key',
@@ -92,7 +92,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
           leave: 'Quitter', leaveTitle: 'Quitter le lignage (Échap)', closed: 'Lignage fermé',
           fitTraj: 'Cadrer le lignage', flow: 'Graphe de lignage',
           flowTitle: 'Afficher ce lignage en graphe, de gauche à droite',
-          tpClose: 'Fermer le panneau de la table (Échap)', tpKind: 'Type de table', tpDomain: 'Domaine', tpLayer: 'Couche', tpOwner: 'Responsable',
+          tpClose: 'Fermer le panneau de la table (Échap)', tpKind: 'Type de table', tpDomain: 'Domaine', tpSystem: 'Système source', tpLayer: 'Couche', tpOwner: 'Responsable',
           tpInside: 'Dessinée dans', tpHolds: n => `Contient ${plural(n, ['table descriptive', 'tables descriptives'])}`,
           tpDesc: 'Description', tpNoDesc: 'Aucune description', tpMore: 'Plus', tpLess: 'Moins',
           tpCols: n => `Colonnes (${num(n)})`, tpColsGroup: 'Colonnes affichées', tpKeys: 'Colonnes clés', tpAll: 'Toutes les colonnes', tpKey: 'clé',
@@ -1396,6 +1396,8 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   // the labels of a domain's layer bands, in flow order (its tooltip)
   const bandLabels = d => d.bands.map(b => labelOf(LAYER[b.key])).join(' → ');
   // a constellation's name: its domain's, or its layer's
+  // a domain's display name, its key when the payload has no such domain
+  const domainLabel = key => labelOf(DOM[key] || { key });
   const constellationLabel = key => (key === GROUP ? T.systemsH : labelOf(state.by === 'layers' ? LAYER[key] : DOM[key]));
   // the horizontal span of each band of d, relative to its centre: from the midpoint with the previous band
   // (the disc's left edge for the first) to the midpoint with the next (the right edge for the last)
@@ -2135,7 +2137,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const FAR = 0.5;
   canvas.addEventListener('dblclick', ev => {
     if (performance.now() - lastEnter < 700) return;   // the first click of this double-click entered a constellation
-    const n = aim() ? pick(ev) : null;
+    const n = (aim() ? pick(ev) : null) || (performance.now() - lastOpen.at < DBL_MS ? N[lastOpen.i] : null);
     if (n) {
       if (DETAIL.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
@@ -2175,7 +2177,10 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const constellationOf = key => constellations.find(d => d.k === key);
   const rebuildTree = () => { tree = d3.quadtree(nav.inside ? spread.tables : visible, n => P[n.i].x, n => P[n.i].y); };
   // the table level follows the lineage while one is on; the ring of a search is not a lineage
-  function clearFound() { found = null; nav.table = traj ? traj.start : null; dropPanel(); }
+  // the table level back to the lineage's start (a lineage stays on), else to nothing, and the ring goes
+  function resetTable() { found = null; nav.table = traj ? traj.start : null; }
+  function clearFound() { resetTable(); dropPanel(); }
+  // (the table panel is ignored on purpose: opening it never relays out or refits; only `visibleArea` knows it)
   // the box the spread is framed in: the stage minus the ghost margins and the header strip (and the lineage bar)
   function stageBox() {
     const W = stage.clientWidth, H = stage.clientHeight, small = W < NAV.SMALL, gy = small ? 28 : NAV.GHOST_Y;
@@ -2241,7 +2246,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     renderCrumbs();
   }
   function clearFoundIfGone() {
-    if (panel && !PASS[panel.i]) { dropPanel(); found = null; nav.table = traj ? traj.start : null; }
+    if (panel && !PASS[panel.i]) { dropPanel(); resetTable(); }
     if (nav.table != null && !traj && !PASS[nav.table]) nav.table = null;
   }
   // the viewer's grouping changed: back to the map, nothing selected
@@ -2355,7 +2360,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     const items = [{ label: layers ? T.rootLayers : T.rootDomains, title: $u('meta').title, step: 0 }];
     if (d) items.push({ label: constellationLabel(inside), step: 1,
       title: T.segTitle(d, layers, routes.filter(r => r.source === inside || r.target === inside).length) });
-    if (i != null && N[i]) items.push({ label: N[i].name, step: 2, title: [labelOf(KIND[N[i].kind]), labelOf(DOM[N[i].domain] || { key: N[i].domain })].join(' · ') });
+    if (i != null && N[i]) items.push({ label: N[i].name, step: 2, title: [labelOf(KIND[N[i].kind]), domainLabel(N[i].domain)].join(' · ') });
     return items;
   }
   const pathText = () => pathItems(nav.inside, nav.table).map(it => it.label).join(' › ');
@@ -2586,13 +2591,13 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const panelLevel = () => panel.cols || (state.detail === 'all' ? 'all' : 'keys');
   const panelFacts = n => {
     const layers = state.by === 'layers', dom = DOM[n.domain] || { key: n.domain }, owner = dom.owner;
-    const domain = [T.tpDomain, labelOf(dom)], layer = [T.tpLayer, labelOf(LAYER[n.layer])];
+    const domain = [isSystem(n.domain) ? T.tpSystem : T.tpDomain, domainLabel(n.domain)], layer = [T.tpLayer, labelOf(LAYER[n.layer])];
     return [[T.tpKind, labelOf(KIND[n.kind])], ...(layers ? [layer, domain] : [domain, layer]), ...(owner ? [[T.tpOwner, owner]] : [])];
   };
   // the sentence the live region says on open and on each change of table
   function panelLive(i) {
     const n = N[i], g = panelNeighbours(i), rels = new Set([...g.references, ...g.referencedBy].map(x => x.j)).size;
-    const facts = panelFacts(n).filter(f => f[0] !== T.tpOwner).map(f => f[1]).join(' · ');
+    const facts = [...new Set(panelFacts(n).filter(f => f[0] !== T.tpOwner).map(f => f[1]))].join(' · ');
     const counts = [plural(n.cols.length, L.columns), plural(rels, T.relationsN), plural(g.upstream.length + g.downstream.length, T.lineageN)].join(' · ');
     const text = T.tpLive(n.name, facts, counts);
     return panelKeyboardHint ? `${text} ${T.tpKeyboard}` : text;
@@ -2603,7 +2608,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     b.type = 'button'; b.dataset.fk = `nb:${group}:${it.j}`;
     b.append(tpEl('span', 'tp-nm', n.name));
     if (it.via.length) note.push(T.tpVia(it.via));
-    if (n.domain !== N[panel.i].domain) note.push(labelOf(DOM[n.domain] || { key: n.domain }));
+    if (n.domain !== N[panel.i].domain) note.push(domainLabel(n.domain));
     if (!PASS[it.j]) note.push(T.tpHidden);
     if (note.length) b.append(tpEl('span', 'tp-note', ' · ' + note.join(' · ')));
     b.onclick = () => { mark(n); $u('tp-name').focus(); };
@@ -2704,11 +2709,13 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     if (DETAIL.has(n.id)) openDetail.onclick = () => { tip.style.display = 'none'; openInDetail(n.id); };
     else openDetail.disabled = true;
     foot.append(openDetail, lineage);
-    if (openDetail.disabled) {
+    if (openDetail.disabled) {   // the reason is read in the flow, above the footer, so the sticky footer stays two buttons high
       const why = tpEl('p', 'tp-why', T.tpDetailNo);
-      why.id = 'u-tp-why'; openDetail.setAttribute('aria-describedby', 'u-tp-why'); foot.append(why);
+      why.id = 'u-tp-why'; openDetail.setAttribute('aria-describedby', 'u-tp-why'); body.push(why);
     }
     el.replaceChildren(head, ...body, foot);
+    // a focused row scrolls into view clear of the sticky header and footer (WCAG 2.4.11)
+    el.style.scrollPaddingTop = head.offsetHeight + 'px'; el.style.scrollPaddingBottom = foot.offsetHeight + 'px';
     if (announce) el.scrollTop = 0;   // another table starts at the top
     if (desc.p && desc.p.scrollHeight > desc.p.clientHeight + 1) {
       const more = tpEl('button', 'tp-more', T.tpMore);
@@ -2730,23 +2737,28 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     const t0 = performance.now(), same = panel && panel.i === i;
     if (!same) panel = { i, cols: null, more: new Set() };
     nav.table = i; found = i;
+    $u('q').value = N[i].name; syncTrajBtn();   // the box and its Lineage button follow the table in the panel
     renderCrumbs(); renderPanel(!same);
-    if (how === 'click') { clearOfPanel(i); letClickThrough(); }
+    if (how === 'click') { lastOpen = { i, at: performance.now() }; clearOfPanel(i); letClickThrough(); }
     draw();
     perf.panel = performance.now() - t0;
   }
   // hide the panel (no change of the location); announce when one was open
   function dropPanel() {
     if (!panel) return;
+    panel = null; hidePanel();
+  }
+  // empty and hide the panel element and say so; the focus, when it was inside, goes to the current crumb (renderCrumbs)
+  function hidePanel() {
     const el = $u('tpanel');
     focusCrumb = el.contains(document.activeElement);
-    panel = null; el.hidden = true; el.replaceChildren();
+    el.hidden = true; el.replaceChildren();
     $u('live').textContent = T.tpClosed;
   }
   // close the panel: the table level goes back to the lineage's start (a lineage stays on), else to nothing, and the ring goes
   function closePanel(how) {
     if (!panel) return;
-    dropPanel(); found = null; nav.table = traj ? traj.start : null;
+    dropPanel(); resetTable();
     renderCrumbs(); draw();
   }
   // after a layout: the panel of `kept` is back when its table is still drawn in the location, else it is closed
@@ -2757,19 +2769,19 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
       renderCrumbs(); renderPanel(false);
       return;
     }
-    const el = $u('tpanel');
-    focusCrumb = el.contains(document.activeElement);
-    el.hidden = true; el.replaceChildren(); $u('live').textContent = T.tpClosed;
+    hidePanel();
     renderCrumbs();
   }
   // the second click of a double-click must reach the table, which may sit where the panel has just appeared: the panel takes
-  // no pointer for as long as a double-click lasts
-  let throughTimer = 0;
+  // no pointer for as long as a double-click lasts (the longest default, 500 ms, and a margin). The pan that clears the table of
+  // the panel moves it under the second click, so `lastOpen` tells the dblclick handler which table the first click opened.
+  const DBL_MS = 550;
+  let throughTimer = 0, lastOpen = { i: -1, at: -1e9 };
   function letClickThrough() {
     const el = $u('tpanel');
     clearTimeout(throughTimer);
     el.style.pointerEvents = 'none';
-    throughTimer = setTimeout(() => { el.style.pointerEvents = ''; }, 450);
+    throughTimer = setTimeout(() => { el.style.pointerEvents = ''; }, DBL_MS);
   }
   // a click-open pans (never zooms) by the smallest vector that puts the table's box, with 16 px around, in the uncovered area
   function clearOfPanel(i) {

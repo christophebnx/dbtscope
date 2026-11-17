@@ -705,7 +705,6 @@ def test_at_360_px_the_panel_is_a_bottom_sheet_without_horizontal_scroll(
 
 def test_a_tap_opens_the_panel_and_its_targets_are_44_px(large_page: Any, open_page: Any) -> None:
     p, data = open_large(large_page, open_page, viewport=NARROW, touch=True)
-    click_disc(p, "vehicle") if False else None
     search(p, "car_hub")
     hub = by_name(u_of(data), "car_hub")
     esc(p)
@@ -756,3 +755,101 @@ def test_no_error_through_a_session_of_the_panel(large_page: Any, open_page: Any
     p.page.evaluate(NEXT_FRAME)
     p.page.wait_for_timeout(CENTRE_WAIT_MS // 3)
     assert p.errors == []
+
+
+# ---------------------------------------------------------------- review loop 1
+
+
+def busiest(u: dict[str, Any]) -> dict[str, Any]:
+    """The table with the most relations and lineage links: the longest panel."""
+    nodes = u["nodes"]
+    links = [0] * len(nodes)
+    for pairs in (u["relations"], u["lineage"]):
+        for a, b in pairs:
+            links[a] += 1
+            links[b] += 1
+    return nodes[max(range(len(nodes)), key=links.__getitem__)]
+
+
+FOCUS_CLEAR = """() => { const el = document.getElementById('u-tpanel'), f = document.activeElement;
+  const r = f.getBoundingClientRect(), a = el.querySelector('header').getBoundingClientRect();
+  const b = el.querySelector('footer').getBoundingClientRect();
+  const own = el.querySelector('header').contains(f) || el.querySelector('footer').contains(f);
+  return { inside: el.contains(f), own, top: r.top - a.bottom, bottom: b.top - r.bottom, h: r.height }; }"""
+
+
+def test_tab_inside_the_panel_never_leaves_the_focus_under_the_header_or_the_footer(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page)
+    table = busiest(u_of(data))
+    search(p, table["name"])
+    p.page.locator("#u-crumbs button[aria-current]").click()
+    settle(p)
+    for step in range(40):
+        p.page.keyboard.press("Tab")
+        got = p.page.evaluate(FOCUS_CLEAR)
+        if not got["inside"]:
+            break
+        if got["own"]:
+            continue
+        assert got["top"] >= -1 and got["bottom"] >= -1, (step, got)
+
+
+def test_a_double_click_on_a_table_that_sits_under_the_new_panel_still_opens_its_detail(
+    shop_page: Any,
+) -> None:
+    p, _ = shop_page
+    box = p.page.locator("#u-canvas").bounding_box()
+    p.page.evaluate(
+        "([id, w]) => { const t = views.universe.geometry().tables.find(t => t.id === id);"
+        " views.universe.camera({ x: w - 60 - 1.5 * t.x, y: 300 - 1.5 * t.y, k: 1.5 }); }",
+        ["model.shop.fct_orders", box["width"]],
+    )
+    p.page.wait_for_timeout(100)
+    p.page.mouse.dblclick(*star(p, "model.shop.fct_orders"))  # the first click's pan moves it away
+    p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
+def test_the_box_and_the_toolbar_lineage_follow_the_table_of_the_panel(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page)
+    u = u_of(data)
+    start, group, other = cross_domain_pair(u)
+    search(p, start["name"])
+    p.page.click(f"#u-tpanel button[data-fk='nb:{group}:{u['nodes'].index(other)}']")
+    settle(p)
+    assert p.page.input_value("#u-q") == other["name"] and p.page.is_enabled("#u-traj")
+    p.page.click("#u-traj")
+    assert p.state()["start"] == other["id"]
+
+
+def test_the_sheet_keeps_room_to_scroll_at_360_px_even_with_the_detail_reason(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page, viewport={"width": 360, "height": 740})
+    in_detail = {e["id"] for e in data["detail"]["entities"]}
+    other = next(n for n in data["universe"]["nodes"] if n["id"] not in in_detail)
+    search(p, other["name"])
+    assert p.page.is_visible("#u-tp-why")
+    room = p.page.evaluate(
+        "(() => { const e = document.getElementById('u-tpanel');"
+        " const h = n => e.querySelector(n).offsetHeight;"
+        " return e.clientHeight - h('header') - h('footer'); })()"
+    )
+    assert room >= 120, room
+
+
+def test_a_source_system_is_not_called_a_domain_and_the_live_line_does_not_repeat_itself(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page)
+    systems = {d["key"] for d in data["universe"]["domains"] if d["system"]}
+    table = next(n for n in data["universe"]["nodes"] if n["domain"] in systems)
+    search(p, table["name"])
+    assert "Source system" in texts(p, "#u-tpanel .tp-facts dt") and "Domain" not in texts(
+        p, "#u-tpanel .tp-facts dt"
+    )
+    parts = live(p).split(". Table panel")[0].split(": ", 1)[1].split(" · ")
+    assert len(parts) == len(set(parts)), parts

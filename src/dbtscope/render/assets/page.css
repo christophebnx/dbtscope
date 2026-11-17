@@ -187,7 +187,7 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #u-tpanel[hidden] { display:none; }
 #u-tpanel { overflow-wrap:anywhere; }
 #u-tpanel *:not(button) { min-width:0; }
-#u-tpanel header { position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:8px; padding:12px 0 8px; background:var(--surface); }
+#u-tpanel header { position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:8px; padding:8px 0 4px; background:var(--surface); }
 #u-tpanel h2 { flex:1; margin:0; font-size:14px; font-weight:600; }
 #u-tpanel h3 { margin:14px 0 6px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
 #u-tpanel .tp-dot { width:10px; height:10px; border-radius:50%; flex:none; }
@@ -217,9 +217,9 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 #u-tpanel .tp-more { width:auto; padding:0; }
 #u-tpanel .tp-nb button .tp-note { font-size:12px; }
 #u-tpanel .tp-nb button:hover, #u-tpanel .tp-nb button:focus-visible, #u-tpanel .tp-all:hover, #u-tpanel .tp-link:hover, #u-tpanel .tp-more:hover { text-decoration:underline; border:0; }
-#u-tpanel footer { position:sticky; bottom:0; display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding:10px 0 12px; background:var(--surface); border-top:1px solid var(--border); }
+#u-tpanel footer { position:sticky; bottom:0; display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; padding:6px 0 8px; background:var(--surface); border-top:1px solid var(--border); }
 #u-tpanel footer .tp-act { flex:1 1 0; }
-#u-tpanel footer .tp-why { flex:1 1 100%; margin:0; font-size:12px; }
+#u-tpanel .tp-why { font-size:12px; }
 #u-tpanel :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 #u-tp-name:focus { outline:none; }
 #u-tp-name:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }

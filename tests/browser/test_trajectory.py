@@ -163,7 +163,7 @@ def test_click_on_stg_orders_shows_its_whole_chain_without_layout(shop_page: Sho
     assert p.page.inner_text("#u-tj-sum") == "1 upstream · 2 downstream"
 
 
-def test_click_on_another_table_moves_the_trajectory(shop_page: Shop) -> None:
+def test_the_lineage_button_of_another_tables_panel_moves_the_trajectory(shop_page: Shop) -> None:
     p, _ = shop_page
     lineage_of(p, "stg_orders")
     runs = p.state()["layoutRuns"]

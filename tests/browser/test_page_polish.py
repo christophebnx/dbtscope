@@ -211,6 +211,12 @@ def test_untrusted_names_and_labels_stay_text(dbt_project: Path, build_page: Any
     p.page.mouse.move(box["x"] + x, box["y"] + y)
     assert p.page.text_content("#u-tip b") == NAME
     assert p.page.text_content("#u-tip").count(PAYLOAD) == 1  # the description, as text
+    assert (
+        p.page.text_content("#u-tp-name") == NAME
+        and p.page.locator("#u-tpanel *:not(button):not(i)").count() > 0
+    )
+    assert p.page.locator("#u-tp-name *").count() == 0 and p.page.locator(".tp-desc *").count() == 0
+    assert PAYLOAD in p.page.text_content(".tp-desc")  # the panel's name and description are text too
     # detail: the node, the focus list, the types row
     show_detail(p)
     assert p.page.locator("#d-graph .msg").count() == 0
@@ -451,6 +457,8 @@ def test_hostile_table_name_stays_text_in_both_views(
     )  # the panel of the search leaves the table left of the canvas centre
     p.page.mouse.move(box["x"] + x, box["y"] + y)
     assert p.page.text_content("#u-tip b") == HOSTILE
+    assert p.page.text_content("#u-tp-name") == HOSTILE and p.page.locator("#u-tp-name *").count() == 0
+    assert p.page.locator("#u-tpanel b, #u-tpanel script").count() == 0
     show_detail(p)
     assert p.page.locator("#d-graph .msg").count() == 0
     assert HOSTILE in node_text(p, "dim_customer")
