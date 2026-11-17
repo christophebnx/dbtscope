@@ -2137,7 +2137,8 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   const FAR = 0.5;
   canvas.addEventListener('dblclick', ev => {
     if (performance.now() - lastEnter < 700) return;   // the first click of this double-click entered a constellation
-    const n = (aim() ? pick(ev) : null) || (performance.now() - lastOpen.at < DBL_MS ? N[lastOpen.i] : null);
+    // within a double-click's time the table is the one the first click opened (its pan may have put another under the pointer)
+    const n = performance.now() - lastOpen.at < DBL_MS ? N[lastOpen.i] : aim() ? pick(ev) : null;
     if (n) {
       if (DETAIL.has(n.id)) { tip.style.display = 'none'; openInDetail(n.id); return; }
       found = n.i; zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k * 2.5, 1.5));
@@ -2715,7 +2716,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     }
     el.replaceChildren(head, ...body, foot);
     // a focused row scrolls into view clear of the sticky header and footer (WCAG 2.4.11)
-    el.style.scrollPaddingTop = head.offsetHeight + 'px'; el.style.scrollPaddingBottom = foot.offsetHeight + 'px';
+    syncPanelPadding();
     if (announce) el.scrollTop = 0;   // another table starts at the top
     if (desc.p && desc.p.scrollHeight > desc.p.clientHeight + 1) {
       const more = tpEl('button', 'tp-more', T.tpMore);
@@ -2730,6 +2731,11 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
     if (announce) { $u('live').textContent = panelLive(panel.i); panelKeyboardHint = false; }
   }
   // the panel stands below the lineage bar when it shows (wide stage); the bottom sheet ignores it
+  function syncPanelPadding() {
+    const el = $u('tpanel'), head = el.querySelector('header'), foot = el.querySelector('footer');
+    if (el.hidden || !head || !foot) return;
+    el.style.scrollPaddingTop = head.offsetHeight + 'px'; el.style.scrollPaddingBottom = foot.offsetHeight + 'px';
+  }
   function syncPanelTop() { $u('tpanel').style.setProperty('--tp-top', top() + 'px'); }
   // open (or change to) the panel of table i: the table level, the ring, the panel; `how` 'click' pans only as far as needed to
   // clear the table of the panel; a search or a neighbour frames it itself
@@ -2880,7 +2886,9 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   $u('q').addEventListener('input', syncTrajBtn); $u('q').addEventListener('change', syncTrajBtn);
   syncTrajBtn();
   trajBtn.onclick = () => {
-    const n = findByName($u('q').value);
+    // the table of the panel while the box still holds its name (two tables may share one), else the first of that name
+    const q = $u('q').value.trim().toLowerCase();
+    const n = panel && N[panel.i].name.toLowerCase() === q ? N[panel.i] : findByName(q);
     if (!n) return;
     enterTrajectory(n.i);
     $u('tj-dir').focus();
@@ -2925,7 +2933,7 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   let size = '';
   new ResizeObserver(() => {
     const s = stage.clientWidth + 'x' + stage.clientHeight;
-    if (stage.clientWidth && s !== size) { size = s; resize(); if (nav.inside) settleInside(); syncPanelTop(); fit(false); }
+    if (stage.clientWidth && s !== size) { size = s; resize(); if (nav.inside) settleInside(); syncPanelTop(); syncPanelPadding(); fit(false); }
   }).observe(stage);
   layout(); resize(); fit(false); renderCrumbs();
 

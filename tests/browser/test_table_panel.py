@@ -807,7 +807,13 @@ def test_a_double_click_on_a_table_that_sits_under_the_new_panel_still_opens_its
         ["model.shop.fct_orders", box["width"]],
     )
     p.page.wait_for_timeout(100)
-    p.page.mouse.dblclick(*star(p, "model.shop.fct_orders"))  # the first click's pan moves it away
+    x, y = star(p, "model.shop.fct_orders")
+    p.page.mouse.click(x, y)
+    p.page.wait_for_timeout(
+        250
+    )  # the pan that clears the panel is over: the table is no longer under the pointer
+    assert p.page.evaluate(STAR, "model.shop.fct_orders")[0] != x - box["x"]
+    p.page.mouse.click(x, y, click_count=2)
     p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
 
 
@@ -839,6 +845,7 @@ def test_the_sheet_keeps_room_to_scroll_at_360_px_even_with_the_detail_reason(
         " return e.clientHeight - h('header') - h('footer'); })()"
     )
     assert room >= 120, room
+    assert p.page.locator("#u-tpanel footer > *").count() == 2, "the reason is not in the sticky footer"
 
 
 def test_a_source_system_is_not_called_a_domain_and_the_live_line_does_not_repeat_itself(
@@ -853,3 +860,31 @@ def test_a_source_system_is_not_called_a_domain_and_the_live_line_does_not_repea
     )
     parts = live(p).split(". Table panel")[0].split(": ", 1)[1].split(" · ")
     assert len(parts) == len(set(parts)), parts
+
+
+def test_the_toolbar_lineage_takes_the_table_of_the_panel_when_two_share_a_name(shop_page: Any) -> None:
+    p, data = shop_page
+    nodes = u_of(data)["nodes"]
+    first, last = nodes[0], nodes[-1]
+    p.page.evaluate("([i, name]) => { PAGE.universe.nodes[i].name = name; }", [len(nodes) - 1, first["name"]])
+    p.page.evaluate("id => views.universe.locate(id)", last["id"])
+    p.page.wait_for_timeout(CENTRE_WAIT_MS)
+    assert p.panel()["id"] == last["id"] and p.page.input_value("#u-q") == first["name"]
+    p.page.click("#u-traj")
+    assert p.state()["start"] == last["id"]
+
+
+def test_the_live_line_lists_a_label_once_when_kind_and_layer_share_it(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page)
+    u = u_of(data)
+    hub = by_name(u, "car_hub")
+    layer = next(x for x in u["layers"] if x["key"] == hub["layer"])
+    p.page.evaluate(
+        "([key, label]) => { PAGE.universe.kinds.find(k => k.key === key).label = label; }",
+        [hub["kind"], layer["label"] or layer["key"]],
+    )
+    search(p, "car_hub")
+    parts = live(p).split(". Table panel")[0].split(": ", 1)[1].split(" · ")
+    assert parts.count(layer["label"] or layer["key"]) == 1, parts
