@@ -273,7 +273,7 @@ Brief: `docs/briefs/2026-11-17-visualization-optimization.md` (read it in full, 
 
 - **M9.1 — UI coherence (done, 2026-11-17; D-084 to D-086, design note `docs/architecture/2026-11-17-m9.1-ui-coherence.md`).** The review's fix-list: renaming in the audience's words (Lineage, Dependencies between domains, Table kind, one "Show" wording), the universe panel regrouped Navigate / Display / Filters, accessibility and small defects, a way back from the Detail tab.
 - **M9.2 — Drill-down (done, 2026-11-17; D-087 to D-090, design note `docs/architecture/2026-11-17-m9.2-drill-down.md`).** Map landing on large projects (`universe.map_above`, default 300), entering a domain (full-stage spread, band headers, ghosts of the other domains, links only on hover or selection), a breadcrumb with `Esc` stepping back one level, the same path in the Detail tab, panel rows that go, keyboard and touch paths.
-- **M9.3 — Table panel.** Single click on a table opens a side panel (columns, description, clickable relations, Open in Detail, Lineage); supersedes click-starts-trajectory (D-018).
+- **M9.3 — Table panel (done, 2026-11-17; D-091, design note `docs/architecture/2026-11-17-m9.3-table-panel.md`).** Single click on a table opens a side panel (columns, description, clickable relations, Open in Detail, Lineage); supersedes click-starts-trajectory (D-018).
 - **M9.4 — Schema tab.** 3NF-style sheets on a swimlane grid (layers × domains), scroll-first navigation, minimap, inter-lane relation summaries on large scopes.
 - **M9.5 — Print.** Paper model with a minimum font size and an announced physical size, one-sheet poster output, tiled A4/A3 sheets with crop marks, coordinates and an index page.
 
