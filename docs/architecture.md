@@ -136,9 +136,18 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Regenerate the example manifest (`dbt parse` through `cli.main`, D-033) | `tools/example_manifest.parse`, `main` |
 | Which tables are folded now, held by an entity, drawn (page, D-063) | `render/assets/universe.js` `PARENT`, `HELD`, `wouldFold`, the passing / folded-now / drawn sets (`pass`, `FOLDNOW`, `visible`) |
 | A viewer's choice kept in localStorage outside the layout (page) | `render/assets/common.js` `viewerMemory(name, values)` (`universe.js` `byMemory`, `foldMemory`, `cardsMemory`, `dbtscope-cards:<title>`, D-081; `routesMemory`, `dbtscope-routes:<title>`, D-083; `detail.js` `foldMemory`, `dbtscope-detail-fold:<title>`, D-073) |
+| The ordered domain list of the page: business domains, then source systems (page, D-068, D-092) | `render/assets/common.js domainOrder` (the universe's `DOM_LIST` / `DOM_POS` and the Schema's rows read it) |
+| Dealing boxes over column pairs [hubs \| links] for an aspect or a height, and stacking a column (page, D-074, D-092) | `render/assets/common.js gridDeal` (the detail skeleton and every Schema cell) |
+| The three Show levels as select options, shared words (page, D-084) | `render/assets/common.js LEVELS`, `L.levelNames` / `levelKeys` / `levelAll` |
+| The kind tint of a table body, for every universe kind (domain, D-092) | `domain/classify.background`, in `payload.UniverseKind.bg` (and `DetailKind.bg`) |
+| The tables passing the universe's filters, for another tab (page) | `render/assets/universe.js passingIds` (handle) |
+| The Schema tab: scope, Show level, location, search, selection, keys, minimap, sticky lane heads, chips (page, D-092 to D-094) | `render/assets/schema.js startSchema` |
+| The sheet model: lanes, cells, boxes, edges, chips, in sheet units (page, D-092, D-094; read by M9.5) | `render/assets/schema.js sheetModel`, `boxSize`, `boxRows`, `scopeTables`, `S`, `LOOK` |
+| The one SVG emitter of a sheet rectangle: screen, image export, print (page, D-092) | `render/assets/schema.js sheetSvg` (`relationPath`) |
+| Text widths measured in the sheet's font, once per string (page, D-092) | `render/assets/schema.js textW` |
 | The fold row's label and the fold strings shown by both views (page) | `render/assets/common.js` `foldLabel`, `L.foldH`, `L.foldRow`, `L.foldTitle`, `L.foldedN` |
 | Which detail tables are folded now, held, drawn; whether the detail is a skeleton (page, D-073) | `render/assets/detail.js` `skeleton`, `drawingSets`, `foldedText`, `SKELETON_MIN` |
-| Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns`, `skeletonPositions`, `stack`, `sizeOf`, `gridShown`, `SK` |
+| Columns and positions of a skeleton drawing (page, D-074) | `render/assets/detail.js` `skeletonColumns` (sizes and aspect of the drawing area), `skeletonPositions`, `sizeOf`, `gridShown`, `SK`; the dealing itself is `common.js gridDeal` |
 | Neighbourhood of a focused table, connectors as passages (page, D-076) | `render/assets/detail.js` `visibleIds` |
 | Folded-drawing layout scopes (page, D-064) | `render/assets/universe.js` `BY[*].scope` |
 | The `folded:` row of the CLI summary | `cli._folded_row` |
@@ -165,7 +174,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Escape text inside a Graphviz HTML-like label (page) | `render/assets/common.js dotText` |
 | Render DOT with Graphviz, recovering from a failed render (page) | `render/assets/common.js GRAPHVIZ` |
 | Mount, fit and unmount a Graphviz SVG with pan and zoom (page) | `render/assets/common.js graphZoom`, which resolves the handle `zv` built by `zoomHandle(box, layer, size, onZoom)` (`layer`, `fit`, `get`, `set`, `centre`, `destroy`) |
-| Attach a d3 zoom to a view's drawing area, Safari trackpad pinch (`gesture*` events) included (page, all three views) | `render/assets/common.js zoomOn` |
+| Attach a d3 zoom to a view's drawing area, Safari trackpad pinch (`gesture*` events) included (page, all views); in the Schema tab the wheel scrolls and ctrl+wheel zooms (`opts.scroll`, D-093) | `render/assets/common.js zoomOn(sel, zoom, opts)`, `zoomHandle(box, layer, size, onZoom, opts)` (`by`, `scale`) |
 | Scale range of every zoom of the page | `render/assets/common.js ZOOM_EXTENT` |
 | Columns along the data flow: lineage, layers as a floor, tables without a layer by lineage (page) | `render/assets/common.js flowRanks` |
 | Flow view (page) | `render/assets/flow.js startFlow` |
@@ -179,7 +188,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A constellation's tables spread to the stage's aspect (page, D-088) | `render/assets/universe.js layoutConstellation(key, members, aspect)`, `computeSpread`, `applySpread` |
 | Band headers of an entered constellation (page, D-090) | `render/assets/universe.js drawHeaders` |
 | Ghosts of the other constellations: place, draw, hit, their dependency lines and links (page, D-088) | `render/assets/universe.js ghostsFor`, `drawGhosts`, `drawGhostLinks`, `ghostAt` |
-| The detail's trail from the universe path; following the universe location when the Detail tab is shown (page, D-089) | `render/assets/boot.js trailOf`, `followUniverse`; `detail.js follow` |
+| The detail's trail from the universe path; a tab following the universe location when shown, Detail and Schema (page, D-089, D-092) | `render/assets/boot.js trailOf`, `follow(name)`, `locationKey`; `detail.js follow`, `schema.js follow` |
 | A panel row that goes to what it stands for (page, D-089) | `render/assets/common.js filterRow` (`go`), `universe.js checkboxes`, `syncRows` |
 | Close a popover `<details>` on Esc or a press outside (page, D-085) | `render/assets/common.js dismissable` |
 | Whether the detail groups are the universe domains, and their display names (page, D-084) | `render/assets/common.js detailDomains` |
@@ -304,6 +313,12 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | The lineage of one table shown on the universe (enter, bar, dimming, Esc) (M5.x) | **trajectory** (`trajectory`, `traj`, `#u-traj`) | path, trace | Code word only; UI word (M9.1, D-084): **Lineage** / Lignage (a lineage link, in French "lien de lignage"). |
 | The universe's detail level (names, keys, all fields) | **detail level** (`state.detail`, `universe.detail`) | — | UI word (M9.1, D-084): **Show** (names / key columns / all columns) / Afficher. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. UI word (M9.1, D-084): **Domain** when every detail table has its group equal to its universe domain (`common.js detailDomains`), else **Group**. |
+| A drawn scope of the Schema tab: lanes, boxes, relations and chips, with the sizes of the print (M9.4, D-092) | **sheet** (`sheetModel`, `sheetSvg`; UI: Schema, French Schéma; French: planche) | card (a universe table at keys or all), panel, page | "Schema" is the tab, "sheet" what it draws. |
+| A layer column or a domain row of a sheet (M9.4, D-092) | **lane** (French: couloir) | band (the universe's word: a layer or domain band inside a constellation), swimlane | Only the Schema tab says lane. |
+| The crossing of a layer column and a domain row of a sheet (M9.4, D-092) | **cell** | — | Its tables are dealt by `gridDeal`. |
+| The set of tables a sheet draws: the whole project, a domain, a layer or the universe's current filters (M9.4, D-092) | **scope** (`scopeTables`; French: périmètre) | selection, view | The word of D-085's "Not in the Detail tab's scope". |
+| A count of relations between two cells, or to tables outside the scope, on a cell's border, a button that draws them (M9.4, D-094) | **chip** (`chips`; French: pastille) | badge (the universe's folded-tables mark), tag | |
+| A sheet drawn without the row text, at a far zoom (M9.4, D-092) | **simple form** (`form: 'simple'`) | low detail | The other form is `full`. |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |
 | Configuration | **config** (`Config`, `dbt-erd.yml`) | settings (except `UniverseSettings`, the `universe` section) | |
 | Licence text and files of the vendored libraries | **licence** (noun, as in `Library.licence`) | license | "license" only in external names: SPDX ids, `pyproject` `license`, upstream `LICENSE*` file names. |

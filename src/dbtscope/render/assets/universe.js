@@ -3016,6 +3016,6 @@ function startUniverse(DATA, openInDetail, DETAIL, LAYOUT, EXPORT, openFlow) {
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
   // Reset layout and an import call relayout: they close the entity a search opened; locate is the way back from the Detail tab
-  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, locate, enter: key => go(1, key), go, entered, location,
+  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, locate, enter: key => go(1, key), go, entered, location, passingIds: () => N.filter(passes).map(n => n.id),
            path: () => pathItems(nav.inside, nav.table), trail: (inside, id) => pathItems(inside, ID.has(id) ? ID.get(id) : null), trajectoryState, panel: panelState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
 }

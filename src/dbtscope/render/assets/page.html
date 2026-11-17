@@ -8,10 +8,12 @@
   <span class="brand">{{TITLE}}</span>
   <button data-tab="universe"></button>
   <button data-tab="detail"></button>
+  <button data-tab="schema"></button>
   <span class="grow"></span>
   <details id="l-menu" class="menu"><summary><span id="l-menu-t"></span> <span aria-hidden="true">▾</span></summary>
     <div class="menu-pop">
       <button id="l-reset" type="button"></button>
+      <span class="hint" id="l-reset-why" hidden></span>
       <button id="l-export" type="button"></button>
       <button id="l-import" type="button"></button>
     </div>
@@ -151,6 +153,45 @@
   </div>
 </section>
 
+<section class="tab" id="tab-schema">
+  <aside class="panel" id="s-panel">
+    <section aria-labelledby="s-h-scope">
+      <h2 id="s-h-scope"></h2>
+      <select id="s-scope"></select>
+      <div class="hint" id="s-scope-why"></div>
+    </section>
+    <section aria-labelledby="s-h-show">
+      <h2 id="s-h-show"></h2>
+      <select id="s-level"></select>
+      <div class="hint" id="s-meta"></div>
+      <div class="hint" id="s-note" hidden></div>
+    </section>
+  </aside>
+  <div class="stage">
+    <div class="toolbar">
+      <button id="s-toggle" type="button" aria-controls="s-panel" aria-expanded="true">☰</button>
+      <nav id="s-crumbs" class="crumbs" aria-label="Location"></nav>
+      <input id="s-q" list="s-tables" autocomplete="off"><datalist id="s-tables"></datalist>
+      <details class="help" id="s-help"><summary id="s-help-t"></summary><div class="help-pop" id="s-hint"></div></details>
+      <button id="s-fit" type="button"></button>
+      <span class="export" role="group" aria-labelledby="s-export-h"><span id="s-export-h"></span>
+        <button id="s-export-png" type="button" disabled></button><button id="s-export-svg" type="button" disabled></button></span>
+    </div>
+    <div class="canvas-box" id="s-stage">
+      <div id="s-graph" role="group" tabindex="0"></div>
+      <div id="s-heads"></div>
+      <div id="s-chips"></div>
+      <canvas id="s-mini" aria-hidden="true" hidden></canvas>
+      <div class="tip" id="s-tip"></div>
+      <div id="s-pop" role="region" aria-label="" hidden></div>
+      <div id="s-empty" role="status" hidden></div>
+      <button id="s-back-all" type="button" hidden></button>
+      <section class="sr-only" id="s-summary"></section>
+      <span class="sr-only" id="s-live" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+</section>
+
 <script type="application/json" id="data">{{DATA}}</script>
 {{SCRIPTS}}
 <script>
@@ -161,6 +202,9 @@
 </script>
 <script>
 {{UNIVERSE_JS}}
+</script>
+<script>
+{{SCHEMA_JS}}
 </script>
 <script>
 {{FLOW_JS}}

@@ -80,10 +80,17 @@ function showTab(name) {
   current = name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
+  // the Layout menu's reset acts on the arrangement of a tab; the Schema sheet is computed, so it has none (D-085, D-092)
+  $l('reset').disabled = name === 'schema';
+  $l('reset-why').hidden = name !== 'schema';
   if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, DOMAINS)
+    : name === 'schema' ? startSchema(PAGE.universe, DETAIL_INDEX, EXPORT, universeAccess)
     : startUniverse(PAGE.universe, openInDetail, DETAIL_INDEX, LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
 }
+// what the Schema tab reads of the universe view, which may not be started yet (D-092)
+const universeAccess = { location: () => (views.universe ? views.universe.location() : null),
+  passingIds: () => (views.universe ? views.universe.passingIds() : null) };
 // the universe location as the detail's trail (D-086, D-089): `← All domains › Vehicle › car_hub`, every segment a button back to the
 // Universe tab at that level; a function of the detail's focus, so the last segment follows it when it is a universe table
 const inUniverse = id => PAGE.universe.nodes.some(n => n.id === id);
@@ -100,23 +107,26 @@ function leaveDetail(step, inside) {
   showTab('universe');
   views.universe.go(step, inside);
 }
-// the universe location the detail last showed: the Detail tab follows it when it changes (D-089)
-let followed = null;
-const locationKey = loc => loc.by + '|' + (loc.inside ?? '');
+// the universe location each tab last showed: the Detail and Schema tabs follow it when it changes (D-089, D-092)
+const followed = { detail: null, schema: null };
+// the Schema tab also follows a selected table; the Detail tab only the entered constellation
+const locationKey = (loc, withTable) => loc.by + '|' + (loc.inside ?? '') + (withTable ? '|' + (loc.table ?? '') : '');
 // double-click on a universe table: the Detail tab on it, with the way back in its toolbar (D-086)
 function openInDetail(id) {
   const loc = views.universe.location();
   showTab('detail');
-  followed = locationKey(loc);
+  followed.detail = locationKey(loc);
   views.detail.focus(id, trailOf(loc.inside, id));
 }
-// the Detail tab shown by its button: when the universe location changed since, its trail and (in domain mode, without a focused
-// table) its group follow it; the viewer's own group choice stands until the location changes again
-function followUniverse() {
-  if (!views.universe) return;
-  const loc = views.universe.location(), key = locationKey(loc);
-  if (key === followed) return;
-  followed = key;
+// a tab shown by its button follows the universe location when it changed since it last did; the viewer's own choice (the
+// Detail's group, the Schema's scope) stands until the location changes again. Detail: its trail and (in domain mode, without a
+// focused table) its group; Schema: the entered domain or layer as its scope, a selected table framed
+function follow(name) {
+  if (!views.universe || !views[name]) return;
+  const loc = views.universe.location(), key = locationKey(loc, name === 'schema');
+  if (key === followed[name]) return;
+  followed[name] = key;
+  if (name === 'schema') return views.schema.follow(loc);
   const group = loc.by === 'domains' && loc.inside && DOMAINS && DOMAINS.has(loc.inside) ? loc.inside : null;
   views.detail.follow(group, loc.inside ? trailOf(loc.inside, null) : null);
 }
@@ -145,9 +155,10 @@ function closeFlow() {
   coverUniverse(false);
   document.getElementById('u-tj-flow').focus();
 }
-document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => { showTab(b.dataset.tab); if (b.dataset.tab === 'detail') followUniverse(); }; });
+document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => { showTab(b.dataset.tab); if (b.dataset.tab !== 'universe') follow(b.dataset.tab); }; });
 document.querySelector('#tabs button[data-tab=universe]').title = L.tabUniverse;
 document.querySelector('#tabs button[data-tab=detail]').title = DOMAINS ? L.tabDetail : L.tabDetailGroups;
+document.querySelector('#tabs button[data-tab=schema]').title = L.tabSchema;
 
 const $l = id => document.getElementById('l-' + id);
 $l('menu-t').textContent = L.layout;
@@ -155,6 +166,7 @@ $l('reset').textContent = L.reset; $l('export').textContent = L.export; $l('impo
 dismissable($l('menu'));
 // an action closes the menu and gives the focus back to its summary
 const inMenu = action => () => { $l('menu').open = false; $l('menu').querySelector('summary').focus(); action(); };
+$l('reset-why').textContent = L.schemaNoReset;
 $l('reset').onclick = inMenu(() => { if (confirm(L.resetAsk)) { LAYOUT.clear(current); views[current].relayout(); } });
 $l('export').onclick = inMenu(() =>
   saveFile('dbt-erd-layout.json', new Blob([JSON.stringify(LAYOUT.dump(), null, 1)], { type: 'application/json' })));

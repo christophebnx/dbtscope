@@ -414,3 +414,99 @@ def test_the_table_panel_is_a_region_inside_the_universe_stage_after_the_canvas(
     text = (ASSETS / "universe.js").read_text(encoding="utf-8")
     assert "startUniverse(DATA, openInDetail, DETAIL," in text and "detailIds" not in text
     assert "function detailIndex(" in (ASSETS / "common.js").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- M9.4: the Schema tab (D-092 to D-094)
+
+
+def test_the_schema_tab_follows_the_detail_tab_and_has_its_controls() -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    tabs = page[page.index('<nav id="tabs">') : page.index("</nav>")]
+    assert re.findall(r'data-tab="(\w+)"', tabs) == ["universe", "detail", "schema"]
+    tab = page[page.index('id="tab-schema"') : page.index('id="data"')]
+    assert re.search(r'<nav id="s-crumbs" class="crumbs" aria-label="[^"]*"></nav>', tab)
+    assert re.search(r'<input id="s-q" list="s-tables" autocomplete="off">', tab)
+    assert '<select id="s-scope">' in tab and '<select id="s-level">' in tab
+    assert re.search(r'<div id="s-graph" role="group" tabindex="0"></div>', tab)
+    assert re.search(r'<canvas id="s-mini" aria-hidden="true" hidden></canvas>', tab)
+    assert (
+        'id="s-live"' in tab
+        and 'id="s-summary"' in tab
+        and 'role="status"' in tab[tab.index('id="s-live"') :]
+    )
+    stage = tab[tab.index('id="s-stage"') :]
+    assert tab.index('id="s-export-png"') < tab.index('id="s-stage"')  # the export buttons are in the toolbar
+    assert 'id="s-export' not in stage
+    assert (
+        tab.index('id="s-toggle"')
+        < tab.index('id="s-crumbs"')
+        < tab.index('id="s-q"')
+        < tab.index('id="s-fit"')
+    )
+    assert tab.index('id="s-help-t"') < tab.index('id="s-fit"')
+    assert 'id="l-reset-why"' in page
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_the_schema_script_comes_after_the_universe_and_before_the_flow(offline: bool) -> None:
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}), offline=offline)
+    starts = [
+        page.index("<script>\n" + first)
+        for first in ("// Universe view", "// Schema tab", "// Flow view", "// Page boot")
+    ]
+    assert starts == sorted(starts)
+    block = page[starts[1] : page.index("</script>", starts[1])]
+    assert (
+        "function startSchema(" in block
+        and "function sheetSvg(" in block
+        and "function startFlow(" not in block
+    )
+    assert "{{SCHEMA_JS}}" not in page
+    assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+def test_the_schema_script_is_inlined_whole_and_cannot_close_its_block() -> None:
+    text = (ASSETS / "schema.js").read_text(encoding="utf-8")
+    assert "</script" not in text.lower() and "\u00a0" not in text and "\u202f" not in text
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    assert text in page
+
+
+def test_the_schema_strings_exist_in_both_languages_and_hold_no_retired_word() -> None:
+    text = (ASSETS / "schema.js").read_text(encoding="utf-8")
+    en, fr = text[text.index("    en: {") : text.index("    fr: {")], text[text.index("    fr: {") :]
+    key = re.compile(r"\b(\w+): (?:'|`|\[|\w+ =>|\([\w, ]*\) =>|\{)")
+    assert set(key.findall(en)) - set(key.findall(fr)) - {"en"} == set()
+    assert not re.search(r"\\u00a0[;?!]", text)
+    commons = (ASSETS / "common.js").read_text(encoding="utf-8")
+    for name in ("schema", "tabSchema", "schemaNoReset", "levelNames", "levelKeys", "levelAll"):
+        assert commons.count(f"{name}:") == 2, name  # en and fr
+    code = re.sub(r"(?m)^\s*//.*$|\s//\s.*$", "", text)
+    shown = [
+        s
+        for s in re.findall(r"'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`", code)
+        if not s.startswith(("'#", "'."))
+    ]
+    old = re.compile(
+        r"Trajector|Trajectoire|\bFlow\b|\bFlux\b|constellation|\bTypes\b|\bFold|Replier|Tout afficher"
+    )
+    assert [s for s in shown if old.search(re.sub(r"\$\{[^}]*\}", "", s))] == []
+
+
+def test_the_schema_tab_adds_no_zoom_and_no_second_gesture_handler() -> None:
+    """D-045, D-093: the one d3 zoom is attached by common.js zoomOn; the scroll option lives there."""
+    text = (ASSETS / "schema.js").read_text(encoding="utf-8")
+    assert "d3.zoom(" not in text and "gesture" not in text and "zoomHandle(" in text
+    common = (ASSETS / "common.js").read_text(encoding="utf-8")
+    assert common.count("function zoomOn(sel, zoom, opts") == 1 and "opts.scroll" in common
+    assert "function gridDeal(" in common and "function gridDeal(" not in (ASSETS / "detail.js").read_text(
+        encoding="utf-8"
+    )
+    assert "function domainOrder(" in common and "DOM_LIST = [" not in (ASSETS / "universe.js").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_the_schema_tab_writes_no_storage_and_no_layout() -> None:
+    text = (ASSETS / "schema.js").read_text(encoding="utf-8")
+    assert "localStorage" not in text and "LAYOUT" not in text and "viewerMemory" not in text

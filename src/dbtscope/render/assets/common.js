@@ -26,7 +26,9 @@ const STRINGS = {
         foldRow: 'Draw inside their table', foldKinds: names => `Draw ${names} inside their table`,
         foldLiveOff: 'Descriptive tables shown',
         foldTitle: 'Draws these tables inside the table they describe; a table and its descriptions read as one entity',
-        levelNames: 'names', levelKeys: 'key columns', levelAll: 'all columns',
+        levelNames: 'names', levelKeys: 'key columns', levelAll: 'all columns', schema: 'Schema',
+        tabSchema: 'Schema: every table of a scope as entity-relationship sheets, to read like a document and to print',
+        schemaNoReset: 'Nothing to reset: this sheet is computed',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
@@ -49,7 +51,9 @@ const STRINGS = {
         foldRow: 'Dessiner dans leur table', foldKinds: names => `Dessiner ${names} dans leur table`,
         foldLiveOff: 'Tables descriptives affichées',
         foldTitle: 'Dessine ces tables dans la table qu\'elles décrivent\u00a0: une table et ses descriptions forment une entité',
-        levelNames: 'noms', levelKeys: 'colonnes clés', levelAll: 'toutes les colonnes',
+        levelNames: 'noms', levelKeys: 'colonnes clés', levelAll: 'toutes les colonnes', schema: 'Schéma',
+        tabSchema: 'Schéma\u00a0: toutes les tables d\'un périmètre en planches entité-relation, à lire comme un document et à imprimer',
+        schemaNoReset: 'Rien à réinitialiser\u00a0: cette planche est calculée',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
@@ -168,11 +172,19 @@ function filterRow({ label, color, count, checked, title, go }, onChange) {
 }
 
 // The options of a select from [value, label] pairs, built with DOM calls; `current` is selected.
+// A pair whose second member is a list of pairs is a group: an <optgroup> labelled by its first member (the Schema's Scope).
 function fillSelect(el, pairs, current) {
-  el.replaceChildren(...pairs.map(([value, label]) => {
+  const option = ([value, label]) => {
     const o = document.createElement('option');
     o.value = value; o.textContent = label; o.defaultSelected = value === current;
     return o;
+  };
+  el.replaceChildren(...pairs.map(pair => {
+    if (!Array.isArray(pair[1])) return option(pair);
+    const group = document.createElement('optgroup');
+    group.label = pair[0];
+    group.append(...pair[1].map(option));
+    return group;
   }));
 }
 
@@ -630,6 +642,10 @@ function zoomHandle(box, layer, size, onZoom, opts) {
     },
     get() { const t = d3.zoomTransform(box); return { x: t.x, y: t.y, k: t.k }; },
     set,
+    // a scroll of (dx, dy) screen px and a zoom by `factor` around the screen point `at` (default: the box centre), both through
+    // the d3 zoom, so its limits apply (the Schema tab's keys and minimap, D-093)
+    by: (dx, dy) => zoom.translateBy(sel, -dx / d3.zoomTransform(box).k, -dy / d3.zoomTransform(box).k),
+    scale: (factor, at) => zoom.scaleBy(sel, factor, at || [box.clientWidth / 2, box.clientHeight / 2]),
     // the centre of a screen rectangle at the centre of the box, at scale k (the current one when omitted)
     centre(rect, k) {
       const b = box.getBoundingClientRect(), t = d3.zoomTransform(box), s = k || t.k;

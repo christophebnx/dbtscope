@@ -60,3 +60,9 @@ the Layout menu, the Help popovers, the location trail.
 M9.2 (map landing, D-087): every universe payload gains `"mapAbove":300` as the new last key of the universe
 defaults; the old and new payloads are equal once that key is removed (checked before regenerating). Every
 page also changes by the script, the markup and `page.css` (drill-down).
+
+M9.4 (Schema tab, D-092): every universe kind gains `"bg"` (last key, the body tint `classify.background(color)`); the old and
+new payloads are equal once that key is removed (checked before regenerating, all eight CDN cases). Every page changes by
+the script (`schema.js`, `common.js`, `universe.js`, `detail.js`, `boot.js`), the markup (`#tab-schema`, the third tab, `#l-reset-why`)
+and `page.css`.
+
