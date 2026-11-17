@@ -322,7 +322,7 @@ Running dbt parse in /home/ana/code/dbtscope/examples/acme_retail...
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (453 kB)
+  page:     opens on universe, en, libraries from CDNs (455 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -446,7 +446,7 @@ With the example's manifest and no config, the summary of such a folder reads:
 /home/ana/shop-map/erd_output/erd.html
   universe: 95 tables in 18 domains, 58 relations, 110 lineage links
   detail:   72 tables (72 Other), 58 relations
-  page:     opens on universe, en, libraries from CDNs (455 kB)
+  page:     opens on universe, en, libraries from CDNs (457 kB)
   config:   none (built-in defaults)
 ```
 
@@ -551,7 +551,7 @@ If the `dbtscope` command is already installed ([Option A](#option-a-install-the
   universe: 95 tables in 7 domains, 58 relations, 110 lineage links
   folded:   13 descriptive tables into their parent, 0 without a parent
   detail:   54 tables (13 Hub, 12 Link, 13 Satellite, 8 Dimension, 8 Fact), 58 relations
-  page:     opens on universe, en, libraries from CDNs (453 kB)
+  page:     opens on universe, en, libraries from CDNs (455 kB)
   config:   /home/ana/code/dbtscope/examples/acme_retail/dbt-erd.yml, preset data_vault
 ```
 
@@ -922,9 +922,9 @@ The third tab, **Schema**, draws a part of the project as classic entity-relatio
 - **Show** (panel): names, **key columns** (the default) or all columns, as in the Universe.
 - **The grid**: layers are the columns, in data-flow order, and domains the rows, business domains first and source systems last; each crossing holds its tables, dealt over column pairs (the referenced tables on the left, the tables that point at them beside), every row as high as its tallest cell. A project without layers or without domains is one block, with no column or row head.
 - **Boxes**: the Detail's card: the table name on a band in its kind colour, key columns in bold, types on the right, "+ 5 columns" when columns are hidden, the body in the kind's light tint. **Relations** are light straight lines, with a crow's foot at the foreign-key end (on the key's row when the Detail knows the column) and an arrowhead at the referenced end; crossings are accepted.
-- **Large scopes**: when a scope holds more than 300 tables or more than 16 relations between cells, relations between two cells are not drawn as lines but counted in **chips** on the cells' borders ("→ Auction · Raw vault 12": this cell's tables reference 12 tables there; "← …": they are referenced). A chip is a button: press it to draw its relations and see them listed (each item selects the table at the other end); press it again, or Esc, to fold it. Relations to tables outside the scope are always chips ("→ Auction (outside this scope) 3"), their list items greyed with "Outside this scope". Selecting or hovering a table always draws all its relations.
+- **Large scopes**: when a scope holds more than 300 tables or more than 16 relations between cells, relations between two cells are not drawn as lines but counted in **chips** on the cells' borders ("→ Auction · Raw vault 12": this cell's tables reference 12 tables there; "← …": they are referenced). A chip is a button: press it to draw its relations and see them listed (each item selects the table at the other end); press it again, or Esc, to fold it. Relations to tables outside the scope are always chips ("→ Auction (outside this scope) 3"), their list items greyed with "Outside this scope". Selecting or hovering a table always draws all its relations. Zoomed far out, each side of a cell shows one count badge with the total of its chips, a constant 14 px on screen; pressing it draws and lists all the relations of that side.
 - **Scrolling**: this tab reads like a document. The **wheel scrolls** (Shift + wheel scrolls sideways), **Ctrl + wheel or a pinch zooms**, dragging the background pans; on a touch screen one finger scrolls and two zoom. The other tabs keep the wheel zoom. With the sheet focused: the arrow keys scroll, **PgUp / PgDn** scroll one screen (Shift: sideways), **Home / End** go to the corners, **+ / −** zoom, **0** fits the sheet, **Esc** goes one step back (selected table, then scope, back to the whole project).
-- **Finding your way**: column heads and row heads stay on screen while you scroll; a **minimap** (bottom right, hidden when the whole sheet is in view or the window is under 600 px wide) shows where you are and moves the view when you click or drag in it; the breadcrumb (`All domains › Vehicle › car_hub`) says where you are and goes back; the search box selects a table of the scope and frames it. The sheet opens whole when its rows are then at least 10 px high, else at reading size on its first cell. Far out, boxes show only their header and a bar per row; zooming in brings the text back.
+- **Finding your way**: column heads and row heads stay on screen while you scroll; a **minimap** (bottom right, hidden when the whole sheet is in view or the window is under 600 px wide) shows where you are and moves the view when you click or drag in it; the breadcrumb (`All domains › Vehicle › car_hub`) says where you are and goes back; the search box selects a table of the scope and frames it (a name outside the scope is reported in a box at the top right of the sheet for a few seconds). The sheet opens whole when its rows are then at least 10 px high, else at reading size on its first cell. Far out, boxes show only their header and a bar per row; zooming in brings the text back.
 - **From the Universe**: showing the tab after entering a domain (or a layer, when organised by layer) in the Universe selects that scope, and a table you selected there is framed and selected in the sheet. Your own choice of scope stands until the Universe location changes.
 - **Export image** (PNG, SVG, `<page title>-schema.png`): the visible part of the sheet, chips included; the minimap, the sticky heads, the tooltip and the chip list are not in it. **Layout > Reset** is disabled here ("Nothing to reset: this sheet is computed"); nothing about this tab is saved.
 

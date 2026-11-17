@@ -237,7 +237,7 @@ function sideBadges(model) {
     g.chips.push(i); g.n += ch.n;
     g.x0 = Math.min(g.x0, ch.x); g.y0 = Math.min(g.y0, ch.y); g.x1 = Math.max(g.x1, ch.x + ch.w); g.y1 = Math.max(g.y1, ch.y + ch.h);
   });
-  return [...sides.values()].map(g => ({ chips: g.chips, n: g.n, x: (g.x0 + g.x1) / 2, y: (g.y0 + g.y1) / 2 }));
+  return [...sides].map(([key, g]) => ({ key, chips: g.chips, n: g.n, x: (g.x0 + g.x1) / 2, y: (g.y0 + g.y1) / 2 }));
 }
 // The markup of everything of the sheet that meets `rect` ({x, y, w, h}, sheet units), to put inside an <svg>: lanes and their
 // titles, relations (<g class="edge" id="e<i>">), boxes (<g class="node" id="<unique_id>">) and chips. form: 'full' (text) or
@@ -321,7 +321,7 @@ function sheetSvg(model, rect, form, marks = {}) {
     const k2 = LOOK.badgePx / (S.ROW_FONT * k), room = 40 / k;
     if (!meets(g.x - room, g.y - room, 2 * room, 2 * room)) return;
     const on = g.chips.some(i => marks.expanded && marks.expanded.has(i)), label = num(g.n), w = textW(label, S.ROW_FONT, 600) + 10;
-    out.push(`<g class="chip" data-chip="${g.chips[0]}" transform="translate(${f1(g.x)} ${f1(g.y)}) scale(${f1(k2)})">`
+    out.push(`<g class="chip" data-side="${esc(g.key)}" transform="translate(${f1(g.x)} ${f1(g.y)}) scale(${f1(k2)})">`
       + `<rect x="${f1(-w / 2)}" y="-9" width="${f1(w)}" height="18" rx="9" fill="${on ? LOOK.accentSoft : LOOK.surface}" stroke="${on ? LOOK.accent : LOOK.chipBorder}" stroke-width="${on ? 2 : 1}"/>`
       + text(-w / 2 + 5, 4, S.ROW_FONT, on ? LOOK.accentInk : LOOK.ink, label, ' font-weight="600"') + '</g>');
   });
@@ -347,6 +347,8 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
           notInScope: name => `${name} is not in this scope`,
           chipAria: (a, b, n) => `Relations from ${a} to ${b}, ${num(n)}; show them`, chipAriaFrom: (a, b, n) => `Relations from ${b} to ${a}, ${num(n)}; show them`,
           popTitle: (a, b, n) => `${plural(n, ['relation', 'relations'])} from ${a} to ${b}`,
+          popSide: (a, n) => `${plural(n, ['relation', 'relations'])} between ${a} and other lanes`,
+          sideAria: (a, n) => `Relations between ${a} and other lanes, ${num(n)}; show them`,
           liveScope: (name, n, l) => `${name}: ${plural(n, L.tables)}, ${plural(l, ['layer', 'layers'])}`,
           liveSelect: (n, d, l, k, o, i) => `${n}: ${d} · ${l} · ${plural(k, ['key column', 'key columns'])} · references ${num(o)} · referenced by ${num(i)}`,
           liveChip: n => `${plural(n, ['relation', 'relations'])} drawn`, summary: 'Schema sheet',
@@ -368,6 +370,8 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
           notInScope: name => `${name} n'est pas dans ce périmètre`,
           chipAria: (a, b, n) => `Relations de ${a} vers ${b}, ${num(n)}\u202f; les afficher`, chipAriaFrom: (a, b, n) => `Relations de ${b} vers ${a}, ${num(n)}\u202f; les afficher`,
           popTitle: (a, b, n) => `${plural(n, ['relation', 'relations'])} de ${a} vers ${b}`,
+          popSide: (a, n) => `${plural(n, ['relation', 'relations'])} entre ${a} et d'autres couloirs`,
+          sideAria: (a, n) => `Relations entre ${a} et d'autres couloirs, ${num(n)}\u202f; les afficher`,
           liveScope: (name, n, l) => `${name}\u00a0: ${plural(n, L.tables)}, ${plural(l, ['couche', 'couches'])}`,
           liveSelect: (n, d, l, k, o, i) => `${n}\u00a0: ${d} · ${l} · ${plural(k, ['colonne clé', 'colonnes clés'])} · référence ${num(o)} · référencée par ${num(i)}`,
           liveChip: n => `${plural(n, ['relation tracée', 'relations tracées'])}`, summary: 'Planche du schéma',
@@ -386,7 +390,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   const state = { scope: { kind: 'all' }, level: 'keys', selected: null, expanded: new Set(), hover: null, pop: null, all: false };
   const perf = { model: 0, emit: 0, firstFrame: 0, recull: 0, built: 0 };   // ms of the last of each; built counts the finished sheets
   let model = null, nodes = [], zv = null, layer = null, emitted = null, seq = 0, painting = 0, pendingSelect = null, filterKey = '';
-  let mini = null, badgeOf = null;   // badgeOf: the side badge of each chip, for the simple form
+  let mini = null, chipForm = null, units = [];   // units: what each chip button stands for (a chip, or in the simple form a side's chips)
 
   // --- static text and controls
   $s('h-scope').textContent = T.scope; $s('h-show').textContent = T.show;
@@ -574,74 +578,93 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
 
   // --- chips: buttons over the SVG chips (HTML, never exported), their list, expansion
   const chipsEl = $s('chips'), pop = $s('pop');
-  function buildChips() {
-    badgeOf = null;
-    chipsEl.replaceChildren(...model.chips.map((ch, i) => {
-      const b = document.createElement('button'), mine = DOM.get(model.rows[model.cells.find(c => c.key === ch.cell).row].key), other = DOM.get(ch.otherDomain);
-      b.type = 'button'; b.dataset.chip = i; b.setAttribute('aria-expanded', 'false');
-      const a = labelOf(mine), o = other ? labelOf(other) : ch.otherDomain;
-      b.setAttribute('aria-label', ch.to ? T.chipAria(a, o, ch.n) : T.chipAriaFrom(a, o, ch.n));
-      b.onclick = () => toggleChip(i);
-      b.onfocus = () => { stage.scrollLeft = stage.scrollTop = 0; keepInView(ch); };
+  // One button per unit: a chip, or from afar (the simple form draws one badge per cell side) the chips of that side, so a
+  // click reaches all of them and the Tab key stops once per badge. Rebuilt when the form changes.
+  const domainOfChip = ch => DOM.get(model.rows[model.cells.find(c => c.key === ch.cell).row].key);
+  function unitsFor(form) {
+    if (form === 'simple') return sideBadges(model);
+    return model.chips.map((ch, i) => ({ chips: [i], x: ch.x + ch.w / 2, y: ch.y + ch.h / 2 }));
+  }
+  function buildChips(form) {
+    chipForm = form || null; units = form ? unitsFor(form) : [];
+    chipsEl.replaceChildren(...units.map(u => {
+      const first = model.chips[u.chips[0]], b = document.createElement('button'), mine = domainOfChip(first);
+      b.type = 'button'; b.dataset.chip = u.chips[0]; b.setAttribute('aria-expanded', 'false');
+      const a = labelOf(mine), other = DOM.get(first.otherDomain), o = other ? labelOf(other) : first.otherDomain;
+      if (form === 'simple') b.dataset.side = u.key;
+      b.setAttribute('aria-label', form === 'simple' ? T.sideAria(a, u.n) : first.to ? T.chipAria(a, o, first.n) : T.chipAriaFrom(a, o, first.n));
+      b.onclick = () => toggleUnit(u.chips);
+      b.onfocus = () => { stage.scrollLeft = stage.scrollTop = 0; keepInView(u.x, u.y); };
       return b;
     }));
   }
-  function keepInView(ch) {
-    const v = view(), cx = ch.x + ch.w / 2, cy = ch.y + ch.h / 2;
+  function keepInView(cx, cy) {
+    const v = view();
     if (cx > v.x0 && cx < v.x0 + v.w && cy > v.y0 && cy < v.y0 + v.h) return;
     zv.set({ x: box.clientWidth / 2 - cx * v.k, y: box.clientHeight / 2 - cy * v.k, k: v.k });
   }
   function syncChips(v) {
-    if (!v || !model) return chipsEl.replaceChildren();
-    const coarse = matchMedia('(pointer: coarse)').matches, min = coarse ? 44 : 24, simple = formFor(v.k) === 'simple';
-    if (simple && !badgeOf) { badgeOf = []; sideBadges(model).forEach(g => g.chips.forEach(i => { badgeOf[i] = g; })); }
-    [...chipsEl.children].forEach((b, i) => {
-      const ch = model.chips[i], at = simple ? { x: badgeOf[i].x, y: badgeOf[i].y } : { x: ch.x + ch.w / 2, y: ch.y + ch.h / 2 };
+    if (!v || !model) { chipForm = null; return chipsEl.replaceChildren(); }
+    const form = formFor(v.k);
+    if (form !== chipForm) buildChips(form);
+    const coarse = matchMedia('(pointer: coarse)').matches, min = coarse ? 44 : 24, simple = form === 'simple';
+    [...chipsEl.children].forEach((b, j) => {
+      const u = units[j], ch = model.chips[u.chips[0]];
       const w = simple ? Math.max(LOOK.badgePx * 2.2, min) : Math.max(ch.w * v.k, min), h = simple ? Math.max(LOOK.badgePx * 1.4, min) : Math.max(ch.h * v.k, min);
       b.style.width = w + 'px'; b.style.height = h + 'px';
-      b.style.transform = `translate(${at.x * v.k + v.tx - w / 2}px,${at.y * v.k + v.ty - h / 2}px)`;
-      b.setAttribute('aria-expanded', String(state.expanded.has(i)));
+      b.style.transform = `translate(${u.x * v.k + v.tx - w / 2}px,${u.y * v.k + v.ty - h / 2}px)`;
+      b.setAttribute('aria-expanded', String(u.chips.every(i => state.expanded.has(i))));
     });
   }
-  function toggleChip(i) {
-    const was = state.expanded.has(i);
-    if (was) { state.expanded.delete(i); if (state.pop === i) closePop(false); }
-    else { state.expanded.add(i); openPop(i); say(T.liveChip(model.chips[i].n)); }
+  // press a chip, or a side's badge: every chip of it is drawn and listed in the one popover; pressed again, folded
+  function toggleUnit(list) {
+    if (list.every(i => state.expanded.has(i))) { collapse(list); closePop(false); }
+    else { list.forEach(i => state.expanded.add(i)); openPop(list); say(T.liveChip(list.reduce((n, i) => n + model.chips[i].n, 0))); }
     syncChips(view());
     paint();
   }
-  function openPop(i, all) {
-    state.pop = i;
-    const ch = model.chips[i], row = model.rows[model.cells.find(c => c.key === ch.cell).row], mine = labelOf(DOM.get(row.key));
-    const other = DOM.get(ch.otherDomain), o = other ? labelOf(other) : ch.otherDomain;
-    const h = document.createElement('h3'), close = document.createElement('button'), ul = document.createElement('ul');
-    h.textContent = ch.to ? T.popTitle(mine, o, ch.n) : T.popTitle(o, mine, ch.n);
-    close.type = 'button'; close.textContent = '×'; close.title = T.popClose; close.setAttribute('aria-label', T.popClose); close.onclick = () => toggleChip(i);
-    const shown = all ? ch.rels : ch.rels.slice(0, 20);
-    shown.forEach(r => {
-      const li = document.createElement('li'), b = document.createElement('button');
-      const c = NODE.get(r.child), p = NODE.get(r.parent);
-      b.type = 'button'; b.textContent = `${c.name}${r.col ? '.' + r.col : ''} → ${p.name}`;
-      if (!model.boxes.has(r.otherId)) {
-        b.disabled = true;
-        li.append(b, Object.assign(document.createElement('small'), { textContent: T.popOut }));
-      } else { b.onclick = () => { select(r.otherId, true); }; li.append(b); }
-      ul.append(li);
+  const collapse = list => list.forEach(i => state.expanded.delete(i));
+  // the popover of a list of chips (the one #s-pop): a heading and items for each, at most 20 items in all, then "Show all N"
+  function openPop(list, all) {
+    state.pop = list;
+    const chips = list.map(i => model.chips[i]), total = chips.reduce((n, c) => n + c.n, 0), first = chips[0];
+    const mine = labelOf(domainOfChip(first)), close = document.createElement('button');
+    close.type = 'button'; close.textContent = '×'; close.title = T.popClose; close.setAttribute('aria-label', T.popClose);
+    close.onclick = () => { collapse(list); closePop(true); syncChips(view()); paint(); };
+    const parts = [], title = c => { const other = DOM.get(c.otherDomain), o = other ? labelOf(other) : c.otherDomain; return c.to ? T.popTitle(mine, o, c.n) : T.popTitle(o, mine, c.n); };
+    let budget = all ? Infinity : 20;
+    chips.forEach(ch => {
+      if (budget <= 0) return;
+      const h = document.createElement('h3'), ul = document.createElement('ul');
+      h.textContent = chips.length > 1 ? title(ch) : title(first);
+      ch.rels.slice(0, budget).forEach(r => {
+        const li = document.createElement('li'), b = document.createElement('button'), c = NODE.get(r.child), p = NODE.get(r.parent);
+        b.type = 'button'; b.textContent = `${c.name}${r.col ? '.' + r.col : ''} → ${p.name}`;
+        if (!model.boxes.has(r.otherId)) {
+          b.disabled = true;
+          li.append(b, Object.assign(document.createElement('small'), { textContent: T.popOut }));
+        } else { b.onclick = () => { select(r.otherId, true); }; li.append(b); }
+        ul.append(li);
+      });
+      budget -= Math.min(budget, ch.rels.length);
+      parts.push(h, ul);
     });
-    const parts = [h, close, ul];
-    if (!all && ch.rels.length > 20) {
+    if (!all && total > 20) {
       const more = document.createElement('button');
-      more.type = 'button'; more.textContent = T.all(ch.rels.length); more.onclick = () => { openPop(i, true); pop.querySelector('ul button')?.focus(); };
+      more.type = 'button'; more.textContent = T.all(total); more.onclick = () => { openPop(list, true); pop.querySelector('ul button')?.focus(); };
       parts.push(more);
     }
-    pop.replaceChildren(...parts); pop.hidden = false; pop.setAttribute('aria-label', h.textContent);
-    pop.style.setProperty('--px', Math.min(Math.max(8, ch.x * view().k + view().tx), Math.max(8, stage.clientWidth - 330)) + 'px');
-    pop.style.setProperty('--py', Math.min(Math.max(8, (ch.y + ch.h) * view().k + view().ty + 6), Math.max(8, stage.clientHeight - 120)) + 'px');
+    const label = chips.length > 1 ? T.popSide(mine, total) : title(first);
+    pop.replaceChildren(close, ...parts); pop.hidden = false; pop.setAttribute('aria-label', label);
+    const at = units.find(u => u.chips[0] === list[0]) || first, ax = at.x - (at.chips ? 0 : 0), ay = at.y;
+    pop.style.setProperty('--px', Math.min(Math.max(8, ax * view().k + view().tx), Math.max(8, stage.clientWidth - 330)) + 'px');
+    pop.style.setProperty('--py', Math.min(Math.max(8, ay * view().k + view().ty + 16), Math.max(8, stage.clientHeight - 120)) + 'px');
   }
   function closePop(focus) {
-    const i = state.pop;
+    const list = state.pop;
     state.pop = null; pop.hidden = true; pop.replaceChildren();
-    if (focus && i !== null && chipsEl.children[i]) chipsEl.children[i].focus();
+    const j = list ? units.findIndex(u => u.chips.includes(list[0])) : -1;
+    if (focus && j >= 0 && chipsEl.children[j]) chipsEl.children[j].focus();
   }
 
   // --- sticky lane headers (HTML, never exported)
@@ -803,7 +826,7 @@ function startSchema(DATA, DETAIL, EXPORT, access) {
   $s('fit').onclick = fitAll;
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape' || !shownTab() || ev.defaultPrevented || ev.target.closest('input, select, textarea')) return;
-    if (state.pop !== null) { toggleChip(state.pop); closePop(true); }
+    if (state.pop !== null) { collapse(state.pop); closePop(true); syncChips(view()); paint(); }
     else if (state.selected) select(null);
     else if (state.scope.kind !== 'all') setScope({ kind: 'all' });
     else return;

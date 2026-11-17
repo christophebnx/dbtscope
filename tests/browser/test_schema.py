@@ -427,13 +427,18 @@ def test_expanding_a_chip_draws_its_relations_lists_them_and_esc_folds_it(
     large: tuple[Page, dict[str, Any]],
 ) -> None:
     p, _ = large
-    idx = js(p, "m.chips.findIndex(c => !c.out && c.to && c.n > 1)")
+    # a chip alone on its side of its cell, so that the badge of the far form stands for it only
+    idx = js(
+        p,
+        "(g => g ? g.chips[0] : -1)(sideBadges(m).find(g => g.chips.length === 1 "
+        "&& !m.chips[g.chips[0]].out && m.chips[g.chips[0]].to && m.chips[g.chips[0]].n > 1))",
+    )
     assert idx >= 0
     n = js(p, f"m.chips[{idx}].n")
     p.page.click("#s-fit")  # every relation of the chip is then in the drawn rectangle
     p.page.wait_for_timeout(150)
     before = p.page.locator("#s-graph g.edge").count()
-    p.page.evaluate(f"document.querySelectorAll('#s-chips button')[{idx}].focus()")
+    p.page.evaluate(f"document.querySelector(\"#s-chips button[data-chip='{idx}']\").focus()")
     p.page.wait_for_timeout(100)
     p.page.keyboard.press("Enter")
     p.page.wait_for_timeout(150)

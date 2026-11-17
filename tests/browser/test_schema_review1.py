@@ -158,3 +158,35 @@ def test_one_text_measure_one_ellipsis_one_tooltip_placement() -> None:
     assert "measureText" not in texts["schema.js"] and "slice(0, 399)" not in texts["schema.js"]
     assert "tip.style.left" not in texts["schema.js"] and "tip.style.left" not in texts["flow.js"]
     assert "THEME.accent" in texts["schema.js"] and "'#2f6fb5'" not in texts["schema.js"]
+
+
+def test_a_far_badge_is_one_button_that_opens_every_chip_of_its_side(
+    large: tuple[Page, dict[str, Any]],  # noqa: F811
+) -> None:
+    p, _ = large
+    scope(p, "layer:vault")
+    p.page.click("#s-fit")
+    p.page.wait_for_timeout(300)
+    sides = p.page.evaluate("sideBadges(views.schema.sheet()).map(g => [g.key, g.chips, g.n])")
+    assert len(sides) < js(p, "m.chips.length")  # fewer badges than chips: some side holds several
+    assert p.page.locator("#s-chips button").count() == len(sides)  # one Tab stop per badge
+    many = next(s for s in sides if len(s[1]) > 1)
+    assert p.page.locator(f"#s-graph g.chip[data-side='{many[0]}']").count() == 1
+    button = p.page.locator(f"#s-chips button[data-side='{many[0]}']")
+    assert str(many[2]) in button.get_attribute("aria-label")
+    button.click(force=True)
+    p.page.wait_for_selector("#s-pop:not([hidden])")
+    assert sorted(p.page.evaluate("views.schema.view().expanded")) == sorted(many[1])
+    assert button.get_attribute("aria-expanded") == "true"
+    if many[2] > 20:
+        p.page.locator("#s-pop > button", has_text="Show all").click()
+    assert p.page.locator("#s-pop li").count() == many[2]
+    assert p.page.locator("#s-pop h3").count() == len(many[1])
+    button.click(force=True)  # pressed again: folded
+    assert p.page.evaluate("views.schema.view().expanded") == [] and p.page.is_hidden("#s-pop")
+    p.page.locator("#s-chips button").first.focus()
+    seen = []
+    for _ in range(len(sides)):
+        seen.append(p.page.evaluate("document.activeElement.dataset.side"))
+        p.page.keyboard.press("Tab")
+    assert len(set(seen)) == len(sides) and None not in seen
