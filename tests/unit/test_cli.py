@@ -23,6 +23,7 @@ from conftest import (
     blocks,
     fake_dbt_executable,
     page_data,
+    shop_manifest,
     write_config,
     write_layout,
     write_manifest,
@@ -461,6 +462,21 @@ def test_a_preset_file_can_open_the_page_on_summary_cards(dbt_project: Path) -> 
     assert main(build(dbt_project, "--preset-file", str(preset))) == 0
     page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
     assert page_data(page)["universe"]["defaults"]["cards"] is True
+
+
+def test_the_page_carries_the_manifest_generation_date(dbt_project: Path) -> None:
+    manifest = shop_manifest()
+    manifest["metadata"] = {"project_name": "shop", "generated_at": "2026-11-17T08:30:00.000000Z"}
+    write_manifest(dbt_project, manifest)
+    assert main(build(dbt_project)) == 0
+    page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert page_data(page)["generatedAt"] == "2026-11-17T08:30:00.000000Z"
+
+
+def test_a_manifest_without_a_date_gives_a_null_generated_at(dbt_project: Path) -> None:
+    assert main(build(dbt_project)) == 0
+    page = (dbt_project / "erd_output" / "erd.html").read_text(encoding="utf-8")
+    assert page_data(page)["generatedAt"] is None
 
 
 def test_an_empty_selection_names_the_config(dbt_project: Path, capsys: Capsys) -> None:

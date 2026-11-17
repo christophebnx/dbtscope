@@ -735,7 +735,9 @@ def run(options: Options) -> None:
     _check_views(detail, universe, label)
     layout_path = (inputs.project / config.layout_file).resolve()
     layout = read_layout(layout_path)
-    page_bytes = render_page(detail, universe, config, layout, offline=config.offline).encode("utf-8")
+    page_bytes = render_page(
+        detail, universe, config, layout, offline=config.offline, generated_at=parsed.generated_at
+    ).encode("utf-8")
     _write_page(output, page_bytes)
     embedded = layout_path if layout is not None else None
     saved_at = layout.get("savedAt") if layout is not None else None

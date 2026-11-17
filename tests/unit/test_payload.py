@@ -75,7 +75,11 @@ def test_page_payload_wraps_both_views() -> None:
     page = PagePayload(
         title="t", lang="fr", view="detail", detail=DETAIL, universe=empty_universe(), layout={}
     )
-    assert list(json.loads(embedded_json(page))) == ["title", "lang", "view", "detail", "universe", "layout"]
+    keys = ["title", "lang", "view", "detail", "universe", "layout", "generatedAt"]
+    assert list(json.loads(embedded_json(page))) == keys
+    assert json.loads(embedded_json(page))["generatedAt"] is None
+    dated = page.model_copy(update={"generated_at": "2026-11-17T08:00:00.000000Z"})
+    assert json.loads(embedded_json(dated))["generatedAt"] == "2026-11-17T08:00:00.000000Z"
 
 
 def test_defaults_are_built_by_their_python_name_only() -> None:

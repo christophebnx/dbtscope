@@ -137,7 +137,15 @@ def parse_manifest(manifest: Any) -> Project:
     )
     groups = {g.name: Group(name=g.name, owner=_owner(g)) for g in parsed.groups.values()}
     root = parsed.metadata.project_name if parsed.metadata else None
-    return Project(tables=tables, relations=tuple(relations), lineage=lineage, groups=groups, root=root)
+    generated_at = parsed.metadata.generated_at if parsed.metadata else None
+    return Project(
+        tables=tables,
+        relations=tuple(relations),
+        lineage=lineage,
+        groups=groups,
+        root=root,
+        generated_at=generated_at,
+    )
 
 
 def _test_relations(tests: list[RelationshipTest], tables: dict[str, Table]) -> Iterator[Relation]:

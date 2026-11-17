@@ -145,3 +145,6 @@ class PagePayload(BaseModel):
     detail: DetailPayload
     universe: UniversePayload
     layout: dict[str, Any]  # a `dbt-erd-layout` file, checked by `layout.check_layout`, not modelled
+    generated_at: str | None = Field(
+        None, serialization_alias="generatedAt"
+    )  # last key: the manifest's `metadata.generated_at`, verbatim (D-095)

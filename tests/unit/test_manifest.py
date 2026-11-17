@@ -366,6 +366,29 @@ def test_top_level_keys_of_a_real_manifest_are_ignored(shop: Project) -> None:
 
 
 @pytest.mark.parametrize(
+    ("metadata", "expected"),
+    [
+        ({"generated_at": "2026-11-17T08:30:00.123456Z"}, "2026-11-17T08:30:00.123456Z"),
+        ({"project_name": "shop"}, None),
+        ({"generated_at": None}, None),
+        ({"generated_at": 20261117}, None),
+        ({"generated_at": {"a": 1}}, None),
+    ],
+)
+def test_generated_at_is_read_verbatim_or_not_at_all(
+    metadata: dict[str, Any], expected: str | None, shop: Project
+) -> None:
+    manifest = shop_manifest()
+    manifest["metadata"] = metadata
+    assert parse_manifest(manifest).generated_at == expected
+    assert parse_manifest(manifest).model_copy(update={"generated_at": None}).tables == shop.tables
+
+
+def test_a_manifest_without_metadata_has_no_generation_date(shop: Project) -> None:
+    assert shop.generated_at is None
+
+
+@pytest.mark.parametrize(
     ("change", "message"),
     [
         (lambda m: m["nodes"].update({"x": None}), "nodes.x: must be a mapping"),

@@ -197,10 +197,12 @@ def render_page(
     config: Config,
     layout: dict[str, Any] | None = None,
     offline: bool = False,
+    generated_at: str | None = None,
 ) -> str:
     """Return page.html with its scripts, the data of both views and the saved manual layout.
 
     `offline` embeds the vendored libraries (and their licences) instead of loading them from the CDNs.
+    `generated_at` is the manifest's own date, shown by the print dialog (D-095).
     """
     page = PagePayload(
         title=config.title,
@@ -209,6 +211,7 @@ def render_page(
         detail=detail,
         universe=universe,
         layout=layout or {},
+        generated_at=generated_at,
     )
     json_text = embedded_json(page)
     parts = {

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # dbt writes many more fields than these, and adds new ones: unknown keys are ignored
 INPUT = ConfigDict(extra="ignore", frozen=True)
@@ -146,6 +146,13 @@ class Metadata(BaseModel):
     model_config = INPUT
 
     project_name: str | None = None
+    generated_at: str | None = None  # dbt's own timestamp, kept verbatim (D-095)
+
+    @field_validator("generated_at", mode="before")
+    @classmethod
+    def _text_or_none(cls, value: Any) -> str | None:
+        """Read leniently: anything but a string is no date."""
+        return value if isinstance(value, str) else None
 
 
 class ManifestFile(BaseModel):
