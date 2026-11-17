@@ -1773,7 +1773,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // ---------------------------------------------------------------- navigation
   // a zoom or a pan hides the tooltip and clears what it was about: the next mouse move recomputes both (D-085)
   const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT)
-    .on('start', () => { tip.style.display = 'none'; hover = hoverCard = hoverRow = spot = null; })
+    .on('start', () => { tip.style.display = 'none'; const lit = hover != null || hoverCard != null || spot != null; hover = hoverCard = hoverRow = spot = null; if (lit) draw(); })
     .on('zoom', ev => { t = ev.transform; draw(); });
   // mouse only: on touch every finger goes to the zoom, so a pinch starting on a table or a domain name
   // zooms and a one-finger drag pans, as in the detail (a touch drag cannot hand a finger over to a pinch)

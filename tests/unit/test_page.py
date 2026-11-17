@@ -365,3 +365,10 @@ def test_the_page_strings_hold_none_of_the_words_d_084_retired(name: str) -> Non
         r"Show all routes|Afficher toutes les routes|Tout afficher|\bFold|Replier|[Rr]epliée"
     )
     assert [s for s in shown if old.search(re.sub(r"\$\{[^}]*\}", "", s))] == []  # code in ${} is no wording
+
+
+@pytest.mark.parametrize("name", ["common.js", "detail.js", "universe.js", "flow.js"])
+def test_french_strings_put_a_narrow_space_before_semicolon_and_question_mark(name: str) -> None:
+    """D-039: before `;`, `?` and `!` French strings write the narrow no-break space escape (never U+00A0)."""
+    text = (ASSETS / name).read_text(encoding="utf-8")
+    assert not re.search(r"\\u00a0[;?!]", text)

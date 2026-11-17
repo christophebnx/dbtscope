@@ -430,3 +430,35 @@ def test_returning_to_a_table_outside_the_universe_shows_the_tab_without_a_mark(
     p.page.evaluate("views.universe.locate('model.nowhere.missing')")
     assert p.page.input_value("#u-q") == "" and p.page.is_disabled("#u-traj")
     assert p.page.evaluate("document.activeElement.id") == "u-q"
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_tab_bar_stays_one_row_at_360_px_and_the_search_placeholder_fits(
+    tmp_path: Path, open_page: Any, lang: str
+) -> None:
+    p, _ = acme_in(tmp_path, open_page, lang)
+    p.page.set_viewport_size(NARROW)
+    height = p.page.evaluate("document.getElementById('tabs').getBoundingClientRect().height")
+    assert height < 50, height
+    p.page.set_viewport_size({"width": 1280, "height": 800})
+    fits = p.page.evaluate(
+        """() => { const q = document.getElementById('u-q');
+          const c = document.createElement('canvas').getContext('2d');
+          const s = getComputedStyle(q);
+          c.font = s.font;
+          const room = q.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+          return c.measureText(q.placeholder).width <= room; }"""
+    )
+    assert fits
+
+
+def test_the_return_closes_the_lineage_graph_first(example_page: Any) -> None:
+    p, _ = example_page
+    uid = double_click_table(p, "dim_customer")
+    p.page.click("#tabs button[data-tab=universe]")
+    p.page.fill("#u-q", "fct_orders")
+    p.page.click("#u-traj")
+    p.page.click("#u-tj-flow")
+    p.page.wait_for_function("flow && flow.state().open")
+    p.page.evaluate("id => backToUniverse(id)", uid)
+    assert p.page.is_hidden("#f-view") and p.page.evaluate("document.activeElement.id") == "u-q"

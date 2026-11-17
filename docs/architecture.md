@@ -174,7 +174,7 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | A location trail (breadcrumb) in a toolbar (page; one item in M9.1, the full path from M9.2, D-086) | `render/assets/common.js crumbs` |
 | Close a popover `<details>` on Esc or a press outside (page, D-085) | `render/assets/common.js dismissable` |
 | Whether the detail groups are the universe domains, and their display names (page, D-084) | `render/assets/common.js detailDomains` |
-| Find, mark and frame one universe table (search box, return from the Detail tab) | `render/assets/universe.js locate` |
+| Find, mark and frame one universe table (search box, return from the Detail tab) | `render/assets/universe.js mark` (`locate` is the return entry) |
 | Go back from the Detail tab to the universe on a table (D-086) | `render/assets/boot.js backToUniverse` |
 | Display name of a payload domain, layer or kind (`label ?? key`) (page) | `render/assets/common.js labelOf` |
 | What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-048) | `render/assets/universe.js BY`, `grouping` |
@@ -283,7 +283,7 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | The strip of a domain constellation where the tables of one layer are placed (universe, M5.5, D-040) | **layer band** | column, lane | "Column" is the flow's word. |
 | The strip of a layer constellation where the tables of one domain are placed (universe, M5.13, D-048) | **domain band** | column, lane | Code says **band** for both kinds. |
 | The left-to-right Graphviz diagram of one trajectory (M5.3, D-036) | **flow** (the flow view, `flow.js`) | lineage view | Its columns are computed by `flowRanks`; "level" stays the trajectory depth. UI word (M9.1, D-084): **Lineage graph** / Graphe de lignage. |
-| The lineage of one table shown on the universe (enter, bar, dimming, Esc) (M5.x) | **trajectory** (`trajectory`, `traj`, `#u-traj`, `dbtscope-routes` keys stay) | path, trace | Code word only; UI word (M9.1, D-084): **Lineage** / Lignage (a lineage link, in French "lien de lignage"). |
+| The lineage of one table shown on the universe (enter, bar, dimming, Esc) (M5.x) | **trajectory** (`trajectory`, `traj`, `#u-traj`) | path, trace | Code word only; UI word (M9.1, D-084): **Lineage** / Lignage (a lineage link, in French "lien de lignage"). |
 | The universe's detail level (names, keys, all fields) | **detail level** (`state.detail`, `universe.detail`) | — | UI word (M9.1, D-084): **Show** (names / key columns / all columns) / Afficher. |
 | `group_by` value of a table in the detail view | **group** | — | dbt's own group is **dbt group** in prose; the field stays `Table.group`. UI word (M9.1, D-084): **Domain** when every detail table has its group equal to its universe domain (`common.js detailDomains`), else **Group**. |
 | The Python → JavaScript contract and its models | **payload** (`PagePayload`, `DetailPayload`, `UniversePayload`) | data (for the contract) | **data** is for untyped values, bytes and the page's `#data` block. |

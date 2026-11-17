@@ -27,7 +27,7 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
           focusLabel: 'Cibler une table', qLabel: 'Surligner les tables dont le nom contient',
           foreign: 'contour en pointillés = autre groupe', foreignDomain: 'contour en pointillés = autre domaine',
           hGroup: 'Groupe', hDomain: 'Domaine', hDepth: 'Autour de la table ciblée', hCols: 'Afficher',
-          groupTitle: 'Tables regroupées selon le paramètre group_by de dbt-erd.yml\u00a0; un domaine de l\'univers peut contenir plusieurs groupes',
+          groupTitle: 'Tables regroupées selon le paramètre group_by de dbt-erd.yml\u202f; un domaine de l\'univers peut contenir plusieurs groupes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
           hint: 'Molette ou pincement\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
@@ -270,7 +270,7 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
     if (heldIds.length) rows += note(dotText(foldedText(heldIds)));
     const border = e.id === state.focus ? 4 : 1;
     const style = isForeign(e) ? ' style="dashed"' : '';
-    const tip = [[e.group, e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : ''),
+    const tip = [[groupName(e.group), e.name].filter(Boolean).join(' · ') + (e.description ? '\n\n' + e.description : ''),
       cur.skeleton ? skeletonTip(e, heldIds) : ''].filter(Boolean).join('\n\n');
     const pin = pos ? ` pos="${pos[0]},${pos[1]}!"` : '';
     const id = dotStr(e.id);

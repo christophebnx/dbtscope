@@ -93,6 +93,7 @@ function openInDetail(id) {
 // on), else on the table of the hand-off
 function backToUniverse(handOff) {
   const focus = views.detail.focused();
+  if (flow && flow.isOpen()) closeFlow();   // the lineage graph covers the universe: close it so the table shows
   showTab('universe');
   views.universe.locate(focus && PAGE.universe.nodes.some(n => n.id === focus) ? focus : handOff);
 }
