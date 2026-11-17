@@ -652,17 +652,29 @@ def test_click_on_the_empty_background_leaves_the_mode(shop_page: Shop, zoom: st
     assert p.state()["active"] is False, f"a click on the empty background must leave ({zoom})"
 
 
-def test_click_on_a_domain_halo_enters_it_and_the_mode_stays_only_where_it_started(shop_page: Shop) -> None:
+def halo_of(p: Page, own: bool, domain_label: str) -> tuple[float, float]:
+    """A point of a domain halo away from tables and labels: of the start's domain (`own`) or of another."""
+    for x, y in sorted(scan(p)["halo"]):
+        p.page.mouse.move(x, y)
+        label = p.page.inner_text("#u-tip b")
+        if (label == domain_label) is own:
+            return x, y
+    raise AssertionError(f"no halo point of {'the' if own else 'another'} domain")
+
+
+@pytest.mark.parametrize("own", [True, False], ids=["own-halo-keeps-the-lineage", "other-halo-leaves-it"])
+def test_click_on_a_domain_halo_enters_it_and_the_lineage_goes_on_only_where_it_started(
+    shop_page: Shop, own: bool
+) -> None:
     """D-088: a click on a disc enters its domain; a lineage goes on only when its start is in that domain."""
     p, data = shop_page
     enter_by_button(p, "fct_orders")
     assert zoom_out_below_far(p) < FAR
-    points = scan(p)
-    assert points["halo"], "no point on a domain halo away from tables and labels"
-    p.page.mouse.click(*sorted(points["halo"])[0])
-    inside = p.page.evaluate("views.universe.location().inside")
-    assert inside is not None
-    assert p.state()["active"] is (inside == node(data, "fct_orders")["domain"])
+    domain = node(data, "fct_orders")["domain"]
+    label = next(d["label"] for d in data["universe"]["domains"] if d["key"] == domain)
+    p.page.mouse.click(*halo_of(p, own, label))
+    assert (p.page.evaluate("views.universe.location().inside") == domain) is own
+    assert p.state()["active"] is own
 
 
 @pytest.mark.parametrize(("select", "value"), [("#u-tj-depth", "d3"), ("#u-tj-dir", "up")])

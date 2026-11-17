@@ -174,7 +174,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   };
   // the map (D-087, D-088): a page of more tables than `universe.map_above` opens on named discs; `nav` is the location
   // (never saved, D-013): the entered constellation (a domain, or a layer) and the selected table, as indexes
-  const MAP = N.length > (DATA.defaults.mapAbove ?? 300);
+  const MAP = N.length > DATA.defaults.mapAbove;
   const nav = { inside: null, table: null };
   const COARSE = window.matchMedia('(pointer: coarse)').matches;
   const folding = () => CAN_FOLD && state.fold;   // the fold is on (the scope of the arrangement, the meta line)
@@ -539,6 +539,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
     P = [];
     constellations.forEach(d => local.get(d.k).ns.forEach(s => { const [dx, dy] = REL.get(s.i); P[s.i] = { x: d.x + dx, y: d.y + dy }; }));
+    ghostLabelW = Math.min(NAV.GHOST_LABEL, Math.ceil(d3.max(constellations, d => textW(constellationLabel(d.k), `11px ${FONT}`)) || 0) + 4);
     PM = P;   // the map's positions, kept while a constellation is entered (D-088)
     tree = d3.quadtree(visible, n => P[n.i].x, n => P[n.i].y);
     geomVer++;
@@ -682,10 +683,12 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // With `aspect` (the entered constellation, D-088) the same bands and scan give the spread: the objective is the largest
   // scale of the row's bounding box in a box of that aspect (width / height), not the smallest circle; no refinement.
   // -> also { w, h }, the size of the bounding box
-  function layoutConstellation(key, members, aspect = 0) {
+  // `kName` (the spread, below scale 1): the scale the spread is meant to be seen at; the reserved boxes then hold the names
+  // at their fixed screen size, so a name has the room of its box, not that of a scale-1 layout (names are not scaled)
+  function layoutConstellation(key, members, aspect = 0, kName = 0, wide = true) {
     const bands = bandsOf(members);
     const PAD = PACK.PAD;
-    const items = bands.map(band => band.tables.map(n => { const b = box(n); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
+    const items = bands.map(band => band.tables.map(n => { const b = reservedBox(n, kName, wide); return { i: n.i, w: b.w, h: b.h, oy: b.oy }; }));
     const all = items.flat(), stack = list => d3.sum(list, b => b.h) + PAD * (list.length - 1);
     const lo = d3.max(all, b => b.h), hi = Math.max(lo, d3.max(items, stack));
     let best = null;
@@ -707,6 +710,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     return { ns: all.map((b, j) => ({ i: b.i, x: best.at[j].x, y: best.at[j].y - b.oy })), R, bandOf, w: best.w, h: best.h,
              rank: grouping().rank(key, members),
              bands: bands.map((band, j) => ({ key: band.key, n: band.tables.length, x0: best.bands[j][0], x1: best.bands[j][1] })) };
+  }
+  // a table's reserved box for a view at scale k < 1 at names level: the star scales, the name (11 px, one or two lines) does not
+  function reservedBox(n, k, wide = true) {
+    const b = box(n);
+    if (!k || k >= 1 || state.detail !== 'names') return b;
+    const lines = nameLines(n.name).length, up = HELD.has(n.i) ? 6 : 0;
+    return { ...b, w: wide ? (b.w + 12) / k : b.w, h: 2 * starR(n) + up + (10 + LINE_H * lines) / k, oy: LINE_H / 2 * lines / k - up / 2 };
   }
   // The bands of a constellation, ordered tables included: [{key, tables}] (see the M5.5 design note § 2).
   // In layer mode every table has a band (its domain), so the catch-all placement never applies.
@@ -1261,10 +1271,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     // hover dimming is off in the trajectory mode, whose dimming replaces it
     // inside an entered constellation no link is drawn until a table is hovered or selected (D-088)
     const near = hover != null && !traj ? new Set([hover, ...edges.filter(e => e.includes(hover)).flat()]) : null;
-    const picked = inside && !traj ? nav.table : null;
+    const viewed = inside ? linksOf() : null;
     ctx.lineWidth = 1 / k; ctx.globalAlpha = (traj ? DIM : 1) * fade;
     if (starsOn) edges.forEach(([a, b]) => {
-      const hl = (near && (a === hover || b === hover)) || (picked != null && (a === picked || b === picked)), cross = G.of(N[a]) !== G.of(N[b]);
+      const hl = inside ? viewed != null && (a === viewed || b === viewed) : near && (a === hover || b === hover), cross = G.of(N[a]) !== G.of(N[b]);
       if (inside && (!hl || !spread.set.has(a) || !spread.set.has(b))) return;
       if (!hl && (k < 0.35 || (k < 0.6 && cross))) return;
       ctx.strokeStyle = hl ? C.hl : cross ? C.cross : C.edge;
@@ -1451,7 +1461,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const summaryWeight = k => (!nav.inside && (state.cards || MAP)
     ? Math.max(0, Math.min(1, Math.log(S_STARS / (k * refR)) / Math.log(S_STARS / S_CARDS))) : 0);
   const tablesLive = () => summaryWeight(t.k) < 0.5;
-  const cardsLive = () => state.cards && !tablesLive();   // the pointer acts on cards, not on discs   // the pointer acts on stars below half a card, on cards above
+  const cardsLive = () => state.cards && !tablesLive();   // the pointer acts on cards (not on discs) once they weigh half
   // what a card says (over the tables that pass the filters): rows by layer (domain mode) or by domain (layer
   // mode), each with its kinds in the order of the Types list, the entities drawn while the fold is on, the main tables
   function summaryOf(d, all) {
@@ -2122,8 +2132,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // GHOST_X / GHOST_Y: the room kept at the sides / top and bottom for the ghosts; HEADER: the strip of the band headers;
   // ENTER / LEAVE / BACK: the zoom hysteresis (a disc filling ENTER of the stage enters it, a scale below LEAVE x the
   // spread's Fit leaves it, which then frames the left disc at BACK of the stage); DUR: the tween (ms); K_MAX: the Fit cap
-  const NAV = { GHOST_X: 88, GHOST_Y: 72, HEADER: 28, ENTER: 0.9, LEAVE: 0.6, BACK: 0.6, DUR: 300, K_MAX: 2, GHOST_MIN: 12, GHOST_MAX: 24, SMALL: 600 };
-  let spread = null, navAlpha = 1, tween = null, hoverGhost = null, ghostList = [], zoomK0 = 1, lastEnter = -1e9;
+  const NAV = { GHOST_X: 88, GHOST_Y: 72, HEADER: 28, ENTER: 0.9, LEAVE: 0.6, BACK: 0.6, DUR: 300, K_MAX: 2, K_NAMES: 0.15, GHOST_LABEL: 120, GHOST_MIN: 12, GHOST_MAX: 24, SMALL: 600 };
+  let ghostLabelW = 0, spread = null, navAlpha = 1, tween = null, hoverGhost = null, ghostList = [], zoomK0 = 1, lastEnter = -1e9;
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const enterWord = () => (state.by === 'layers' ? T.enterL : T.enterD);
   const constellationOf = key => constellations.find(d => d.k === key);
@@ -2132,19 +2142,48 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   function clearFound() { found = null; nav.table = traj ? traj.start : null; }
   // the box the spread is framed in: the stage minus the ghost margins and the header strip (and the lineage bar)
   function stageBox() {
-    const W = stage.clientWidth, H = stage.clientHeight, small = W < NAV.SMALL, gx = small ? 28 : NAV.GHOST_X, gy = small ? 28 : NAV.GHOST_Y;
+    const W = stage.clientWidth, H = stage.clientHeight, small = W < NAV.SMALL, gy = small ? 28 : NAV.GHOST_Y;
+    // the sides hold a ghost and its name beside it: wide enough for the longest name (at most GHOST_LABEL), never under GHOST_X
+    const gx = small ? 28 : Math.max(NAV.GHOST_X, ghostLabelW + 2 * NAV.GHOST_MAX + 14);
     return { x0: gx, x1: Math.max(gx + 1, W - gx), y0: top() + gy + NAV.HEADER, y1: Math.max(top() + gy + NAV.HEADER + 1, H - gy), gx, gy };
   }
   // The spread of a constellation (D-088): its drawn tables in the same bands, packed for the stage's aspect and centred on
   // its map centre, so entering is a continuous move. -> { key, ns (world), bbox, bands (world x), fitK, tables, set }
   function computeSpread(key) {
     const G = grouping(), d = constellationOf(key), members = visible.filter(n => G.of(n) === key), b = stageBox();
-    const aspect = Math.round(Math.max(0.2, Math.min(5, (b.x1 - b.x0) / (b.y1 - b.y0))) / 0.05) * 0.05, ck = layoutKey(key, members, 'spread' + aspect.toFixed(2));
-    if (!layoutCache.has(ck)) layoutCache.set(ck, layoutConstellation(key, members, aspect));
-    const v = layoutCache.get(ck), bbox = { x0: d.x - v.w / 2, x1: d.x + v.w / 2, y0: d.y - v.h / 2, y1: d.y + v.h / 2 };
+    const aspect = Math.round(Math.max(0.2, Math.min(5, (b.x1 - b.x0) / (b.y1 - b.y0))) / 0.05) * 0.05;
+    const laid = (kName, wide = true) => {
+      const ck = layoutKey(key, members, `spread${aspect.toFixed(2)}k${kName.toFixed(2)}${wide ? 'w' : 'h'}`);
+      if (!layoutCache.has(ck)) layoutCache.set(ck, layoutConstellation(key, members, aspect, kName, wide));
+      const v = layoutCache.get(ck);
+      return { v, bbox: { x0: d.x - v.w / 2, x1: d.x + v.w / 2, y0: d.y - v.h / 2, y1: d.y + v.h / 2 } };
+    };
+    // Names keep their size, so the boxes are laid out for the scale the result is seen at; a name has its room when that
+    // result's Fit is at least 95 % of it. The largest such scale is found by bisection between NAV.K_NAMES and the plain
+    // layout's Fit (the floor keeps the stars from becoming dots). When the names need more room than the stage holds, the same
+    // search keeps only their height (a name never covers the star under it; names of neighbouring columns compete), and when
+    // even that fails the plain layout is used.
+    const plain = laid(0), top = fitIn(plain.bbox);
+    let got = plain;
+    if (top < 1) {
+      const search = wide => {
+        const enough = k => { const r = laid(k, wide); return fitIn(r.bbox) >= 0.95 * k ? r : null; };
+        let lo = NAV.K_NAMES, hi = Math.round(top * 100) / 100, best = enough(hi);
+        if (best) return best;
+        for (let round = 0; round < 6; round++) {
+          const mid = Math.round(Math.sqrt(lo * hi) * 100) / 100;
+          if (mid <= lo || mid >= hi) break;
+          const r = enough(mid);
+          if (r) { lo = mid; best = r; } else hi = mid;
+        }
+        return best;
+      };
+      got = search(true) || search(false) || plain;
+    }
+    const { v, bbox } = got;
     return { key, ns: v.ns.map(s => ({ i: s.i, x: d.x + s.x, y: d.y + s.y })), bbox, tables: members, set: new Set(members.map(n => n.i)),
              bands: d.bands.map((band, j) => ({ key: band.key, n: band.n, x0: d.x + v.bands[j].x0, x1: d.x + v.bands[j].x1 })),
-             fitK: Math.min(NAV.K_MAX, (b.x1 - b.x0) / (bbox.x1 - bbox.x0), (b.y1 - b.y0) / (bbox.y1 - bbox.y0)) };
+             fitK: fitIn(bbox) };
   }
   // the entered constellation's tables at their spread positions; the others keep the map's (never drawn)
   function applySpread() {
@@ -2196,11 +2235,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     (animate && !reduced() ? sel.transition().duration(NAV.DUR) : sel).call(zoom.transform, tr);
   }
   function insideTransform() {
-    const b = stageBox(), tj = trajMembers().filter(i => spread.set.has(i));
+    const tj = trajMembers().filter(i => spread.set.has(i));
     const bb = tj.length ? { x0: d3.min(tj, i => P[i].x - B[i].w / 2), x1: d3.max(tj, i => P[i].x + B[i].w / 2),
                              y0: d3.min(tj, i => P[i].y + B[i].oy - B[i].h / 2), y1: d3.max(tj, i => P[i].y + B[i].oy + B[i].h / 2) } : spread.bbox;
-    const k = Math.min(NAV.K_MAX, (b.x1 - b.x0) / Math.max(1, bb.x1 - bb.x0), (b.y1 - b.y0) / Math.max(1, bb.y1 - bb.y0));
-    return d3.zoomIdentity.translate((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2).scale(k).translate(-(bb.x0 + bb.x1) / 2, -(bb.y0 + bb.y1) / 2);
+    return boxTransform(bb);
+  }
+  // the one Fit scale of a world box in the stage box (the spread's `fitK`, the camera of `fitInside`), and the camera that centres it
+  function fitIn(bb) {
+    const b = stageBox();
+    return Math.min(NAV.K_MAX, (b.x1 - b.x0) / Math.max(1, bb.x1 - bb.x0), (b.y1 - b.y0) / Math.max(1, bb.y1 - bb.y0));
+  }
+  function boxTransform(bb) {
+    const b = stageBox();
+    return d3.zoomIdentity.translate((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2).scale(fitIn(bb)).translate(-(bb.x0 + bb.x1) / 2, -(bb.y0 + bb.y1) / 2);
   }
   // the left disc at BACK of the stage (a zoom out leaves, D-088)
   function frameDisc(d) {
@@ -2406,26 +2453,28 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       ctx.globalAlpha = navAlpha; ctx.strokeStyle = mark ? C.text : col; ctx.lineWidth = hot || mark ? 2 : 1.5; ctx.stroke();
       if (small) return;
       const name = constellationLabel(g.k), count = mark ? [mark.up ? `${num(mark.up)} ↑` : '', mark.down ? `${num(mark.down)} ↓` : ''].filter(Boolean).join(' · ') || num(g.d.n) : num(g.d.n);
-      const horizontal = g.side === 'l' || g.side === 'r', maxW = Math.max(30, NAV.GHOST_X - 2 * g.r - 10);
+      const horizontal = g.side === 'l' || g.side === 'r', maxW = ghostLabelW;
       let lines, x, y, align;
       if (horizontal) {
         align = g.side === 'l' ? 'left' : 'right'; x = g.x + (g.side === 'l' ? 1 : -1) * (g.r + 6); y = g.y - 2;
         lines = [[ellipsis(name, maxW, `11px ${FONT}`), C.text, `11px ${FONT}`], [count, C.muted, `11px ${FONT}`]];
       } else {
         align = 'center'; x = g.x; y = g.side === 't' ? g.y + g.r + 14 : g.y - g.r - 6;
-        lines = [[`${ellipsis(name, 80, `11px ${FONT}`)} · ${count}`, C.text, `11px ${FONT}`]];
+        lines = [[`${ellipsis(name, maxW, `11px ${FONT}`)} · ${count}`, C.text, `11px ${FONT}`]];
       }
       const w = Math.max(...lines.map(l => textW(l[0], l[2]))) + 4, left = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
       const box = [left, y - 11, w, 14 * lines.length];
       if (taken.some(r => box[0] < r[0] + r[2] && box[0] + box[2] > r[0] && box[1] < r[1] + r[3] && box[1] + box[3] > r[1])) return;
       taken.push(box); ctx.textAlign = align; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
+      ctx.globalAlpha = navAlpha * 0.9; ctx.fillStyle = C.bg; ctx.fillRect(box[0] - 1, box[1] - 1, box[2] + 2, box[3] + 2);   // a line never runs through a name
+      ctx.globalAlpha = navAlpha;
       lines.forEach(([text, color, font], j) => { ctx.font = font; ctx.strokeText(text, x, y + 14 * j); ctx.fillStyle = color; ctx.fillText(text, x, y + 14 * j); });
     });
     ctx.textAlign = 'left'; ctx.globalAlpha = 1; ctx.lineCap = 'butt';
   }
   // the links of the hovered or selected table to the other constellations: one line per ghost, by count
   function drawGhostLinks(gl) {
-    const i = hover != null ? hover : traj ? null : nav.table;
+    const i = linksOf();
     if (i == null || !spread.set.has(i) || !P[i]) return;
     const G = grouping(), by = new Map();
     edges.forEach(([a, b]) => {
@@ -2596,10 +2645,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
                                    bands: d.bands.map(b => ({ key: b.key, n: b.n, x0: d.x + b.x0, x1: d.x + b.x1 })) })),
       summary: summaryGeometry(), systems: systemsGeometry() };
   }
+  // the one table whose links are drawn inside an entered constellation: the hovered one, else the selected one; none
+  // during a lineage, which draws its own edges (read by the frame, the ghost links and `drawnEdges`)
+  const linksOf = () => (traj ? null : hover != null ? hover : nav.table);
   // the links drawn between tables: all of them, but inside an entered constellation only those of the hovered or selected table
   function drawnEdges() {
     if (!nav.inside) return edges;
-    const pick = hover != null ? hover : traj ? null : nav.table;
+    const pick = linksOf();
     return edges.filter(([a, b]) => pick != null && (a === pick || b === pick) && spread.set.has(a) && spread.set.has(b));
   }
   // the entered constellation as drawn: its framing box, headers, ghosts (screen px), for the browser tests

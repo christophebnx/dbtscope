@@ -673,3 +673,23 @@ def test_a_huge_map_above_keeps_a_large_project_on_its_opening_as_before(
     settle(p)
     assert summary(p)["weight"] == 0 and p.page.evaluate("views.universe.drawnNames()")
     assert where(p)["level"] == 0 and path(p) == "All domains"
+
+
+def test_no_table_links_are_drawn_during_a_lineage_inside(large_page: Any, open_page: Any) -> None:
+    """Inside, a lineage draws its own edges: no table's links are drawn or reported (`linksOf`)."""
+    p = open_page(large_page[0])
+    search(p, "car_hub")
+    assert geometry(p)["edges"], "the selected table's links are drawn"
+    p.page.click("#u-traj")
+    settle(p)
+    t = max(tables(p), key=lambda t: t["r"])
+    r = p.page.evaluate("id => views.universe.place(id)", t["id"])
+    p.page.mouse.move(*canvas_xy(p, r["x"] + r["w"] / 2, r["y"] + 6))
+    p.page.evaluate(NEXT_FRAME)
+    assert geometry(p)["edges"] == []
+
+
+def test_the_ghost_sides_are_wide_enough_for_the_longest_name(large_page: Any, open_page: Any) -> None:
+    p = open_page(large_page[0])
+    click_disc(p, "vehicle")
+    assert entered(p)["box"]["gx"] > 88

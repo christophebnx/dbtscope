@@ -281,10 +281,23 @@ def test_the_flow_stays_open_across_tabs(example_page: Example) -> None:
     show_detail(p, exportable=False)
     assert p.page.is_hidden("#f-view")
     p.page.focus("#d-q")
-    p.page.keyboard.press("Escape")  # Esc in the detail tab's own field does not close the hidden flow
+    p.page.keyboard.press("Escape")  # Esc in the detail tab's own field is the field's: the hidden flow stays
     p.page.click("#tabs button[data-tab=universe]")
     assert p.page.is_visible("#f-view")
     assert flow_state(p)["open"] is True and flow_state(p)["start"] == s["start"]
+
+
+def test_esc_in_the_detail_runs_the_trail_and_closes_the_hidden_flow(example_page: Example) -> None:
+    """D-089: the Detail tab follows the universe location (here the domain the search entered) and shows its
+    trail; Esc runs its last segment: back to the universe there, where the lineage graph would hide it."""
+    p, _ = example_page
+    open_flow(p, "fct_orders")
+    show_detail(p, exportable=False)
+    assert p.page.is_visible("#d-crumbs")
+    p.page.evaluate("document.activeElement && document.activeElement.blur()")
+    p.page.keyboard.press("Escape")
+    assert p.page.is_visible("#tab-universe.on") and p.page.is_hidden("#f-view")
+    assert flow_state(p)["open"] is False
 
 
 def test_domains_list_shows_the_legend_and_each_domain(example_page: Example) -> None:

@@ -50,13 +50,17 @@ button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .crumbs button { flex:1 1 auto; min-width:0; max-width:max-content; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; background:none;
                  padding:4px 6px; font:inherit; font-size:13px; color:var(--accent); border-radius:var(--radius); }
 #u-crumbs button { flex-shrink:4; }
-#u-crumbs button:first-child, #u-crumbs button[aria-current] { flex-shrink:1; min-width:4em; }
+/* a narrow screen: the location line takes the rest of the first row (a basis that does not depend on its text), the controls wrap below */
+@media (max-width:600px) { #u-crumbs { flex-basis:calc(100% - 64px); } }
+#u-crumbs button:first-child { flex-shrink:3; min-width:4em; }
+#u-crumbs button[aria-current] { flex-shrink:1; min-width:4em; }
 .crumbs button:hover, .crumbs button:focus-visible { text-decoration:underline; border:0; }
 .crumbs button[aria-current] { color:var(--fg); font-weight:600; text-decoration:none; }
 .crumbs .sep { flex:none; color:var(--muted); }
 /* hint of an entered domain: HTML, so never in an exported image */
-.inside-note { position:absolute; left:12px; bottom:8px; z-index:1; font-size:12px; line-height:18px; color:var(--muted); pointer-events:none; }
+.inside-note { position:absolute; left:50%; transform:translateX(-50%); bottom:54px; z-index:1; white-space:nowrap; font-size:12px; line-height:18px; color:var(--muted); pointer-events:none; }
 .inside-note[hidden] { display:none; }
+@media (max-width:600px) { .inside-note { display:none; } }
 .tab { flex:1; min-height:0; display:none; }
 .tab.on { display:flex; }
 #tab-universe { position:relative; }
