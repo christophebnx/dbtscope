@@ -2010,7 +2010,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     enter(d.k, 'row', { instant: true });   // a row enters its constellation, then frames its band in the spread
     const inBand = !inGroup && spread && spread.bands.find(b => b.key === row.row), bb = spread && spread.bbox;
     if (!spread) return;
-    if (inBand) frame(inBand.x0, bb.y0, inBand.x1, bb.y1, true, Infinity, 0); else fitInside(true);
+    // the inside view has one Fit rule: the band in the stage box (margins, header strip, cap), as the spread itself
+    if (inBand) (reduced() ? sel : sel.transition().duration(NAV.DUR)).call(zoom.transform, boxTransform({ x0: inBand.x0, x1: inBand.x1, y0: bb.y0, y1: bb.y1 }));
+    else fitInside(true);
   }
   // Layer mode tooltip of a constellation (D-048): its domains in band order (first TIP_DOMAINS, then "+ N"), and the
   // band under the world x `wx`, if any
@@ -2133,7 +2135,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // ENTER / LEAVE / BACK: the zoom hysteresis (a disc filling ENTER of the stage enters it, a scale below LEAVE x the
   // spread's Fit leaves it, which then frames the left disc at BACK of the stage); DUR: the tween (ms); K_MAX: the Fit cap
   const NAV = { GHOST_X: 88, GHOST_Y: 72, HEADER: 28, ENTER: 0.9, LEAVE: 0.6, BACK: 0.6, DUR: 300, K_MAX: 2, K_NAMES: 0.15, GHOST_LABEL: 120, GHOST_MIN: 12, GHOST_MAX: 24, SMALL: 600 };
-  let ghostLabelW = 0, spread = null, navAlpha = 1, tween = null, hoverGhost = null, ghostList = [], zoomK0 = 1, lastEnter = -1e9;
+  let ghostLabelW = 0, ghostBoxes = [], spread = null, navAlpha = 1, tween = null, hoverGhost = null, ghostList = [], zoomK0 = 1, lastEnter = -1e9;
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const enterWord = () => (state.by === 'layers' ? T.enterL : T.enterD);
   const constellationOf = key => constellations.find(d => d.k === key);
@@ -2495,7 +2497,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     drawHeaders(W, H);
     const gl = ghostsFor(W, H);
     if (onScreen) ghostList = gl;
+    const before = taken.length;
     drawGhosts(gl, W, taken);
+    if (!onScreen) return;
+    // the inside note is HTML at the bottom centre: it gives way when a ghost's name would sit under it
+    ghostBoxes = taken.slice(before);
+    const note = $u('inside-note'), nw = textW(T.insideNote, `12px ${FONT}`) + 8, nx = (W - nw) / 2, ny = H - 54;   // `.inside-note`: bottom 54 px, 18 px high
+    note.style.visibility = ghostBoxes.some(r => nx < r[0] + r[2] && nx + nw > r[0] && ny - 18 < r[1] + r[3] && ny > r[1]) ? 'hidden' : '';
   }
   // the tooltip of a ghost: its constellation's, the dependency with the entered one, the action
   function ghostTip(g) {
@@ -2657,7 +2665,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // the entered constellation as drawn: its framing box, headers, ghosts (screen px), for the browser tests
   const entered = () => (nav.inside ? { key: nav.inside, table: nav.table != null ? N[nav.table].id : null, fitK: spread.fitK, box: stageBox(),
     bbox: { ...spread.bbox }, headers: spread.bands.map(h => ({ ...h })),
-    ghosts: ghostList.map(g => ({ k: g.k, x: g.x, y: g.y, r: g.r, side: g.side, n: g.d.n })), tweening: !!tween } : null);
+    ghosts: ghostList.map(g => ({ k: g.k, x: g.x, y: g.y, r: g.r, side: g.side, n: g.d.n })), ghostBoxes: ghostBoxes.map(r => [...r]), tweening: !!tween } : null);
   // the location: level 0 the map, 1 an entered constellation, 2 a selected table
   const location = () => ({ level: nav.table != null ? 2 : nav.inside ? 1 : 0, inside: nav.inside, table: nav.table != null ? N[nav.table].id : null, by: state.by });
   // the routes of the current set as the page computed them (D-071): ends (keys, GROUP for the bundled), counts, direction,

@@ -464,7 +464,7 @@ def test_the_inside_note_shows_only_inside(large_page: Any, open_page: Any) -> N
     settle(p)
     assert p.page.is_hidden("#u-inside-note")
     click_disc(p, "vehicle")
-    assert p.page.inner_text("#u-inside-note") == "Hover a table to see its links"
+    assert p.page.text_content("#u-inside-note") == "Hover a table to see its links"
     esc(p)
     assert p.page.is_hidden("#u-inside-note")
 
@@ -693,3 +693,45 @@ def test_the_ghost_sides_are_wide_enough_for_the_longest_name(large_page: Any, o
     p = open_page(large_page[0])
     click_disc(p, "vehicle")
     assert entered(p)["box"]["gx"] > 88
+
+
+@pytest.mark.parametrize("by,key", [("domains", "vehicle"), ("layers", "sources")], ids=["domain", "layer"])
+def test_the_inside_note_never_sits_on_a_ghost_name(
+    large_page: Any, open_page: Any, by: str, key: str
+) -> None:
+    p = open_page(large_page[0])
+    settle(p)
+    p.page.check(f"#u-by input[value={by}]")
+    settle(p)
+    p.page.evaluate("key => views.universe.enter(key)", key)
+    settle(p)
+    note = p.page.evaluate(
+        """() => { const n = document.getElementById('u-inside-note'), r = n.getBoundingClientRect(),
+                   c = document.getElementById('u-canvas').getBoundingClientRect();
+                   return { shown: getComputedStyle(n).visibility !== 'hidden',
+                            x: r.left - c.left, y: r.top - c.top, w: r.width, h: r.height }; }"""
+    )
+    if not note["shown"]:
+        return  # it gave way to a ghost name
+    for x, y, w, h in entered(p)["ghostBoxes"]:
+        assert (
+            note["x"] >= x + w
+            or note["x"] + note["w"] <= x
+            or note["y"] >= y + h
+            or note["y"] + note["h"] <= y
+        )
+
+
+def test_a_card_row_frames_its_band_by_the_one_inside_rule(large_cards_page: Any, open_page: Any) -> None:
+    p = open_page(large_cards_page[0])
+    settle(p)
+    rows = p.page.evaluate("views.universe.summaryHits().rows")
+    row = next(r for r in rows if r["k"] == "vehicle" and r["row"] == "vault")
+    p.page.mouse.click(*canvas_xy(p, row["x"] + 8, row["y"] + row["h"] / 2))
+    settle(p)
+    e, c = entered(p), camera(p)
+    band = next(h for h in e["headers"] if h["key"] == "vault")
+    box = e["box"]
+    left, right = (box["x0"] - c["x"]) / c["k"], (box["x1"] - c["x"]) / c["k"]
+    assert left - 1 <= band["x0"] and band["x1"] <= right + 1  # the band, whole, in the stage box
+    assert c["k"] <= 2 + 1e-9  # the Fit cap of the inside view

@@ -151,8 +151,8 @@ def test_the_frames_inside_stay_light_and_the_tween_keeps_its_pace(large_page: A
 
 
 def test_names_inside_are_recorded(large_page: Any, open_page: Any) -> None:
-    """Recorded, not a gate (brief § 6): the share of Vehicle's drawn tables named at the spread's Fit, and
-    the wheel notches until every name is drawn."""
+    """A regression floor, not the target (brief § 6): today Vehicle names 76 of 153 drawn tables at the
+    spread's Fit (49.7 %, just under the brief's half); the floor is 49 %. Notches to name all: printed."""
     p = open_page(large_page[0])
     settle(p)
     p.page.evaluate("views.universe.enter('vehicle')")
