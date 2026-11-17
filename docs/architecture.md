@@ -171,10 +171,19 @@ One responsibility, one implementation (CLAUDE.md invariant 2). Check here befor
 | Flow view (page) | `render/assets/flow.js startFlow` |
 | The flow's start ring (constant screen size, resized on zoom) and **locate start** (header button `#f-start`) (page) | `render/assets/flow.js addRing`, `ringStart`, `locateStart` |
 | Bring filtered-out tables back (page) | `render/assets/universe.js reveal` |
-| A location trail (breadcrumb) in a toolbar (page; one item in M9.1, the full path from M9.2, D-086) | `render/assets/common.js crumbs` |
+| A location trail (breadcrumb) in a toolbar (page; one item in M9.1, the full path from M9.2, D-086, D-089) | `render/assets/common.js crumbs` (items `{label, title, go, back, current}`) |
+| Whether the universe opens on the map: more tables than `universe.map_above` (page, D-087) | `render/assets/universe.js MAP`, read by `summaryWeight` and `fit`; `domain/config.UniverseSettings.map_above`, `payload.UniverseDefaults.map_above` (`mapAbove`) |
+| The universe location: map, entered constellation, selected table; enter, leave, one level back (page, D-088) | `render/assets/universe.js nav`, `enter`, `leave`, `select`, `unselect`, `back` |
+| The location followed by the viewer's zoom, with hysteresis (page, D-088) | `render/assets/universe.js followZoom` (`NAV`) |
+| The universe location as a path, and going to one of its steps (page; rendered by `crumbs` in both tabs, D-089) | `render/assets/universe.js pathItems`, `renderCrumbs`, `go` |
+| A constellation's tables spread to the stage's aspect (page, D-088) | `render/assets/universe.js layoutConstellation(key, members, aspect)`, `computeSpread`, `applySpread` |
+| Band headers of an entered constellation (page, D-090) | `render/assets/universe.js drawHeaders` |
+| Ghosts of the other constellations: place, draw, hit, their dependency lines and links (page, D-088) | `render/assets/universe.js ghostsFor`, `drawGhosts`, `drawGhostLinks`, `ghostAt` |
+| The detail's trail from the universe path; following the universe location when the Detail tab is shown (page, D-089) | `render/assets/boot.js trailOf`, `followUniverse`; `detail.js follow` |
+| A panel row that goes to what it stands for (page, D-089) | `render/assets/common.js filterRow` (`go`), `universe.js checkboxes`, `syncRows` |
 | Close a popover `<details>` on Esc or a press outside (page, D-085) | `render/assets/common.js dismissable` |
 | Whether the detail groups are the universe domains, and their display names (page, D-084) | `render/assets/common.js detailDomains` |
-| Find, mark and frame one universe table (search box, return from the Detail tab) | `render/assets/universe.js mark` (`locate` is the return entry) |
+| Find, mark and frame one universe table (search box, return from the Detail tab): enters its constellation, selects it | `render/assets/universe.js mark` (`locate` is the return entry) |
 | Go back from the Detail tab to the universe on a table (D-086) | `render/assets/boot.js backToUniverse` |
 | Display name of a payload domain, layer or kind (`label ?? key`) (page) | `render/assets/common.js labelOf` |
 | What a universe constellation stands for, domain or layer: key, band, rank, pins, layout scope (page, D-048) | `render/assets/universe.js BY`, `grouping` |
@@ -275,6 +284,11 @@ One word per concept (D-027). Code, tests and docs use these words; names protec
 | How much a kind matters in the structure (M8.1, D-059) | **role** (`role`, `Role`, `KindRule.role`, `UniverseKind.role`): `core`, `connector`, `descriptive`, `technical` or none | weight, class, category | The trajectory's start / upstream / downstream is its **side** (`sideOf`), not a role. French UI wording for a later phase: rôle; principal, liaison, descriptif, technique, aucun. |
 | dbt's `model` / `seed` / `snapshot` / `source` | **resource type** (`resource_type`, selector `type:`) | kind | |
 | Data domain of the universe (resolution: D-015) | **domain** | — | Its disc is a constellation in domain mode. |
+| The level of the universe that shows every constellation as a named disc or card (M9.2, D-087, D-088) | **map** (level 0; `MAP`, `universe.map_above`; a page above the threshold is a **map page**) | overview (for the zoom scale), home | The page opens on it. |
+| Going into one constellation: its tables relaid over the stage (M9.2, D-088) | **enter** / **leave**, the **entered constellation** (UI: "domain" or "layer"), its layout the **spread** (`nav.inside`, `layoutConstellation(…, aspect)`) | open, zoom into, drill | Entering never changes a setting; level 1 of the **location**. |
+| A small labelled disc at the stage edge standing for another constellation while one is entered (M9.2, D-088) | **ghost** (`ghostsFor`, `drawGhosts`) | neighbour, minimap | Click enters it. |
+| The name and count above a layer band (or a domain band in layer mode) of the entered constellation (M9.2, D-090) | **band header** (`drawHeaders`) | band label, layer name | |
+| Where the viewer is: the map, an entered constellation, a selected table (M9.2, D-088, D-089) | **location** (`nav`; levels 0, 1, 2), shown as the **breadcrumb** or **trail** (`#u-crumbs`, `#d-crumbs`, `crumbs`) | path bar, history | Level 2 is the **table level**: a selected table. Never saved. |
 | The disc of the universe that groups tables: one domain (domain mode) or one layer (layer mode) (M5.13, D-048) | **constellation** (config `universe.constellations`, payload `defaults.constellations`, `BY`, `layoutConstellation`) | domain (for a layer's disc), group, cluster | "Group" is the `group_by` value and the dbt group. The grouping is **domain mode** / **layer mode**. Code word only: the page says "domain" or "layer" by the grouping, and "Organise by" for the choice (M9.1, D-084). |
 | A domain made only of technical tables, or so declared (universe, M8.4, D-068) | **source system** (`UniverseDomain.system`, `DomainRule.system`, `is_source_system`, `SYS`; French UI: système source); its opposite in the panel is **business domain** (French UI: domaine métier) | raw domain, source domain, landing | |
 | What the universe draws between two constellations for the links between their tables (M8.4, D-071) | **route** (`routes`, `routePath`, `routeLine`; UI word, M9.1, D-084: **dependency** / dépendance, "Dependencies between domains"); a route is **directed** when its lineage mostly flows one way, its downstream end being the **reader**; optional, on by default (D-083) | edge, arc, connection | |

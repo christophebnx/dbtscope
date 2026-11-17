@@ -38,18 +38,38 @@ def centre(p: Page, name: str) -> tuple[float, float]:
     return box["x"] + box["width"] / 2, box["y"] + bar + (box["height"] - bar) / 2  # below the bar
 
 
+def centre_on_map(p: Page, name: str, k: float = 1.5) -> tuple[float, float]:
+    """Frame a table of the map at scale `k` through the camera (a search would enter its domain, D-088, where
+    the stars cannot be dragged); return the canvas centre in page coordinates."""
+    p.page.evaluate(
+        """([name, k]) => {
+             const t = views.universe.geometry().tables.find(t => t.id.endsWith('.' + name));
+             const c = document.getElementById('u-canvas');
+             views.universe.camera({ x: c.clientWidth / 2 - k * t.x, y: c.clientHeight / 2 - k * t.y, k });
+           }""",
+        [name, k],
+    )
+    p.page.wait_for_timeout(100)
+    box = p.page.locator("#u-canvas").bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
 def corner(p: Page) -> tuple[float, float]:
     box = p.page.locator("#u-canvas").bounding_box()
     return box["x"] + 5, box["y"] + box["height"] - 5
 
 
 def enter_by_button(p: Page, name: str) -> None:
-    p.page.fill("#u-q", name)
-    p.page.click("#u-traj")
+    """The Lineage button on the name in the box, with no blur of the box (a blur is a search, D-088)."""
+    p.page.evaluate(
+        """n => { const q = document.getElementById('u-q'); q.value = n; q.dispatchEvent(new Event('input'));
+                 document.getElementById('u-traj').click(); }""",
+        name,
+    )
 
 
 def checkbox(p: Page, panel: str, label: str) -> Any:
-    rows = "#u-domains label, #u-systems label" if panel == "domains" else f"#u-{panel} label"
+    rows = "#u-domains > *, #u-systems > *" if panel == "domains" else f"#u-{panel} > *"
     return p.page.locator(rows, has_text=label).locator("input")
 
 
@@ -363,7 +383,7 @@ def drag_by(p: Page, x: float, y: float, dx: float, dy: float) -> None:
 
 def test_drag_of_a_table_does_not_enter_the_mode(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
+    x, y = centre_on_map(p, "stg_orders")
     drag_by(p, x, y, 30, 0)
     assert p.state()["active"] is False
     moved = p.page.evaluate("(LAYOUT.get('universe', 'names') || {nodes: {}}).nodes")
@@ -449,13 +469,13 @@ def test_bar_strings_in_both_languages(
 
 def test_tooltip_tells_up_from_down(shop_page: Shop) -> None:
     p, _ = shop_page
-    x, y = centre(p, "stg_orders")
+    x, y = centre_on_map(p, "stg_orders")
     p.page.mouse.move(x, y)
     assert "Click: show its lineage" in p.page.inner_text("#u-tip")
     p.page.mouse.click(x, y)
     p.page.mouse.move(x + 1, y)
     assert "Start of the lineage" in p.page.inner_text("#u-tip")
-    x, y = centre(p, "fct_returns")
+    x, y = centre_on_map(p, "fct_returns")
     p.page.mouse.move(x, y)
     p.page.mouse.move(x + 1, y)
     assert "Downstream, level 2" in p.page.inner_text("#u-tip")
@@ -616,12 +636,10 @@ def zoom_out_below_far(p: Page) -> float:
 
 
 @pytest.mark.parametrize("zoom", ["far", "close"])
-def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
-    shop_page: Shop, zoom: str
-) -> None:
+def test_click_on_the_empty_background_leaves_the_mode(shop_page: Shop, zoom: str) -> None:
     p, _ = shop_page
     if zoom == "close":
-        x, y = centre(p, "fct_orders")
+        x, y = centre_on_map(p, "fct_orders")
         p.page.mouse.click(x, y)
         assert p.page.evaluate(TRANSFORM)[2] >= FAR
     else:
@@ -629,15 +647,22 @@ def test_click_on_a_domain_halo_keeps_the_mode_and_empty_background_leaves(
         assert zoom_out_below_far(p) < FAR
     assert p.state()["active"] is True
     points = scan(p)
-    assert points["halo"], "no point on a domain halo away from tables and labels"
     assert points["empty"], "no point on the empty background"
-    for x, y in sorted(points["halo"])[:: max(1, len(points["halo"]) // 3)][:3]:
-        p.page.mouse.click(x, y)
-        s = p.state()
-        assert s["active"] is True, f"a click on a domain halo at ({x}, {y}) left the mode ({zoom})"
-        assert s["start"] == "model.shop.fct_orders"
     p.page.mouse.click(*points["empty"][0])
     assert p.state()["active"] is False, f"a click on the empty background must leave ({zoom})"
+
+
+def test_click_on_a_domain_halo_enters_it_and_the_mode_stays_only_where_it_started(shop_page: Shop) -> None:
+    """D-088: a click on a disc enters its domain; a lineage goes on only when its start is in that domain."""
+    p, data = shop_page
+    enter_by_button(p, "fct_orders")
+    assert zoom_out_below_far(p) < FAR
+    points = scan(p)
+    assert points["halo"], "no point on a domain halo away from tables and labels"
+    p.page.mouse.click(*sorted(points["halo"])[0])
+    inside = p.page.evaluate("views.universe.location().inside")
+    assert inside is not None
+    assert p.state()["active"] is (inside == node(data, "fct_orders")["domain"])
 
 
 @pytest.mark.parametrize(("select", "value"), [("#u-tj-depth", "d3"), ("#u-tj-dir", "up")])

@@ -110,7 +110,10 @@ def test_switch_shows_both_choices_and_their_counts(acme: tuple[Page, dict[str, 
     assert p.page.inner_text("#u-by-layers-n") == str(len(data["universe"]["layers"]))
     # first in the panel (Navigate, under its heading), above the Domains list
     assert p.page.evaluate("document.querySelector('#u-panel').firstElementChild.id") == "u-nav"
-    assert p.page.evaluate("document.querySelector('#u-nav').children[1].id") == "u-by"
+    assert (
+        p.page.evaluate("document.querySelector('#u-nav').children[1].id") == "u-meta"
+    )  # the counts line, then the switch
+    assert p.page.evaluate("document.querySelector('#u-nav').children[2].id") == "u-by"
 
 
 # ---------------------------------------------------------------- layer mode on the example
@@ -320,8 +323,8 @@ def test_export_import_and_reset_cover_both_groupings(
 @pytest.mark.parametrize(
     ("lang", "domains", "domain", "action"),
     [
-        ("en", "Domains: ", "Domain: ", "Double-click: zoom on this layer"),
-        ("fr", "Domaines" + FR, "Domaine" + FR, "Double-clic" + FR + "cadrer cette couche"),
+        ("en", "Domains: ", "Domain: ", "Click: enter this layer"),
+        ("fr", "Domaines" + FR, "Domaine" + FR, "Clic" + FR + "entrer dans cette couche"),
     ],
 )
 def test_layer_tooltip_lists_its_domains_and_names_the_band(
@@ -356,7 +359,7 @@ def test_layer_tooltip_lists_its_domains_and_names_the_band(
 
 
 def box(p: Page, panel: str, label: str) -> Any:
-    return p.page.locator(f"#u-{panel} label", has_text=label).locator("input")
+    return p.page.locator(f"#u-{panel} > *", has_text=label).locator("input")
 
 
 def test_unticking_a_layer_or_a_domain_removes_a_constellation_or_a_band(
@@ -409,12 +412,18 @@ def test_switching_keeps_the_trajectory_and_frames_it(acme: tuple[Page, dict[str
 def test_flow_opens_and_closes_unchanged_in_layer_mode(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
     choose(p, "layers")
-    g = without_time(geometry(p))
+    p.page.fill("#u-q", "fct_orders")
+    p.page.dispatch_event(
+        "#u-q", "change"
+    )  # the search enters the table's layer (no tween), the camera goes to it
+    p.page.wait_for_timeout(900)
+    # the links drawn inside an entered domain are those of the table in view: not what the flow leaves
+    g = {**without_time(geometry(p)), "edges": None}
     s = open_flow(p, "fct_orders")
     assert s["open"]
     p.page.click("#f-back")
     assert not p.page.evaluate("flow.state().open")
-    assert without_time(geometry(p)) == g and checked(p) == "layers"
+    assert {**without_time(geometry(p)), "edges": None} == g and checked(p) == "layers"
 
 
 def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page, dict[str, Any]]) -> None:

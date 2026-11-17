@@ -40,7 +40,7 @@ def page_in(build_page: Any, open_page: Any, lang: str, **options: Any) -> Page:
 
 
 def domain_box(p: Page, label: str) -> Any:
-    return p.page.locator("#u-domains label, #u-systems label", has_text=label).locator("input")
+    return p.page.locator("#u-domains > *, #u-systems > *", has_text=label).locator("input")
 
 
 def meta(p: Page) -> str:
@@ -190,9 +190,9 @@ def test_untrusted_names_and_labels_stay_text(dbt_project: Path, build_page: Any
     assert p.page.evaluate("esc('<&\"\\'>')") == "&lt;&amp;&quot;&#39;&gt;"
     # universe: datalist, checkbox rows, tooltip
     assert NAME in p.page.evaluate("[...document.querySelectorAll('#u-names option')].map(o => o.value)")
-    for panel in ("kinds", "domains"):
-        assert LABEL in p.page.locator(f"#u-{panel} label span").all_text_contents()
-        assert p.page.locator(f"#u-{panel} label span *").count() == 0
+    for panel, name in (("kinds", "label span"), ("domains", ".row button.go")):  # the domain rows go (D-089)
+        assert LABEL in p.page.locator(f"#u-{panel} {name}").all_text_contents()
+        assert p.page.locator(f"#u-{panel} {name} *").count() == 0
     p.page.fill("#u-q", NAME)
     p.page.dispatch_event("#u-q", "change")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
@@ -362,8 +362,8 @@ def test_every_universe_and_detail_meta_count_agrees(tmp_path: Path, open_page: 
 def test_one_link_reads_singular(build_page: Any, open_page: Any, lang: str, expected: str) -> None:
     p = page_in(build_page, open_page, lang)
     set_all_domains(p, False)
-    sales = p.page.locator("#u-domains label").filter(
-        has=p.page.locator("span", has_text=re.compile("^sales$"))
+    sales = p.page.locator("#u-domains > *").filter(
+        has=p.page.locator("button.go", has_text=re.compile("^sales$"))
     )
     sales.locator("input").check()
     assert meta(p) == expected
@@ -397,7 +397,7 @@ def test_trajectory_counts_agree_in_both_languages(
 
     def layer_boxes() -> list[Any]:
         return [
-            p.page.locator("#u-layers label", has_text=layers[by_name[n]["layer"]]).locator("input")
+            p.page.locator("#u-layers > *", has_text=layers[by_name[n]["layer"]]).locator("input")
             for n in ("stg_orders", "dim_product")
         ]
 
@@ -625,7 +625,7 @@ def test_domain_owner_shows_in_the_tooltip_and_the_list_with_the_page_spacing(
     p = page_in(build_page, open_page, lang)
     name, line = p.page.evaluate(DOMAIN_TIP, True)
     assert name == "sales_team" and line.endswith(owner), line
-    title = p.page.locator("#u-domains label", has_text=name).get_attribute("title")
+    title = p.page.locator("#u-domains > *", has_text=name).get_attribute("title")
     assert title == owner.removeprefix(" · "), title
 
 

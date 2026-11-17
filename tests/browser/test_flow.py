@@ -280,7 +280,8 @@ def test_the_flow_stays_open_across_tabs(example_page: Example) -> None:
     s = open_flow(p, "fct_orders")
     show_detail(p, exportable=False)
     assert p.page.is_hidden("#f-view")
-    p.page.keyboard.press("Escape")  # Esc in the detail tab does not close the hidden flow
+    p.page.focus("#d-q")
+    p.page.keyboard.press("Escape")  # Esc in the detail tab's own field does not close the hidden flow
     p.page.click("#tabs button[data-tab=universe]")
     assert p.page.is_visible("#f-view")
     assert flow_state(p)["open"] is True and flow_state(p)["start"] == s["start"]

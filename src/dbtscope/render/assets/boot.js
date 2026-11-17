@@ -83,11 +83,41 @@ function showTab(name) {
     : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
 }
+// the universe location as the detail's trail (D-086, D-089): `← All domains › Vehicle › car_hub`, every segment a button back to the
+// Universe tab at that level; a function of the detail's focus, so the last segment follows it when it is a universe table
+const inUniverse = id => PAGE.universe.nodes.some(n => n.id === id);
+function trailOf(inside, handOff) {
+  return focus => {
+    const id = focus && inUniverse(focus) ? focus : handOff;
+    const name = id && PAGE.universe.nodes.find(n => n.id === id).name;
+    return views.universe.trail(inside, id).map((item, j) => ({ label: item.label, title: item.step === 2 ? L.backToUniverse(name) : item.title, back: j === 0,
+      go: () => item.step === 2 ? backToUniverse(handOff) : leaveDetail(item.step, inside) }));
+  };
+}
+function leaveDetail(step, inside) {
+  if (flow && flow.isOpen()) closeFlow();
+  showTab('universe');
+  views.universe.go(step, inside);
+}
+// the universe location the detail last showed: the Detail tab follows it when it changes (D-089)
+let followed = null;
+const locationKey = loc => loc.by + '|' + (loc.inside ?? '');
 // double-click on a universe table: the Detail tab on it, with the way back in its toolbar (D-086)
 function openInDetail(id) {
+  const loc = views.universe.location();
   showTab('detail');
-  const name = PAGE.universe.nodes.find(n => n.id === id).name;
-  views.detail.focus(id, [{ label: L.universe, back: true, title: L.backToUniverse(name), go: () => backToUniverse(id) }]);
+  followed = locationKey(loc);
+  views.detail.focus(id, trailOf(loc.inside, id));
+}
+// the Detail tab shown by its button: when the universe location changed since, its trail and (in domain mode, without a focused
+// table) its group follow it; the viewer's own group choice stands until the location changes again
+function followUniverse() {
+  if (!views.universe) return;
+  const loc = views.universe.location(), key = locationKey(loc);
+  if (key === followed) return;
+  followed = key;
+  const group = loc.by === 'domains' && loc.inside && DOMAINS && DOMAINS.has(loc.inside) ? loc.inside : null;
+  views.detail.follow(group, loc.inside ? trailOf(loc.inside, null) : null);
 }
 // the way back: the Universe tab, on the detail's current focus when it is a universe table (the viewer may have moved
 // on), else on the table of the hand-off
@@ -95,7 +125,7 @@ function backToUniverse(handOff) {
   const focus = views.detail.focused();
   if (flow && flow.isOpen()) closeFlow();   // the lineage graph covers the universe: close it so the table shows
   showTab('universe');
-  views.universe.locate(focus && PAGE.universe.nodes.some(n => n.id === focus) ? focus : handOff);
+  views.universe.locate(focus && inUniverse(focus) ? focus : handOff);
 }
 // the universe under the flow overlay: unreachable (no focus, no click, skipped by screen readers) while it is open
 function coverUniverse(on) {
@@ -114,7 +144,7 @@ function closeFlow() {
   coverUniverse(false);
   document.getElementById('u-tj-flow').focus();
 }
-document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => showTab(b.dataset.tab); });
+document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => { showTab(b.dataset.tab); if (b.dataset.tab === 'detail') followUniverse(); }; });
 document.querySelector('#tabs button[data-tab=universe]').title = L.tabUniverse;
 document.querySelector('#tabs button[data-tab=detail]').title = DOMAINS ? L.tabDetail : L.tabDetailGroups;
 

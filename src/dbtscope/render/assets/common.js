@@ -140,15 +140,27 @@ function sidePanel(view, onToggle) {
 
 // One checkbox row of a filter panel, built with DOM calls (the label is untrusted text):
 // checkbox, colour dot (when there is a colour), label, count. onChange(checked) runs on each change.
-function filterRow({ label, color, count, checked, title }, onChange) {
-  const row = document.createElement('label'), box = document.createElement('input');
+// With `go` ({ check, aria, title, onClick }) the row is a div: the checkbox (named `check`), the dot, the name as a
+// button that goes to what the row stands for (named `aria`, D-089), the count.
+function filterRow({ label, color, count, checked, title, go }, onChange) {
+  const row = document.createElement(go ? 'div' : 'label'), box = document.createElement('input');
   box.type = 'checkbox'; box.checked = checked;
   box.onchange = () => onChange(box.checked);
   row.append(box);
   if (color) row.append(paintDot(document.createElement('i'), color));
-  const name = document.createElement('span'), n = document.createElement('small');
-  name.textContent = label; n.textContent = num(count);
-  row.append(name, n);
+  const n = document.createElement('small');
+  n.textContent = num(count);
+  if (go) {
+    const name = document.createElement('button');
+    row.className = 'row'; box.setAttribute('aria-label', go.check);
+    name.type = 'button'; name.className = 'go'; name.textContent = label; name.title = go.title;
+    name.setAttribute('aria-label', go.aria); name.onclick = go.onClick;
+    row.append(name, n);
+  } else {
+    const name = document.createElement('span');
+    name.textContent = label;
+    row.append(name, n);
+  }
   if (title) row.title = title;
   return row;
 }
@@ -162,27 +174,36 @@ function fillSelect(el, pairs, current) {
   }));
 }
 
-// A location trail in the <nav> `nav` (D-086): `items` is a list of { label, title, go, back }. An item with `go` is a
-// button (a `back` item is preceded by an aria-hidden "← "); an item without is the current place. An empty list hides the nav.
+// A location trail in the <nav> `nav` (D-086, D-089): `items` is a list of { label, title, go, back, current }. An item with
+// `go` is a button (a `back` item is preceded by an aria-hidden "← "; a `current` one carries aria-current="location");
+// an item without is the current place as a plain span. Items are separated by an aria-hidden "›". An empty list hides
+// the nav. When the keyboard focus was inside it, it moves to the new current segment.
 function crumbs(nav, items) {
+  const had = nav.contains(document.activeElement);
   nav.hidden = !items.length;
-  nav.replaceChildren(...items.map(({ label, title, go, back }) => {
+  nav.replaceChildren(...items.flatMap(({ label, title, go, back, current }, i) => {
+    const sep = document.createElement('span');
+    sep.textContent = '›'; sep.className = 'sep'; sep.setAttribute('aria-hidden', 'true');
+    let part;
     if (!go) {
-      const here = document.createElement('span');
-      here.textContent = label; here.setAttribute('aria-current', 'location');
-      return here;
+      part = document.createElement('span');
+      part.textContent = label; part.setAttribute('aria-current', 'location');
+    } else {
+      part = document.createElement('button');
+      part.type = 'button'; part.onclick = go;
+      if (current) part.setAttribute('aria-current', 'location');
+      if (back) {
+        const arrow = document.createElement('span');
+        arrow.textContent = '← '; arrow.setAttribute('aria-hidden', 'true');
+        part.append(arrow);
+      }
+      part.append(label);
     }
-    const button = document.createElement('button');
-    button.type = 'button'; button.onclick = go;
-    if (title) button.title = title;
-    if (back) {
-      const arrow = document.createElement('span');
-      arrow.textContent = '← '; arrow.setAttribute('aria-hidden', 'true');
-      button.append(arrow);
-    }
-    button.append(label);
-    return button;
+    if (title) part.title = title;
+    return i ? [sep, part] : [part];
   }));
+  const here = nav.querySelector('[aria-current]');
+  if (had && here && here.focus) here.focus();
 }
 
 // The one closing rule of the page's popovers, native <details> (D-085): Esc closes it, gives the focus back to its summary

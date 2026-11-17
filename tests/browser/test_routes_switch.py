@@ -109,7 +109,7 @@ def test_no_spotlight_while_routes_are_off(large_cards_page: Any, open_page: Any
     hover_card(p, "vehicle")
     p.page.evaluate(NEXT_FRAME)
     assert lit(p) == ("vehicle", None) and drawn(p) == 0
-    p.page.focus("#u-domains label:nth-child(2) input")
+    p.page.focus("#u-domains > *:nth-child(2) input")
     p.page.evaluate(NEXT_FRAME)
     spot, painted = lit(p)
     assert spot is not None and painted is None

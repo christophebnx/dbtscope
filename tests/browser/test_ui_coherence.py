@@ -93,7 +93,7 @@ def test_the_panel_is_navigate_display_filters_with_display_closed_at_load(
 
 def test_the_domains_list_is_above_the_fold_on_the_large_project(large_page: Any, open_page: Any) -> None:
     p = open_page(large_page[0], display=False)
-    box = p.page.locator("#u-domains label").last.bounding_box()
+    box = p.page.locator("#u-domains > *").last.bounding_box()
     assert box is not None and box["y"] + box["height"] <= 800
 
 
@@ -300,10 +300,16 @@ def test_the_trail_leads_back_to_the_table_in_the_universe(example_page: Any) ->
     p, _ = example_page
     uid = double_click_table(p, "dim_customer")
     assert p.page.is_visible("#tab-detail.on")
-    assert p.page.inner_text("#d-crumbs button") == "← Universe"
+    # the full path (D-089): the root, the domain the viewer was in, the table; every segment a button
+    assert p.page.locator("#d-crumbs button").count() == 3
+    assert p.page.locator("#d-crumbs button").first.inner_text() == "← All domains"
+    assert p.page.locator("#d-crumbs button").last.inner_text() == "dim_customer"
     assert p.page.get_attribute("#d-crumbs", "aria-label") == "Location"
-    assert p.page.get_attribute("#d-crumbs button", "title") == "Back to the universe, on dim_customer"
-    p.page.focus("#d-crumbs button")
+    assert (
+        p.page.locator("#d-crumbs button").last.get_attribute("title")
+        == "Back to the universe, on dim_customer"
+    )
+    p.page.locator("#d-crumbs button").last.focus()
     p.page.keyboard.press("Enter")
     assert p.page.is_visible("#tab-universe.on")
     assert p.page.input_value("#u-q") == "dim_customer"
@@ -320,7 +326,10 @@ def test_the_return_marks_the_table_focused_in_the_detail_meanwhile(example_page
     double_click_table(p, "dim_customer")
     other = next(e["id"] for e in data["detail"]["entities"] if e["name"] == "fct_orders")
     p.page.evaluate("id => views.detail.focus(id)", other)
-    p.page.click("#d-crumbs button")
+    assert (
+        p.page.locator("#d-crumbs button").last.inner_text() == names[other]
+    )  # the last segment follows the focus
+    p.page.locator("#d-crumbs button").last.click()
     assert p.page.input_value("#u-q") == names[other]
 
 
@@ -334,7 +343,7 @@ def test_the_return_ticks_back_a_table_filtered_out_meanwhile(example_page: Any)
         node["domain"],
     )
     p.page.click("#tabs button[data-tab=detail]")
-    p.page.click("#d-crumbs button")
+    p.page.locator("#d-crumbs button").last.click()
     assert p.page.is_visible("#tab-universe.on")
     assert p.page.evaluate("id => !!views.universe.place(id)", node["id"])
 
@@ -409,7 +418,7 @@ def test_the_new_controls_are_44_px_targets_on_a_coarse_pointer(tmp_path: Path, 
     p.page.wait_for_selector("#d-graph svg g.node", timeout=30_000)
     for selector in ("#d-crumbs button", "#d-cols", "#d-q ~ details.help > summary"):
         p.page.evaluate("document.getElementById('d-panel').classList.remove('closed')")
-        box = p.page.locator(selector).bounding_box()
+        box = p.page.locator(selector).last.bounding_box()
         assert box["height"] >= 44, (selector, box)
 
 

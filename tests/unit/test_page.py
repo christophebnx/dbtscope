@@ -372,3 +372,31 @@ def test_french_strings_put_a_narrow_space_before_semicolon_and_question_mark(na
     """D-039: before `;`, `?` and `!` French strings write the narrow no-break space escape (never U+00A0)."""
     text = (ASSETS / name).read_text(encoding="utf-8")
     assert not re.search(r"\\u00a0[;?!]", text)
+
+
+def test_the_universe_toolbar_holds_the_location_line_and_the_counts_line_is_in_the_panel() -> None:
+    """M9.2 (D-089): `#u-crumbs`, a labelled `nav`, right after the Panel button where the counts line was;
+    the counts line `#u-meta` is the first line of the Navigate section; the inside note is hidden at load."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    toolbar = page[page.index('<div class="toolbar">', page.index('class="stage"')) :]
+    toolbar = toolbar[: toolbar.index('id="u-stage"')]
+    assert re.search(r'<nav id="u-crumbs" class="crumbs" aria-label="[^"]+"></nav>', toolbar)
+    assert toolbar.index('id="u-toggle"') < toolbar.index('id="u-crumbs"') < toolbar.index('id="u-q"')
+    assert 'id="u-meta"' not in toolbar
+    nav = page[page.index('id="u-nav"') : page.index('id="u-display"')]
+    assert nav.index('id="u-h-nav"') < nav.index('id="u-meta"') < nav.index('id="u-by"')
+    assert re.search(r'<div class="inside-note" id="u-inside-note" hidden>', page)
+
+
+@pytest.mark.parametrize("name", ["universe.js", "common.js"])
+def test_every_string_key_of_a_script_exists_in_both_languages(name: str) -> None:
+    """Every key of the `en` string table of a script is also a key of its `fr` table (M9.2's new words)."""
+    text = (ASSETS / name).read_text(encoding="utf-8")
+    en, fr = text[text.index("  en: {") : text.index("  fr: {")], text[text.index("  fr: {") :]
+    key = re.compile(r"\b(\w+): (?:'|`|\[|\w+ =>|\([\w, ]*\) =>|\{)")
+    missing = set(key.findall(en)) - set(key.findall(fr)) - {"en"}
+    assert not missing, sorted(missing)
+    if name == "universe.js":
+        assert {"rootDomains", "rootLayers", "goName", "liveEntered", "insideNote", "hintTouch"} <= set(
+            key.findall(fr)
+        )

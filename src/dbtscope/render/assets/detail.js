@@ -475,6 +475,7 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
 
   // keepView: redraw without moving the camera (after a drop)
   function render(keepView) {
+    showTrail();
     canExport(false);
     const t0 = performance.now(), visible = visibleIds(), sk = skeleton(), sets = drawingSets(visible, sk);
     const gridded = sk || gridShown(sets.drawn);
@@ -550,6 +551,19 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
     if (q.value) q.oninput();
   }
 
+  // the location trail of the toolbar (D-086, D-089): crumbs items, or a function of the focused id that is re-evaluated on every
+  // render, so its last segment follows the focus; Esc calls the last segment's go
+  let trail = null, trailItems = [];
+  function showTrail() {
+    if (!trail) return;
+    trailItems = typeof trail === 'function' ? trail(state.focus) : trail;
+    crumbs($d('crumbs'), trailItems);
+  }
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape' || ev.defaultPrevented || !trailItems.length || !document.getElementById('tab-detail').classList.contains('on')) return;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(ev.target.tagName)) return;
+    trailItems[trailItems.length - 1].go();
+  });
   $d('crumbs').setAttribute('aria-label', L.location);
   refreshControls();
   render();
@@ -560,15 +574,24 @@ function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
     relayout: () => render(),
     // the focused table's id, or null
     focused: () => state.focus,
-    // show a table in its own group, focused with its direct links; `trail` (common.js crumbs items) replaces the location
-    // trail of the toolbar, when given (D-086)
-    focus(id, trail) {
+    // show a table in its own group, focused with its direct links; `arg` (common.js crumbs items, or a function of the focused
+    // id returning them) replaces the location trail of the toolbar, when given (D-086, D-089)
+    focus(id, arg) {
       const e = byId.get(id);
       if (!e) return;
-      if (trail) crumbs($d('crumbs'), trail);
+      if (arg) trail = arg;
       if (groupSel.style.display !== 'none') { groupSel.value = e.group; state.group = e.group; computeScope(); }
       state.focus = id;
       refreshControls();
+      render();
+    },
+    // follow the universe's location (D-089): show its trail and, when the viewer has not focused a table, its group
+    follow(group, arg) {
+      trail = arg; trailItems = [];
+      if (!arg || !arg.length) crumbs($d('crumbs'), []);
+      if (group && !state.focus && groupSel.style.display !== 'none' && GROUPS.includes(group) && state.group !== group) {
+        groupSel.value = group; state.group = group; computeScope(); refreshControls();
+      }
       render();
     },
     svgImage: scale => svgImage(box, zv, scale),

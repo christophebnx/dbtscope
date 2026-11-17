@@ -195,7 +195,7 @@ def test_filters_keep_counting_what_passes(large_page: Any, open_page: Any) -> N
     g = geo(p)
     assert folded_into_hubs <= {t["id"] for t in g["tables"]} and not hubs & {t["id"] for t in g["tables"]}
     p.page.locator("#u-kinds label", has_text="Hub").locator("input").check()
-    p.page.locator("#u-layers label", has_text="Raw vault").locator("input").uncheck()
+    p.page.locator("#u-layers > *", has_text="Raw vault").locator("input").uncheck()
     p.page.evaluate(NEXT_FRAME)
     g = geo(p)
     assert not {t["id"] for t in g["tables"]} & (hubs | folded_into_hubs) and g["folded"] == []

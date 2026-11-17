@@ -335,6 +335,10 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         if table:
             search(p, table["name"])
             assert p.page.evaluate("views.universe.camera().k") > 0.6
+    p.page.evaluate(
+        "views.universe.go(0)"
+    )  # the searches entered domains: back to the map, where the names are
+    p.page.wait_for_timeout(CENTRE_WAIT_MS)
     p.page.evaluate("views.universe.shown()")  # one frame at the full view of the last table
     p.page.click("#u-fit")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
@@ -347,7 +351,9 @@ def check_universe(p: Page, data: dict[str, Any]) -> None:
         elif t["text"] in domains and size >= 13:  # a domain name, on the page
             back = BG
             named.add(t["text"])
-        elif t["text"].isdigit() or t["text"] == "99+":  # the count of an entity's badge, on its dark disc
+        elif (t["text"].isdigit() and t["fill"] == "#ffffff") or t[
+            "text"
+        ] == "99+":  # the count of an entity's badge, on its dark disc
             back = "#1f2933"
         elif size == 9:  # a card column, on the white card
             back = "#ffffff"
@@ -645,7 +651,7 @@ def assert_dots_mark(p: Page, selector: str) -> int:
 
 def check_dots(p: Page, data: dict[str, Any]) -> None:
     u = data["universe"]
-    assert assert_dots_mark(p, "#u-panel label i") == len(u["kinds"]) + len(u["domains"])
+    assert assert_dots_mark(p, "#u-panel :is(label, .row) i") == len(u["kinds"]) + len(u["domains"])
     lineage = {i for pair in u["lineage"] for i in pair}
     starts = [n for i, n in enumerate(u["nodes"]) if i in lineage]
     kind_color = {k["key"]: k["color"] for k in u["kinds"]}

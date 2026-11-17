@@ -291,10 +291,11 @@ def test_a_project_without_routes_leaves_no_empty_line_under_the_counts(
     tmp_path: Path, open_page: Any
 ) -> None:
     p = open_page(page_of(write_example(tmp_path / "acme_retail"))[0], viewport=NARROW)
+    p.page.click("#u-toggle")  # the counts line is the first line of the panel (D-089)
     p.page.evaluate(NEXT_FRAME)
     got = p.page.evaluate(
-        "(m => ({ h: m.offsetHeight, lines: Math.round(m.scrollHeight - 12) / 18,"
+        "(m => ({ h: m.offsetHeight, lines: Math.round(m.scrollHeight) / 18,"
         " text: (() => { const r = document.createRange(); r.selectNodeContents(m);"
         " return r.getBoundingClientRect().height / 18; })() }))(document.getElementById('u-meta'))"
     )
-    assert round(got["text"]) == round((got["h"] - 12) / 18), got
+    assert round(got["text"]) == round(got["h"] / 18), got

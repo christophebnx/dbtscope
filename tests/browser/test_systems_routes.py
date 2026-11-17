@@ -29,6 +29,7 @@ from browser.test_summary_cards import (
     NEXT_FRAME,
     camera,
     canvas_xy,
+    enter,
     first_card,
     hits,
     move_to,
@@ -377,28 +378,26 @@ def test_zoomed_in_each_system_is_its_own_neutral_disc(large_cards_page: Any, op
     )  # neutral, 12 px
 
 
-def test_a_row_click_frames_its_system_and_a_double_click_frames_the_grid(
+def test_a_row_click_enters_its_system_and_a_double_click_on_the_group_card_enters_nothing(
     large_cards_page: Any, open_page: Any
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    s = summary(p)
     row = next(r for r in hits(p)["rows"] if r["k"] == "@systems" and r["row"] == "raw_tms")
     p.page.mouse.click(*canvas_xy(p, row["x"] + 10, row["y"] + row["h"] / 2))
     p.page.wait_for_timeout(900)
-    c, d = camera(p), centres(p)["raw_tms"]
-    assert c["k"] >= s["kStars"] and summary(p)["weight"] == 0
-    box = p.page.evaluate("(b => [b.clientWidth, b.clientHeight])(document.getElementById('u-canvas'))")
     assert (
-        abs((box[0] / 2 - c["x"]) / c["k"] - d["x"]) < d["r"]
-        and abs((box[1] / 2 - c["y"]) / c["k"] - d["y"]) < d["r"]
-    )
+        p.page.evaluate("views.universe.location().inside") == "raw_tms" and summary(p)["weight"] == 0
+    )  # D-088
+    assert {t["domain"] for t in geometry(p)["tables"]} == {"raw_tms"}
+    p.page.evaluate("views.universe.go(0)")
+    p.page.wait_for_timeout(900)
     p.page.evaluate("views.universe.relayout()")
     p.page.evaluate(NEXT_FRAME)
     card = first_card(p, "@systems")
     p.page.mouse.dblclick(*canvas_xy(p, card["x"] + card["w"] - 2, card["y"] + card["h"] - 3))
     p.page.wait_for_timeout(900)
-    assert camera(p)["k"] >= s["kStars"] and summary(p)["weight"] == 0
+    assert p.page.evaluate("views.universe.location().level") == 0  # the group card is not a domain
 
 
 def test_the_group_header_moves_every_system_and_pins_the_scope(
@@ -730,7 +729,7 @@ def test_hovering_a_card_draws_all_its_routes(large_cards_page: Any, open_page: 
 def test_focusing_a_domain_row_spotlights_it_like_the_pointer(large_cards_page: Any, open_page: Any) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.focus("#u-domains label:nth-child(2) input")  # auction
+    p.page.focus("#u-domains > *:nth-child(2) input")  # auction
     p.page.evaluate(NEXT_FRAME)
     mine = [r for r in geometry(p)["routes"] if "auction" in (r["a"], r["b"])]
     assert mine and all(r["drawn"] for r in mine)
@@ -774,8 +773,7 @@ def test_a_trajectory_turns_the_spotlight_off_and_keeps_the_density(
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.fill("#u-q", "car_hub")
-    p.page.click("#u-traj")
+    enter(p, "car_hub")
     overview = camera(p)
     p.page.evaluate(
         "c => views.universe.camera(c)",
@@ -1022,7 +1020,7 @@ def test_a_row_of_the_layers_panel_spotlights_its_constellation(
     p.page.evaluate(NEXT_FRAME)
     reset(p)
     assert not geometry(p)["systems"]["grouped"]  # layer mode: no group card
-    p.page.focus("#u-layers label:nth-child(2) input")
+    p.page.focus("#u-layers > *:nth-child(2) input")
     p.page.evaluate(NEXT_FRAME)
     drawn = [r for r in geometry(p)["routes"] if r["drawn"]]
     keys = {k for r in drawn for k in (r["a"], r["b"])}
@@ -1139,8 +1137,7 @@ def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
 ) -> None:
     p = open_page(large_cards_page[0])
     reset(p)
-    p.page.fill("#u-q", "car_hub")
-    p.page.click("#u-traj")
+    enter(p, "car_hub")
     overview = camera(p)
     p.page.evaluate("c => views.universe.camera(c)", {**overview, "k": summary(p)["kCards"]})
     p.page.evaluate(NEXT_FRAME)
