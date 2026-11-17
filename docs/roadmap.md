@@ -290,4 +290,4 @@ Done when: each phase meets the "Done when" list of its section of the brief and
 - Small screens, detail tab: the toolbar under the 35vh panel wraps to about 240 px, leaving 97 to 147 px of diagram at 360 × 740; a more compact toolbar there.
 - Universe interaction: a shareable link to a table (`erd.html#table=…`). (Curved routes that avoid the circles, with their counts on hover, and neighbours lit on hover were built by M8.4, D-071.)
 - Flow view: the paths between two chosen tables.
-- Print stylesheet: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules).
+- Print stylesheet for the Universe and Detail tabs: the current view on one page, without panels and toolbars (left out of M5.4: the universe canvas needs a re-draw at print resolution, the Graphviz views a fit to the page box, the trajectory bar and the flow overlay print rules). The Schema tab's print is M9.5 (D-095, which supersedes this item for that tab).
