@@ -540,6 +540,53 @@ def test_a_search_opens_the_panel_and_keeps_the_focus_the_toolbar_lineage_closes
     assert p.page.evaluate(ACTIVE + ".id") == "u-tj-dir"
 
 
+def test_a_search_in_another_domain_ends_the_lineage_then_opens_the_panel(
+    large_page: Any, open_page: Any
+) -> None:
+    p, data = open_large(large_page, open_page)
+    u = data["universe"]
+    hub = by_name(u, "car_hub")
+    enter_vehicle(p)
+    click_table(p, hub["id"])
+    p.panel_lineage()
+    assert p.state()["active"]
+    other = next(n for n in u["nodes"] if n["domain"] != "vehicle" and n["kind"] != "source")
+    search(p, other["name"])
+    assert not p.state()["active"], "the lineage of another domain ends"
+    assert p.panel()["open"] and p.panel()["id"] == other["id"]
+
+
+def test_the_panel_takes_no_pointer_for_450_ms_after_a_click_so_a_double_click_reaches_the_table(
+    example_page: Any,
+) -> None:
+    p, data = example_page
+    orders = by_name(u_of(data), "fct_orders")
+    centre_on_map(p, "fct_orders")
+    p.page.mouse.click(*star(p, orders["id"]))
+    assert p.page.evaluate("document.getElementById('u-tpanel').style.pointerEvents") == "none"
+    p.page.wait_for_timeout(700)
+    assert p.page.evaluate("document.getElementById('u-tpanel').style.pointerEvents") == ""
+
+
+def test_a_double_click_on_a_table_hands_off_to_detail(example_page: Any) -> None:
+    p, data = example_page
+    orders = by_name(u_of(data), "fct_orders")
+    centre_on_map(p, "fct_orders")
+    p.page.mouse.dblclick(*star(p, orders["id"]))
+    p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
+def test_a_double_tap_on_a_table_hands_off_to_detail(large_page: Any, open_page: Any) -> None:
+    p, data = open_large(large_page, open_page, viewport=NARROW, touch=True)
+    hub = by_name(u_of(data), "car_hub")
+    search(p, "car_hub")
+    esc(p)
+    x, y = star(p, hub["id"])
+    p.page.touchscreen.tap(x, y)
+    p.page.touchscreen.tap(x, y)
+    p.page.wait_for_selector("#tab-detail.on", timeout=10_000)
+
+
 # ---------------------------------------------------------------- 8. screen readers and languages
 
 
