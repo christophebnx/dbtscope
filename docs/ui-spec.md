@@ -179,3 +179,18 @@ Design: `docs/architecture/2026-11-17-m9.1-ui-coherence.md` § UI design. The pa
 - **Tabs** carry a `title` saying what each is for. `#u-q`, `#d-focus`, `#d-q` have an accessible name.
 - **Way back**: after a double-click on a table opens it in the Detail tab, the Detail toolbar shows **← Universe**; it returns to the Universe tab with that table (the detail's current focus if it is a universe table) ticked back if filtered out, opened if folded, ringed, framed, named in the search box, with the keyboard focus there.
 - Tooltips close when a zoom starts; in layer mode the rim arcs fade with the disc when summary cards take over.
+
+## Universe view — drill-down (M9.2, D-087 to D-090)
+
+Design: `docs/architecture/2026-11-17-m9.2-drill-down.md` § UI design. Supersedes: "No layer names on the canvas" (§ placement) for an entered domain only; the double-click "zoom on this domain / layer" (§ General, tooltips: now "Click: enter this domain / layer"); a click on a card outside its rows doing nothing (§ summary cards); the counts line in the toolbar (it moves to the top of Navigate, and stays the root crumb's `title`).
+
+- **Levels.** Map, entered domain (layer), table, then the Detail tab. Page state only: never saved, exported or in the URL; every load opens on the map.
+- **Map page** (more than `universe.map_above` tables, default 300): opens on named discs (name, count, composition bar), no star or table name from afar; small projects open as before.
+- **Entering**: click or double-click a disc, a card, a ghost, a panel row's name, a search, or zoom into it. The domain's tables spread over the stage (300 ms tween, none under reduced motion), headers per layer (domain mode) or per domain (layer mode), "Raw vault 388", sticky. No link until a table is hovered or selected ("Hover a table to see its links" in the corner). The other domains are labelled **ghosts** at the stage edges (88 px left and right, 72 px top and bottom) with one dependency line each; click enters. No dragging inside; nothing saved.
+- **Breadcrumb** `All domains › Vehicle › car_hub` (`All layers › …`) in the toolbar after ☰ Panel: `nav` "Location", every segment a button, the last `aria-current="location"`, one line that shrinks with ellipsis (middle segments first), never changes the toolbar's height; `title`s hold the counts. Ancestors are `--accent` links, the current segment `--fg` 600.
+- **Esc** goes one level back: table, then domain, then nothing; popovers, the lineage graph, the search box and selects keep their own Esc first. In the Detail tab Esc follows the trail's last segment.
+- **Panel rows** of Domains, Source systems (Layers in layer mode): the checkbox filters ("Show Vehicle"), the name is a button that enters ("Go to Vehicle"); the entered row has `aria-current` and a left accent bar. 44 px on touch.
+- **Detail trail** `← All domains › Vehicle › car_hub`, every segment a button back to that level; opening the Detail tab shows the entered domain's group (domain mode, when groups are domains) and the trail.
+- **Zoom** follows the location with hysteresis (enter when a disc fills 90 % of the stage's short side, leave below 0.6 of the spread's fit); one change per gesture.
+- **Touch**: tap enters, pinch out leaves, the hint has a touch wording. 360 px: no horizontal scroll at any level; ghosts shrink and lose their labels.
+- **Keyboard**: panel row names and the search box are the way in (canvas discs are not Tab stops); crumbs and Esc the way out; each change is announced in `#u-live`.
