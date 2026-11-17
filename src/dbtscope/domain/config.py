@@ -35,6 +35,7 @@
       fold: true                  # draw descriptive tables inside the table they describe (D-062, D-063)
       cards: false                # from afar, draw each constellation as a summary card (D-065, D-081)
       routes: true                # draw the routes between constellations (D-071, D-083)
+      map_above: 300              # more tables than this: the page opens on the map of domains (D-087)
 
     layout_file: dbt-erd-layout.json   # manual arrangement exported from the page, embedded if present
 
@@ -58,7 +59,9 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
+    Field,
     StrictBool,
+    StrictInt,
     ValidationError,
     field_validator,
     model_validator,
@@ -179,6 +182,15 @@ class UniverseSettings(BaseModel):
     fold: StrictBool = True
     cards: StrictBool = False
     routes: StrictBool = True
+    map_above: StrictInt = Field(default=300, ge=0)
+
+    @field_validator("map_above", mode="before")
+    @classmethod
+    def _a_number_of_tables(cls, value: Any) -> Any:
+        """A bool, a string, a fraction or a negative number is refused in words (D-087)."""
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"invalid value {value!r} (a number of tables, 0 or more)")
+        return value
 
 
 class Config(BaseModel):

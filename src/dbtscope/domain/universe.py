@@ -209,5 +209,6 @@ def universe_data(project: Project, config: Config) -> UniversePayload:
             fold=universe.fold,
             cards=universe.cards,
             routes=universe.routes,
+            map_above=universe.map_above,
         ),
     )

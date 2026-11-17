@@ -641,6 +641,7 @@ universe:
   fold: true                  # true | false: descriptive tables drawn inside their parent at opening, switchable in the page
   cards: false                # true | false: summary cards when zooming out, at opening, switchable in the page (off by default)
   routes: true                # true | false: draw the dependencies between domains, switchable in the page (on by default)
+  map_above: 300              # number of tables: a page with more opens on the map of domains (0: always; a larger number than the project: never)
 ```
 
 `kinds` colour both views; a kind without `color` is grey `#777777`. A rule (kind, domain or layer) without `label` is labelled by its key. In the universe, tables no kind matches are typed by resource (source, seed, snapshot) or "Other". How kinds, domains and layers are resolved, rule by rule: [How a table is classified](how-it-works.md#how-a-table-is-classified).
@@ -665,7 +666,7 @@ When several rules share a key (one per schema of a domain), write `system` once
 
 ### Checks and errors
 
-Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline`, `universe.fold`, `universe.cards` and `universe.routes` take only `true` or `false`; a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
+Values are checked when the page is built: types, the listed choices, `group_by`, the `key_columns` regex, and rule colours, which are hex (`#2f6fb5`, or `#26b` for short). `include_packages`, `offline`, `universe.fold`, `universe.cards` and `universe.routes` take only `true` or `false`; `universe.map_above` takes a whole number, 0 or more (an older dbtscope ignores it in `dbt-erd.yml` but refuses it in a preset file); a number is accepted as `title` or `label`. Unknown keys of `dbt-erd.yml` are ignored (not those of a preset file, below). An invalid value stops the run with one line naming the file and the key, for example `dbtscope: error: config /home/ana/shop/dbt-erd.yml: view: must be 'universe' or 'detail'; fix the file`; an invalid manifest likewise names the field (`dbtscope: error: manifest <path>: <location>: <problem>`).
 
 ### Walkthrough: the example's dbt-erd.yml
 

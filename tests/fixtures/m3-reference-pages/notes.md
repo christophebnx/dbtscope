@@ -56,3 +56,7 @@ M9.1 (UI coherence, D-084 to D-086): no payload key changes; every `payloads/*.j
 before regenerating) and only `expected.json` is regenerated. Every page changes by the assets (`common.js`,
 `detail.js`, `universe.js`, `flow.js`, `boot.js`, `page.html`, `page.css`): the words, the panel's three groups,
 the Layout menu, the Help popovers, the location trail.
+
+M9.2 (map landing, D-087): every universe payload gains `"mapAbove":300` as the new last key of the universe
+defaults; the old and new payloads are equal once that key is removed (checked before regenerating). Every
+page also changes by the script, the markup and `page.css` (drill-down).

@@ -113,6 +113,9 @@ class UniverseDefaults(BaseModel):
     fold: bool = True  # `universe.fold`, whether the page opens with descriptive tables folded (D-063)
     cards: bool = False  # `universe.cards`, whether the page opens with summary cards (D-081)
     routes: bool = True  # last key: `universe.routes`, whether the page opens with the routes drawn (D-083)
+    map_above: int = Field(
+        300, serialization_alias="mapAbove"
+    )  # last key: `universe.map_above`, the map page threshold (D-087)
 
 
 class UniversePayload(BaseModel):
