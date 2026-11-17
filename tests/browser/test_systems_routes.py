@@ -640,13 +640,13 @@ def test_the_strongest_routes_are_drawn_and_the_meta_line_counts_the_rest(
     g = geometry(p)
     drawn = {(r["a"], r["b"]) for r in g["routes"] if r["drawn"]}
     assert drawn == expected_drawn(g["routes"]) and 0 < len(drawn) < len(g["routes"])
-    assert meta(p).endswith(f"{len(drawn)} of {len(g['routes'])} routes")
+    assert meta(p).endswith(f"{len(drawn)} of {len(g['routes'])} dependencies")
     at_stars(p)
     g = geometry(p)
     assert {(r["a"], r["b"]) for r in g["routes"] if r["drawn"]} == expected_drawn(g["routes"])
-    assert re.search(r"\d+ of \d+ routes$", meta(p))
+    assert re.search(r"\d+ of \d+ dependencies$", meta(p))
     set_k(p, 1.0)
-    assert "routes" not in meta(p)  # no route is drawn from that scale up
+    assert "dependencies" not in meta(p)  # no route is drawn from that scale up
 
 
 def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
@@ -679,22 +679,22 @@ def test_a_tie_keeps_both_routes(tmp_path: Path, open_page: Any) -> None:
     p = open_page(universe_page(tmp_path, payload, view="universe"))
     g = geometry(p)
     assert len(g["routes"]) == 4 and all(r["drawn"] for r in g["routes"])
-    assert "routes" not in meta(p) and p.page.is_hidden(
-        "#u-routes-row"
-    )  # nothing is hidden: no entry, no control
+    assert "dependencies" not in meta(p) and p.page.is_disabled(
+        "#u-routes-box"
+    )  # nothing is hidden: no entry, the "all (N)" toggle disabled with its reason
 
 
 def test_show_all_routes_draws_them_all_and_is_not_remembered(large_cards_page: Any, open_page: Any) -> None:
     html = large_cards_page[0]
     p = open_page(html)
-    assert p.page.is_visible("#u-routes-row") and p.page.inner_text("#u-routes-label") == "Show all routes"
-    assert p.page.inner_text("#u-routes-n") == str(len(geometry(p)["routes"]))
+    n = len(geometry(p)["routes"])
+    assert p.page.is_enabled("#u-routes-box") and p.page.inner_text("#u-routes-label") == f"all ({n})"
+    assert p.page.get_attribute("#u-routes-box", "aria-label") == f"Show all {n} dependencies"
     p.page.check("#u-routes-box")
     p.page.evaluate(NEXT_FRAME)
-    assert all(r["drawn"] for r in geometry(p)["routes"]) and "routes" not in meta(p)
-    assert re.match(r"All \d+ routes shown", p.page.inner_text("#u-live"))
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+    assert all(r["drawn"] for r in geometry(p)["routes"]) and "dependencies" not in meta(p)
+    assert re.match(r"All \d+ dependencies shown", p.page.inner_text("#u-live"))
+    p.reload()
     assert not p.page.is_checked("#u-routes-box") and not all(r["drawn"] for r in geometry(p)["routes"])
 
 
@@ -706,8 +706,8 @@ def test_the_count_of_routes_in_french(tmp_path: Path, open_page: Any) -> None:
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     (project / "dbt-erd.yml").write_text(config + "\nlanguage: fr\n", encoding="utf-8")
     p = open_page(page_of(project)[0])
-    assert re.search(r"\d+ routes sur \d+$", meta(p)), meta(p)
-    assert p.page.inner_text("#u-routes-label") == "Afficher toutes les routes"
+    assert re.search(r"\d+ dépendances sur \d+$", meta(p)), meta(p)
+    assert re.fullmatch(r"toutes \(\d+\)", p.page.inner_text("#u-routes-label"))
 
 
 # ---------------------------------------------------------------- the spotlight and the tooltip
@@ -813,13 +813,13 @@ def test_the_text_summary_lists_the_source_systems_and_every_route(
     names = [i["name"] for i in text["items"]]
     assert names[-1] == "Source systems" and names.count("Source systems") == 1
     vehicle = next(i for i in text["items"] if i["name"] == "Vehicle")
-    routes = next(q for q in vehicle["p"] if q.startswith("Routes: "))
+    routes = next(q for q in vehicle["p"] if q.startswith("Dependencies: "))
     assert (
         routes.count("(") == len([r for r in geometry(p)["routes"] if "vehicle" in (r["a"], r["b"])])
         or routes.count("(") >= 4
     )
     group = next(i for i in text["items"] if i["name"] == "Source systems")
-    assert any(q.startswith("Routes: ") for q in group["p"]) and len(group["li"]) == 7
+    assert any(q.startswith("Dependencies: ") for q in group["p"]) and len(group["li"]) == 7
 
 
 # ---------------------------------------------------------------- contrast
@@ -1092,7 +1092,7 @@ def test_the_route_tooltip_in_french(tmp_path: Path, open_page: Any) -> None:
         text = tip_at_middle(p, r)
         if "lien" in text or "relation" in text:
             assert "lineage" not in text and " reads " not in text
-            assert "lien" in text and ("lit" in text or "Aucune lignée" in text), text
+            assert "lien" in text and ("lit" in text or "Aucun lignage" in text), text
             return
     pytest.fail("no route tooltip")
 
@@ -1150,7 +1150,7 @@ def test_a_trajectory_keeps_the_density_of_the_strongest_routes_and_the_count(
     routes = geometry(p)["routes"]
     assert {(r["a"], r["b"]) for r in routes if r["drawn"]} == expected_drawn(routes)
     assert 0 < sum(r["drawn"] for r in routes) < len(routes)
-    assert re.search(r"\d+ of \d+ routes", meta(p))
+    assert re.search(r"\d+ of \d+ dependencies", meta(p))
     p.page.click("#u-tj-leave")
 
 
@@ -1290,7 +1290,7 @@ def test_the_show_all_row_is_there_only_while_a_route_is_hidden(
     p.page.evaluate(NEXT_FRAME)
     g = geometry(p)
     hidden = sum(not r["drawn"] for r in g["routes"])
-    assert p.page.is_visible("#u-routes-row") == bool(hidden), (hidden, len(g["routes"]))
+    assert p.page.is_enabled("#u-routes-box") == bool(hidden), (hidden, len(g["routes"]))
     assert ("of" in meta(p)) == bool(hidden)
 
 
@@ -1371,7 +1371,7 @@ def test_the_meta_line_wraps_with_its_whole_text_in_the_title(large_cards_page: 
         assert meta_box.evaluate("m => m.scrollWidth <= m.clientWidth && m.scrollHeight <= m.clientHeight"), (
             viewport
         )
-        assert re.search(r"\d+ of \d+ routes$", meta(p)) and "links" not in meta(
+        assert re.search(r"\d+ of \d+ dependencies$", meta(p)) and "links" not in meta(
             p
         )  # the routes entry replaces links
         title = p.page.get_attribute("#u-meta", "title")
@@ -1379,7 +1379,7 @@ def test_the_meta_line_wraps_with_its_whole_text_in_the_title(large_cards_page: 
         p.page.close()
     p = open_page(large_cards_page[0])
     set_k(p, 1.0)
-    assert "routes" not in meta(p) and "links" in meta(p)  # nothing is hidden: the line is the old one
+    assert "dependencies" not in meta(p) and "links" in meta(p)  # nothing is hidden: the line is the old one
 
 
 def test_the_domain_tooltip_stays_in_the_stage_and_clear_of_the_pointer(

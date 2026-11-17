@@ -252,8 +252,8 @@ def test_filtered_domain_and_type_are_brought_back_and_counted(shop_page: Shop) 
     assert "orders" in names(s["up"])
     assert checkbox(p, "domains", domain).is_checked()
     assert checkbox(p, "kinds", kind).is_checked()
-    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the trajectory"
-    assert "1 table brought back by the trajectory" in p.page.inner_text("#u-tj-live")
+    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the lineage"
+    assert "1 table brought back by the lineage" in p.page.inner_text("#u-tj-live")
     p.page.click("#u-tj-leave")
     assert checkbox(p, "domains", domain).is_checked(), "leaving does not untick again"
     assert checkbox(p, "kinds", kind).is_checked()
@@ -267,7 +267,7 @@ def test_filtered_layer_is_brought_back(shop_page: Shop) -> None:
         checkbox(p, "layers", layer).uncheck()
     enter_by_button(p, "fct_returns")
     assert p.state()["brought"] == 2
-    assert p.page.inner_text("#u-tj-back") == "2 tables brought back by the trajectory"
+    assert p.page.inner_text("#u-tj-back") == "2 tables brought back by the lineage"
     for n in hidden:
         layer = next(x["label"] for x in data["universe"]["layers"] if x["key"] == n["layer"])
         assert checkbox(p, "layers", layer).is_checked()
@@ -301,7 +301,7 @@ def test_esc_leaves_but_not_from_a_select(shop_page: Shop) -> None:
     assert s["active"] is False
     assert p.page.is_hidden("#u-trajbar")
     assert p.page.evaluate("document.activeElement.id") == "u-traj", "focus returns to the button"
-    assert p.page.inner_text("#u-tj-live") == "Trajectory closed"
+    assert p.page.inner_text("#u-tj-live") == "Lineage closed"
 
 
 def test_esc_from_the_page_body_leaves(shop_page: Shop) -> None:
@@ -414,8 +414,8 @@ def test_search_still_centres_and_reveals_outside_the_mode(shop_page: Shop) -> N
 @pytest.mark.parametrize(
     ("lang", "expected"),
     [
-        ("en", {"#u-tj-title": "Trajectory of", "#u-tj-leave": "Leave", "#u-traj": "Trajectory"}),
-        ("fr", {"#u-tj-title": "Trajectoire de", "#u-tj-leave": "Quitter", "#u-traj": "Trajectoire"}),
+        ("en", {"#u-tj-title": "Lineage of", "#u-tj-leave": "Leave", "#u-traj": "Lineage"}),
+        ("fr", {"#u-tj-title": "Lignage de", "#u-tj-leave": "Quitter", "#u-traj": "Lignage"}),
     ],
 )
 def test_bar_strings_in_both_languages(
@@ -442,7 +442,7 @@ def test_bar_strings_in_both_languages(
     if lang == "fr":
         assert p.page.inner_text("#u-tj-sum") == "1 en amont · 2 en aval"
         assert set(options) >= {"amont", "aval", "les deux", "tous les niveaux", "1 niveau"}
-        assert "Échap" in p.page.inner_text("#u-hint")
+        assert "Échap" in p.page.text_content("#u-hint")
     else:
         assert set(options) >= {"upstream", "downstream", "both", "all levels", "1 level"}
 
@@ -451,10 +451,10 @@ def test_tooltip_tells_up_from_down(shop_page: Shop) -> None:
     p, _ = shop_page
     x, y = centre(p, "stg_orders")
     p.page.mouse.move(x, y)
-    assert "Click: show its trajectory" in p.page.inner_text("#u-tip")
+    assert "Click: show its lineage" in p.page.inner_text("#u-tip")
     p.page.mouse.click(x, y)
     p.page.mouse.move(x + 1, y)
-    assert "Start of the trajectory" in p.page.inner_text("#u-tip")
+    assert "Start of the lineage" in p.page.inner_text("#u-tip")
     x, y = centre(p, "fct_returns")
     p.page.mouse.move(x, y)
     p.page.mouse.move(x + 1, y)
@@ -509,7 +509,7 @@ def test_fit_frames_the_trajectory_at_most_at_scale_2(shop_page: Shop) -> None:
     p, _ = shop_page
     enter_by_button(p, "dim_customer")
     p.page.select_option("#u-tj-depth", "d1")
-    assert p.page.get_attribute("#u-fit", "title") == "Frame the trajectory"
+    assert p.page.get_attribute("#u-fit", "title") == "Frame the lineage"
     p.page.click("#u-fit")
     p.page.wait_for_timeout(CENTRE_WAIT_MS)
     k = p.page.evaluate(TRANSFORM)[2]
@@ -657,7 +657,7 @@ def test_changing_an_option_reticks_a_filter_unticked_in_the_mode(
     assert s["brought"] == 1
     assert "orders" in names(s["up"])
     assert p.page.inner_text("#u-tj-hidden") == ""
-    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the trajectory"
+    assert p.page.inner_text("#u-tj-back") == "1 table brought back by the lineage"
 
 
 @pytest.mark.parametrize("how", ["brought_by_the_trajectory", "filtered_then_found", "filtered_in_the_mode"])

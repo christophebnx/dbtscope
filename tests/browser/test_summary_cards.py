@@ -566,7 +566,7 @@ def test_hovering_a_card_gives_the_domain_tooltip_and_a_row_gives_its_action(
     star = next(t for t in p.page.evaluate("views.universe.geometry().tables") if t["domain"] == "vehicle")
     k, c = camera(p)["k"], camera(p)
     move_to(p, star["x"] * k + c["x"], star["y"] * k + c["y"])
-    assert "Click: show its trajectory" not in tip(p) and "Double-click: open in the Detail tab" not in tip(p)
+    assert "Click: show its lineage" not in tip(p) and "Double-click: open in the Detail tab" not in tip(p)
 
 
 def test_hovering_a_layer_card_gives_the_layer_tooltip(large_cards_page: Any, open_page: Any) -> None:
@@ -575,7 +575,7 @@ def test_hovering_a_layer_card_gives_the_layer_tooltip(large_cards_page: Any, op
     p.page.evaluate(NEXT_FRAME)
     card = hits(p)["cards"][0]
     move_to(p, *blank_point(card))
-    assert "Domains" in tip(p) and "Double-click: zoom on this constellation" in tip(p)
+    assert "Domains" in tip(p) and "Double-click: zoom on this layer" in tip(p)
     row = rows_of(p, card["k"])[0]
     move_to(p, row["x"] + 10, row["y"] + row["h"] / 2)
     assert "Click: zoom on" in tip(p)
@@ -844,7 +844,7 @@ def test_the_text_summary_lists_every_constellation_with_the_numbers_of_the_card
     p = open_page(html)
     s = summary(p)
     text = text_summary(p)
-    assert text["heading"] == "Summary of the constellations"
+    assert text["heading"] == "Summary of the domains"
     labels = {d["key"]: d["label"] or d["key"] for d in data["universe"]["domains"]}
     layers = {layer["key"]: layer["label"] for layer in data["universe"]["layers"]}
     kinds = {k["key"]: k["label"] for k in data["universe"]["kinds"]}
@@ -904,7 +904,7 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
     set_all_domains(p, False)
     p.page.evaluate(NEXT_FRAME)
     text = text_summary(p)
-    assert text["heading"] == "Summary of the constellations"
+    assert text["heading"] == "Summary of the domains"
     assert text["items"] == [{"name": None, "p": ["No table for these filters."], "li": []}]
     assert hits(p)["cards"] == []
 
@@ -912,7 +912,7 @@ def test_an_empty_universe_has_a_summary_that_says_so(example_page: Any) -> None
 def test_french_texts_and_plurals(tmp_path: Path, open_page: Any) -> None:
     p, _ = acme_page(tmp_path, open_page, "fr", CARDS_ON)
     text = text_summary(p)
-    assert text["heading"] == "Synthèse des constellations"
+    assert text["heading"] == "Synthèse des domaines"
     s = summary(p)
     one = next(c for c in s["cards"] if c["n"] <= 1)  # the one table of the single source system
     systems = next(i for i in text["items"] if i["name"] == "Systèmes sources")

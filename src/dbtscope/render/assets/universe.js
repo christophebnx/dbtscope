@@ -7,75 +7,90 @@
 function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) {
   const $u = id => document.getElementById('u-' + id);
   const T = {
-    en: { links: 'Links', relations: 'business relations', lineage: 'lineage', detail: 'Tables',
-          names: 'names', keys: 'keys', all: 'all fields', layers: 'Layers', domains: 'Domains',
-          every: 'all', nothing: 'none', search: 'Find a table…', linksN: ['link', 'links'], owner: 'owner',
+    en: { links: 'Links', relations: 'relations (tests, foreign keys)', lineage: 'lineage (ref, source)', detail: 'Show',
+          names: 'names', keys: 'key columns', all: 'all columns', layers: 'Layers', domains: 'Domains',
+          every: 'all', nothing: 'none', search: 'Find a table…', searchLabel: 'Find a table', linksN: ['link', 'links'], owner: 'owner',
+          navigate: 'Navigate', display: 'Display', filters: 'Filters', moreDisplay: 'More display options',
           openDetail: 'Double-click: open in the Detail tab', zoomIn: 'Double-click: zoom in',
-          frame: 'Double-click: zoom on this domain', frameC: 'Double-click: zoom on this constellation',
-          by: 'Constellations', layersN: ['layer', 'layers'], domainOne: 'Domain',
-          trajectory: 'Trajectory', trajFound: 'Trajectory of the table found', trajOf: 'Trajectory of',
-          brought: ['table brought back by the trajectory', 'tables brought back by the trajectory'],
+          frame: 'Double-click: zoom on this domain', frameC: 'Double-click: zoom on this layer',
+          by: 'Organise by', byDomain: 'Domain', byLayer: 'Layer', layersN: ['layer', 'layers'], domainOne: 'Domain',
+          trajectory: 'Lineage', trajFound: 'Lineage of the table found', trajOf: 'Lineage of',
+          needTable: 'Find a table first, or click one on the map',
+          brought: ['table brought back by the lineage', 'tables brought back by the lineage'],
           hiddenN: ['hidden by the filters', 'hidden by the filters'],
-          leave: 'Leave', leaveTitle: 'Leave the trajectory (Esc)', closed: 'Trajectory closed',
-          fitTraj: 'Frame the trajectory', flow: 'Flow', flowTitle: 'Show this trajectory as a left-to-right flow',
-          clickTraj: 'Click: show its trajectory',
-          mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`, summaryH: 'Summary of the constellations',
-          entitiesN: ['entity', 'entities'], foldsInto: 'Folds into',
-          openedLive: (t, p) => `${t} is folded into ${p}: shown`,
-          foldLiveOn: n => `Descriptive tables folded${L.colon}${n}`,
-          cards: 'Summary cards', cardsTitle: 'From afar, draw each constellation as a card: its counts by layer and its main tables',
-          routesSwitch: 'Routes between constellations', routesSwitchTitle: 'Draw the arrows that sum up the links between constellations',
-          routesLiveOn: 'Routes shown', routesLiveOff: 'Routes hidden: their list stays in the text summary',
+          leave: 'Leave', leaveTitle: 'Leave the lineage (Esc)', closed: 'Lineage closed',
+          fitTraj: 'Frame the lineage', flow: 'Lineage graph', flowTitle: 'Show this lineage as a left-to-right graph',
+          clickTraj: 'Click: show its lineage',
+          mainH: 'Main tables', rowZoom: label => `Click: zoom on ${label}`,
+          summaryH: layers => `Summary of the ${layers ? 'layers' : 'domains'}`,
+          entitiesN: ['entity', 'entities'], entitiesDrawn: ['entity drawn', 'entities drawn'], foldsInto: 'Drawn inside',
+          openedLive: (t, p) => `${t} is drawn inside ${p}: shown`,
+          foldLiveOn: n => `Descriptive tables drawn inside their table${L.colon}${n}`,
+          cards: 'Summary cards',
+          cardsTitle: layers => `From afar, draw each ${layers ? 'layer' : 'domain'} as a card: its counts by ${layers ? 'domain' : 'layer'} and its main tables`,
+          routesSwitch: layers => `Dependencies between ${layers ? 'layers' : 'domains'}`,
+          routesSwitchTitle: layers => `Draw the arrows that sum up the links between ${layers ? 'layers' : 'domains'}`,
+          routesLiveOn: 'Dependencies shown', routesLiveOff: 'Dependencies hidden: their list stays in the text summary',
           cardsLiveOn: 'Summary cards on: they replace the stars from afar', cardsLiveOff: 'Summary cards off: stars at every zoom',
           businessH: 'Business domains', systemsH: 'Source systems', systemsShort: 'Sources', allBusiness: 'All business domains',
           noneBusiness: 'None of the business domains', allSystems: 'All source systems', noneSystems: 'No source system',
           systemsN: ['source system', 'source systems'], groupTip: 'Click a row to zoom on it',
-          routesN: ['route', 'routes'], routesOf: (s, t) => `${num(s)} of ${num(t)} routes`, allRoutes: 'Show all routes',
-          allRoutesOn: t => `All ${num(t)} routes shown`,
-          allRoutesOff: (s, t) => `The ${num(s)} strongest of ${num(t)} routes shown`,
+          routesN: ['dependency', 'dependencies'], routesOf: (s, t) => `${num(s)} of ${num(t)} dependencies`,
+          allN: t => `all (${num(t)})`, allAria: t => `Show all ${num(t)} dependencies`,
+          allDrawn: t => (t === 1 ? 'The dependency is drawn' : t ? `All ${num(t)} dependencies are drawn` : 'No dependency to draw'),
+          routesOff: 'Dependencies are off',
+          allRoutesOn: t => `All ${num(t)} dependencies shown`,
+          allRoutesOff: (s, t) => `The ${num(s)} strongest of ${num(t)} dependencies shown`,
           relationsN: ['relation', 'relations'], lineageN: ['lineage link', 'lineage links'],
           reads: (a, b) => `${a} reads ${b}`, readEach: 'Each reads the other', noLineage: 'No lineage',
-          routeFrom: 'From', routesH: 'Routes',
+          routeFrom: 'From', routesH: 'Dependencies',
           pngTitle: 'Save the view as shown as a PNG image (high resolution)',
-          hint: 'Wheel: zoom · drag the background to pan · drag a table, or a constellation by its name, to arrange them · '
-              + 'click a table to see its trajectory (Esc to leave) · '
-              + 'double-click a constellation to zoom in, a table to open its detail' },
-    fr: { links: 'Liens', relations: 'relations métier', lineage: 'lignage', detail: 'Tables',
-          names: 'noms', keys: 'clés', all: 'tous les champs', layers: 'Couches', domains: 'Domaines',
-          every: 'tout', nothing: 'aucun', search: 'Chercher une table…', linksN: ['lien', 'liens'],
+          hint: layers => `Wheel: zoom · drag the background to pan · drag a table, or a ${layers ? 'layer' : 'domain'} by its name, to arrange them · `
+              + 'click a table to see its lineage (Esc to leave) · '
+              + `double-click a ${layers ? 'layer' : 'domain'} to zoom in, a table to open its detail` },
+    fr: { links: 'Liens', relations: 'relations (tests, clés étrangères)', lineage: 'lignage (ref, source)', detail: 'Afficher',
+          names: 'noms', keys: 'colonnes clés', all: 'toutes les colonnes', layers: 'Couches', domains: 'Domaines',
+          every: 'tout', nothing: 'aucun', search: 'Chercher une table…', searchLabel: 'Chercher une table', linksN: ['lien', 'liens'],
           owner: 'propriétaire',
+          navigate: 'Naviguer', display: 'Affichage', filters: 'Filtres', moreDisplay: 'Plus d\'options d\'affichage',
           openDetail: 'Double-clic\u00a0: ouvrir dans l\'onglet Détail', zoomIn: 'Double-clic\u00a0: zoomer',
-          frame: 'Double-clic\u00a0: cadrer ce domaine', frameC: 'Double-clic\u00a0: cadrer cette constellation',
-          by: 'Constellations', layersN: ['couche', 'couches'], domainOne: 'Domaine',
-          trajectory: 'Trajectoire', trajFound: 'Trajectoire de la table trouvée', trajOf: 'Trajectoire de',
-          brought: ['table ramenée par la trajectoire', 'tables ramenées par la trajectoire'],
+          frame: 'Double-clic\u00a0: cadrer ce domaine', frameC: 'Double-clic\u00a0: cadrer cette couche',
+          by: 'Organiser par', byDomain: 'Domaine', byLayer: 'Couche', layersN: ['couche', 'couches'], domainOne: 'Domaine',
+          trajectory: 'Lignage', trajFound: 'Lignage de la table trouvée', trajOf: 'Lignage de',
+          needTable: 'Cherchez d\'abord une table, ou cliquez-en une sur la carte',
+          brought: ['table ramenée par le lignage', 'tables ramenées par le lignage'],
           hiddenN: ['masquée par les filtres', 'masquées par les filtres'],
-          leave: 'Quitter', leaveTitle: 'Quitter la trajectoire (Échap)', closed: 'Trajectoire fermée',
-          fitTraj: 'Cadrer la trajectoire', flow: 'Flux',
-          flowTitle: 'Afficher cette trajectoire en flux, de gauche à droite',
-          clickTraj: 'Clic\u00a0: afficher sa trajectoire',
+          leave: 'Quitter', leaveTitle: 'Quitter le lignage (Échap)', closed: 'Lignage fermé',
+          fitTraj: 'Cadrer le lignage', flow: 'Graphe de lignage',
+          flowTitle: 'Afficher ce lignage en graphe, de gauche à droite',
+          clickTraj: 'Clic\u00a0: voir son lignage',
           mainH: 'Tables principales', rowZoom: label => `Clic\u00a0: cadrer ${label}`,
-          summaryH: 'Synthèse des constellations',
-          entitiesN: ['entité', 'entités'], foldsInto: 'Se replie dans',
-          openedLive: (t, p) => `${t} est repliée dans ${p}\u00a0: affichée`,
-          foldLiveOn: n => `Tables descriptives repliées${L.colon}${n}`,
-          cards: 'Fiches de synthèse', cardsTitle: 'De loin, dessiner chaque constellation comme une fiche\u00a0: ses effectifs par couche et ses tables principales',
-          routesSwitch: 'Routes entre constellations', routesSwitchTitle: 'Dessiner les flèches qui résument les liens entre constellations',
-          routesLiveOn: 'Routes affichées', routesLiveOff: 'Routes masquées\u00a0: leur liste reste dans la synthèse textuelle',
+          summaryH: layers => `Synthèse des ${layers ? 'couches' : 'domaines'}`,
+          entitiesN: ['entité', 'entités'], entitiesDrawn: ['entité dessinée', 'entités dessinées'], foldsInto: 'Dessinée dans',
+          openedLive: (t, p) => `${t} est dessinée dans ${p}\u00a0: affichée`,
+          foldLiveOn: n => `Tables descriptives dessinées dans leur table${L.colon}${n}`,
+          cards: 'Fiches de synthèse',
+          cardsTitle: layers => `De loin, dessiner ${layers ? 'chaque couche' : 'chaque domaine'} comme une fiche\u00a0: ses effectifs par ${layers ? 'domaine' : 'couche'} et ses tables principales`,
+          routesSwitch: layers => `Dépendances entre ${layers ? 'couches' : 'domaines'}`,
+          routesSwitchTitle: layers => `Dessiner les flèches qui résument les liens entre ${layers ? 'couches' : 'domaines'}`,
+          routesLiveOn: 'Dépendances affichées', routesLiveOff: 'Dépendances masquées\u00a0: leur liste reste dans la synthèse textuelle',
           cardsLiveOn: 'Fiches de synthèse activées\u00a0: elles remplacent les étoiles de loin', cardsLiveOff: 'Fiches de synthèse désactivées\u00a0: des étoiles à tous les zooms',
           businessH: 'Domaines métier', systemsH: 'Systèmes sources', systemsShort: 'Sources', allBusiness: 'Tous les domaines métier',
           noneBusiness: 'Aucun domaine métier', allSystems: 'Tous les systèmes sources', noneSystems: 'Aucun système source',
           systemsN: ['système source', 'systèmes sources'], groupTip: 'Clic sur une ligne pour la cadrer',
-          routesN: ['route', 'routes'], routesOf: (s, t) => `${plural(s, ['route', 'routes'])} sur ${num(t)}`,
-          allRoutes: 'Afficher toutes les routes', allRoutesOn: t => `Les ${num(t)} routes sont affichées`,
-          allRoutesOff: (s, t) => `Les ${num(s)} routes les plus fortes sur ${num(t)} sont affichées`,
-          relationsN: ['relation', 'relations'], lineageN: ['lien de lignée', 'liens de lignée'],
-          reads: (a, b) => `${a} lit ${b}`, readEach: 'Chacun lit l\'autre', noLineage: 'Aucune lignée',
-          routeFrom: 'Depuis', routesH: 'Routes',
+          routesN: ['dépendance', 'dépendances'], routesOf: (s, t) => `${plural(s, ['dépendance', 'dépendances'])} sur ${num(t)}`,
+          allN: t => `toutes (${num(t)})`, allAria: t => `Afficher les ${num(t)} dépendances`,
+          allDrawn: t => (t === 1 ? 'La dépendance est dessinée' : t ? `Les ${num(t)} dépendances sont toutes dessinées` : 'Aucune dépendance à dessiner'),
+          routesOff: 'Les dépendances sont désactivées',
+          allRoutesOn: t => `Les ${num(t)} dépendances sont affichées`,
+          allRoutesOff: (s, t) => `Les ${num(s)} dépendances les plus fortes sur ${num(t)} sont affichées`,
+          relationsN: ['relation', 'relations'], lineageN: ['lien de lignage', 'liens de lignage'],
+          reads: (a, b) => `${a} lit ${b}`, readEach: 'Chacun lit l\'autre', noLineage: 'Aucun lignage',
+          routeFrom: 'Depuis', routesH: 'Dépendances',
           pngTitle: 'Enregistrer la vue telle qu\'affichée en image PNG (haute résolution)',
-          hint: 'Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou une constellation par son nom, pour les ranger · '
-              + 'clic sur une table\u00a0: sa trajectoire (Échap pour quitter) · '
-              + 'double-clic sur une constellation pour la cadrer, sur une table pour son détail' },
+          hint: layers => `Molette\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table, ou ${layers ? 'une couche' : 'un domaine'} par son nom, pour les ranger · `
+              + 'clic sur une table\u00a0: son lignage (Échap pour quitter) · '
+              + `double-clic sur ${layers ? 'une couche pour la cadrer' : 'un domaine pour le cadrer'}, sur une table pour son détail` },
   }[PAGE.lang];
 
   const N = DATA.nodes; N.forEach((n, i) => n.i = i);
@@ -168,12 +183,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('links').onchange = ev => { state.links = ev.target.value; relayout(); };
   $u('detail').onchange = ev => { state.detail = ev.target.value; relayout(); };
   $u('h-links').textContent = T.links; $u('h-detail').textContent = T.detail;
-  $u('h-by').textContent = T.by; $u('by-domains').textContent = T.domains; $u('by-layers').textContent = T.layers;
+  $u('h-nav').textContent = T.navigate; $u('h-display').textContent = T.display; $u('h-filters').textContent = T.filters;
+  $u('more-t').textContent = T.moreDisplay;
+  $u('h-by').textContent = T.by; $u('by-domains').textContent = T.byDomain; $u('by-layers').textContent = T.byLayer;
   $u('by-domains-n').textContent = num(DATA.domains.length); $u('by-layers-n').textContent = num(DATA.layers.length);
   $u('by').hidden = !CAN_BY;
   $u('by').querySelectorAll('input').forEach(radio => {
     radio.checked = radio.value === state.by;
-    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); opened = null; relayout(); };
+    radio.onchange = () => { if (!radio.checked) return; state.by = radio.value; byMemory.set(state.by, DEFAULT_BY); opened = null; syncWords(); relayout(); };
   });
   // the fold control: one checkbox, labelled from the roles of the kinds that fold (never from names, D-059)
   $u('fold').hidden = !CAN_FOLD;
@@ -201,9 +218,8 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     $u('all').setAttribute('aria-label', T.allBusiness); $u('none').setAttribute('aria-label', T.noneBusiness);
     $u('sys-all').setAttribute('aria-label', T.allSystems); $u('sys-none').setAttribute('aria-label', T.noneSystems);
   }
-  $u('routes-label').textContent = T.allRoutes;
   // the routes switch (D-083): no layout, no camera move; routesDrawn is the one place that combines it with the zoom rule (the routes row and the test hook also read it)
-  $u('routes-on-label').textContent = T.routesSwitch; $u('routes-on-row').title = T.routesSwitchTitle; $u('routes-on-box').checked = state.routes;
+  $u('routes-on-box').checked = state.routes;
   $u('routes-on-box').onchange = ev => {
     state.routes = ev.target.checked; spot = null; tip.style.display = 'none';
     routesMemory.set(state.routes ? 'on' : 'off', DATA.defaults.routes ? 'on' : 'off');
@@ -211,14 +227,24 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     draw();
   };
   // the summary cards switch (D-081): no layout, no camera move; summaryWeight is the one place that reads it
-  $u('cards-label').textContent = T.cards; $u('cards-row').title = T.cardsTitle; $u('cards-box').checked = state.cards;
+  $u('cards-label').textContent = T.cards; $u('cards-box').checked = state.cards;
   $u('cards-box').onchange = ev => {
     state.cards = ev.target.checked; hoverCard = hoverRow = null;
     cardsMemory.set(state.cards ? 'on' : 'off', DATA.defaults.cards ? 'on' : 'off');
     $u('live').textContent = state.cards ? T.cardsLiveOn : T.cardsLiveOff;
     draw();
   };
-  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('hint').textContent = T.hint;
+  $u('fit').textContent = L.fit; $u('q').placeholder = T.search; $u('q').setAttribute('aria-label', T.searchLabel);
+  const help = $u('help-t');
+  help.textContent = '?'; help.title = L.help; help.setAttribute('aria-label', L.help);
+  dismissable(help.parentNode);
+  // the words that name what a constellation stands for follow the grouping (D-084): domains or layers
+  function syncWords() {
+    const layers = state.by === 'layers';
+    $u('routes-on-label').textContent = T.routesSwitch(layers); $u('routes-on-row').title = T.routesSwitchTitle(layers);
+    $u('cards-row').title = T.cardsTitle(layers); $u('hint').textContent = T.hint(layers);
+  }
+  syncWords();
 
   // `by`: the grouping whose constellation a row stands for; hovering or focusing the row spotlights its routes
   function checkboxes(el, items, countOf, set, color, title, by) {
@@ -288,9 +314,9 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   const wouldFold = i => foldable(i) && PARENT[i] !== opened;
   // the trajectory members the fold would otherwise hide: what makes entering or leaving a trajectory relayout
   const unfoldedKey = () => trajMembers().filter(wouldFold).sort((a, b) => a - b).join();
-  $u('q').onchange = ev => {
-    const n = findByName(ev.target.value);
-    if (!n) return;
+  // Find, mark and frame one table (search box, return from the Detail tab): tick it back when filtered out, open its
+  // entity when folded, ring it as found and zoom to it
+  function mark(n) {
     // a folded table opens its entity (one at a time); any other table closes it
     const before = opened, hidden = tick(n.i);
     const inFold = foldable(n.i);
@@ -300,7 +326,15 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     if (opened !== before && opened != null) $u('live').textContent = T.openedLive(n.name, N[opened].name);
     found = n.i;
     zoomTo(P[n.i].x, P[n.i].y, Math.max(t.k, 1.5, kStars() * 1.05));
-  };
+  }
+  $u('q').onchange = ev => { const n = findByName(ev.target.value); if (n) mark(n); };
+  // the way back from the Detail tab (D-086): the table's name goes into the search box (which enables Lineage for it),
+  // the table is marked and framed, the keyboard focus lands on the box; an id outside the universe only focuses the box
+  function locate(id) {
+    const n = ID.has(id) ? N[ID.get(id)] : null;
+    if (n) { $u('q').value = n.name; syncTrajBtn(); mark(n); }
+    $u('q').focus();
+  }
 
   // ---------------------------------------------------------------- geometry
   // Each table reserves the room of what it shows: its star and name, or a card with keys / all fields.
@@ -1023,11 +1057,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
     const at = u => { const i = Math.min(pts.length - 2, Math.floor(u)); return lerp2(pts[i], pts[i + 1], u - i); };
     return [at(u0), ...pts.slice(Math.floor(u0) + 1, Math.ceil(u1)), at(u1)];
   }
-  // the "Show all routes" row: there only while some set hides a route; its count is the current set's routes
+  // the "all (N)" toggle of the dependencies row (D-085): always there with the row, disabled with its reason when no
+  // dependency is hidden by the current set (layer mode included) or the dependencies are off; N is the current set's count
   function syncRoutesRow(view) {
-    const hide = !view.hides || !state.routes, row = $u('routes-row');
-    if (row.hidden !== hide) row.hidden = hide;
-    $u('routes-n').textContent = num(view.cur.list.length);
+    const box = $u('routes-box'), n = view.cur.list.length;
+    const why = !state.routes ? T.routesOff : !view.hides ? T.allDrawn(n) : '';
+    box.disabled = !!why; box.title = why; $u('routes-all').classList.toggle('off', !!why);
+    $u('routes-why').textContent = why;
+    $u('routes-label').textContent = T.allN(n); box.setAttribute('aria-label', T.allAria(n));
   }
   $u('routes-box').onchange = ev => {
     showAll = ev.target.checked;
@@ -1114,19 +1151,19 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
       $u('export').disabled = !visible.length;
       const groups = plural(constellations.length, state.by === 'layers' ? T.layersN : L.domainsN);
       // tables and links are counted over what passes the filters: a fold changes what is drawn, not what is counted
-      const entities = folding() ? [plural(entitiesIn(visible), T.entitiesN)] : [];
+      const entities = folding() ? [plural(entitiesIn(visible), T.entitiesDrawn)] : [];
       const hidden = routesOn && !(showAll && !traj) && view.cur.shown.length < view.cur.list.length
         ? [T.routesOf(view.cur.shown.length, view.cur.list.length)] : [];
       // one line: while the routes entry shows (some routes are hidden) it replaces the links count, so it stays in view;
       // the title always holds the whole line
-      const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables), ...entities];
+      const links = plural(linkCount, T.linksN), counts = [plural(pass.length, L.tables) + (entities.length ? ` (${entities[0]})` : '')];
       const text = [...counts, ...(hidden.length ? [] : [links]), groups, ...hidden].join(' · ');
       // the routes form of the meta line keeps its reserved height while routes are off: no resize (D-082)
       $u('meta').title = [...counts, links, groups, ...hidden].join(' · ');
       const most = Math.max(0, ...view.sets.map(s => s.list.length));   // a project without routes never shows the entry
       setMeta(text, [[...counts, links, groups], ...(most ? [[...counts, groups, T.routesOf(most, most)]] : [])].map(f => f.join(' · ')));
       lastView = view; syncRoutesRow(view);
-      $u('routes-on-row').hidden = !routes.length;   // a page without any route pair has no switch
+      $u('routes-on-row').hidden = !routes.length;   // a page without any route pair has no dependencies row
     }
     if (!visible.length) {
       ctx.fillStyle = C.muted; ctx.font = `14px ${FONT}`; ctx.fillText(L.empty, 24, 40);
@@ -1268,14 +1305,13 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // arc of the upper rim in the domain's mark colour (3:1, D-042), at every zoom; then the neutral outline
   function drawDomainBands(d, k, alpha) {
     const spans = bandSpans(d);
-    ctx.globalAlpha = alpha * fade;   // the tints and the outline fade with the stars, the arcs (the legend of the card) stay
+    ctx.globalAlpha = alpha * fade;   // the tints, the outline and the arcs fade with the stars: the card's rows are the legend (D-066, D-085)
     ctx.save(); ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.clip();
     spans.forEach(b => { ctx.fillStyle = TINT(DOM[b.key].color); ctx.fillRect(d.x + b.s0, d.y - d.r, b.s1 - b.s0, 2 * d.r); });
     ctx.restore();
     ctx.strokeStyle = C.muted + '66'; ctx.lineWidth = 1.5 / k;
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.stroke();
     const gap = ARC_GAP / 2 / k / d.r;
-    ctx.globalAlpha = alpha;
     ctx.lineWidth = ARC_W / k; ctx.lineCap = 'butt';
     spans.forEach((b, j) => {
       const a0 = rimAngle(d, b.s0) + (j ? gap : 0), a1 = rimAngle(d, b.s1) - (j < spans.length - 1 ? gap : 0);
@@ -1359,7 +1395,7 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   // same counts, rows and main tables as the cards (never cut by room); names and labels through textContent
   function renderSummaryText() {
     const el = (tag, text) => { const e = document.createElement(tag); e.textContent = text; return e; };
-    const head = $u('summary-h'); head.textContent = T.summaryH;
+    const head = $u('summary-h'); head.textContent = T.summaryH(state.by === 'layers');
     const sys = new Set(constellations.filter(d => isSystem(d.k)).map(d => d.k));
     const ordered = constellations.filter(d => !sys.has(d.k)).sort((a, b) => a.rank - b.rank || (constellationLabel(a.k) < constellationLabel(b.k) ? -1 : 1));
     // every route of a constellation (not thinned by the density), heaviest first, with its counts and direction words
@@ -1735,7 +1771,10 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   }
 
   // ---------------------------------------------------------------- navigation
-  const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT).on('zoom', ev => { t = ev.transform; draw(); });
+  // a zoom or a pan hides the tooltip and clears what it was about: the next mouse move recomputes both (D-085)
+  const zoom = d3.zoom().scaleExtent(ZOOM_EXTENT)
+    .on('start', () => { tip.style.display = 'none'; hover = hoverCard = hoverRow = spot = null; })
+    .on('zoom', ev => { t = ev.transform; draw(); });
   // mouse only: on touch every finger goes to the zoom, so a pinch starting on a table or a domain name
   // zooms and a one-finger drag pans, as in the detail (a touch drag cannot hand a finger over to a pinch)
   const drag = d3.drag().container(canvas).touchable(false).filter(ev => !ev.button)
@@ -2044,9 +2083,14 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
   $u('tj-depth').onchange = ev => { trajOpts.depth = DEPTH[ev.target.value]; if (traj) enterTrajectory(traj.start); };
   $u('tj-leave').onclick = () => leaveTrajectory(true);
   const trajBtn = $u('traj');
-  function syncTrajBtn() { trajBtn.disabled = !findByName($u('q').value); }
-  trajBtn.textContent = T.trajectory; trajBtn.title = T.trajFound;
+  // disabled until the box holds an exact table name, with the reason as its title (D-085)
+  function syncTrajBtn() {
+    trajBtn.disabled = !findByName($u('q').value);
+    trajBtn.title = trajBtn.disabled ? T.needTable : T.trajFound;
+  }
+  trajBtn.textContent = T.trajectory;
   $u('q').addEventListener('input', syncTrajBtn); $u('q').addEventListener('change', syncTrajBtn);
+  syncTrajBtn();
   trajBtn.onclick = () => {
     const n = findByName($u('q').value);
     if (!n) return;
@@ -2157,6 +2201,6 @@ function startUniverse(DATA, openInDetail, detailIds, LAYOUT, EXPORT, openFlow) 
 
   // image is for the browser tests' pixel comparison; the page uses it through #u-export.
   // camera, place and geometry are for the tests too: closing the flow leaves the camera as it was.
-  // Reset layout and an import call relayout: they close the entity a search opened
-  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
+  // Reset layout and an import call relayout: they close the entity a search opened; locate is the way back from the Detail tab
+  return { shown: () => { resize(); }, relayout: () => { opened = null; relayout(); }, locate, trajectoryState, image, camera, place, geometry, summaryHits: summaryDrawn, labelRects, perf: () => ({ ...perf }), drawnNames: () => [...drawn] };
 }

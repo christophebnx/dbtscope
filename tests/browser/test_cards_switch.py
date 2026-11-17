@@ -240,7 +240,7 @@ def test_the_choice_is_never_exported_and_reset_layout_keeps_it(large_page: Any,
     assert b"dbtscope-cards" not in body and b"cards" not in body
     assert set(json.loads(body)) <= {"format", "version", "savedAt", "universe", "detail"}
     p.page.once("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     p.page.evaluate(NEXT_FRAME)
     assert stored(p) == "on" and p.page.is_checked(BOX) and summary(p)["on"]
 
@@ -331,14 +331,14 @@ def test_the_key_in_a_preset_file_opens_the_page_with_cards(
         (
             "",
             "Summary cards",
-            "From afar, draw each constellation as a card: its counts by layer and its main tables",
+            "From afar, draw each domain as a card: its counts by layer and its main tables",
             "Summary cards on: they replace the stars from afar",
             "Summary cards off: stars at every zoom",
         ),
         (
             "language: fr\n",
             "Fiches de synthèse",
-            f"De loin, dessiner chaque constellation comme une fiche{NBSP}: "
+            f"De loin, dessiner chaque domaine comme une fiche{NBSP}: "
             "ses effectifs par couche et ses tables principales",
             f"Fiches de synthèse activées{NBSP}: elles remplacent les étoiles de loin",
             f"Fiches de synthèse désactivées{NBSP}: des étoiles à tous les zooms",
@@ -361,8 +361,11 @@ def test_the_label_the_title_and_the_announcements_in_both_languages(
 
 def test_tab_reaches_the_box_and_space_toggles_it(build_page: Any, open_page: Any) -> None:
     p = shop(build_page, open_page)
-    p.page.focus("#u-detail")
-    p.page.keyboard.press("Tab")
+    p.page.focus("#u-links")  # the Dependencies row (its switch, then its disabled "all (N)") comes between
+    for _ in range(3):
+        p.page.keyboard.press("Tab")
+        if p.page.evaluate("document.activeElement.id") == "u-cards-box":
+            break
     assert p.page.evaluate("document.activeElement.id") == "u-cards-box"
     p.page.keyboard.press("Space")
     p.page.evaluate(NEXT_FRAME)

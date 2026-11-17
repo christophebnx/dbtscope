@@ -12,37 +12,49 @@ document.documentElement.lang = PAGE.lang;
 // (\u00a0) before ':' and a narrow one (\u202f) before '?', '!' and ';', always as escapes (D-039);
 // a label and a value are joined with colon.
 const STRINGS = {
-  en: { universe: 'Universe', detail: 'Detail', reset: 'Reset layout', export: 'Export layout', import: 'Import layout',
+  en: { universe: 'Universe', detail: 'Detail', layout: 'Layout', reset: 'Reset this tab\'s layout', export: 'Export layout',
+        import: 'Import layout', panel: 'Panel', help: 'Help: gestures', location: 'Location',
+        backToUniverse: name => `Back to the universe, on ${name}`,
+        tabUniverse: 'Universe: the map of every table, by domain or layer',
+        tabDetail: 'Detail: the entity-relationship diagram of one domain, or of one table\'s neighbourhood',
+        tabDetailGroups: 'Detail: the entity-relationship diagram of one group, or of one table\'s neighbourhood',
         resetAsk: 'Forget the manual arrangement of this tab?', bad: 'Not a dbt-erd layout file.',
         colon: ': ', imageSaved: f => `Image created: ${f}`, imageError: 'The image could not be created.',
-        exportImage: 'Export image', png: 'PNG', filters: 'Filters', empty: 'No table for these filters.',
-        kinds: 'Types', tables: ['table', 'tables'], columns: ['column', 'columns'],
-        foldedN: ['folded table', 'folded tables'], foldH: 'Entities', foldRow: 'Fold',
+        exportImage: 'Export image', png: 'PNG', empty: 'No table for these filters.',
+        kinds: 'Table kind', tables: ['table', 'tables'], columns: ['column', 'columns'],
+        foldedN: ['table drawn inside', 'tables drawn inside'], foldH: 'Descriptive tables',
+        foldRow: 'Draw inside their table', foldKinds: names => `Draw ${names} inside their table`,
         foldLiveOff: 'Descriptive tables shown',
-        foldTitle: 'Draw these tables inside the table they describe',
+        foldTitle: 'Draws these tables inside the table they describe; a table and its descriptions read as one entity',
         svg: 'SVG', fit: 'Fit', computing: 'Laying out…', error: 'Render error: ', domainsN: ['domain', 'domains'],
         direction: 'Direction', depth: 'Depth', up: 'upstream', down: 'downstream', both: 'both',
         d1: '1 level', d2: '2 levels', d3: '3 levels', dall: 'all levels',
         countUp: n => `${n} upstream`, countDown: n => `${n} downstream`,
         noLineage: 'No upstream or downstream table', noUp: 'No upstream table', noDown: 'No downstream table',
-        lgStart: 'start', tipStart: 'Start of the trajectory',
+        lgStart: 'start', tipStart: 'Start of the lineage',
         tipUp: d => `Upstream, level ${d}`, tipDown: d => `Downstream, level ${d}` },
-  fr: { universe: 'Univers', detail: 'Détail', reset: 'Réinitialiser la disposition', export: 'Exporter la disposition',
-        import: 'Importer une disposition',
+  fr: { universe: 'Univers', detail: 'Détail', layout: 'Disposition', reset: 'Réinitialiser la disposition de cet onglet',
+        export: 'Exporter la disposition', import: 'Importer une disposition', panel: 'Panneau',
+        help: 'Aide\u00a0: gestes', location: 'Emplacement',
+        backToUniverse: name => `Retour à l'univers, sur ${name}`,
+        tabUniverse: 'Univers\u00a0: la carte de toutes les tables, par domaine ou par couche',
+        tabDetail: 'Détail\u00a0: le diagramme entité-relation d\'un domaine, ou du voisinage d\'une table',
+        tabDetailGroups: 'Détail\u00a0: le diagramme entité-relation d\'un groupe, ou du voisinage d\'une table',
         resetAsk: 'Oublier la disposition manuelle de cet onglet\u202f?', bad: 'Ce fichier n\'est pas une disposition dbt-erd.',
         colon: '\u00a0: ', imageSaved: f => `Image créée\u00a0: ${f}`, imageError: 'L\'image n\'a pas pu être créée.',
-        exportImage: 'Exporter l\'image', png: 'PNG', filters: 'Filtres', empty: 'Aucune table pour ces filtres.',
-        kinds: 'Types', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
-        foldedN: ['table repliée', 'tables repliées'], foldH: 'Entités', foldRow: 'Replier',
+        exportImage: 'Exporter l\'image', png: 'PNG', empty: 'Aucune table pour ces filtres.',
+        kinds: 'Nature de table', tables: ['table', 'tables'], columns: ['colonne', 'colonnes'],
+        foldedN: ['table incluse', 'tables incluses'], foldH: 'Tables descriptives',
+        foldRow: 'Dessiner dans leur table', foldKinds: names => `Dessiner ${names} dans leur table`,
         foldLiveOff: 'Tables descriptives affichées',
-        foldTitle: 'Dessiner ces tables à l\'intérieur de la table qu\'elles décrivent',
+        foldTitle: 'Dessine ces tables dans la table qu\'elles décrivent\u00a0: une table et ses descriptions forment une entité',
         svg: 'SVG', fit: 'Recadrer', computing: 'Calcul du schéma…', error: 'Erreur de rendu\u00a0: ',
         domainsN: ['domaine', 'domaines'],
         direction: 'Sens', depth: 'Profondeur', up: 'amont', down: 'aval', both: 'les deux',
         d1: '1 niveau', d2: '2 niveaux', d3: '3 niveaux', dall: 'tous les niveaux',
         countUp: n => `${n} en amont`, countDown: n => `${n} en aval`,
         noLineage: 'Aucune table en amont ni en aval', noUp: 'Aucune table en amont', noDown: 'Aucune table en aval',
-        lgStart: 'départ', tipStart: 'Départ de la trajectoire',
+        lgStart: 'départ', tipStart: 'Départ du lignage',
         tipUp: d => `En amont, niveau ${d}`, tipDown: d => `En aval, niveau ${d}` },
 };
 const L = STRINGS[PAGE.lang];
@@ -120,7 +132,7 @@ function dotEdge(color) {
 function sidePanel(view, onToggle) {
   const button = document.getElementById(view + '-toggle'), panel = document.getElementById(view + '-panel');
   const sync = () => button.setAttribute('aria-expanded', String(!panel.classList.contains('closed')));
-  button.title = L.filters; button.setAttribute('aria-label', L.filters);
+  button.title = L.panel; button.setAttribute('aria-label', L.panel);
   if (matchMedia('(max-width: 600px)').matches) panel.classList.add('closed');
   sync();
   button.onclick = () => { panel.classList.toggle('closed'); sync(); onToggle(); };
@@ -150,6 +162,56 @@ function fillSelect(el, pairs, current) {
   }));
 }
 
+// A location trail in the <nav> `nav` (D-086): `items` is a list of { label, title, go, back }. An item with `go` is a
+// button (a `back` item is preceded by an aria-hidden "← "); an item without is the current place. An empty list hides the nav.
+function crumbs(nav, items) {
+  nav.hidden = !items.length;
+  nav.replaceChildren(...items.map(({ label, title, go, back }) => {
+    if (!go) {
+      const here = document.createElement('span');
+      here.textContent = label; here.setAttribute('aria-current', 'location');
+      return here;
+    }
+    const button = document.createElement('button');
+    button.type = 'button'; button.onclick = go;
+    if (title) button.title = title;
+    if (back) {
+      const arrow = document.createElement('span');
+      arrow.textContent = '← '; arrow.setAttribute('aria-hidden', 'true');
+      button.append(arrow);
+    }
+    button.append(label);
+    return button;
+  }));
+}
+
+// The one closing rule of the page's popovers, native <details> (D-085): Esc closes it, gives the focus back to its summary
+// and calls preventDefault (so the universe's own Esc does not also leave the lineage); a press outside closes it too
+// (capture phase, the canvas included); opening one closes the others.
+const POPOVERS = [];
+function dismissable(details) {
+  POPOVERS.push(details);
+  const summary = details.querySelector('summary');
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape' || !details.open) return;
+    details.open = false; summary.focus(); ev.preventDefault();
+  }, true);
+  document.addEventListener('pointerdown', ev => { if (details.open && !details.contains(ev.target)) details.open = false; }, true);
+  details.addEventListener('toggle', () => { if (details.open) POPOVERS.forEach(d => { if (d !== details) d.open = false; }); });
+}
+
+// Whether the detail's groups are the universe's domains (D-084): a Map(group key -> display name) when every detail
+// table that is also a universe table has its group equal to its domain (and at least one such table exists), else null.
+// The one place that answers "is this group a domain?"; the display name is the domain's label.
+function detailDomains(detail, universe) {
+  if (!detail.grouped) return null;
+  const domainOf = new Map(universe.nodes.map(n => [n.id, n.domain]));
+  const shared = detail.entities.filter(e => domainOf.has(e.id));
+  if (!shared.length || shared.some(e => e.group !== domainOf.get(e.id))) return null;
+  const label = new Map(universe.domains.map(d => [d.key, labelOf(d)]));
+  return new Map(detail.entities.map(e => [e.group, label.get(e.group) ?? e.group]));
+}
+
 // The name shown for a domain, layer or kind of the payload: its label, or its key when the config set
 // `label: null`. The one display-name rule of the panels, tooltips and canvas.
 const labelOf = item => item.label ?? item.key;
@@ -166,11 +228,11 @@ function foldedLines(items) {
   return [plural(items.length, L.foldedN), ...lines];
 }
 
-// The label of the fold row (D-063, D-073), shown by both views: "Fold Satellite · PIT", the descriptive kinds
-// that fold, the first three, then " + N".
+// The label of the fold row (D-063, D-073, D-084), shown by both views: "Draw Satellite · PIT inside their table", the
+// descriptive kinds that fold, the first three, then " + N"; without a kind, the plain "Draw inside their table".
 function foldLabel(kinds) {
   const names = kinds.map(labelOf), more = names.length > 3 ? ` + ${num(names.length - 3)}` : '';
-  return `${L.foldRow} ${names.slice(0, 3).join(' · ')}${more}`;
+  return names.length ? L.foldKinds(`${names.slice(0, 3).join(' · ')}${more}`) : L.foldRow;
 }
 
 // A viewer choice, kept apart from the shared layout and never exported (D-048, D-063, D-073): stored only when

@@ -162,8 +162,8 @@ def test_one_table_brought_back_reads_singular_in_french(build_page: Any, open_p
     domain_box(p, label).uncheck()
     p.page.fill("#u-q", "fct_returns")
     p.page.click("#u-traj")
-    assert p.page.inner_text("#u-tj-back") == "1 table ramenée par la trajectoire"
-    assert "1 table ramenée par la trajectoire." in p.page.inner_text("#u-tj-live")
+    assert p.page.inner_text("#u-tj-back") == "1 table ramenée par le lignage"
+    assert "1 table ramenée par le lignage." in p.page.inner_text("#u-tj-live")
 
 
 # ---------------------------------------------------------------- the shared escaper
@@ -304,11 +304,11 @@ def test_every_control_is_a_44_px_target_on_touch_screens(build_page: Any, open_
 def test_fine_pointer_keeps_the_desktop_sizes(shop_page: Any) -> None:
     p, _ = shop_page
     assert not p.page.evaluate("matchMedia('(pointer: coarse)').matches")
-    assert p.page.evaluate("getComputedStyle(document.getElementById('l-reset')).minHeight") in (
+    assert p.page.evaluate("getComputedStyle(document.querySelector('#l-menu > summary')).minHeight") in (
         "auto",
         "0px",
     )
-    assert p.page.locator("#l-reset").bounding_box()["height"] < 44
+    assert p.page.locator("#l-menu > summary").bounding_box()["height"] < 44
 
 
 # ---------------------------------------------------------------- every count agrees (gap hunt)
@@ -319,7 +319,8 @@ COUNT = re.compile(r"^(\d+) (\S+)$")
 def agrees(text: str, lang: str) -> list[int]:
     """Check that each "N noun" part of a meta line agrees in number; return the numbers."""
     numbers = []
-    for part in text.split(" · "):
+    # "1,419 tables (428 entities drawn)": the parenthesis opens a part of its own (no bare noun)
+    for part in text.replace(" (", " · ").rstrip(")").split(" · "):
         found = COUNT.match(part.split(" / ")[-1])
         if not found:
             continue
@@ -375,13 +376,13 @@ def test_one_link_reads_singular(build_page: Any, open_page: Any, lang: str, exp
             "en",
             "1 hidden by the filters",
             "2 hidden by the filters",
-            "2 tables brought back by the trajectory",
+            "2 tables brought back by the lineage",
         ),
         (
             "fr",
             "1 masquée par les filtres",
             "2 masquées par les filtres",
-            "2 tables ramenées par la trajectoire",
+            "2 tables ramenées par le lignage",
         ),
     ],
 )
@@ -602,7 +603,8 @@ def test_french_page_text_uses_french_spacing(tmp_path: Path, open_page: Any) ->
     p, data = acme_in(tmp_path, open_page, "fr")
     texts = page_texts(p, data)
     assert any(":" in t for t in texts) and any("?" in t for t in texts)
-    assert [m for t in texts for m in misplaced(t)] == []
+    # the "?" glyph of the Help buttons is a symbol, not a mark of punctuation in a sentence
+    assert [m for t in texts if t.strip() != "?" for m in misplaced(t)] == []
     assert p.page.evaluate("STRINGS.fr.colon") == NBSP + ": "
 
 
@@ -664,8 +666,12 @@ def test_large_counts_are_grouped(tmp_path: Path, open_page: Any, lang: str, cou
 @pytest.mark.parametrize(
     ("lang", "message"),
     [
-        ("en", "Only 149 of the 1,499 tables at level 1 are drawn (at most 150 per flow)"),
-        ("fr", f"Seules 149 des 1{NNBSP}499 tables du niveau 1 sont dessinées (au plus 150 par flux)"),
+        ("en", "Only 149 of the 1,499 tables at level 1 are drawn (at most 150 per lineage graph)"),
+        (
+            "fr",
+            f"Seules 149 des 1{NNBSP}499 tables du niveau 1 sont dessinées "
+            "(au plus 150 par graphe de lignage)",
+        ),
     ],
 )
 def test_flow_cap_message_groups_its_numbers(tmp_path: Path, open_page: Any, lang: str, message: str) -> None:
@@ -681,7 +687,7 @@ def test_flow_cap_message_groups_its_numbers(tmp_path: Path, open_page: Any, lan
 
 # the height of #d-graph with the detail panel open at 360 x 800, fine pointer (recorded for M5.4; 20 px less
 # since the counts line wraps to a second line there instead of being cut, the 2026-11-15 fix)
-GRAPH_HEIGHT = {"en": 279, "fr": 248}
+GRAPH_HEIGHT = {"en": 304, "fr": 268}
 
 
 @pytest.mark.parametrize("touch", [False, True])

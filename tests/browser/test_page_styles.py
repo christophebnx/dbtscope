@@ -40,16 +40,13 @@ def test_active_tab_has_the_accent_and_an_underline(build_page: Any, open_page: 
         assert off["color"] != accent and off["bottomColor"] == TRANSPARENT, off
 
 
-def test_detail_columns_toggle_stays_readable(build_page: Any, open_page: Any) -> None:
+def test_detail_columns_select_stays_readable(build_page: Any, open_page: Any) -> None:
     p = open_page(build_page()[0])
     show_detail(p, exportable=False)
-    off = style(p, "#d-cols")
-    assert off["color"] != off["background"], off
-    p.page.click("#d-cols")
-    assert p.page.locator("#d-cols.on").count() == 1
-    on = style(p, "#d-cols.on")
-    assert on["color"] != on["background"], f"the Columns toggle text is invisible when on: {on}"
-    assert on["background"] == p.page.evaluate(RESOLVE, "var(--accent)")
+    for value in ("keys", "all"):
+        p.page.select_option("#d-cols", value)
+        look = style(p, "#d-cols")
+        assert look["color"] != look["background"], f"the Show select text is invisible with {value}: {look}"
 
 
 def export_group_in_one_piece(p: Page, view: str) -> None:

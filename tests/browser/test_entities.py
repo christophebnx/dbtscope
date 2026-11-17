@@ -127,12 +127,12 @@ def test_counts_are_not_reduced_by_the_fold(large_page: Any, open_page: Any) -> 
         meta(p),
         p.page.evaluate("document.getElementById('u-kinds').textContent"),
     )
-    assert folded_meta.startswith("1,419 tables · 428 entities · ")
+    assert folded_meta.startswith("1,419 tables (428 entities drawn) · ")
     toggle(p)
     shown_geo, shown_meta = geo(p), meta(p)
     assert shown_geo["fold"] is False and len(shown_geo["tables"]) == 1419 and shown_geo["folded"] == []
     assert "entit" not in shown_meta and shown_meta.startswith("1,419 tables · ")
-    assert folded_meta.replace(" · 428 entities", "") == shown_meta  # tables, links, domains: the same
+    assert folded_meta.replace(" (428 entities drawn)", "") == shown_meta  # tables, links, domains: the same
     assert p.page.evaluate("document.getElementById('u-kinds').textContent") == kinds
     for a, b in zip(folded_geo["constellations"], shown_geo["constellations"], strict=True):
         assert (a["key"], a["n"], a["mix"]) == (b["key"], b["n"], b["mix"])
@@ -332,15 +332,20 @@ def test_the_control_names_the_descriptive_kinds_in_both_languages(
 ) -> None:
     p = open_large(large_page, open_page)
     label = p.page.inner_text("#u-fold label")
-    assert p.page.text_content("#u-h-fold") == "Entities"
-    assert label.startswith("Fold Satellite") and "PIT" in label and p.page.is_checked(FOLD_BOX)
+    assert p.page.text_content("#u-h-fold") == "Descriptive tables"
+    assert (
+        label.startswith("Draw Satellite")
+        and "inside their table" in label
+        and "PIT" in label
+        and p.page.is_checked(FOLD_BOX)
+    )
     project = write_example(tmp_path / "acme_retail")
     config = (project / "dbt-erd.yml").read_text(encoding="utf-8")
     write_config(project, config.replace("language: en\n", "language: fr\n"))
     q = open_page(page_of(project)[0])
-    assert q.page.text_content("#u-h-fold") == "Entités"
-    assert q.page.inner_text("#u-fold label").startswith("Replier Satellite")
-    assert q.page.inner_text("#u-meta").split(" · ")[1].endswith("entités")
+    assert q.page.text_content("#u-h-fold") == "Tables descriptives"
+    assert q.page.inner_text("#u-fold label").startswith("Dessiner Satellite")
+    assert "entités dessinées)" in q.page.inner_text("#u-meta").split(" · ")[0]
 
 
 def test_the_control_is_a_keyboard_target_of_44_px_on_touch_and_fits_at_360(
@@ -365,8 +370,7 @@ def test_the_viewers_choice_is_kept_apart_and_never_exported(acme: tuple[Page, d
     assert stored() is None and geo(p)["fold"] is True
     toggle(p)
     assert stored() == "shown" and geo(p)["fold"] is False
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+    p.reload()
     assert geo(p)["fold"] is False and not p.page.is_checked(FOLD_BOX)
     drag_first(p)
     assert "fold" not in json.dumps(p.page.evaluate("LAYOUT.dump()")).replace("folded:", "")
@@ -469,7 +473,7 @@ def test_reset_clears_both_scopes(acme: tuple[Page, dict[str, Any]]) -> None:
     drag_first(p)
     assert set(stored(p)) == {"folded:names", "names"}
     p.page.once("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     p.page.evaluate(NEXT_FRAME)
     assert stored(p) == {}
 
@@ -496,13 +500,13 @@ def test_the_tooltip_of_an_entity_lists_its_tables_and_a_shown_table_says_where_
     small = next(h for h in held if 0 < len(held[h]) < 5)
     names = {n["id"]: n["name"] for n in large_page[1]["universe"]["nodes"]}
     text = hover(p, small)
-    assert f"{len(held[small])} folded table" in text and all(names[i] in text for i in held[small])
-    assert "Satellite" in text
+    assert f"{len(held[small])} table" in text and all(names[i] in text for i in held[small])
+    assert "drawn inside" in text and "Satellite" in text
     if len(held[big]) > 12:
         assert f"+ {len(held[big]) - 12}" in hover(p, big)
     toggle(p)
     child = held[small][0]
-    assert f"Folds into: {names[small]}" in hover(p, child)
+    assert f"Drawn inside: {names[small]}" in hover(p, child)
 
 
 def test_cards_list_the_folded_tables_and_never_overlap(acme: tuple[Page, dict[str, Any]]) -> None:

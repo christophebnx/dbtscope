@@ -67,8 +67,7 @@ def stored_universe(p: Page) -> dict[str, Any]:
 
 
 def reload(p: Page) -> None:
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+    p.reload()
 
 
 def far_corner(c: dict[str, Any], t: dict[str, Any]) -> float:
@@ -106,11 +105,12 @@ def test_switch_is_hidden_and_ignored_below_two_layers(tmp_path: Path, open_page
 def test_switch_shows_both_choices_and_their_counts(acme: tuple[Page, dict[str, Any]]) -> None:
     p, data = acme
     assert p.page.is_visible("#u-by") and checked(p) == "domains"
-    assert p.page.inner_text("#u-h-by").lower() == "constellations"
+    assert p.page.inner_text("#u-h-by").lower() == "organise by"
     assert p.page.inner_text("#u-by-domains-n") == str(len(data["universe"]["domains"]))
     assert p.page.inner_text("#u-by-layers-n") == str(len(data["universe"]["layers"]))
-    # first in the panel, above Links
-    assert p.page.evaluate("document.getElementById('u-panel').firstElementChild.id") == "u-by"
+    # first in the panel (Navigate, under its heading), above the Domains list
+    assert p.page.evaluate("document.querySelector('#u-panel').firstElementChild.id") == "u-nav"
+    assert p.page.evaluate("document.querySelector('#u-nav').children[1].id") == "u-by"
 
 
 # ---------------------------------------------------------------- layer mode on the example
@@ -299,7 +299,7 @@ def test_export_import_and_reset_cover_both_groupings(
     name, body = p.download("#l-export")
     assert json.loads(body)["universe"] == both
     p.page.on("dialog", lambda d: d.accept())
-    p.page.click("#l-reset")
+    p.layout("#l-reset")
     assert stored_universe(p) == {}
     exported = tmp_path / name
     exported.write_bytes(body)
@@ -314,8 +314,8 @@ def test_export_import_and_reset_cover_both_groupings(
 @pytest.mark.parametrize(
     ("lang", "domains", "domain", "action"),
     [
-        ("en", "Domains: ", "Domain: ", "Double-click: zoom on this constellation"),
-        ("fr", "Domaines" + FR, "Domaine" + FR, "Double-clic" + FR + "cadrer cette constellation"),
+        ("en", "Domains: ", "Domain: ", "Double-click: zoom on this layer"),
+        ("fr", "Domaines" + FR, "Domaine" + FR, "Double-clic" + FR + "cadrer cette couche"),
     ],
 )
 def test_layer_tooltip_lists_its_domains_and_names_the_band(
@@ -337,8 +337,13 @@ def test_layer_tooltip_lists_its_domains_and_names_the_band(
     n = sum(1 for t in g["tables"] if t["layer"] == c["key"] and t["domain"] == first)
     assert f"{domain}{label[first]} · {n} " in text, text
     assert text.endswith(action), text
-    hint = p.page.inner_text("#u-hint")
-    assert "constellation" in hint and ("domain by its name" not in hint)
+    hint = p.page.text_content("#u-hint")
+    layer, domain = (
+        ("layer by its name", "domain by its name")
+        if lang == "en"
+        else ("une couche par son nom", "un domaine par son nom")
+    )
+    assert layer in hint and domain not in hint
 
 
 # ---------------------------------------------------------------- unchanged behaviour in layer mode
@@ -422,16 +427,16 @@ def test_double_click_on_a_table_opens_the_detail_in_layer_mode(acme: tuple[Page
 
 def test_arrow_keys_switch_and_the_group_is_named(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
-    group = p.page.get_by_role("group", name="Constellations")
+    group = p.page.get_by_role("group", name="Organise by")
     assert group.count() == 1
     assert group.get_by_role("radio").count() == 2
-    p.page.get_by_role("radio", name="Domains").focus()
+    p.page.get_by_role("radio", name="Domain").focus()
     p.page.keyboard.press("ArrowDown")
     assert checked(p) == "layers" and geometry(p)["by"] == "layers"
     assert p.page.evaluate("document.activeElement.value") == "layers"  # focus stays on the radio
     p.page.keyboard.press("ArrowUp")
     assert checked(p) == "domains" and geometry(p)["by"] == "domains"
-    for select, name in (("#u-links", "links"), ("#u-detail", "tables")):
+    for select, name in (("#u-links", "links"), ("#u-detail", "show")):
         assert (
             p.page.get_by_role("combobox", name=re.compile(name, re.I)).evaluate("e => '#' + e.id") == select
         )
@@ -444,7 +449,7 @@ def test_no_horizontal_scroll_at_360_px_in_french(tmp_path: Path, open_page: Any
     assert scroll_width(p) <= NARROW["width"]
     p.page.click("#u-toggle")
     assert p.page.is_visible("#u-by")
-    assert p.page.inner_text("#u-by-layers") == "Couches"
+    assert p.page.inner_text("#u-by-layers") == "Couche"
     choose(p, "layers")
     assert scroll_width(p) <= NARROW["width"]
     assert re.search(r"\b\d+ couches\b", p.page.inner_text("#u-meta"))

@@ -73,10 +73,24 @@ class Page:
         self.errors: list[str] = []
         self.requests: list[str] = []  # every URL the page asked for
 
+    def reload(self, display: bool = True) -> None:
+        """Reload the page, wait for the universe view; reopen "More display options" as `open_page`."""
+        self.page.reload()
+        self.page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+        if display:
+            self.page.evaluate("document.getElementById('u-more').open = true")
+
+    def layout(self, selector: str) -> None:
+        """Click a Layout menu button (`#l-reset`, `#l-export`, `#l-import`), opening the menu (D-085)."""
+        if not self.page.is_visible(selector):
+            self.page.click("#l-menu > summary")
+        self.page.click(selector)
+
     def download(self, selector: str) -> tuple[str, bytes]:
-        """Click `selector` and return the (suggested file name, bytes) of the download it starts."""
+        """Click `selector` (a Layout menu button is reached through the menu) and return the (suggested file
+        name, bytes) of the download it starts."""
         with self.page.expect_download() as info:
-            self.page.click(selector)
+            self.layout(selector) if selector.startswith("#l-") else self.page.click(selector)
         download = info.value
         return download.suggested_filename, Path(download.path()).read_bytes()
 
@@ -166,11 +180,13 @@ def scroll_width(p: Page) -> int:
 
 @pytest.fixture
 def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Page]]:
-    """open_page(html_path, viewport, scale, offline, touch) -> Page, with the universe view started.
+    """open_page(html_path, viewport, scale, offline, touch, display) -> Page, with the universe view started.
 
-    `scale` is the device pixel ratio. `offline` blocks every request but the page itself (no CDN
-    fulfilment, so a library that was not embedded fails the test). `touch` emulates a phone (touch
-    screen, `pointer: coarse`, M5.2). Checks no error was reported."""
+    `display` opens the panel's "More display options" (`#u-more`, closed at every load, D-085) so that
+    the tests driving the fold, Links, Dependencies and Summary cards controls find them; `display=False`
+    keeps the page as loaded. `scale` is the device pixel ratio. `offline` blocks every request but the
+    page itself (no CDN fulfilment, so a library that was not embedded fails the test). `touch` emulates
+    a phone (touch screen, `pointer: coarse`, M5.2). Checks no error was reported."""
     opened: list[Page] = []
 
     def route(r: Any) -> None:
@@ -188,6 +204,7 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
         scale: float = 1,
         offline: bool = False,
         touch: bool = False,
+        display: bool = True,
     ) -> Page:
         context = browser.new_context(
             viewport=viewport or VIEWPORT,
@@ -208,6 +225,8 @@ def open_page(browser: Any, cdn: dict[str, bytes]) -> Iterator[Callable[..., Pag
             page.route("**/*", route)
         page.goto(html.as_uri())
         page.wait_for_function("typeof views !== 'undefined' && !!views.universe", timeout=60_000)
+        if display:
+            page.evaluate("document.getElementById('u-more').open = true")
         opened.append(wrapped)
         return wrapped
 

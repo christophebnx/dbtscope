@@ -221,27 +221,66 @@ def test_page_has_the_text_summary_of_the_constellations_inside_the_stage_after_
     assert re.search(r'<h2 id="u-summary-h">', summary.group(1))
 
 
-def test_the_universe_panel_has_the_source_systems_list_and_the_all_routes_row() -> None:
-    """M8.4: a second Domains heading with its own all / none, and the routes row after Links."""
+def test_the_universe_panel_has_the_source_systems_list_and_the_dependencies_row() -> None:
+    """M8.4, M9.1: a second Domains heading with its own all / none; the Dependencies row, with its
+    "all (N)" toggle, after Links inside the Display group."""
     page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
     panel = page[page.index('id="u-panel"') : page.index('class="stage"')]
     assert panel.index('id="u-domains"') < panel.index('id="u-systems-h"') < panel.index('id="u-systems"')
     heading = re.search(r'<h3 id="u-systems-h">(.*?)</h3>', panel, re.S)
     assert heading is not None
     assert 'id="u-sys-all"' in heading.group(1) and 'id="u-sys-none"' in heading.group(1)
-    assert re.search(
-        r'<select id="u-links"[^>]*></select>\s*<label id="u-routes-on-row" hidden>'
-        r'<input type="checkbox" id="u-routes-on-box"><span id="u-routes-on-label"></span></label>\s*'
-        r'<label id="u-routes-row"',
-        panel,
+    row = re.search(r'<div id="u-routes-on-row" hidden>(.*?)</div>', panel, re.S)
+    assert row is not None
+    assert 'id="u-routes-on-box"' in row.group(1) and 'id="u-routes-box"' in row.group(1)
+    assert panel.index('id="u-links"') < panel.index('id="u-routes-on-row"') < panel.index('id="u-cards-row"')
+    assert 'id="u-routes-row"' not in panel
+
+
+def test_the_universe_panel_is_navigate_display_filters() -> None:
+    """M9.1 (D-085): three titled sections in this order, the hint out of the panel, Display's extra
+    options in a <details> closed at load."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    panel = page[page.index('id="u-panel"') : page.index('class="stage"')]
+    sections = [panel.index(f'<section id="{i}"') for i in ("u-nav", "u-display", "u-filters")]
+    assert sections == sorted(sections)
+    for section, heading in (
+        ("u-nav", "u-h-nav"),
+        ("u-display", "u-h-display"),
+        ("u-filters", "u-h-filters"),
+    ):
+        assert f'<section id="{section}" aria-labelledby="{heading}"><h2 id="{heading}"></h2>' in re.sub(
+            r">\s+<", "><", panel
+        )
+    more = re.search(r"<details id=\"u-more\"([^>]*)>", panel)
+    assert more is not None and "open" not in more.group(1)
+    display = panel[panel.index('id="u-display"') : panel.index('id="u-filters"')]
+    assert display.index('id="u-detail"') < display.index('id="u-more"')
+    for inside in ("u-fold", "u-links", "u-routes-on-row", "u-cards-row"):
+        assert display.index('id="u-more"') < display.index(f'id="{inside}"'), inside
+    assert 'id="u-hint"' not in panel
+    nav = panel[panel.index('id="u-nav"') : panel.index('id="u-display"')]
+    assert nav.index('id="u-by"') < nav.index('id="u-domains"') < nav.index('id="u-systems"')
+    filters = panel[panel.index('id="u-filters"') :]
+    assert filters.index('id="u-layers"') < filters.index('id="u-kinds"')
+
+
+def test_the_layout_menu_the_help_popovers_and_the_crumbs_are_in_the_markup() -> None:
+    """M9.1 (D-085, D-086): the Layout menu holds the three layout buttons, each toolbar a Help popover
+    that holds its hint, the detail toolbar a hidden trail after the panel button, a columns select."""
+    page = render_page(DETAIL, UNIVERSE, merge_config({}, {}))
+    menu = re.search(r'<details id="l-menu" class="menu">(.*?)</details>', page, re.S)
+    assert menu is not None
+    assert all(f'id="l-{i}"' in menu.group(1) for i in ("reset", "export", "import"))
+    helps = re.findall(
+        r'<details class="help"><summary id="(\w)-help-t"></summary><div class="help-pop" id="\w-hint">', page
     )
-    assert panel.index('id="u-links"') < panel.index('id="u-routes-row"') < panel.index('id="u-h-detail"')
+    assert helps == ["u", "d"]
     assert re.search(
-        r'<select id="u-detail"[^>]*></select>\s*<label id="u-cards-row">'
-        r'<input type="checkbox" id="u-cards-box">',
-        panel,
+        r'<button id="d-toggle"[^>]*>☰</button>\s*<nav id="d-crumbs" class="crumbs" hidden></nav>', page
     )
-    assert re.search(r'<label id="u-routes-row" hidden><input type="checkbox" id="u-routes-box">', panel)
+    assert re.search(r'<select id="d-cols"[^>]*></select>', page)
+    assert "layout-actions" not in page
 
 
 @pytest.mark.parametrize("offline", [False, True])
@@ -311,3 +350,18 @@ def test_flow_ranks_is_declared_once_in_common(offline: bool) -> None:
     for name in ("flow.js", "universe.js"):
         assert "function flowRanks(" not in (ASSETS / name).read_text(encoding="utf-8"), name
     assert len(re.findall(r"<script\b", page, re.IGNORECASE)) == len(re.findall(r"</script>", page, re.I))
+
+
+@pytest.mark.parametrize("name", ["common.js", "detail.js", "universe.js", "flow.js", "boot.js"])
+def test_the_page_strings_hold_none_of_the_words_d_084_retired(name: str) -> None:
+    """M9.1 (D-084): the quoted strings of every script say lineage, lineage graph, dependency, table kind,
+    "draw inside" and domain or layer, never the internal words (trajectory, flow, route, fold...)."""
+    text = re.sub(r"(?m)^\s*//.*$|\s//\s.*$", "", (ASSETS / name).read_text(encoding="utf-8"))  # comments
+    literals = re.findall(r"'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`", text)
+    # selectors, CSS classes and the stored keys (D-013) keep the internal words
+    shown = [s for s in literals if not s.startswith(("'#", "'.", "'dbtscope-"))]
+    old = re.compile(
+        r"Trajector|Trajectoire|\bFlow\b|\bFlux\b|Routes (between|entre)|constellation|\bTypes\b|lignée|"
+        r"Show all routes|Afficher toutes les routes|Tout afficher|\bFold|Replier|[Rr]epliée"
+    )
+    assert [s for s in shown if old.search(re.sub(r"\$\{[^}]*\}", "", s))] == []  # code in ${} is no wording

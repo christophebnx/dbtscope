@@ -1,7 +1,7 @@
 {
  "shop": {
   "": [
-   "5 / 5 tables \u00b7 4 relations \u00b7 dashed: other group",
+   "5 / 5 tables \u00b7 4 relations \u00b7 dashed outline = other group",
    "11b8d3aab3c5de563396dae66846a49dae2c3ef0545d8491c644e9bc3b097292"
   ]
  },
@@ -11,28 +11,28 @@
    "5508fad733513547e6edbbd30fa42f9d9211862c2d5040adf058fcd8f2b3b76d"
   ],
   "customer": [
-   "4 / 4 tables \u00b7 2 relations \u00b7 dashed: other group",
+   "4 / 4 tables \u00b7 2 relations \u00b7 dashed outline = other domain",
    "0b8e508adb31075a7bb5f146d2a365c88cb6d65d6ed53192d38a23911715a8fc"
   ],
   "finance": [
-   "11 / 11 tables \u00b7 11 relations \u00b7 dashed: other group",
-   "9d09d4266ea612d1b82f18062c2bc1e550d313443cc81106d73f0558f5f4dd13"
+   "11 / 11 tables \u00b7 11 relations \u00b7 dashed outline = other domain",
+   "8c0f56acfe5d0aec3df811d65fcc30515550bb0501ed4ecccf4a9f18aac6b0d4"
   ],
   "logistics": [
-   "17 / 17 tables \u00b7 16 relations \u00b7 dashed: other group",
-   "fa88e6bafb63d9380938ff53d9cb401b8735d9fd86e6ca7ac95e2fdeaea7723d"
+   "17 / 17 tables \u00b7 16 relations \u00b7 dashed outline = other domain",
+   "5efb1d0e9899274be69f836403946231c59e4fbefb03bf6eefb4a7fa9a0eeb3d"
   ],
   "marketing": [
-   "14 / 14 tables \u00b7 13 relations \u00b7 dashed: other group",
-   "0ca3a401b9f8230bbc2fecf1d17595b512c00187df9ae065745e0c4340997a13"
+   "14 / 14 tables \u00b7 13 relations \u00b7 dashed outline = other domain",
+   "a6acadaa3561639d95a3bdf7348e8cb40fc216b90000f4627c9b6dc3d4631c61"
   ],
   "product": [
-   "6 / 6 tables \u00b7 4 relations \u00b7 dashed: other group",
+   "6 / 6 tables \u00b7 4 relations \u00b7 dashed outline = other domain",
    "a7ed7fb9ec02c57f3e61e9bc28fba9eea5d12ec63db39077884f07ac9ee2aad4"
   ],
   "sales": [
-   "16 / 16 tables \u00b7 15 relations \u00b7 dashed: other group",
-   "db690753088f6e46a113e60bd9ddbd0c1d94513c8ecada20ca3ef7ed7d561fe2"
+   "16 / 16 tables \u00b7 15 relations \u00b7 dashed outline = other domain",
+   "ee100663ab7ce60b6c35ff47b04fde5ba9712bc3396a61a705b3bd7ee42f08e7"
   ]
  },
  "large": {

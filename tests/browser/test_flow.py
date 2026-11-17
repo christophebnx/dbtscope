@@ -95,7 +95,10 @@ def test_flow_opens_on_the_current_trajectory(example_page: Example) -> None:
     assert p.page.inner_text("#f-name") == "fct_orders"
     assert p.page.is_hidden("#f-cap")
     assert p.page.locator("#f-graph g.node").count() == 24
-    assert p.page.text_content("#f-live") == "Flow of fct_orders: 24 tables · 22 upstream · 1 downstream."
+    assert (
+        p.page.text_content("#f-live")
+        == "Lineage graph of fct_orders: 24 tables · 22 upstream · 1 downstream."
+    )
 
 
 def test_flow_keeps_the_trajectory_options(example_page: Example) -> None:
@@ -199,7 +202,7 @@ def test_click_recentres_the_flow_but_not_the_universe(example_page: Example) ->
     assert p.page.inner_text("#f-name") == "stg_erp__orders"
     assert p.state() == before  # start, options and layoutRuns of the universe
     assert p.page.evaluate(CAMERA) == camera
-    assert p.page.text_content("#f-live").startswith("Flow of stg_erp__orders: ")
+    assert p.page.text_content("#f-live").startswith("Lineage graph of stg_erp__orders: ")
 
 
 def test_a_pan_from_a_table_does_not_recentre(example_page: Example) -> None:
@@ -258,7 +261,7 @@ def test_closing_returns_to_the_universe_as_it_was(example_page: Example, how: s
     assert p.page.evaluate(UNIVERSE_CHECKS) == checks and p.page.evaluate(CAMERA) == camera
     assert p.page.input_value("#u-detail") == "keys" and p.page.input_value("#u-links") == "both"
     assert p.page.evaluate("document.activeElement.id") == "u-tj-flow"
-    assert p.page.text_content("#u-tj-live") == "Flow closed"
+    assert p.page.text_content("#u-tj-live") == "Lineage graph closed"
     assert flow_state(p)["open"] is False
 
 
@@ -333,8 +336,8 @@ def example_in(tmp_path: Path, lang: str) -> Path:
 @pytest.mark.parametrize(
     ("lang", "button", "counts"),
     [
-        ("en", "Flow", "24 tables · 22 upstream · 1 downstream"),
-        ("fr", "Flux", "24 tables · 22 en amont · 1 en aval"),
+        ("en", "Lineage graph", "24 tables · 22 upstream · 1 downstream"),
+        ("fr", "Graphe de lignage", "24 tables · 22 en amont · 1 en aval"),
     ],
 )
 def test_flow_strings_in_both_languages(
@@ -637,4 +640,4 @@ def test_the_flow_drawing_is_a_named_group_of_buttons(example_page: Example) -> 
     open_flow(p, "fct_orders")
     svg = p.page.locator("#f-graph svg")
     assert svg.get_attribute("role") == "group"
-    assert svg.get_attribute("aria-label") == "Flow of fct_orders"
+    assert svg.get_attribute("aria-label") == "Lineage graph of fct_orders"

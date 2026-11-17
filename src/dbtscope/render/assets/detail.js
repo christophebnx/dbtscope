@@ -1,34 +1,42 @@
 // Detail view: entity-relationship diagram with columns, laid out by Graphviz (Viz.js).
 // Started the first time its tab is shown; the returned handle lets the universe view open a table here.
-function startDetail(DATA, LAYOUT, EXPORT) {
+// DOMAINS (common.js detailDomains): the groups as universe domains (Map group key -> display name), or null (D-084).
+function startDetail(DATA, LAYOUT, EXPORT, DOMAINS) {
   const $d = id => document.getElementById('d-' + id);
   const T = {
-    en: { all: 'All groups', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels', clear: 'Show all',
-          cols: 'All columns', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
-          foreign: 'dashed: other group',
-          hGroup: 'Group', hDepth: 'Around the focused table', hCols: 'Columns',
+    en: { all: 'All groups', allDomains: 'All domains', focus: 'Focus on a table…', d1: 'direct links', d2: '2 levels', d3: '3 levels',
+          clear: 'Clear focus', noFocus: 'No table is focused', needFocus: 'Focus on a table to use this',
+          keyCols: 'key columns', allCols: 'all columns', q: 'Highlight…', focused: 'Focused: ', rels: ['relation', 'relations'],
+          focusLabel: 'Focus on a table', qLabel: 'Highlight tables whose name contains',
+          foreign: 'dashed outline = other group', foreignDomain: 'dashed outline = other domain',
+          hGroup: 'Group', hDomain: 'Domain', hDepth: 'Around the focused table', hCols: 'Show',
+          groupTitle: 'Tables grouped by the group_by setting of dbt-erd.yml; a universe domain may hold several groups',
           pngTitle: 'Save the visible diagram as a PNG image (high resolution)',
           svgTitle: 'Save the visible diagram as an SVG image (vector, opens in any browser)',
           hint: 'Wheel or pinch: zoom · drag the background to pan · drag a table to move it · click: highlight links · double-click: focus',
           touchHint: 'Pinch: zoom · drag: pan · tap a table: highlight its links',
-          foldedShort: ['folded', 'folded'], foldedMeta: 'folded', keysN: ['key', 'keys'],
+          foldedShort: ['drawn inside', 'drawn inside'], foldedMeta: 'drawn inside', keysN: ['key', 'keys'],
           foldFocused: 'A focus draws every table',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}the drawing will be hard to read`,
-          foldLiveOn: n => `Descriptive tables folded${L.colon}${plural(n, L.tables)} drawn`,
+          foldLiveOn: n => `Descriptive tables drawn inside their table${L.colon}${plural(n, L.tables)} drawn`,
           passNote: kinds => `Passing through ${kinds} costs no level` },
-    fr: { all: 'Tous les groupes', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux', d3: '3 niveaux', clear: 'Tout afficher',
-          cols: 'Toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
-          foreign: 'pointillé\u00a0: autre groupe',
-          hGroup: 'Groupe', hDepth: 'Autour de la table ciblée', hCols: 'Colonnes',
+    fr: { all: 'Tous les groupes', allDomains: 'Tous les domaines', focus: 'Cibler une table…', d1: 'liens directs', d2: '2 niveaux',
+          d3: '3 niveaux', clear: 'Retirer le ciblage', noFocus: 'Aucune table n\'est ciblée',
+          needFocus: 'Ciblez une table pour l\'utiliser',
+          keyCols: 'colonnes clés', allCols: 'toutes les colonnes', q: 'Surligner…', focused: 'Ciblé\u00a0: ', rels: ['relation', 'relations'],
+          focusLabel: 'Cibler une table', qLabel: 'Surligner les tables dont le nom contient',
+          foreign: 'contour en pointillés = autre groupe', foreignDomain: 'contour en pointillés = autre domaine',
+          hGroup: 'Groupe', hDomain: 'Domaine', hDepth: 'Autour de la table ciblée', hCols: 'Afficher',
+          groupTitle: 'Tables regroupées selon le paramètre group_by de dbt-erd.yml\u00a0; un domaine de l\'univers peut contenir plusieurs groupes',
           pngTitle: 'Enregistrer le schéma visible en image PNG (haute résolution)',
           svgTitle: 'Enregistrer le schéma visible en image SVG (vectorielle, s\'ouvre dans tout navigateur)',
           hint: 'Molette ou pincement\u00a0: zoom · glisser le fond\u00a0: déplacer la vue · glisser une table\u00a0: la déplacer · '
               + 'clic\u00a0: surligner ses liens · double-clic\u00a0: cibler',
           touchHint: 'Pincement\u00a0: zoom · glisser\u00a0: déplacer la vue · toucher une table\u00a0: surligner ses liens',
-          foldedShort: ['repliée', 'repliées'], foldedMeta: 'repliées', keysN: ['clé', 'clés'],
+          foldedShort: ['incluse', 'incluses'], foldedMeta: 'incluses', keysN: ['clé', 'clés'],
           foldFocused: 'Une table ciblée affiche toutes les tables',
           foldWarn: n => `${plural(n, L.tables)}${L.colon}le schéma sera difficile à lire`,
-          foldLiveOn: n => `Tables descriptives repliées${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
+          foldLiveOn: n => `Tables descriptives dessinées dans leur table${L.colon}${plural(n, ['table dessinée', 'tables dessinées'])}`,
           passNote: kinds => `Passer par ${kinds} ne coûte aucun niveau` },
   }[PAGE.lang];
   const KIND = Object.fromEntries(DATA.kinds.map(k => [k.key, k]));
@@ -62,18 +70,22 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   }
   computeScope();
   const isForeign = e => state.group && e.group !== state.group;
-  const entityName = e => isForeign(e) ? `${e.group} · ${e.name}` : e.name;
+  const groupName = g => (DOMAINS ? DOMAINS.get(g) ?? g : g);   // the display name of a group: its domain's, when groups are domains
+  const entityName = e => isForeign(e) ? `${groupName(e.group)} · ${e.name}` : e.name;
 
   // --- controls -------------------------------------------------------------
-  $d('focus').placeholder = T.focus;
+  $d('focus').placeholder = T.focus; $d('focus').setAttribute('aria-label', T.focusLabel);
   fillSelect($d('depth'), [T.d1, T.d2, T.d3].map((t, i) => [String(i + 1), t]));
   $d('clear').textContent = T.clear;
-  $d('cols').textContent = T.cols;
+  fillSelect($d('cols'), [['keys', T.keyCols], ['all', T.allCols]], state.allColumns ? 'all' : 'keys');
   $d('fit').textContent = L.fit;
-  $d('q').placeholder = T.q;
+  $d('q').placeholder = T.q; $d('q').setAttribute('aria-label', T.qLabel);
   // on touch a drag on a table pans (tables move with the mouse only): a hint of its own
   $d('hint').textContent = matchMedia('(pointer: coarse)').matches ? T.touchHint : T.hint;
-  $d('h-group').textContent = T.hGroup; $d('h-depth').textContent = T.hDepth;
+  const help = $d('help-t');
+  help.textContent = '?'; help.title = L.help; help.setAttribute('aria-label', L.help);
+  dismissable(help.parentNode);
+  $d('h-group').textContent = DOMAINS ? T.hDomain : T.hGroup; $d('h-depth').textContent = T.hDepth;
   $d('h-cols').textContent = T.hCols; $d('h-kinds').textContent = L.kinds;
   $d('h-fold').textContent = L.foldH;
   // the fold control (D-073): shown for a group that can be a skeleton; its own memory, applied when the focus is cleared
@@ -98,13 +110,15 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     $d('fold-box').disabled = !!state.focus;
     $d('fold-row').title = state.focus ? T.foldFocused : L.foldTitle;
     const warn = !state.fold && !state.focus && visibleCount > SKELETON_MIN;
-    $d('fold-warn').textContent = warn ? T.foldWarn(visibleCount) : '';
+    // the disabled checkbox says why, as a visible line (D-085)
+    $d('fold-warn').textContent = warn ? T.foldWarn(visibleCount) : state.focus ? T.foldFocused : '';
     $d('fold-now').hidden = !warn;
   }
 
   const groupSel = $d('group');
   if (DATA.grouped && GROUPS.length > 1) {
-    fillSelect(groupSel, [['', T.all], ...GROUPS.map(g => [g, g])]);
+    fillSelect(groupSel, [['', DOMAINS ? T.allDomains : T.all], ...GROUPS.map(g => [g, groupName(g)])]);
+    if (!DOMAINS) groupSel.title = T.groupTitle;
     groupSel.onchange = () => {
       state.group = groupSel.value;
       computeScope();
@@ -130,7 +144,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   focusInput.addEventListener('keydown', ev => { if (ev.key === 'Enter') submitFocus(); });
   $d('depth').onchange = ev => { state.depth = +ev.target.value; if (state.focus) render(); };
   $d('clear').onclick = () => setFocus(null);
-  $d('cols').onclick = ev => { state.allColumns = !state.allColumns; ev.target.classList.toggle('on', state.allColumns); render(); };
+  $d('cols').onchange = ev => { state.allColumns = ev.target.value === 'all'; render(); };
   // refitting a hidden tab would compute a zero zoom, so wait until it is shown again
   const refit = () => { if (zv) zv.fit(); };
   $d('fit').onclick = refit;
@@ -156,8 +170,18 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     focusInput.value = state.focus ? entityName(byId.get(state.focus)) : '';
     // a connector kind of the group costs no level around a focused table (D-076)
     const passing = DATA.kinds.filter(k => ROLE[k.key] === 'connector' && inScope.some(e => e.kind === k.key));
-    $d('depth-note').hidden = !passing.length;
-    $d('depth-note').textContent = passing.length ? T.passNote(passing.map(labelOf).join(' · ')) : '';
+    passText = passing.length ? T.passNote(passing.map(labelOf).join(' · ')) : '';
+    syncFocusControls();
+  }
+  // The controls that need a focus are disabled without one, each with its reason (D-085): the depth select (its note
+  // reads the reason; once focused, the passage rule of D-076) and Clear focus (its title)
+  let passText = '';
+  function syncFocusControls() {
+    const note = $d('depth-note'), text = state.focus ? passText : T.needFocus;
+    $d('depth').disabled = !state.focus;
+    note.hidden = !text; note.textContent = text;
+    $d('clear').disabled = !state.focus;
+    $d('clear').title = state.focus ? '' : T.noFocus;
   }
 
   function setFocus(id) {
@@ -469,7 +493,8 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     const { dot, relCount } = buildDot(ids, grid, gridded ? mine.splines : undefined);
     mine.prepMs = performance.now() - t0;
     refreshFold(visible.size);
-    const foreign = state.group ? ` · ${T.foreign}` : '', rels = plural(relCount, T.rels), all = plural(scope.size, L.tables);
+    syncFocusControls();
+    const foreign = state.group ? ` · ${DOMAINS ? T.foreignDomain : T.foreign}` : '', rels = plural(relCount, T.rels), all = plural(scope.size, L.tables);
     $d('meta').textContent = sk ? `${num(ids.size)} / ${all} · ${plural(mine.folded.size, T.foldedShort)} · ${rels}${foreign}`
       : `${num(ids.size)} / ${all} · ${rels}${foreign}`;
     $d('meta').title = sk ? tally(ids) + (mine.folded.size ? ` · ${T.foldedMeta}${L.colon}${tally(mine.folded)}` : '') : '';
@@ -525,6 +550,7 @@ function startDetail(DATA, LAYOUT, EXPORT) {
     if (q.value) q.oninput();
   }
 
+  $d('crumbs').setAttribute('aria-label', L.location);
   refreshControls();
   render();
 
@@ -532,10 +558,14 @@ function startDetail(DATA, LAYOUT, EXPORT) {
   return {
     shown: refit,
     relayout: () => render(),
-    // show a table in its own group, focused with its direct links
-    focus(id) {
+    // the focused table's id, or null
+    focused: () => state.focus,
+    // show a table in its own group, focused with its direct links; `trail` (common.js crumbs items) replaces the location
+    // trail of the toolbar, when given (D-086)
+    focus(id, trail) {
       const e = byId.get(id);
       if (!e) return;
+      if (trail) crumbs($d('crumbs'), trail);
       if (groupSel.style.display !== 'none') { groupSel.value = e.group; state.group = e.group; computeScope(); }
       state.focus = id;
       refreshControls();

@@ -349,8 +349,7 @@ def test_an_arrangement_from_before_m5_5_still_applies(acme: tuple[Path, Opener]
     imported = geometry(p, "keys")
     assert_saved_layout_wins(imported, layout["universe"]["keys"])
     # the same arrangement from the browser storage (the import stored it there) gives the same placement
-    p.page.reload()
-    p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+    p.reload()
     assert without_time(geometry(p, "keys")) == without_time(imported)
 
 
@@ -384,8 +383,7 @@ def test_big_universe_lays_out_within_budget(big: tuple[Path, Opener]) -> None:
     p = big[1]()
     opened = [p.page.evaluate(OPENED)]
     for _ in range(2):
-        p.page.reload()
-        p.page.wait_for_function("typeof views !== 'undefined' && !!views.universe")
+        p.reload()
         opened.append(p.page.evaluate(OPENED))
     changes: dict[str, list[float]] = {"keys": [], "all": [], "untick": []}
     layouts: dict[str, list[float]] = defaultdict(list)

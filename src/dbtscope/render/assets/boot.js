@@ -72,19 +72,29 @@ const EXPORT = (() => {
 })();
 
 const views = {};
+const DOMAINS = detailDomains(PAGE.detail, PAGE.universe);   // the detail's groups as universe domains, or null (D-084)
 let current = null;
 let flow = null;   // the flow view (D-036), started on first use; an overlay of the Universe tab, not a view of `views`
 function showTab(name) {
   current = name;
   document.querySelectorAll('#tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
-  if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT)
+  if (!views[name]) views[name] = name === 'detail' ? startDetail(PAGE.detail, LAYOUT, EXPORT, DOMAINS)
     : startUniverse(PAGE.universe, openInDetail, new Set(PAGE.detail.entities.map(e => e.id)), LAYOUT, EXPORT, openFlow);
   else if (views[name].shown) views[name].shown();
 }
+// double-click on a universe table: the Detail tab on it, with the way back in its toolbar (D-086)
 function openInDetail(id) {
   showTab('detail');
-  views.detail.focus(id);
+  const name = PAGE.universe.nodes.find(n => n.id === id).name;
+  views.detail.focus(id, [{ label: L.universe, back: true, title: L.backToUniverse(name), go: () => backToUniverse(id) }]);
+}
+// the way back: the Universe tab, on the detail's current focus when it is a universe table (the viewer may have moved
+// on), else on the table of the hand-off
+function backToUniverse(handOff) {
+  const focus = views.detail.focused();
+  showTab('universe');
+  views.universe.locate(focus && PAGE.universe.nodes.some(n => n.id === focus) ? focus : handOff);
 }
 // the universe under the flow overlay: unreachable (no focus, no click, skipped by screen readers) while it is open
 function coverUniverse(on) {
@@ -104,13 +114,19 @@ function closeFlow() {
   document.getElementById('u-tj-flow').focus();
 }
 document.querySelectorAll('#tabs button[data-tab]').forEach(b => { b.textContent = L[b.dataset.tab]; b.onclick = () => showTab(b.dataset.tab); });
+document.querySelector('#tabs button[data-tab=universe]').title = L.tabUniverse;
+document.querySelector('#tabs button[data-tab=detail]').title = DOMAINS ? L.tabDetail : L.tabDetailGroups;
 
 const $l = id => document.getElementById('l-' + id);
+$l('menu-t').textContent = L.layout;
 $l('reset').textContent = L.reset; $l('export').textContent = L.export; $l('import').textContent = L.import;
-$l('reset').onclick = () => { if (confirm(L.resetAsk)) { LAYOUT.clear(current); views[current].relayout(); } };
-$l('export').onclick = () =>
-  saveFile('dbt-erd-layout.json', new Blob([JSON.stringify(LAYOUT.dump(), null, 1)], { type: 'application/json' }));
-$l('import').onclick = () => $l('file').click();
+dismissable($l('menu'));
+// an action closes the menu and gives the focus back to its summary
+const inMenu = action => () => { $l('menu').open = false; $l('menu').querySelector('summary').focus(); action(); };
+$l('reset').onclick = inMenu(() => { if (confirm(L.resetAsk)) { LAYOUT.clear(current); views[current].relayout(); } });
+$l('export').onclick = inMenu(() =>
+  saveFile('dbt-erd-layout.json', new Blob([JSON.stringify(LAYOUT.dump(), null, 1)], { type: 'application/json' })));
+$l('import').onclick = inMenu(() => $l('file').click());
 $l('file').onchange = async ev => {
   const file = ev.target.files[0]; ev.target.value = '';
   if (!file) return;
