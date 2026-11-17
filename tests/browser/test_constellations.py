@@ -254,21 +254,27 @@ def drag_first_table(p: Page) -> str:
     return t["id"]
 
 
+def layout_only(g: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in without_time(g).items() if k != "spotlight"}
+
+
 def test_a_drag_in_layer_mode_saves_the_layers_scope_only(acme: tuple[Page, dict[str, Any]]) -> None:
     p, _ = acme
     domains = without_time(geometry(p))
     choose(p, "layers")
     uid = drag_first_table(p)
-    dragged = without_time(geometry(p))
+    dragged = layout_only(
+        geometry(p)
+    )  # the pointer still rests on the table: its spotlight is hover, not layout
     saved = stored_universe(p)
     assert set(saved) == {"layers:names"}
     scope = saved["layers:names"]
     assert set(scope["layers"]) == {c["key"] for c in dragged["constellations"]}
     assert uid in scope["nodes"]
     reload(p)
-    assert without_time(geometry(p)) == dragged
+    assert layout_only(geometry(p)) == dragged
     choose(p, "domains")
-    assert without_time(geometry(p)) == domains  # a drag in one grouping never moves the other
+    assert layout_only(geometry(p)) == layout_only(domains)  # a drag in one grouping never moves the other
 
 
 def test_an_old_layout_file_loads_in_both_modes(acme: tuple[Page, dict[str, Any]], tmp_path: Path) -> None:

@@ -411,3 +411,22 @@ def test_the_new_controls_are_44_px_targets_on_a_coarse_pointer(tmp_path: Path, 
         p.page.evaluate("document.getElementById('d-panel').classList.remove('closed')")
         box = p.page.locator(selector).bounding_box()
         assert box["height"] >= 44, (selector, box)
+
+
+def test_the_fold_row_shows_its_reason_as_a_line_under_a_focus(example_page: Any) -> None:
+    p, data = example_page
+    show_detail(p)
+    p.page.evaluate("id => views.detail.focus(id)", data["detail"]["entities"][0]["id"])
+    p.page.wait_for_function("!document.getElementById('d-export-png').disabled")
+    if p.page.is_visible("#d-fold-row"):
+        assert p.page.is_disabled("#d-fold-row input")
+        assert p.page.inner_text("#d-fold-warn") == "A focus draws every table"
+
+
+def test_returning_to_a_table_outside_the_universe_shows_the_tab_without_a_mark(example_page: Any) -> None:
+    p, _ = example_page
+    show_detail(p, exportable=False)
+    p.page.click("#tabs button[data-tab=universe]")
+    p.page.evaluate("views.universe.locate('model.nowhere.missing')")
+    assert p.page.input_value("#u-q") == "" and p.page.is_disabled("#u-traj")
+    assert p.page.evaluate("document.activeElement.id") == "u-q"
