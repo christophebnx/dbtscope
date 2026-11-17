@@ -6,6 +6,7 @@ All notable changes are listed here, newest first. Format: [Keep a Changelog](ht
 
 ### Documentation
 
+- M9 documentation round: the ten screenshots of `docs/images/` retaken with the M9 page (new words, the large project's map, entering a domain, the Detail tab's Domain select) and three added from the large project (table panel, Schema tab, Print dialog), referenced in the user guide with updated captions.
 - Documentation round after M8: the screenshots of `docs/images/` retaken (acme_retail: cards off, satellites folded) and three added from the large project (overview with source systems and routes, summary cards, detail skeleton), referenced in the user guide; the guide and "How dbtscope works" checked against the code; the README no longer says the CI runs on three systems. Screenshot approval pending.
 
 ### Fixed

@@ -783,11 +783,11 @@ Every model, source, seed and snapshot of the project as a star, grouped into on
 - **The same picture every time**: the same project gives the same placement at every generation.
 - **The map of a large project**: a project of more than `universe.map_above` tables (300 by default) opens on a **map**: each domain is a named disc (name, number of tables, bar of kinds), with the dependencies between them, and no star or table name until you go into a domain ([Entering a domain](#entering-a-domain)). A smaller project opens on its stars, as before.
 
-![The Sales domain at the keys level: sources and Bronze on the left, then Silver (hubs, links, satellites), then Gold (dimensions and facts)](images/universe-domain.png)
-
 ### Entering a domain
 
 On the map, **click a domain** (its disc, its card, a row of its card, its name in the panel's Domains list, or zoom into it until it fills the screen) to go into it. Its tables spread over the whole screen in their layer bands, left to right along the data flow, with the layer names and counts as headers above the bands (a header stays at the top while its band is in view). The other domains become small labelled discs at the edges of the screen (**ghosts**), each with a line to the domain you are in when they depend on each other; click one to go into it instead. Inside a domain no link is drawn until you hover or select a table: then its links are, and the ones that leave the domain end on the ghost of the domain they go to. A note at the bottom, "Hover a table to see its links", says so; it is hidden on a touch screen, during a lineage, and when it would cover the name of a ghost. Your choices (Show, fold, Links, filters) hold, and nothing is saved: a page always opens on the map, and dragging is off inside.
+
+![The Sales domain entered, Show set to key columns: the Sources, Bronze, Silver and Gold bands with their headers, the other domains as small discs at the edges with their dependencies](images/universe-domain.png)
 
 - **Where you are**: the line in the toolbar, `All domains › Vehicle › car_hub` (`All layers › Raw vault` when organised by layer). Every part is a button that goes there; the last one frames the place. The counts line moved to the top of the **Navigate** group; it is also the title of the first part.
 - **Back**: `Esc` goes one level back (the table you selected, then the domain), as do the parts of the line and zooming out far enough. Esc does nothing in the search box or in a drop-down list, where it is theirs; a lineage ends with it before the domain does.
@@ -812,7 +812,7 @@ On the map, **click a domain** (its disc, its card, a row of its card, its name 
 
 An option, **off by default**: tick **Summary cards** in the side panel (or set `universe.cards: true` in `dbt-erd.yml` or in a preset file to open with it) and zooming out replaces the swarm of stars of each domain by one **summary card**. Unticked, the map shows stars, names and dependencies at every zoom, a source system is a grey disc of its own and the dependencies of the source systems are not bundled.
 
-![The large example project zoomed out with Summary cards ticked: one card per business domain and one group card for the source systems](images/large-cards.png)
+![The large example project at opening with Summary cards ticked: one card per business domain and one group card for the source systems](images/large-cards.png)
 
 - **What a card says**: the name (in the domain's colour), `299 tables · 152 entities` (entities only while the descriptive tables are folded), then one row per layer in flow order (one per domain when grouping by layer, with its colour dot): the label, a bar split by kind in the order of the Table kind list (the widest row fills the bar; a kind is never thinner than 2 px) and the number of tables; then **Main tables**, up to five core tables with the most relations, each with its kind dot. A card with no core table (a source system) shows no main table. Every count includes the folded tables and follows the filters.
 - **When it appears**: the card replaces the stars when the reference star (the median core star, or the median star of the highest role present) would be drawn under about 2 px; it is fully drawn there and the stars are fully drawn from about 3 px up, with a crossfade in between. On a screen too narrow to tell stars apart, or after zooming out past **Fit**, even a small project shows cards. Unticking **Summary cards** (or leaving `universe.cards` at `false`) turns the cards off at every zoom; the hidden text summary below stays.
@@ -830,7 +830,7 @@ An option, **off by default**: tick **Summary cards** in the side panel (or set 
 - **Hover or focus**: pointing at a domain, or hovering or focusing its row in the panel (Tab to the row), draws **all** its dependencies, keeps its neighbours bright and dims the rest. Hovering a dependency gives its tooltip: its ends (upstream first), its relations and lineage links (only those **Links** counts), who reads whom, and for a bundled dependency the systems it sums.
 - **Screen readers**: the hidden summary lists the source systems as one block and, for each domain, every dependency with its counts and direction.
 
-![The large example project at opening, summary cards off: the seven source systems apart on the left, the five business domains along the data flow, and the dependencies between them](images/large-overview.png)
+![The large example project at opening, on its map (summary cards off): the seven source systems apart on the left as named discs, the five business domains along the data flow, and the dependencies between them](images/large-overview.png)
 
 ### Entities: descriptive tables folded into their parent
 
@@ -869,6 +869,8 @@ A **click** (or a tap) on a table opens its **panel** on the right of the map (a
 
 `Esc` closes the panel first; the next `Esc` goes up one level as before (the lineage, then the domain). A click on the empty background closes it without doing anything else; a click on another table shows that table instead; a double-click opens the Detail tab. During a lineage, a click on a table of the lineage opens its panel over the lineage, which stays: its **Lineage** button moves the lineage to that table. The panel never moves or resizes the map (a table under it is panned clear), is not part of an exported image, is announced to screen readers, and is never saved.
 
+![The Vehicle domain of the large example project entered, with the panel of belt_hub open: its kind, domain and layer, its key column, the eight tables that reference it (two in other domains), its upstream table and the four satellites drawn inside it; its links drawn on the map, two of them ending on the Account and Activity discs](images/large-panel.png)
+
 ### Lineage
 
 Where a table's data comes from (upstream) and where it goes (downstream), following `ref` / `source` lineage only, whatever **Links** shows.
@@ -880,7 +882,7 @@ Where a table's data comes from (upstream) and where it goes (downstream), follo
 - **Leave**: **Leave**, `Esc` (the next `Esc` leaves the domain), or a click on the background.
 - **Limit**: only tables in the universe scope (`universe.select` / `exclude`) are in the chain. A chain that goes through an excluded table stops there, and the page cannot tell.
 
-![The lineage of fct_orders: 22 tables upstream across four domains, 1 downstream](images/trajectory.png)
+![The lineage of fct_orders inside the Sales domain: 22 tables upstream across four domains (the counts opened, one line per domain), 1 downstream; the upstream tables of other domains are counted on their discs at the edges](images/trajectory.png)
 
 ### Lineage graph
 
@@ -910,9 +912,9 @@ The entity-relationship diagram of one group of tables, drawn by Graphviz.
 - **Show**: **key columns** by default (columns matching `key_columns`, plus every column used by a relation, in bold), or **all columns**. Hover a table for its dbt description.
 - **Highlight**: click a table to highlight its links; type in **Highlight…** to mark tables by name.
 
-![The detail view of the sales group with facts and dimensions unticked: hubs on the left (the customer and product hubs of other groups dashed), their links and satellites on the right](images/detail-vault.png)
+![The detail view of the Sales domain with facts and dimensions unticked: hubs on the left (the customer and product hubs of other domains dashed), their links and satellites on the right](images/detail-vault.png)
 
-![Focus on dim_customer in the customer group with all columns: dim_country, the table it refers to, on the left](images/detail-focus.png)
+![Focus on dim_customer in the Customer domain with all columns: dim_country, the table it refers to, on the left](images/detail-focus.png)
 
 ## The Schema tab
 
@@ -928,11 +930,15 @@ The third tab, **Schema**, draws a part of the project as classic entity-relatio
 - **From the Universe**: showing the tab after entering a domain (or a layer, when organised by layer) in the Universe selects that scope, and a table you selected there is framed and selected in the sheet. Your own choice of scope stands until the Universe location changes.
 - **Export image** (PNG, SVG, `<page title>-schema.png`): the visible part of the sheet, chips included; the minimap, the sticky heads, the tooltip and the chip list are not in it. **Layout > Reset** is disabled here ("Nothing to reset: this sheet is computed"); nothing about this tab is saved.
 
+![The Schema tab on the Vehicle domain of the large example project, key columns: the Staging and Raw vault columns with their heads, each hub beside the satellites and links that point at it, the minimap at the bottom right](images/large-schema.png)
+
 Sizes on the large example (1,419 tables): the whole project at key columns is a sheet of about 6,300 × 14,700 units (1 unit = 1 screen pixel at the reading size); it opens in about 0.1 s.
 
 ### Printing the schema
 
 **Print…** (Schema toolbar, after the image export) opens a dialog for the scope on screen. It says, before anything is printed, **what the scope needs on paper at the text size you want**, for example "Vehicle with key columns needs 1.14 m × 0.61 m at 7 pt (0.70 m²)". The text size is the one number that matters: **Minimum text size** (default 7 pt, 5 to 14) is the size of the smallest text of the drawing (rows, types, counts); headers and titles are larger. A bigger scope at a given size simply needs more paper, and the dialog says how much. Choose:
+
+![The Print dialog for the Vehicle domain: what it needs on paper at 7 pt, the verdict for one A0 sheet and the smallest single sheet, then Show, Minimum text size, Output, Paper and Orientation](images/large-print.png)
 
 - **Show**: names, key columns or all columns. All columns are offered for one domain, or a scope of at most 300 tables; for a bigger scope the option is disabled with its reason (choose a domain as the scope).
 - **Output**, **One sheet** (a poster) or **Tiles** (a set of ordinary sheets).

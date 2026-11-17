@@ -276,6 +276,7 @@ Brief: `docs/briefs/2026-11-17-visualization-optimization.md` (read it in full, 
 - **M9.3 — Table panel (done, 2026-11-17; D-091, design note `docs/architecture/2026-11-17-m9.3-table-panel.md`).** Single click on a table opens a side panel (columns, description, clickable relations, Open in Detail, Lineage); supersedes click-starts-trajectory (D-018).
 - **M9.4 — Schema tab (done, 2026-11-17; D-092 to D-094, design note `docs/architecture/2026-11-17-m9.4-schema-tab.md`).** 3NF-style sheets on a swimlane grid (layers × domains), scroll-first navigation, minimap, inter-lane relation summaries on large scopes (chips above 300 tables or 16 relations between cells, measured). Its sheet model and SVG emitter are what M9.5 prints.
 - **M9.5 — Print (done, 2026-11-17; D-095, D-096, design note `docs/architecture/2026-11-17-m9.5-print.md`).** Paper model with a minimum font size and an announced physical size, one-sheet poster output, tiled A4/A3 sheets with crop marks, coordinates and an index page; kind tags and a legend for black and white; `PagePayload.generatedAt`. Chromium's page-size limit measured: none (the 5,080 mm limit is the PDF viewers').
+- **M9 close (2026-11-17).** All five phases done. Documentation round: the screenshots of `docs/images/` retaken with the M9 page and three added (table panel, Schema tab, Print dialog); approval by the user pending.
 
 Done when: each phase meets the "Done when" list of its section of the brief and the definition of done of `CLAUDE.md`.
 
